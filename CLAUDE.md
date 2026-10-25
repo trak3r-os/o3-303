@@ -40,6 +40,8 @@ ctests (`o3_303_image`, `o3_303_flashconfig`, `o3_303_ramfunc`) check it statica
 apps and tests are not built here (`-DO3SDK_BUILD_TESTS=ON` runs them from this tree). A host test is not hardware verification: name
 the remaining unit check.
 
+CI: `tools/remote_ci.sh <host|mk66>` runs `tools/ci.sh` on the remote build machine against this tree and `../o3-sdk` as they are; exit 3 or 255 means run `tools/ci.sh <host|mk66>` locally (`../o3-sdk/docs/ci.md`).
+
 ## Engineering standards
 
 The standards of o3sdk apply unchanged (`../o3-sdk/CLAUDE.md`, "Engineering standards"): layering by link dependency (a unit depends on
