@@ -2,7 +2,7 @@
 #pragma once
 
 // The undo / redo history: whole-pattern snapshots in a fixed ring, no allocation. It lives inside the Bank (bank.h, in the SDRAM:
-// kHistoryDepth + 1 patterns, about 73 KB); the Bank is its only user.
+// kHistoryDepth + 1 patterns, about 75 KB); the Bank is its only user.
 //
 // The entries form a timeline with a cursor. The entries before the cursor can be undone, the ones from the cursor on redone. An
 // entry holds a pattern's state and which pattern: undo swaps the entry's state with the live pattern's (so the entry then holds

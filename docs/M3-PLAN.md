@@ -35,7 +35,8 @@ HOOKS (M4).
 `kStepSlide`, `kStepTie`, `kStepRest`; `Pattern {steps[64], length (8/16/32/64), swing 0..66 %, transpose, gate 5..100 %,
 motion[8][256]}`; trivial (it lives in an O3SDK_BIG array), `clear()` makes the fresh pattern: 16 steps, each a rest with C2 under
 it, so a new project has no pattern that sounds (integrator's decision, 2026-10-25). Step semantics are in its header comment
-(Replicant's: slide = held into the next step, which glides; rest = gate closed).
+(Replicant's: slide = held into the next step, which glides; rest = gate closed). M3b adds `Step::cond`, the ratchet bits of `flags` and
+`Pattern::lanes` (`docs/M3B-PLAN.md`, "Contracts").
 
 **The voice unit `tb303`** (`units/tb303`, class `o3_303::Tb303`, `UnitKind` instrument, monophonic). Parameter ids are table
 indices: append, never insert.
@@ -126,7 +127,7 @@ CPU (the render, 60 % of a block = 156,672 cycles is the governor's limit): the 
 about 445-465 cycles a sample; Replicant as written is about 27 %), the distortion about 2 % with its DC blocker and trims, the delay
 as o3sdk measures it, the sequencer small;
 the engine runs from flash in M2's image (no SRAM_L placement yet): the unit's CPU % is the real figure. Memory: 48 patterns about
-106 KB of SDRAM, the undo history in SDRAM, the voice and the sequencer's state in SRAM_U (o3sdk's image has about 140 KB free).
+106 KB of SDRAM (108 KB since M3b), the undo history in SDRAM, the voice and the sequencer's state in SRAM_U (o3sdk's image has about 140 KB free).
 
 ## Rules (o3sdk's CLAUDE.md applies; these bite here)
 

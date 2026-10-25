@@ -108,12 +108,13 @@ patterns a project. Improvements over the original:
 - undo; patterns as readable text on the card, to share.
 
 ```cpp
-struct Step { std::uint8_t note; std::uint8_t flags; };  // ACC | SLIDE | TIE | REST
+struct Step { std::uint8_t note, flags, cond; };  // flags: ACC | SLIDE | TIE | REST, the ratchet in bits 4-5; cond: the trig condition
 struct Pattern {
   Step steps[64];
-  std::uint8_t length, swing; std::int8_t transpose;  // length 8, 16, 32 or 64
+  std::uint8_t length, swing; std::int8_t transpose; std::uint8_t gate;  // length 8, 16, 32 or 64
   std::uint8_t motion[8][64 * 4];  // 8 lanes (the SOUND page), 4 points a step, 0xFF = no lock
-};                                 // about 2.2 KB a pattern; 48 patterns about 106 KB, in the SDRAM
+  LaneRef lanes[8];                // {target, id}: the parameter each lane drives (M3b, docs/M3B-PLAN.md)
+};                                 // 2,260 bytes a pattern; 48 patterns about 108 KB, in the SDRAM
 ```
 
 The sequencer is a clocked hook (FRAMEWORK.md, "The engine"): steps from `for_each_step()` with swing, accent as `kNoteAccent`, slide as

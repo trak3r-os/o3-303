@@ -2,7 +2,7 @@
 #pragma once
 
 // The bank: the project's kPatternCount patterns, the selected one, the undo history and the clipboards. One object, big (about
-// 180 KB), so it lives in the SDRAM: the app declares it `O3SDK_BIG` (or uses project_bank() below) and calls init() at setup.
+// 186 KB), so it lives in the SDRAM: the app declares it `O3SDK_BIG` (or uses project_bank() below) and calls init() at setup.
 //
 // Threads. The main loop is the only writer of the patterns. The render context (the Sequencer's hook, sequencer.h) reads them and
 // never takes a lock: every pattern has a version counter used as a seqlock. An edit makes it odd while the pattern changes and

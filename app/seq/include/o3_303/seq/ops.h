@@ -27,7 +27,7 @@ void set_flag(Pattern& p, unsigned step, std::uint8_t flag, bool on) noexcept;
 void toggle_flag(Pattern& p, unsigned step, std::uint8_t flag) noexcept;
 bool has_flag(const Pattern& p, unsigned step, std::uint8_t flag) noexcept;
 // REC entry: the step takes `note` and exactly `flags` (kStepAccent | kStepSlide, or kStepRest / kStepTie for those entries; for
-// those two the note is kept). Returns the next cursor: step + 1, or 0 at the end of the length.
+// those two the note is kept), with no ratchet and no condition. Returns the next cursor: step + 1, or 0 at the end of the length.
 unsigned write_advance(Pattern& p, unsigned step, unsigned note, std::uint8_t flags) noexcept;
 
 // Insert: the steps from `at` to the end of the length move one later (the last falls off) and `at` becomes a rest.
@@ -58,7 +58,8 @@ void reverse(Pattern& p) noexcept;
 void invert(Pattern& p) noexcept;
 // Length x 2, the steps and motion copied into the new half. false (unchanged) at 64.
 bool double_length(Pattern& p) noexcept;
-// Every step a rest, no motion; length, swing, gate and transpose stay. (o3_303::clear() is the fresh pattern instead.)
+// Every step a rest (no ratchet, no condition), no motion; length, swing, gate, transpose and the lanes stay. (o3_303::clear() is the
+// fresh pattern instead.)
 void clear_pattern(Pattern& p) noexcept;
 
 // 8, 16, 32 or 64; false (unchanged) for anything else.
@@ -97,8 +98,8 @@ struct GenParams {
   std::uint8_t slide_pct = 20;    // percent of sounding steps that slide
 };
 
-// A new line over the length: it replaces the flags and notes of those steps (ties go; step 0 always sounds); motion and the steps
-// above the length are untouched. Deterministic from the seed.
+// A new line over the length: it replaces the flags and notes of those steps (ties, ratchets and conditions go; step 0 always
+// sounds); motion, the lanes and the steps above the length are untouched. Deterministic from the seed.
 void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // Changes about `amount_pct` percent of the steps of the length: a new note from the scale, a rest toggled by the density, a
 // re-rolled accent or slide.

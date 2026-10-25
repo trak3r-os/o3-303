@@ -53,7 +53,8 @@ void copy_points(Pattern& p, unsigned to, unsigned from) noexcept {
 
 void make_rest(Pattern& p, unsigned step) noexcept {
   p.steps[step].note = kDefaultNote;
-  p.steps[step].flags = kStepRest;
+  p.steps[step].flags = kStepRest;  // no ratchet either
+  p.steps[step].cond = kCondAlways;
   clear_points(p, step);
 }
 
@@ -123,7 +124,8 @@ unsigned write_advance(Pattern& p, unsigned step, unsigned note, std::uint8_t fl
   if ((flags & (kStepRest | kStepTie)) == 0u) {
     set_note(p, s, note);
   }
-  p.steps[s].flags = flags;
+  p.steps[s].flags = flags;  // exactly these: a ratchet the step had goes
+  p.steps[s].cond = kCondAlways;  // and so does its condition (a new step)
   const unsigned next = s + 1u;
   return next >= length_of(p) ? 0u : next;
 }
@@ -360,6 +362,7 @@ void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
   int previous = notes[0];
   for (unsigned i = 0; i < n; ++i) {
     Step& s = p.steps[i];
+    s.cond = kCondAlways;  // a new line: no ratchets (the flags below are assigned whole) and no conditions
     if (i != 0u && !rng.chance(density)) {
       s.flags = kStepRest;
       continue;

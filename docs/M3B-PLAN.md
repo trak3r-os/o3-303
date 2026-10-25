@@ -48,6 +48,16 @@ R9 and R10 wait for o3-sdk M2c; R+ goes with W4. Everything else is this round.
   A motion point stays 0..254 of the target's range (the mixer's ranges are fixed in `pattern.h`).
 - `Pattern` is 4-byte aligned and a multiple of 4 bytes (the Bank copies words); about 2,260 bytes.
 
+**Made 2026-10-25** (`pattern.h`, `tests/pattern_test.cpp`): `Pattern` is 2,260 bytes (was 2,180), `alignas(4)`, with the asserts. The pure
+helpers are `ratchet_of`, `ratchet_hits`, `with_ratchet`; `cond_probability`, `cond_ratio`, `decode_cond`, `encode_cond`, `cond_valid`
+(a reserved value decodes as `Always`; an invalid request encodes as `kCondAlways`); `kLane*` targets, `kMixer*` ids (the values of
+`dsp::MixField`, checked in the test), `kMixerRange` (level and sends 0..1.5 linear gain, pan -1..1, mute 0..1) with
+`mixer_point_to_value` / `mixer_value_to_point`, and `kDefaultLanes`. `clear()` sets cond 0 and the default lanes. The sequencer does not
+read `cond`, the ratchet or `lanes` yet: it still plays lane i as the voice's id i (the default's lane 7 is the mixer's level; in M3 lane 7
+was the voice's id 7, Volume, which no page could write, so no pattern has a point there). Operations that rewrite a whole step (`write_advance`, `random_fill`, a deleted
+step, `clear_pattern`) reset its ratchet and condition; the ones that move a step (insert, delete, rotate, reverse, double, the step
+clipboard) carry them; `set_flag` and `mutate` leave them alone.
+
 **o3-sdk (made in o3-sdk under its own rules):** `BlockContext` lets a hook write a slot's mixer field for the current block
 (ramped like a main-loop write), so a motion lane can drive the send A level or the slot level.
 
