@@ -67,9 +67,14 @@ no envelope retrigger); a note-on while a note is held also glides (Replicant's 
 | 4 | Mix | 0..100 % | 85 % |
 
 Every model's output goes through a DC blocker (one pole, about 5 Hz): Replicant's FUZZ leaves up to +0.1 of DC at idle, which would
-reach the delay and the outputs and click when the unit is switched. A fixed per-model trim on the wet path levels the five models
-to GRIT's loudness at default Drive (Replicant's spread is about 12 dB, and its FUZZ presets clipped the master by up to 11 dB). The
-oracle compares before the blocker and the trim.
+reach the delay and the outputs and click when the unit is switched. A wet trim that follows Drive (`Distortion::trim(model, drive)`,
+a 21-point table interpolated once per control period) levels the five models to GRIT's loudness at the same Drive, and holds GRIT's
+peak at its default level above the default Drive (Replicant's spread is about 12 dB, and its FUZZ presets clipped the master by up
+to 11 dB). FUZZ's negative half is bounded: Replicant's `fastTanh` is a Pade form that saturates only to |x| = 3 and then rises
+again, which made FUZZ's negative half an unbounded ramp; the port floors that argument at -3 (identical to Replicant below it, a
+deliberate deviation, the integrator's decision of 2026-10-25: a real tanh saturates). The oracle compares before the blocker and
+the trim, FUZZ against the pinned original with that one line changed (generated at configure time; the build stops if the line
+changes upstream).
 
 **The engine's topology** (set by the app): slot 0 = `tb303`, its insert 0 = `distortion`; send A = o3sdk's `delay`; send B
 reserved for the reverb (W5). The sequencer is a `dsp::Clocked` hook on the engine. The SOUND page's Volume is slot 0's level, after
@@ -138,7 +143,7 @@ pinned Replicant sources, the sequencer and generator tests, the app's 44 cases,
 of 2,048 words (the vault). mk66: `o3_303.ptf` 0 warnings, image ctests 3/3, no `__aeabi_d*`, two fresh builds byte-identical; flash
 114,312 B, SRAM about 58 KB, SDRAM 884,928 B. The CPU figures above are still estimates: the unit's header gives the real ones.
 
-Open, for M3b:
-- **Vault headroom.** The model trims level the five distortion models at Drive's default only; the FUZZ presets of the vault drive
-  harder and peak at 1.45 before the master clipper at the default -6 dB. The strict test is `may_fail`, with a regression bar at 1.6
-  (`tests/o3_303_app_test.cpp`); dsp levels it (a trim that follows Drive, or GEN capping the level).
+Closed after the round (2026-10-25, M3B-PLAN item L1): the vault's FUZZ presets peaked at 1.45 before the master clipper at the
+default -6 dB. With the bounded FUZZ and the Drive-following trim above, the worst of all 512 vault slots is 0.912 (it was 1.877; 71
+presets were over 1.0, none are now), and the strict headroom test passes without `may_fail`. How the new FUZZ sounds, and its cost
+(estimated under 0.15 % of a block), are for the unit.

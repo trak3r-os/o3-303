@@ -1203,14 +1203,22 @@ TEST_CASE("headroom: the factory line at the default levels stays under full sca
   CHECK(peak < 1.0f);  // measured 0.86 (the master's soft clip starts at 0.8: the engine counts those blocks as `clipped`)
 }
 
-// Loads vault slot (bank, slot) the way a hand does, plays it from the top and returns the master's peak before the clipper.
+// Loads vault slot (bank, slot) the way a hand does, plays it from the top and returns the master's peak before the clipper. What it
+// loaded is checked against the generator (the distortion's Active, Type and Drive), so that a guard built on a slot cannot drift onto
+// another preset unseen.
 float vault_peak(Hands& t, unsigned bank_index, unsigned slot_index, unsigned& at_slot) {
   static const Button banks[8] = {Button::F1, Button::F2, Button::F3, Button::F4, Button::F5, Button::F6, Button::F7, Button::F8};
+  seq::gen::Preset want;
+  seq::gen::factory(want, bank_index, slot_index);
+  const seq::gen::ParamValues v = seq::gen::to_values(want.patch);
   t.tap(Button::File);
   t.tap(banks[bank_index], 5);
   t.turn(static_cast<int>(slot_index) - static_cast<int>(at_slot));
   at_slot = slot_index;
   t.tap(Button::File);  // load, back to the 303 screen
+  CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(v.dist[0]));
+  CHECK(t.param(kDist, Distortion::Type) == doctest::Approx(v.dist[1]));
+  CHECK(t.param(kDist, Distortion::Drive) == doctest::Approx(v.dist[2]).epsilon(0.001));
   t.tap(Button::Play);
   const float peak = peak_over(t, 4000);
   t.tap(Button::Play);
@@ -1218,8 +1226,23 @@ float vault_peak(Hands& t, unsigned bank_index, unsigned slot_index, unsigned& a
   return peak;
 }
 
-// A sample of the vault: a slot of three banks, and the first FUZZ presets of four banks (the model that is 12 dB hotter than the rest
-// until the dsp slice level-matches the five).
+// The named presets of the sample: the loudest of the vault before the distortion models were leveled across Drive (B28 peaked at 1.88,
+// D53 at 1.16) and the loudest after (A20, 0.91 of all 512 slots). The distortion model and Drive they must have are checked against the
+// generator, so that a change of the generator's content moves the guard visibly instead of onto other presets.
+struct Named {
+  unsigned bank;
+  unsigned slot;
+  int type;     // 0 GRIT .. 3 FUZZ
+  float drive;
+  const char* name;
+};
+const Named kNamed[] = {
+    {1, 27, 3, 0.835f, "B28"},  // FUZZ, a square, Drive 0.84
+    {3, 52, 0, 0.879f, "D53"},  // GRIT, Drive 0.88
+    {0, 19, 0, 0.633f, "A20"},  // GRIT, Drive 0.63, Mix 0.99: the loudest of the vault now
+};
+
+// A sample of the vault: a slot of three banks, the first FUZZ preset of four banks, and the named presets.
 std::vector<std::pair<unsigned, unsigned>> vault_sample() {
   std::vector<std::pair<unsigned, unsigned>> picks;
   for (unsigned b = 0; b < 8; b += 3) {
@@ -1235,10 +1258,25 @@ std::vector<std::pair<unsigned, unsigned>> vault_sample() {
       }
     }
   }
+  for (const Named& n : kNamed) {
+    picks.emplace_back(n.bank, n.slot);
+  }
   return picks;
 }
 
-// The worst peak of the vault sample at the default levels (measured once, for both the checks below).
+TEST_CASE("headroom: the named presets of the sample are the presets they stand for") {
+  for (const Named& n : kNamed) {
+    INFO(n.name);
+    seq::gen::Preset pr;
+    seq::gen::factory(pr, n.bank, n.slot);
+    CHECK(pr.patch.dist_active);
+    CHECK(pr.patch.dist_type == n.type);
+    CHECK(pr.patch.dist_drive == doctest::Approx(n.drive).epsilon(0.002));
+    CHECK(pr.patch.dist_mix > 0.9f);  // all three are nearly all wet
+  }
+}
+
+// The worst peak of the vault sample at the default levels.
 float vault_sample_worst() {
   static const float worst = [] {
     Hands t;
@@ -1252,14 +1290,8 @@ float vault_sample_worst() {
   return worst;
 }
 
-TEST_CASE("headroom: vault presets (FUZZ ones included) at the default levels stay under full scale before the clipper "
-          "[open, M3b: the model trims level Drive's default only; the FUZZ presets drive harder]" * doctest::may_fail()) {
-  CHECK(vault_sample_worst() < 1.0f);
-}
-
-TEST_CASE("headroom: until then, no vault preset of the sample gets louder than today (measured 1.45 at the default -6 dB)") {
-  // TODO(M3b, dsp): remove this regression bar when the test above passes without may_fail.
-  CHECK(vault_sample_worst() < 1.6f);
+TEST_CASE("headroom: vault presets (FUZZ ones included) at the default levels stay under full scale before the clipper") {
+  CHECK(vault_sample_worst() < 1.0f);  // measured 0.90, A20 (1.45 over the first seven picks, 1.88 for B28, before the models were leveled across Drive)
 }
 
 TEST_CASE("sound: MUTE holds the notes back while the pattern runs; VOLUME is the level of the whole voice") {

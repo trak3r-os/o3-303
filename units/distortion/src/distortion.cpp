@@ -67,13 +67,32 @@ constexpr float kPreHpHz = 450.0f;   // the Rat's high-pass before the gain stag
 constexpr float kToneBaseHz = 800.0f;
 constexpr float kLog2Twenty = 4.32192809f;  // tone cutoff = 800 x 20^tone
 
-// The original's output scalar of each model (0.85, 0.90, 0.85, 0.80, 0.80), and ours: the model's level trim (Distortion::kTrim) folded
-// into it, so that the trim costs nothing.
+// The original's output scalar of each model (0.85, 0.90, 0.85, 0.80, 0.80); the model's level trim (Distortion::trim) is folded into it
+// with the drive in use (derive()), so that the trim costs nothing in the sample loop.
 constexpr float kScale[Distortion::kModelCount] = {0.85f, 0.90f, 0.85f, 0.80f, 0.80f};
-template <int M>
-constexpr float out_scale() noexcept {
-  return kScale[M] * Distortion::kTrim[M];
-}
+
+// The trim table (Distortion::trim): the gain of each model at Drive 0, 0.05 .. 1, and the same in dB above each row. Measured offline on
+// the 303 line of units/tb303/tests/tb303_chain_test.cpp (the voice at Replicant's defaults, Volume 0 dB, SAW and SQR) through the unit at
+// Tone 0.6 and Mix 1; the level of a model is the mean in dB of the RMS of the two. GRIT, the reference: 0 dB up to the default Drive;
+// above it the gain that holds its wet peak (the larger of the two waves) at its value at 0.5, which falls to -2.7 dB by Drive 0.85
+// (its RMS rises by only 1 to 2 dB there, its peak by 2.5 dB). The others: the gain that makes their level GRIT's, trimmed as it is, at
+// the same Drive, faded in over Drive 0 .. 0.25 (at 0 it is M3's trim; GRIT's 450 Hz high-pass makes it far quieter than the others
+// at low Drive, where they are near-transparent). At Drive 0.5 TUBE, HARD and FOLD are M3's trims and so the default sound is
+// unchanged; FUZZ is re-measured after its negative half was bounded (tanh_pade_floor). Measure again when a model, the voice or the
+// line changes: the "distortion levels" cases of tb303_chain_test.cpp check this table against GRIT's level and peaks, on the line and
+// on two other voice settings.
+constexpr float kTrimTable[Distortion::kModelCount][Distortion::kTrimKnots] = {
+    // GRIT, dB: +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 -0.6 -1.0 -1.5 -1.9 -2.2 -2.4 -2.7 -2.7 -2.7 -2.7
+    {1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 0.9351f, 0.8883f, 0.8434f, 0.8061f, 0.7730f, 0.7560f, 0.7341f, 0.7341f, 0.7341f, 0.7341f},
+    // TUBE, dB: -3.3 -4.5 -5.7 -6.2 -6.2 -5.9 -5.0 -4.4 -3.9 -3.6 -3.3 -3.6 -3.9 -4.2 -4.4 -4.7 -4.9 -5.1 -5.1 -5.1 -5.1
+    {0.6839f, 0.5943f, 0.5172f, 0.4875f, 0.4889f, 0.5089f, 0.5606f, 0.6028f, 0.6363f, 0.6634f, 0.6839f, 0.6593f, 0.6401f, 0.6186f, 0.5994f, 0.5806f, 0.5718f, 0.5572f, 0.5577f, 0.5563f, 0.5529f},
+    // HARD, dB: -1.6 -3.0 -4.2 -4.7 -4.7 -4.4 -3.5 -2.8 -2.3 -1.9 -1.6 -2.0 -2.2 -2.5 -2.7 -3.0 -3.1 -3.3 -3.3 -3.3 -3.3
+    {0.8318f, 0.7078f, 0.6162f, 0.5807f, 0.5823f, 0.6059f, 0.6699f, 0.7225f, 0.7648f, 0.7996f, 0.8318f, 0.7985f, 0.7772f, 0.7527f, 0.7309f, 0.7093f, 0.6997f, 0.6830f, 0.6847f, 0.6840f, 0.6807f},
+    // FUZZ, dB: -5.7 -6.6 -7.3 -7.3 -6.7 -5.8 -4.9 -4.2 -3.7 -3.3 -2.9 -3.2 -3.4 -3.7 -3.9 -4.2 -4.3 -4.5 -4.5 -4.5 -4.5
+    {0.5188f, 0.4665f, 0.4316f, 0.4324f, 0.4615f, 0.5121f, 0.5687f, 0.6158f, 0.6544f, 0.6865f, 0.7138f, 0.6895f, 0.6727f, 0.6529f, 0.6352f, 0.6175f, 0.6101f, 0.5964f, 0.5987f, 0.5988f, 0.5966f},
+    // FOLD, dB: +3.9 +2.2 +0.6 -0.4 -0.7 -0.6 +0.6 +1.7 +2.6 +3.3 +3.9 +3.7 +3.4 +3.0 +2.6 +2.2 +2.0 +1.8 +1.8 +1.8 +1.7
+    {1.5668f, 1.2873f, 1.0747f, 0.9592f, 0.9196f, 0.9352f, 1.0744f, 1.2141f, 1.3475f, 1.4671f, 1.5668f, 1.5224f, 1.4755f, 1.4102f, 1.3476f, 1.2896f, 1.2600f, 1.2236f, 1.2247f, 1.2244f, 1.2208f},
+};
 
 // ---- ours --------------------------------------------------------------------------------------------------------------------
 constexpr float kSmoothTau = 0.005f;   // seconds
@@ -90,6 +109,13 @@ inline float tanh_pade(float x) noexcept {
   const float x2 = x * x;
   return x * (27.0f + x2) / (27.0f + 9.0f * x2);
 }
+
+// FUZZ's negative branch: Common303.h fastTanh of x, with x bounded below at -3. The Pade form is a saturator only up to |x| = 3, where it
+// reaches 1 with a zero slope; beyond that it climbs again at a slope of 1/9 and does not saturate. The original's GermaniumFuzz feeds it
+// biased x 2.1 with a gain of up to 46, so on a hot signal its negative half is a ramp ten times higher than the positive half (a square
+// through FUZZ at full Drive reaches -3.8 where the others peak at 1.6; 48 of the 65 FUZZ presets of the vault peaked above full scale at
+// the master). Bounded here, it saturates at -1 as a tanh does and is identical to the original below |x| = 3.
+inline float tanh_pade_floor(float x) noexcept { return tanh_pade(x < -3.0f ? -3.0f : x); }
 
 // Common303.h softClip: cubic, exactly +-1 at +-1.5. Below |x| of 1e-6 the cube is under 1e-12 of x, which a float cannot see, and the
 // product would be subnormal for |x| under 2e-13 (a decaying tail passes through there for thousands of samples): x is returned as it is.
@@ -134,6 +160,19 @@ inline float wavefold(float x, float gain) noexcept {
 
 const dsp::UnitInfo& Distortion::info() const noexcept { return kInfo; }
 
+// The model's trim at a Drive: linear interpolation in the gain between the knots of the table (a few instructions; derive() calls it
+// once per control period while Drive moves, and when the model changes).
+float Distortion::trim(unsigned model, float drive) noexcept {
+  const unsigned m = model < kModelCount ? model : kModelCount - 1u;
+  const float pos = clamp_param(drive, 0.0f, 1.0f) * static_cast<float>(kTrimKnots - 1u);
+  unsigned i = static_cast<unsigned>(pos);
+  if (i > kTrimKnots - 2u) {
+    i = kTrimKnots - 2u;
+  }
+  const float f = pos - static_cast<float>(i);
+  return kTrimTable[m][i] + f * (kTrimTable[m][i + 1u] - kTrimTable[m][i]);
+}
+
 // ---- parameters ---------------------------------------------------------------------------------------------------------------
 
 void Distortion::derive() noexcept {
@@ -158,11 +197,12 @@ void Distortion::derive() noexcept {
       k_gain_ = 1.0f + d * 5.0f;
       break;
   }
+  k_out_ = kScale[model_] * trim(model_, d);
   // What the model gives at zero input, which is taken off its output so that the unit is at rest at silence and switching it on (or
   // switching to FUZZ) over silence is silent: only FUZZ has one (its bias less the offset), the other models give zero. The value
   // is recomputed here with the drive, so it follows a glide of Drive. The DC blocker is still there for the part of the offset that
   // depends on the signal.
-  k_rest_ = model_ == Fuzz ? (diode_clip(k_a_ * 1.4f) - k_b_) * out_scale<Fuzz>() : 0.0f;
+  k_rest_ = model_ == Fuzz ? (diode_clip(k_a_ * 1.4f) - k_b_) * k_out_ : 0.0f;
 }
 
 // DistortionUnit::setTone: the post filter is a one pole from 800 Hz (0) to 16 kHz (1), exponential.
@@ -296,6 +336,7 @@ void Distortion::chunk(Channel& c, const float* in, float* out, std::uint32_t n,
   const float ka = k_a_;
   const float kb = k_b_;
   const float rest = k_rest_;
+  const float out_gain = k_out_;
   const float dcr = dc_r_;
 
   for (std::uint32_t i = 0; i < n; ++i) {
@@ -309,25 +350,25 @@ void Distortion::chunk(Channel& c, const float* in, float* out, std::uint32_t n,
         pre_hp = hp - x;
         const float diff = hp * gain - slew;
         slew += clampf(diff, -ka, ka);
-        wet = tanh_pade(slew * 1.6f) * out_scale<Grit>();
+        wet = tanh_pade(slew * 1.6f) * out_gain;
       } else if constexpr (M == Tube) {
         // TubeDrive: cubic soft clip, a power of 0.94 on the positive half.
         float sat = soft_clip(x * gain);
         if (sat > 0.0f) {
           sat = pow094(sat);
         }
-        wet = sat * out_scale<Tube>();
+        wet = sat * out_gain;
       } else if constexpr (M == Hard) {
         // HardClip: clamp at 0.95 of 0.8 x the driven signal, then tanh.
-        wet = tanh_pade(clampf(x * gain * 0.8f, -0.95f, 0.95f) * 1.2f) * out_scale<Hard>();
+        wet = tanh_pade(clampf(x * gain * 0.8f, -0.95f, 0.95f) * 1.2f) * out_gain;
       } else if constexpr (M == Fuzz) {
         // GermaniumFuzz: a bias, a diode clip above zero and tanh below.
         const float biased = x * gain + ka;
-        const float clipped = biased > 0.0f ? diode_clip(biased * 1.4f) : tanh_pade(biased * 2.1f);
-        wet = (clipped - kb) * out_scale<Fuzz>() - rest;
+        const float clipped = biased > 0.0f ? diode_clip(biased * 1.4f) : tanh_pade_floor(biased * 2.1f);
+        wet = (clipped - kb) * out_gain - rest;
       } else {
         // Wavefolder.
-        wet = wavefold(x, gain) * out_scale<Fold>();
+        wet = wavefold(x, gain) * out_gain;
       }
       // The tone low-pass, the dry/wet mix (the mix glides per sample).
       post += pa * (wet - post);

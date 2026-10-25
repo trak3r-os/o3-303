@@ -29,6 +29,16 @@
 //     a jump does not click; an inactive unit with its crossfade finished computes only the blocker;
 //   * FUZZ's output at zero input (its bias less its offset, up to 0.1) is subtracted, so that the unit is at rest at silence and
 //     switching it on, or switching to FUZZ, over silence is silent;
+//   * FUZZ's negative half is bounded: the original's fastTanh (a Pade form) saturates only up to |x| = 3 and climbs again at a slope of 1/9
+//     beyond it, and GermaniumFuzz runs it up to |x| = 100, so on a hot signal the negative half of the original is a ramp (a square at
+//     full Drive reaches -3.8 where the others peak at 1.6) and 48 of the 65 FUZZ presets of the vault peaked above full scale at the
+//     master. The port holds the argument at -3 (identical to the original below it; tests/ checks both). GRIT and HARD, which use the
+//     same fastTanh, are left as they are: HARD's argument stays inside the range; GRIT's overshoots (its wet peak is 1.2 at the default
+//     Drive and 1.6 at 0.8, where its nominal bound is 0.85), which is part of the default sound, and the trim below holds the growth
+//     above the default;
+//   * the wet signal of each model has a gain that follows Drive (trim(); the original has none, and its five models differ by up to 12
+//     dB at the default Drive and 16 dB at full Drive; Replicant's presets carry no level, only the master volume, which GEN omits as
+//     well);
 //   * a block that is silent in, with every state at rest, costs nothing.
 //
 // Parameters (the id is the index in the table: append, never insert):
@@ -38,7 +48,9 @@
 //
 // Cost [est], a mono signal: 75-90 cycles a sample (a model 60-70, the scan for equal channels and for silence 7, the control period and
 // the calls 8), 4.8k-5.8k a block, 1.8-2.2 % of 261,224; two different channels double the model part. Inactive: 27 a sample (the
-// blocker), 0.7 %. Not measured on a unit.
+// blocker), 0.7 %. The trim is folded into the model's output scalar (no extra multiply); trim() is about 30 cycles once per control
+// period while Drive moves (about 120 a block), and FUZZ's bound about 3 cycles a sample (about 190 a block): together under 0.15 % of a
+// block. Not measured on a unit.
 
 #include <o3sdk/dsp/smooth.h>
 #include <o3sdk/dsp/unit.h>
@@ -52,12 +64,20 @@ class Distortion final : public o3sdk::dsp::Unit {
   enum Param : std::uint16_t { Active, Type, Drive, Tone, Mix, kParamCount };
   enum Model : std::uint8_t { Grit, Tube, Hard, Fuzz, Fold, kModelCount };
 
-  // The output trim of each model, a fixed gain on its wet signal (before the tone low-pass and the Mix; it is make-up and trim, not a
-  // limiter, so Drive keeps its character). Measured so that each model's RMS on a reference 303 line through the voice at default
-  // Drive (0.5), Tone (0.6) and Mix 1 matches GRIT's, taking the mean in dB of the SAW line and the SQR line (a square is 4 to 6 dB
-  // hotter through TUBE, HARD and FUZZ than a saw). dB, GRIT, TUBE, HARD, FUZZ, FOLD: 0, -3.3, -1.6, -5.7, +3.9. Without them the
-  // models spread over 12 dB at the defaults (FUZZ reaches 3.9 on a square) and over 16 dB at full Drive.
-  static constexpr float kTrim[kModelCount] = {1.0f, 0.6839f, 0.8318f, 0.5188f, 1.5668f};
+  // The output trim of each model: a gain on its wet signal (before the tone low-pass and the Mix) that follows Drive. It is make-up and
+  // trim, not a limiter, so Drive keeps its character. trim() interpolates, in the gain, a table of kTrimKnots values (Drive 0, 0.05 ..
+  // 1; src/distortion.cpp, with how it was measured). It is fitted on one line, the reference 303 line of tests/tb303_chain_test.cpp
+  // played SAW and SQR: the level of a model is the mean in dB of the two, and the trim makes it GRIT's at the same Drive, to a tenth of
+  // a dB from Drive 0.3 up (Replicant's untrimmed models spread over 12 dB at the default Drive and 16 dB at full Drive). Each wave alone
+  // is further off, since relative to GRIT a square runs 2 to 3 dB hotter than a saw through TUBE, HARD, FUZZ and FOLD: up to 2.6 dB at
+  // Drive 0.25, 1.6 dB from the default up. Below Drive 0.25 the correction fades out to M3's trims at Drive 0, where the models stay
+  // above GRIT (up to 7.5 dB, FOLD; GRIT's 450 Hz high-pass makes it the quiet one). Another voice reads differently: on a resonant,
+  // accented line (Reso, Env Mod and Accent at 100 %) the models sit +0.5 .. +4.2 dB above GRIT (the chain test bounds it), while their
+  // wet peaks, which are what the headroom is about, stay where they are on the reference line. GRIT's own trim holds its wet peak at
+  // its default-Drive value (GRIT's peak grows by 2.5 dB above it); on a voice twice as loud that peak is still 1.7 (the chain test
+  // records it).
+  static constexpr unsigned kTrimKnots = 21;
+  static float trim(unsigned model, float drive) noexcept;
 
   static constexpr int kBypass = kModelCount;     // the sample loop of an inactive unit: the DC blocker only
   static constexpr unsigned kControlPeriod = 16;  // samples between two steps of the Drive and Tone smoothers
@@ -116,6 +136,7 @@ class Distortion final : public o3sdk::dsp::Unit {
   float k_gain_ = 1.0f;
   float k_a_ = 0.0f;
   float k_b_ = 0.0f;
+  float k_out_ = 0.85f;         // the model's output scalar (the original's) times its trim at the drive in use
   float k_rest_ = 0.0f;         // the model's output at zero input (FUZZ only), taken off it
   Channel ch_[2];
   std::uint32_t ctl_ = 0;       // samples left until the next tick()

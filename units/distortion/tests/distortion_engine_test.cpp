@@ -137,6 +137,69 @@ TEST_CASE("distortion: the parameter table is valid and in the contract's order"
   CHECK(std::strcmp(text, "85") == 0);
 }
 
+TEST_CASE("distortion: the model trim follows Drive smoothly, keeps the default-Drive levels, and holds GRIT's growth above the default") {
+  CHECK(Distortion::kTrimKnots == 21);
+  // The levels at Drive's default that the models had in M3 (a fixed trim measured on the reference line): GRIT, TUBE, HARD and FOLD are
+  // unchanged; FUZZ's was re-measured when its negative half was bounded.
+  CHECK(Distortion::trim(Distortion::Grit, 0.5f) == 1.0f);
+  CHECK(Distortion::trim(Distortion::Tube, 0.5f) == doctest::Approx(0.6839f).epsilon(1e-6));
+  CHECK(Distortion::trim(Distortion::Hard, 0.5f) == doctest::Approx(0.8318f).epsilon(1e-6));
+  CHECK(Distortion::trim(Distortion::Fold, 0.5f) == doctest::Approx(1.5668f).epsilon(1e-6));
+  for (unsigned m = 0; m < Distortion::kModelCount; ++m) {
+    INFO("model " << m);
+    float prev = Distortion::trim(m, 0.0f);
+    for (int i = 1; i <= 100; ++i) {
+      const float t = Distortion::trim(m, static_cast<float>(i) * 0.01f);
+      CHECK(t > 0.3f);
+      CHECK(t < 2.0f);
+      CHECK(std::fabs(t / prev - 1.0f) < 0.05f);  // no step: at most a few percent in a hundredth of Drive
+      prev = t;
+    }
+    CHECK(Distortion::trim(m, -1.0f) == Distortion::trim(m, 0.0f));  // outside the range: the end
+    CHECK(Distortion::trim(m, 7.0f) == Distortion::trim(m, 1.0f));
+    CHECK(Distortion::trim(m, std::nanf("")) == Distortion::trim(m, 0.0f));
+  }
+  // GRIT is the reference: untouched up to the default, then its trim only falls (its wet peak grows by 2.5 dB over the default's, which
+  // the trim holds).
+  for (int i = 0; i <= 50; ++i) {
+    CHECK(Distortion::trim(Distortion::Grit, static_cast<float>(i) * 0.01f) == 1.0f);
+  }
+  for (int i = 51; i <= 100; ++i) {
+    CHECK(Distortion::trim(Distortion::Grit, static_cast<float>(i) * 0.01f) <= Distortion::trim(Distortion::Grit, static_cast<float>(i - 1) * 0.01f));
+  }
+  CHECK(Distortion::trim(Distortion::Grit, 1.0f) < 0.8f);
+  // TUBE, HARD and FOLD are nowhere louder than M3's fixed trims (the fit only brings them down toward GRIT).
+  const float m3[] = {1.0f, 0.6839f, 0.8318f, 0.0f, 1.5668f};
+  for (const unsigned m : {Distortion::Tube, Distortion::Hard, Distortion::Fold}) {
+    for (int i = 0; i <= 100; ++i) {
+      CHECK(Distortion::trim(m, static_cast<float>(i) * 0.01f) <= m3[m] + 1e-5f);
+    }
+  }
+  // A model out of range is the last one's (the same clamp as the Type parameter's).
+  CHECK(Distortion::trim(9u, 0.3f) == Distortion::trim(Distortion::Fold, 0.3f));
+}
+
+TEST_CASE("distortion: TUBE, HARD and FUZZ stay under full scale on a hot saw at every Drive (FUZZ's negative half saturates)") {
+  const auto in = saw(110.0, 1.0f, 22050);
+  for (int m : {Distortion::Tube, Distortion::Hard, Distortion::Fuzz}) {
+    for (int di = 0; di <= 10; ++di) {
+      const float drive = static_cast<float>(di) * 0.1f;
+      INFO("model " << m << " drive " << drive);
+      Distortion d;
+      std::vector<float> ol;
+      std::vector<float> orr;
+      run(d, in, in, ol, orr,
+          {{0, Distortion::Type, static_cast<float>(m)}, {0, Distortion::Drive, drive}, {0, Distortion::Tone, 1.0f}, {0, Distortion::Mix, 1.0f}});
+      double pk = 0.0;
+      for (float v : ol) {
+        pk = std::max(pk, static_cast<double>(std::fabs(v)));
+      }
+      CHECK(pk < 1.0);
+      CHECK(normal_finite(ol));
+    }
+  }
+}
+
 namespace {
 // A mono instrument that plays a saw at 110 Hz from its first block: the source of the engine test.
 class SawSource final : public dsp::Unit {
@@ -398,7 +461,8 @@ TEST_CASE("distortion: switching on, or switching to FUZZ, over silence is silen
     }
     CHECK(pk < 1e-6);
     // Over a signal: switched on at 10000 in the middle of a saw. The first 100 ms are within 25 % of the steady state that follows (the
-    // models do not saturate at 1: Replicant's Pade tanh keeps a slope of 1/9, so FUZZ at full drive peaks near 5), and finite.
+    // models do not all saturate at 1: GRIT keeps the original's Pade tanh, which has a slope of 1/9 beyond |x| = 3; FUZZ's was bounded
+    // for L1), and finite.
     auto saw_in = saw(110.0, 0.6f, n);
     Distortion s;
     run(s, saw_in, saw_in, ol, orr, {{0, Distortion::Type, static_cast<float>(m)}, {0, Distortion::Drive, 1.0f}, {0, Distortion::Mix, 1.0f}, {0, Distortion::Active, 0.0f}, {10000, Distortion::Active, 1.0f}});
