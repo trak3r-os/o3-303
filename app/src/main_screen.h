@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+
+// The 303 screen (docs/DESIGN-303.md sections 2 to 5): the step view as the hero, the motion lane, the knob strip, the soft keys and
+// every pad and button gesture that does not need the card or MIDI. Also the pattern grid it shows while Pattern is held.
+
+#include "rig.h"
+
+#include <o3sdk/app/screen.h>
+#include <o3_303/pad_map.h>
+#include <o3_303/pages.h>
+#include <o3_303/step_model.h>
+
+#include <cstdint>
+
+namespace o3_303 {
+
+class MainScreen final : public o3sdk::app::Screen {
+ public:
+  void init(Rig& rig) noexcept;
+
+  const char* title() const noexcept override;
+  void enter(o3sdk::app::Context& ctx) noexcept override;
+  void leave(o3sdk::app::Context& ctx) noexcept override;
+  void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
+  void update(o3sdk::app::Context& ctx) noexcept override;
+  void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
+  void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
+  void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
+
+  bool roll() const noexcept { return roll_; }
+  bool pattern_overlay() const noexcept { return overlay_; }
+  int cursor() const noexcept { return cursor_; }
+  bool rec() const noexcept { return rec_; }
+  bool keys_live() const noexcept { return keys_live_; }
+  int octave() const noexcept { return octave_; }
+  unsigned page_index() const noexcept { return keys_.page_index(); }
+  // A line in the info strip for a moment (what a tool or a load just did).
+  void toast(o3sdk::app::Context& ctx, const char* text) noexcept;
+
+ private:
+  enum Perf : unsigned { kMute = 0, kAccAll, kSlideAll, kThrow, kPerfCount };
+
+  static constexpr unsigned kRoles = static_cast<unsigned>(PadRole::None) + 1u;
+
+  // ---- input
+  void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
+  void button_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
+  void turn_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
+  void key_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
+  void key_release(o3sdk::app::Context& ctx, unsigned pad) noexcept;
+  void step_press(o3sdk::app::Context& ctx, unsigned k) noexcept;
+  void modifier_tap(o3sdk::app::Context& ctx, PadRole role) noexcept;
+  void modifier_with_steps(o3sdk::app::Context& ctx, PadRole role) noexcept;
+  void tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  void perf_press(o3sdk::app::Context& ctx, Perf which, bool shift) noexcept;
+  void perf_release(o3sdk::app::Context& ctx, Perf which) noexcept;
+  void apply_perf(o3sdk::app::Context& ctx) noexcept;
+  void choose_pattern(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  void copy_buttons(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
+  void plock_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
+  void audition_on(o3sdk::app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept;
+  void audition_off(o3sdk::app::Context& ctx) noexcept;
+  void toggle_flag_on_held_or_cursor(o3sdk::app::Context& ctx, std::uint8_t flag) noexcept;
+
+  // ---- model helpers
+  unsigned sel() const noexcept { return rig_->bank->selected(); }
+  const Pattern& pat() const noexcept { return rig_->bank->pattern(rig_->bank->selected()); }
+  unsigned length() const noexcept { return pat().length != 0u ? pat().length : kDefaultLength; }
+  void move_cursor(o3sdk::app::Context& ctx, int to) noexcept;
+  void clamp_cursor() noexcept;
+  bool any_step_held() const noexcept;
+  void mark_held_used() noexcept;  // the held step pads did something: their release is not a tap
+  std::uint32_t held_mask() const noexcept;
+  std::uint8_t modifier_flag_down() const noexcept;
+  std::uint32_t next_seed(o3sdk::app::Context& ctx) noexcept;
+  bool tools_visible(const o3sdk::app::Context& ctx) const noexcept;
+
+  // ---- drawing
+  void draw_info(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_strip(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_tools(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_grid(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+
+  Rig* rig_ = nullptr;
+  Controls* controls_ = nullptr;
+  PageKeys keys_;
+
+  // Modes.
+  bool rec_ = false;
+  bool keys_live_ = false;       // the keyboard plays the voice while the pattern runs (else it transposes)
+  bool roll_ = false;
+  bool motion_latched_ = false;  // encoder moves are recorded while playing, without REC
+  bool playing_ = false;
+  int octave_ = 0;
+  int cursor_ = 0;
+  int view_page_ = 0;
+  int last_play_page_ = -1;
+  bool was_playing_ = false;
+  unsigned lane_ = 0;            // the motion lane shown: the last SOUND-page key the encoder drove
+  std::uint32_t seed_ = 0x303u;
+  int live_trn_ = 0;
+
+  // The pitch window keeps what it has shown for the pattern, so it does not jump while notes are entered.
+  int win_pattern_ = -1;
+  int win_lo_ = 0;
+  int win_hi_ = 0;
+  bool win_roll_ = false;
+
+  // What is held.
+  int held_step_[kPageSteps] = {};  // the global step a held step pad k selected, -1 when up
+  bool step_used_[kPageSteps] = {}; // the hold did something (a key, a modifier, the encoder): its release does not select the step
+  bool mod_down_[kRoles] = {};      // by PadRole
+  bool mod_used_[kRoles] = {};      // the hold did something (a tap would do the modifier's own job)
+  std::uint64_t mod_down_ms_[kRoles] = {};  // when it went down: a tap is shorter than kHoldMs
+  int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)
+  int audition_note_ = -1;          // a step's note sounding for the hand
+  bool perf_held_[kPerfCount] = {};
+  bool perf_latched_[kPerfCount] = {};
+  std::uint32_t tool_mask_ = 0;     // F keys pressed as tools (their release is not the pages')
+  std::uint64_t shift_ms_ = 0;      // when Shift went down, and when the encoder last moved: the tools row waits for stillness
+  std::uint64_t last_turn_ms_ = 0;
+
+  // Pattern.
+  bool pattern_down_ = false;
+  bool overlay_ = false;
+  bool chain_started_ = false;
+  std::uint64_t pattern_down_ms_ = 0;
+  bool copy_is_pattern_ = false;
+
+  // Feedback.
+  char toast_[40] = {};
+  std::uint64_t toast_until_ms_ = 0;
+  bool lock_active_ = false;
+  int lock_step_ = 0;
+  float lock_norm_ = 0.0f;
+  char lock_text_[16] = {};
+};
+
+}  // namespace o3_303

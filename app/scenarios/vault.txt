@@ -1,0 +1,34 @@
+# The GEN vault (File): 8 banks x 64 slots, Replicant's generator. F1..F8 pick the bank, the encoder the slot (Shift: the seed), REC is GEN
+# (a new seed), PARAMS says what a load takes, FILE loads it into the current pattern and the sound and goes back.
+wait 300
+tap file
+wait 100
+snap 01_vault_a0
+turn 5
+snap 02_slot_5
+tap f4
+turn 12
+snap 03_acid_17
+press shift
+turn 3
+release shift
+snap 04_seed_3
+tap rec
+snap 05_gen_new_take
+tap params
+snap 06_load_pattern_only
+tap params
+tap params
+tap right
+tap down
+snap 07_slot_moved
+pad 40
+snap 08_pad_slot
+tap file
+wait 200
+snap 09_loaded
+record on
+tap play
+wait 2000
+tap play
+wav vault

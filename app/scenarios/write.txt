@@ -1,0 +1,38 @@
+# Writing a pattern with REC (DESIGN-303 section 2): pick an empty pattern (hold Pattern, tap a pad), arm REC, play keys with ACC and
+# SLIDE held, REST and TIE entries (each advances the cursor), then play it back and write the WAV.
+wait 300
+press pattern
+wait 350
+snap 01_pattern_grid
+pad 12
+release pattern
+wait 100
+snap 02_empty_b01
+tap rec
+pad 36 200
+pad 39 200
+snap 03_two_notes
+paddown 8
+pad 40 200
+padup 8
+paddown 9
+pad 43 200
+padup 9
+pad 36 200
+pad 21
+pad 41 200
+pad 20
+paddown 8
+pad 46 200
+padup 8
+pad 34 200
+pad 38 200
+snap 04_written
+tap rec
+record on
+tap play
+wait 1500
+snap 05_playing
+tap play
+wait 500
+wav write

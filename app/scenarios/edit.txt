@@ -1,0 +1,69 @@
+# Editing steps in place (DESIGN-303 section 2). Starts on the factory line of A01.
+#   tap a step pad          the cursor goes there (the step sounds)
+#   hold a step + a key     that step's note, the cursor stays
+#   hold a step + ACC / SLIDE / TIE / REST / OCT+    that attribute toggles on it
+#   hold ACC alone          the step pads show the accented steps; tap steps to toggle (TR style)
+#   Delete / Copy / Insert  the cursor's step
+# Choices made here: Delete turns the step into a rest (it does not shift the steps after it; Insert does); a pad of a step is selected when
+# it is let go without having been used, so hold + key leaves the cursor where it was; a modifier held longer than a tap is only a look.
+wait 300
+pad 3
+snap 01_select_step4
+paddown 3
+pad 40 200
+padup 3
+snap 02_note_e3
+paddown 5
+pad 8
+padup 5
+paddown 6
+pad 9
+padup 6
+paddown 4
+pad 20
+padup 4
+paddown 7
+pad 11
+padup 7
+snap 03_flags_and_octave
+paddown 8
+wait 100
+snap 04_acc_held_alone
+pad 0
+pad 2
+pad 12
+padup 8
+wait 100
+snap 05_acc_toggled
+paddown 21
+wait 100
+snap 06_rest_held_alone
+pad 14
+pad 15
+padup 21
+pad 0
+tap delete
+snap 07_step1_deleted
+tap copy
+pad 2
+press shift
+tap copy
+release shift
+snap 08_step_pasted
+pad 4
+tap insert
+snap 09_step_inserted
+tap right
+tap right
+tap up
+tap up
+tap up
+snap 10_cursor_moved_note_up
+press shift
+tap right
+release shift
+snap 11_rotated
+press shift
+tap up
+release shift
+snap 12_transposed

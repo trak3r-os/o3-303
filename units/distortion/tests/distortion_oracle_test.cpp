@@ -1,0 +1,252 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Oracle: the port against Replicant 303's own DistortionUnit (third_party/replicant303, commit d5369be) on the host. The same signals go
+// through both at 44.1 kHz; the figure is the error relative to the reference, 10 log10 (sum ref^2 / sum err^2). The original has no DC
+// blocker: the reference gets the same one-pole after it (y = x - x1 + R y1, R = exp(-2 pi 5 / fs)), which is the port's output stage
+// (it also runs while the unit is inactive), and FUZZ's output at zero input (a constant: bias less offset) is taken off its wet signal,
+// as the port does so that it is at rest at silence, and the model's level trim (Distortion::kTrim) is applied to the wet signal, as the
+// port does. The reference is run with the Mix at 1 (the wet alone) and mixed here.
+// The signals start with 6000 samples of silence in both, so that the reference's tone filter has settled on that constant, which the
+// port has from the first sample; the figures are taken after it.
+//
+// Why the two differ: TUBE's pow(s, 0.94) is a cubic in the port (absolute error under 1.2e-3); the tone coefficient is computed as
+// x / (1 + x) with x = 2 pi fc / fs and fc by exp2_fast (the original: dt / (rc + dt) with pow); floor is an integer conversion (same
+// value). Drive, Tone, Mix and Active are smoothed in the port; the original applies them at once, so the cases here set them before
+// the signal starts (the smoothing is tested in distortion_engine_test.cpp).
+#include <doctest/doctest.h>
+
+#include <DistortionUnit.h>
+
+#include <o3sdk/dsp/unit.h>
+
+#include <o3_303/units/distortion/distortion.h>
+
+#include "support/rng.h"
+
+#include <cmath>
+#include <cstdio>
+#include <vector>
+
+using o3_303::Distortion;
+
+namespace {
+
+constexpr double kRate = 44100.0;
+constexpr float kPi = 3.14159265f;
+
+const char* kNames[] = {"GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
+
+struct Settings {
+  int model;
+  float drive;
+  float tone;
+  float mix;
+  bool active = true;
+};
+
+constexpr std::size_t kLead = 6000;
+
+std::vector<float> lead_in(const std::vector<float>& in) {
+  std::vector<float> v(kLead, 0.0f);
+  v.insert(v.end(), in.begin(), in.end());
+  return v;
+}
+
+// What the original gives at zero input, once its tone filter has settled (zero for every model but FUZZ).
+float rest_output(const Settings& s) {
+  Replicant303::DistortionUnit z;
+  z.prepare(kRate);
+  z.setActive(true);
+  z.setType(static_cast<Replicant303::DistortionType>(s.model));
+  z.setDrive(s.drive);
+  z.setTone(s.tone);
+  z.setMix(1.0f);
+  float c = 0.0f;
+  for (int i = 0; i < 40000; ++i) {
+    c = z.processSample(0.0f);
+  }
+  return c;
+}
+
+std::vector<float> reference(const std::vector<float>& in, const Settings& s) {
+  Replicant303::DistortionUnit u;
+  u.prepare(kRate);
+  u.setActive(true);
+  u.setType(static_cast<Replicant303::DistortionType>(s.model));
+  u.setDrive(s.drive);
+  u.setTone(s.tone);
+  u.setMix(1.0f);  // the wet signal alone
+  const float rest = rest_output(s);
+  const float trim = Distortion::kTrim[s.model];  // the port's level trim of the model, on the wet signal
+  const float r = std::exp(-2.0f * kPi * 5.0f * (1.0f / 44100.0f));
+  float dcx = 0.0f;
+  float dcy = 0.0f;
+  std::vector<float> out(in.size());
+  for (std::size_t i = 0; i < in.size(); ++i) {
+    const float wet = u.processSample(in[i]);
+    const float mix = s.active ? s.mix : 0.0f;  // inactive: the signal as it is (the original returns the input)
+    const float y = (1.0f - mix) * in[i] + mix * ((wet - rest) * trim);
+    dcy = y - dcx + r * dcy;
+    dcx = y;
+    out[i] = dcy;
+  }
+  return out;
+}
+
+std::vector<float> port(const std::vector<float>& in, const Settings& s, std::uint32_t block = 64) {
+  using namespace o3sdk::dsp;
+  Distortion d;
+  d.prepare(static_cast<float>(kRate));
+  Transport tr;
+  float zero[64] = {};
+  float dummy[64];
+  Event ev[5] = {param_change(Distortion::Active, s.active ? 1.0f : 0.0f), param_change(Distortion::Type, static_cast<float>(s.model)),
+                 param_change(Distortion::Drive, s.drive), param_change(Distortion::Tone, s.tone), param_change(Distortion::Mix, s.mix)};
+  tr.frames = 0;
+  d.process(ProcessArgs{ev, 5, zero, zero, dummy, dummy, 0, &tr});  // the stored values, as Engine::start() delivers them
+  std::vector<float> out(in.size());
+  std::vector<float> r(in.size());
+  for (std::size_t pos = 0; pos < in.size(); pos += block) {
+    const auto n = static_cast<std::uint32_t>(in.size() - pos < block ? in.size() - pos : block);
+    tr.frames = n;
+    d.process(ProcessArgs{nullptr, 0, in.data() + pos, in.data() + pos, out.data() + pos, r.data() + pos, n, &tr});
+  }
+  return out;
+}
+
+double error_db(const std::vector<float>& ref, const std::vector<float>& got, double* max_abs = nullptr, std::size_t skip = kLead) {
+  double sr = 0.0, se = 0.0, mx = 0.0;
+  for (std::size_t i = skip; i < ref.size(); ++i) {
+    const double e = static_cast<double>(got[i]) - static_cast<double>(ref[i]);
+    sr += static_cast<double>(ref[i]) * static_cast<double>(ref[i]);
+    se += e * e;
+    mx = std::fabs(e) > mx ? std::fabs(e) : mx;
+  }
+  if (max_abs != nullptr) {
+    *max_abs = mx;
+  }
+  return se > 0.0 ? 10.0 * std::log10(se / sr) : -200.0;
+}
+
+// ---- the signals -------------------------------------------------------------------------------------------------------------
+
+std::vector<float> saw(double hz, float amp, std::size_t n) {
+  std::vector<float> v(n);
+  double ph = 0.0;
+  for (std::size_t i = 0; i < n; ++i) {
+    ph += hz / kRate;
+    ph -= std::floor(ph);
+    const float fade = static_cast<float>(0.2 + 0.8 * static_cast<double>(i) / static_cast<double>(n));
+    v[i] = amp * fade * static_cast<float>(2.0 * ph - 1.0);
+  }
+  return v;
+}
+
+std::vector<float> sweep(float amp, std::size_t n) {
+  std::vector<float> v(n);
+  double ph = 0.0;
+  for (std::size_t i = 0; i < n; ++i) {
+    const double f = 50.0 * std::pow(200.0, static_cast<double>(i) / static_cast<double>(n));
+    ph += 2.0 * 3.14159265358979 * f / kRate;
+    v[i] = amp * static_cast<float>(std::sin(ph));
+  }
+  return v;
+}
+
+std::vector<float> noise(float amp, std::size_t n) {
+  o3sdk::test::Rng rng(0x5eed);
+  std::vector<float> v(n);
+  for (auto& s : v) {
+    s = amp * (static_cast<float>(rng.below(20001)) / 10000.0f - 1.0f);
+  }
+  return v;
+}
+
+// Saw bursts with silence between them (the states must be right when the signal comes back).
+std::vector<float> bursts(std::size_t n) {
+  auto v = saw(98.0, 0.8f, n);
+  for (std::size_t i = 0; i < n; ++i) {
+    if ((i / 6000) % 2 == 1) {
+      v[i] = 0.0f;
+    }
+  }
+  return v;
+}
+
+struct Sig {
+  const char* name;
+  std::vector<float> v;
+};
+
+}  // namespace
+
+TEST_CASE("distortion oracle: every model, drive x tone x mix, on a saw") {
+  const auto in = lead_in(saw(110.0, 0.9f, 22050));
+  for (int m = 0; m < 5; ++m) {
+    double worst = -300.0;
+    double worst_abs = 0.0;
+    for (float drive : {0.0f, 0.25f, 0.5f, 1.0f}) {
+      for (float tone : {0.0f, 0.6f, 1.0f}) {
+        for (float mix : {1.0f, 0.85f, 0.3f}) {
+          const Settings s{m, drive, tone, mix};
+          double mx = 0.0;
+          const double e = error_db(reference(in, s), port(in, s), &mx);
+          worst = e > worst ? e : worst;
+          worst_abs = mx > worst_abs ? mx : worst_abs;
+        }
+      }
+    }
+    std::printf("[oracle distortion] %-4s 36 settings of drive/tone/mix on a saw: worst error %6.1f dB, max |err| %.2e\n", kNames[m], worst, worst_abs);
+    if (m == 1) {  // TUBE: the cubic in place of pow
+      CHECK(worst < -50.0);
+      CHECK(worst_abs < 1.5e-3);
+    } else {
+      CHECK(worst < -90.0);
+    }
+  }
+}
+
+TEST_CASE("distortion oracle: every model on a sweep, noise, bursts of silence and a hot saw") {
+  const Sig sigs[] = {{"sweep 50 Hz..10 kHz", lead_in(sweep(0.8f, 66150))}, {"noise", lead_in(noise(0.3f, 44100))},
+                      {"bursts", lead_in(bursts(66150))}, {"saw 1.45", lead_in(saw(55.0, 1.45f, 44100))},
+                      {"saw 4 kHz", lead_in(saw(4000.0, 0.7f, 44100))}};
+  for (int m = 0; m < 5; ++m) {
+    double worst = -300.0;
+    for (const Sig& sg : sigs) {
+      const Settings s{m, 0.5f, 0.6f, 0.85f};
+      double mx = 0.0;
+      const double e = error_db(reference(sg.v, s), port(sg.v, s), &mx);
+      std::printf("[oracle distortion] %-4s %-22s error %6.1f dB, max |err| %.2e\n", kNames[m], sg.name, e, mx);
+      worst = e > worst ? e : worst;
+    }
+    CHECK(worst < (m == 1 ? -50.0 : -90.0));
+  }
+}
+
+TEST_CASE("distortion oracle: Active off and Mix 0 pass the input through the DC blocker, as the original passes it through") {
+  const auto in = noise(0.5f, 10000);
+  for (int m = 0; m < 5; ++m) {
+    const auto expect_off = reference(in, Settings{m, 1.0f, 1.0f, 1.0f, false});
+    const auto expect_dry = reference(in, Settings{m, 1.0f, 1.0f, 0.0f, true});
+    const auto off = port(in, Settings{m, 1.0f, 1.0f, 1.0f, false});
+    const auto dry = port(in, Settings{m, 1.0f, 1.0f, 0.0f, true});
+    for (std::size_t i = 0; i < in.size(); ++i) {
+      REQUIRE(off[i] == expect_off[i]);
+      REQUIRE(dry[i] == expect_dry[i]);
+      REQUIRE(std::fabs(off[i] - in[i]) < 0.02f);  // and the blocker is all that was done to the signal
+    }
+  }
+}
+
+TEST_CASE("distortion oracle: the block size does not matter") {
+  const auto in = sweep(0.8f, 30000);
+  for (int m = 0; m < 5; ++m) {
+    const Settings s{m, 0.7f, 0.5f, 0.9f};
+    const auto a = port(in, s, 64);
+    const auto b = port(in, s, 7);
+    const auto c = port(in, s, 1);
+    for (std::size_t i = 0; i < in.size(); ++i) {
+      REQUIRE(a[i] == b[i]);
+      REQUIRE(a[i] == c[i]);
+    }
+  }
+}

@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// What the step view draws, as pure functions of a pattern (app/include/o3_303/step_model.h): how a step reads, how it joins its
+// neighbours, the pitch window of the lane, the names.
+#include <doctest/doctest.h>
+
+#include <o3_303/pattern.h>
+#include <o3_303/step_model.h>
+
+#include <cstring>
+
+using namespace o3_303;
+
+namespace {
+
+// A pattern of `len` rests.
+Pattern rests(unsigned len) {
+  Pattern p;
+  clear(p);
+  p.length = static_cast<std::uint8_t>(len);
+  for (Step& s : p.steps) {
+    s.flags = kStepRest;
+  }
+  return p;
+}
+
+void note(Pattern& p, unsigned i, unsigned n, std::uint8_t flags = 0) {
+  p.steps[i].note = static_cast<std::uint8_t>(n);
+  p.steps[i].flags = flags;
+}
+
+}  // namespace
+
+TEST_CASE("step model: a note, a rest, a step past the length") {
+  Pattern p = rests(16);
+  note(p, 2, 40, kStepAccent);
+  const StepInfo n = describe(p, 2);
+  CHECK(n.kind == Cell::Note);
+  CHECK(n.note == 40);
+  CHECK(n.accent);
+  CHECK_FALSE(n.slide);
+  CHECK_FALSE(n.to_next);
+  CHECK(n.ramp_to == -1);
+  CHECK(describe(p, 3).kind == Cell::Rest);
+  CHECK(describe(p, 16).kind == Cell::Rest);
+  CHECK(describe(p, 63).kind == Cell::Rest);
+}
+
+TEST_CASE("step model: a tie carries the note before it, through other ties, and keeps its colour") {
+  Pattern p = rests(16);
+  note(p, 4, 43, kStepAccent);
+  note(p, 5, 0, kStepTie);
+  note(p, 6, 0, kStepTie);
+  const StepInfo first = describe(p, 4);
+  CHECK(first.to_next);  // a tie follows: the bar goes on
+  const StepInfo t = describe(p, 5);
+  CHECK(t.kind == Cell::Tie);
+  CHECK(t.note == 43);
+  CHECK(t.accent);
+  CHECK(t.from_prev);
+  CHECK(t.to_next);
+  const StepInfo last = describe(p, 6);
+  CHECK(last.kind == Cell::Tie);
+  CHECK(last.note == 43);
+  CHECK_FALSE(last.to_next);
+}
+
+TEST_CASE("step model: a tie after a rest, or with nothing before it, is silent") {
+  Pattern p = rests(16);
+  note(p, 3, 40);
+  note(p, 4, 0, kStepRest);
+  note(p, 5, 0, kStepTie);
+  CHECK(describe(p, 5).kind == Cell::Rest);
+  Pattern q = rests(8);
+  for (unsigned i = 0; i < 8; ++i) {
+    note(q, i, 0, kStepTie);
+  }
+  CHECK(describe(q, 0).kind == Cell::Rest);  // a pattern of ties only
+  // A rest flag wins over a tie flag on the same step.
+  note(p, 6, 40, kStepTie | kStepRest);
+  CHECK(describe(p, 6).kind == Cell::Rest);
+}
+
+TEST_CASE("step model: a tie at the start of the pattern carries the last note (the loop holds it)") {
+  Pattern p = rests(16);
+  note(p, 15, 45);
+  note(p, 0, 0, kStepTie);
+  const StepInfo t = describe(p, 0);
+  CHECK(t.kind == Cell::Tie);
+  CHECK(t.note == 45);
+  CHECK(describe(p, 15).to_next);
+}
+
+TEST_CASE("step model: a slide joins the next note with a ramp, and holds into a rest or a tie without one") {
+  Pattern p = rests(16);
+  note(p, 0, 36, kStepSlide);
+  note(p, 1, 48);
+  const StepInfo a = describe(p, 0);
+  CHECK(a.slide);
+  CHECK(a.to_next);
+  CHECK(a.ramp_to == 48);
+  // Into a rest: held, nothing to glide to.
+  note(p, 4, 36, kStepSlide);
+  const StepInfo r = describe(p, 4);
+  CHECK(r.to_next);
+  CHECK(r.ramp_to == -1);
+  // Into a tie: held on, no glide.
+  note(p, 8, 36, kStepSlide);
+  note(p, 9, 0, kStepTie);
+  const StepInfo t = describe(p, 8);
+  CHECK(t.to_next);
+  CHECK(t.ramp_to == -1);
+  // The same pitch: a ramp of no height (the caller joins the bars).
+  note(p, 12, 40, kStepSlide);
+  note(p, 13, 40);
+  CHECK(describe(p, 12).ramp_to == 40);
+}
+
+TEST_CASE("step model: pattern_is_empty, pitch_range and motion questions") {
+  Pattern p = rests(16);
+  CHECK(pattern_is_empty(p));
+  int lo = 0;
+  int hi = 0;
+  CHECK_FALSE(pitch_range(p, lo, hi));
+  note(p, 3, 50);
+  note(p, 9, 38);
+  note(p, 10, 70, kStepTie);  // a tie has no pitch of its own
+  note(p, 20, 90);            // past the length of 16
+  CHECK_FALSE(pattern_is_empty(p));
+  REQUIRE(pitch_range(p, lo, hi));
+  CHECK(lo == 38);
+  CHECK(hi == 50);
+
+  CHECK_FALSE(pattern_has_motion(p, 0));
+  CHECK_FALSE(step_has_motion(p, 2, 5));
+  p.motion[2][5 * kMotionPointsPerStep + 1] = 100;
+  CHECK(step_has_motion(p, 2, 5));
+  CHECK_FALSE(step_has_motion(p, 1, 5));
+  CHECK_FALSE(step_has_motion(p, 2, 6));
+  CHECK(pattern_has_motion(p, 2));
+  CHECK_FALSE(pattern_has_motion(p, 3));
+  CHECK(pattern_has_motion(p, kMotionLanes));  // any lane
+  CHECK_FALSE(step_has_motion(p, kMotionLanes, 5));
+  CHECK_FALSE(step_has_motion(p, 2, kMaxSteps));
+}
+
+TEST_CASE("step model: the pitch window holds the notes with a margin for the name above and a row below") {
+  const int lane_h = 216;
+  for (int lowest = 0; lowest <= 100; lowest += 7) {
+    for (int span = 0; span <= 36; span += 3) {
+      const int highest = lowest + span;
+      if (highest > 127) {
+        continue;
+      }
+      const PitchWindow w = fit_window(lowest, highest, lane_h);
+      CHECK(w.px >= 5);
+      CHECK(w.px <= 16);
+      CHECK(w.rows * w.px <= lane_h);
+      CHECK(w.lo >= 0);
+      CHECK(w.hi() <= 127);
+      if (span <= 24) {  // the notes fit with the room at 5 px a row
+        CHECK(w.lo <= lowest);
+        CHECK(w.hi() >= highest);
+        const int top_rows = (18 + w.px - 1) / w.px;
+        if (highest + top_rows <= 127 && lowest - 1 >= 0) {
+          CHECK(w.hi() >= highest + top_rows);  // the name of the highest note has its room
+          CHECK(w.lo <= lowest - 1);            // one row below the lowest
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("step model: a narrow line gets the tallest rows, a wide one smaller rows") {
+  const PitchWindow narrow = fit_window(40, 44, 216);
+  CHECK(narrow.px == 16);
+  const PitchWindow wide = fit_window(24, 60, 216);
+  CHECK(wide.px < narrow.px);
+  CHECK(wide.px >= 5);
+  const PitchWindow swapped = fit_window(44, 40, 216);
+  CHECK(swapped.px == narrow.px);
+  CHECK(swapped.lo == narrow.lo);
+}
+
+TEST_CASE("step model: note and pattern names") {
+  char n[8];
+  CHECK(note_name(36, n, sizeof n) == 2);
+  CHECK(std::strcmp(n, "C2") == 0);
+  note_name(37, n, sizeof n);
+  CHECK(std::strcmp(n, "C#2") == 0);
+  note_name(48, n, sizeof n);
+  CHECK(std::strcmp(n, "C3") == 0);
+  note_name(0, n, sizeof n);
+  CHECK(std::strcmp(n, "C-1") == 0);
+  note_name(127, n, sizeof n);
+  CHECK(std::strcmp(n, "G9") == 0);
+  note_name(70, n, sizeof n);
+  CHECK(std::strcmp(n, "A#4") == 0);
+  char tiny[3];
+  CHECK(note_name(36, tiny, sizeof tiny) == 0);  // no room: nothing written but the terminator
+
+  char p[8];
+  pattern_name(0, p, sizeof p);
+  CHECK(std::strcmp(p, "A01") == 0);
+  pattern_name(6, p, sizeof p);
+  CHECK(std::strcmp(p, "A07") == 0);
+  pattern_name(11, p, sizeof p);
+  CHECK(std::strcmp(p, "A12") == 0);
+  pattern_name(12, p, sizeof p);
+  CHECK(std::strcmp(p, "B01") == 0);
+  pattern_name(47, p, sizeof p);
+  CHECK(std::strcmp(p, "D12") == 0);
+  pattern_name(500, p, sizeof p);  // past the project: the last one
+  CHECK(std::strcmp(p, "D12") == 0);
+}
