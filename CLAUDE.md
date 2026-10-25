@@ -20,8 +20,11 @@ What lives here: `app/` (the app, `o3sdk_app(o3_303 ...)`, its scenarios in `app
 
 - Never add code, assets or reverse-engineering material from the official firmware. "Polyend" and "Tracker" are used only to
   describe the hardware.
-- Firmware reaches a unit only through the documented update path (the bootloader's `.ptf` from the SD card). No debug-probe
-  flashing, no improvised uploaders. Formatting a card, or deleting files you did not put there, needs the maintainer's ask.
+- Firmware reaches a unit only through a documented update path, after `fw-gate-check` passes: the bootloader's `.ptf` from the
+  SD card, put there by hand, on a mounted card, or by the USB console (`o3console.py --put`, then the console's firmware
+  commands), as in track3r-os (maintainer, 2026-10-25). Agents may write to an SD card mounted under `/media` or `/run/media`
+  (never `/mnt`, never a raw device). No debug-probe flashing, no improvised uploaders. Formatting a card, or deleting files you
+  did not put there, needs the maintainer's ask.
 - No secrets, personal data or binaries in git. Commit or push only when the maintainer asks.
 
 ## Build and test
@@ -50,6 +53,7 @@ per-block feature is relied on, pure logic gets a host test in `tests/`, a scree
 
 `.claude/` is the o3sdk harness, copied (agents, skills, hooks); read its agent and skill texts with this layout in mind: the kit,
 platform and simulator paths they name are in `../o3-sdk`, this repository's code is `app/`, `units/` and `tests/`. The hooks work here
-as they do there: `guard_flash.py` (never flash, never write a card), `syntax_check.py` (compiles an edited file with the flags of
-`build-host/compile_commands.json`; files of `../o3-sdk` are skipped), `shell_edit_check.py`, `session_brief.py`, `verify_gate.py`
-(an agent that edited `app/`, `units/`, `tests/` or CMake runs ctest before it stops).
+as they do there: `guard_flash.py` (no probe or raw device; the console's update path and a mounted card are open, as in
+track3r-os), `syntax_check.py` (compiles an edited file with the flags of `build-host/compile_commands.json`; files of `../o3-sdk`
+are skipped), `shell_edit_check.py`, `session_brief.py`, `verify_gate.py` (an agent that edited `app/`, `units/`, `tests/` or CMake
+runs ctest before it stops).
