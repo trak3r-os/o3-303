@@ -71,7 +71,7 @@ void MainScreen::perf_release(app::Context& ctx, unsigned button) noexcept {
 // What the buttons held or latched say, put on the sequencer's flags, the delay send, the live transpose and the freeze. An action two
 // buttons carry is on while either is. The freeze is only written when it changes (a command to the engine each time would be noise).
 void MainScreen::apply_perf(app::Context& ctx) noexcept {
-  const std::uint8_t on = perf_actions_on(rig_->wiring.perf, perf_held_, perf_latched_);
+  const std::uint16_t on = perf_actions_on(rig_->wiring.perf, perf_held_, perf_latched_);
   const auto is_on = [&](PerfAction a) { return (on & perf_bit(a)) != 0u; };
   seq::Sequencer& sequencer = *rig_->seq;
   sequencer.set_perf_flag(seq::kPerfMute, is_on(PerfAction::Mute));
@@ -80,15 +80,49 @@ void MainScreen::apply_perf(app::Context& ctx) noexcept {
   sequencer.set_fill(is_on(PerfAction::Fill));
   rig_->wiring.throw_on = is_on(PerfAction::Throw);
   controls_->apply_send(ctx.engine());
-  const std::uint8_t changed = static_cast<std::uint8_t>(on ^ perf_applied_);
+  const std::uint16_t changed = static_cast<std::uint16_t>(on ^ perf_applied_);
   perf_applied_ = on;
   if ((changed & perf_bit(PerfAction::OctUp)) != 0u) {
     push_live_transpose();
   }
-  if ((changed & perf_bit(PerfAction::Freeze)) != 0u) {
-    set_freeze(ctx.engine(), *rig_, is_on(PerfAction::Freeze));
+  // FREEZE, ROLL, STOP and REV are the modes of the one freeze unit: the one that went on first has it until it goes off (perform.h FreezeOwner). It
+  // writes the Mode, then Active; the release writes Active only and leaves the Mode: nothing touches the unit while it leaves, so nothing can click,
+  // and the next entry writes its own Mode first. FREEZE alone is what it was (its Mode write is FREEZE, the unit's default).
+  const FreezeCmd fc = freeze_owner_.step(on, changed);
+  if (fc.set_mode) {
+    set_freeze_mode(ctx.engine(), *rig_, static_cast<Freeze::ModeValue>(fc.mode));
+  }
+  if (fc.set_active) {
+    set_freeze(ctx.engine(), *rig_, fc.active);
+  }
+  // WOBBLE: the LFO runs while the action is on, at the WOBBLE page's settings; a pad of the bottom row sets its rate (wobble_pad); the release
+  // switches it off and gives the pattern's rate back.
+  if ((changed & perf_bit(PerfAction::Wobble)) != 0u) {
+    controls_->apply_wobble(is_on(PerfAction::Wobble));
+    if (!is_on(PerfAction::Wobble)) {
+      sequencer.wobble_rate_override(seq::kWobbleRateNone);
+    }
   }
   ctx.redraw();
+}
+
+// A pad of the bottom row while WOBBLE is on: its rate, live, until the action lets go.
+void MainScreen::wobble_pad(app::Context& ctx, unsigned pad) noexcept {
+  const int rate = wobble_pad_rate(pad);
+  if (rate >= 0) {
+    rig_->seq->wobble_rate_override(rate);
+  }
+  ctx.redraw();
+}
+
+// The picker's LEDs: the bottom row's eleven rates dim, the rate the wobble runs at now (the override, else the pattern's lane, else the
+// setting; -1 until the render has started it) at full level.
+void MainScreen::wobble_leds(app::PadLeds& leds) const noexcept {
+  const int now = rig_->seq->wobble_rate_now();
+  for (unsigned col = 0; col < app::kPadCols; ++col) {
+    const unsigned pad = app::pad_at(app::kPadRows - 1u, col);
+    leds.set(pad, wobble_pad_rate(pad) < 0 ? app::kLedOff : (wobble_pad_rate(pad) == now ? app::kLedOn : app::kLedDim));
+  }
 }
 
 // A button the PERF page gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a

@@ -8,6 +8,7 @@
 #include <o3sdk/sim/harness.h>
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/app_access.h>
+#include <o3_303/pages.h>
 #include <o3_303/pattern.h>
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
@@ -103,10 +104,11 @@ TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF pag
   CHECK(seq::get_ratchet(p, 2) == 1);
   CHECK(seq::get_cond(p, 11) == kCondFill);
 
-  // The variant: SEQ is two pages on from SOUND; F6 is FILL's variant, MUTATE, OCT UP, RATCHET, ACC ROT.
+  // The variant: SEQ is four pages on from SOUND (FX, GROWL, WOBBLE); F6 is FILL's variant, MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  hands.tap(Button::Params);
-  hands.tap(Button::Params);
+  for (unsigned i = 0; i < kPageSeq; ++i) {
+    hands.tap(Button::Params);
+  }
   hands.tap(Button::F6);
   hands.h->turn(1);
   hands.h->run_ms(2);
@@ -117,7 +119,7 @@ TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF pag
   hands.h->turn(-3);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  for (int i = 0; i < 3; ++i) {
+  for (unsigned i = kPageSeq; i < kPageCount; ++i) {
     hands.tap(Button::Params);  // back to SOUND
   }
 

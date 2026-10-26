@@ -122,6 +122,7 @@ void MainScreen::init(Rig& rig) noexcept {
   perf_held_ = 0;
   perf_latched_ = 0;
   perf_applied_ = 0;
+  freeze_owner_.reset();
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     perf_seen_[b] = rig.wiring.perf[b];
   }
@@ -649,6 +650,8 @@ void MainScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
       if (mod_down_[role_index(PadRole::Keys)]) {  // KEYS held: rows 2 and 3 are the filter ladders (R1)
         mod_used_[role_index(PadRole::Keys)] = true;
         ladder_press(ctx, pad, in.shift);
+      } else if (wobble_on() && app::pad_row(pad) == app::kPadRows - 1u) {  // WOBBLE on: the bottom row picks the wobble's rate (M3c W); column 11 has none
+        wobble_pad(ctx, pad);
       } else {
         key_press(ctx, pad);
       }
@@ -1262,6 +1265,9 @@ void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
       level = app::kLedOn;
     }
     leds.set(pad, level);
+  }
+  if (wobble_on()) {  // the bottom row is the wobble's rate picker (M3c W): drawn over the keyboard
+    wobble_leds(leds);
   }
 }
 

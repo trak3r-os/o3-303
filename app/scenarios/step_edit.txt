@@ -21,7 +21,9 @@ padup 5
 tap up
 wait 100
 snap 04_cursor_semitone
-# The SEQ page (two Params): F7 is RATCHET and F8 is COND for the step held, or for the cursor step when none is.
+# The SEQ page (four Params: FX, GROWL, WOBBLE, SEQ): F7 is RATCHET and F8 is COND for the step held, or for the cursor step when none is.
+tap params
+tap params
 tap params
 tap params
 tap f7

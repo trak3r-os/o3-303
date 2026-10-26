@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // O3-303: the TB-303 app of docs/DESIGN-303.md. The engine: the one tb303 voice on slot 0 with the distortion as its insert, o3sdk's delay
-// on send A, the beat freeze on master insert 0 (off), the sequencer (o3_303_seq) as a clocked hook. The screens are in main_screen.cpp
+// on send A, the beat freeze on master insert 0 (off), the growl on slot 0's insert 1 (Mix 0: a bit-exact bypass), the sequencer (o3_303_seq) as a clocked hook. The screens are in main_screen.cpp
 // (the 303 screen, with the pattern grid it shows while Pattern is held) and vault_screen.cpp (File: GEN and the vault). This file wires
 // them and owns the global keys:
 //
@@ -28,6 +28,7 @@
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
+#include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tb303/tb303.h>
 
 #include <cstdint>
@@ -74,16 +75,22 @@ class O3_303App final : public app::App {
     const dsp::UnitId voice = e.attach(voice_);
     const dsp::UnitId dist = e.attach(dist_);
     const dsp::UnitId delay = e.attach(delay_);
-    const dsp::UnitId freeze = e.attach(freeze_);  // after the others: the units' ids (voice 0, distortion 1, delay 2) are the tests' contract
+    const dsp::UnitId freeze = e.attach(freeze_);  // after the others: the units' ids (voice 0, distortion 1, delay 2, freeze 3) are the tests' contract
+    const dsp::UnitId growl = e.attach(growl_);    // M3c: slot 0's insert 1, after the distortion; attached last, so the ids above stay
     (void)e.set_source(0, voice);
     (void)e.set_insert(0, 0, dist);
+    (void)e.set_insert(0, 1, growl);
     (void)e.set_send_effect(0, delay);
     (void)e.set_master_insert(0, freeze);
     (void)sequencer_.setup(e, voice, dist, delay);  // adds its hook to the engine; the lanes may drive the voice, the distortion, the delay
+    (void)sequencer_.set_unit(o3_303::kLaneGrowl, growl);  // ... and the growl, whose Note the hook sets on every note start (after setup(), before start())
     // A run starts with no performance flag, no live transpose and no chain (the app object outlives a run in the simulator's tests).
     sequencer_.set_perf(0);
     sequencer_.set_fill_variant(o3_303::seq::FillVariant::Mutate);
     sequencer_.set_live_transpose(0);
+    sequencer_.wobble_rate_override(o3_303::seq::kWobbleRateNone);
+    sequencer_.set_wobble_reset(true);
+    (void)sequencer_.set_wobble(false, 0, 0, 0.0f);  // the WOBBLE action switches it on
     (void)sequencer_.clear_queue();
     (void)sequencer_.set_chain_loop(false);
 
@@ -91,6 +98,7 @@ class O3_303App final : public app::App {
     rig_.wiring.dist = dist;
     rig_.wiring.delay = delay;
     rig_.wiring.freeze = freeze;
+    rig_.wiring.growl = growl;
     rig_.wiring.bank = rig_.bank;
     rig_.controls.init(rig_.wiring);
 
@@ -177,6 +185,7 @@ class O3_303App final : public app::App {
   o3_303::Distortion dist_;
   units::Delay delay_{g_delay_l, g_delay_r, kDelayCapacity};
   o3_303::Freeze freeze_{g_freeze_l.v, g_freeze_r.v, kFreezeCapacity};
+  o3_303::Growl growl_;
   o3_303::seq::Sequencer sequencer_{o3_303::seq::project_bank()};
   o3_303::Rig rig_;
   o3_303::MainScreen main_;

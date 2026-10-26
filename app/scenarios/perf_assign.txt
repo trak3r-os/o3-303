@@ -1,7 +1,9 @@
 # The four performance buttons (docs/M3B-PLAN.md C4): Note, Instr, Vol and Fx are MUTE, ACC ALL, FILL and FREEZE by default, and each takes one of
-# MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW, FREEZE on the PERF page (three Params from SOUND; F1..F4 are the buttons, the
+# MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW, FREEZE on the PERF page (five Params from SOUND; F1..F4 are the buttons, the
 # encoder walks the actions). Held is momentary, Shift latches. The header's chips say what each button is now.
 wait 300
+tap params
+tap params
 tap params
 tap params
 tap params
@@ -42,7 +44,9 @@ release shift
 tap f3
 turn -8
 turn 4
-# on to the SEQ page (SNAP, SOUND, FX, SEQ): F6 is what FILL plays
+# on to the SEQ page (SNAP, SOUND, FX, GROWL, WOBBLE, SEQ): F6 is what FILL plays
+tap params
+tap params
 tap params
 tap params
 tap params

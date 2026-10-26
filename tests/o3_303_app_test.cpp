@@ -9,12 +9,14 @@
 #include <o3sdk/sim/harness.h>
 #include <o3_303/app_access.h>
 #include <o3_303/pad_map.h>
+#include <o3_303/pages.h>
 #include <o3_303/pattern.h>
 #include <o3_303/perform.h>
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/gen.h>
 #include <o3_303/step_model.h>
 #include <o3_303/units/distortion/distortion.h>
+#include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tb303/tb303.h>
 
 #include <algorithm>
@@ -34,6 +36,7 @@ namespace {
 
 constexpr dsp::UnitId kVoice = 0;  // the units are attached in this order (o3_303_app.cpp)
 constexpr dsp::UnitId kDist = 1;
+constexpr dsp::UnitId kGrowl = 4;  // attached after the freeze (3): the first four ids are the tests' contract
 
 seq::Bank& bank() { return seq::project_bank(); }
 
@@ -92,19 +95,20 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // A performance button's action from the SOUND page: PERF is the fourth page (three Params); F1..F4 are Note, Instr, Vol, Fx; the
-  // encoder walks the seven actions (to the first, then up); two more Params wrap back to SOUND (through SNAP).
+  // A performance button's action from the SOUND page: PERF is the sixth page (five Params); F1..F4 are Note, Instr, Vol, Fx; the
+  // encoder walks the eleven actions (to the first, then up); two more Params wrap back to SOUND (through SNAP).
   void assign_perf(Button which, PerfAction action) {
-    for (int i = 0; i < 3; ++i) {
+    for (unsigned i = 0; i < kPagePerf; ++i) {
       tap(Button::Params);
     }
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
-    turn(-8);
+    turn(-16);
     if (action != PerfAction::Mute) {
       turn(static_cast<int>(action));
     }
-    tap(Button::Params);
-    tap(Button::Params);
+    for (unsigned i = kPagePerf; i < kPageCount; ++i) {
+      tap(Button::Params);
+    }
   }
   std::uint8_t led(unsigned pad_index) const { return h->leds().level(pad_index); }
   const char* title() { return h->runtime().context().screen()->title(); }
@@ -215,8 +219,9 @@ TEST_CASE("every frame of a session fits the display list") {
   t.shift_tap(Button::F1);
   t.tap(Button::Play);
   t.wait(1500);
-  t.tap(Button::Params);
-  t.tap(Button::Params);
+  for (unsigned i = 0; i < kPageSeq; ++i) {
+    t.tap(Button::Params);
+  }
   t.press(Button::Pattern);
   t.wait(400);
   t.release(Button::Pattern);
@@ -517,7 +522,7 @@ TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two 
   CHECK(t.param(kVoice, Tb303::Wave) == doctest::Approx(1.0f));
 }
 
-TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back; the pages reach the whole engine") {
+TEST_CASE("PARAMS goes to the next page (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back; the pages reach the whole engine") {
   Hands t;
   const float drive0 = t.param(kDist, Distortion::Drive);
   t.tap(Button::Params);  // FX
@@ -535,6 +540,14 @@ TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF, SNAP), Shift + PA
   t.turn(-20);
   CHECK(t.h->engine().master_level() < 1.0f);
 
+  t.tap(Button::Params);  // GROWL: F1 is the vowel (the growl's Mix is 0, so it is still a bypass)
+  t.tap(Button::F1);
+  t.turn(10);
+  CHECK(t.param(kGrowl, Growl::Vowel) > 0.0f);  // the growl is the fifth unit, after the freeze
+  t.tap(Button::Params);  // WOBBLE: F1 is the rate
+  t.tap(Button::F1);
+  t.turn(1);
+  CHECK(t.pat().length != 0);
   t.tap(Button::Params);  // SEQ
   const std::uint32_t tempo0 = t.h->engine().tempo();
   t.tap(Button::F1);
@@ -561,8 +574,9 @@ TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF, SNAP), Shift + PA
   const float env1 = t.param(kVoice, Tb303::EnvMod);
   t.turn(3);
   CHECK(t.param(kVoice, Tb303::EnvMod) != env1);  // ENV MOD is still the latched key
-  t.tap(Button::Params);
-  t.tap(Button::Params);  // SEQ
+  for (unsigned i = 0; i < kPageSeq; ++i) {
+    t.tap(Button::Params);  // SEQ
+  }
   const std::uint32_t tempo1 = t.h->engine().tempo();
   t.tap(Button::F1);
   t.turn(2);
@@ -914,8 +928,9 @@ TEST_CASE("playing, the keyboard transposes the pattern (the bottom left C is no
   t.tap(Button::F7);
   t.turn(-10);
   CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(0.0f));
-  t.tap(Button::Params);
-  t.tap(Button::Params);
+  for (unsigned i = 0; i < kPagePerf - kPageFx; ++i) {
+    t.tap(Button::Params);
+  }
   t.h->record(true);
   t.tap(Button::Play);
   t.wait(1500);
@@ -1058,8 +1073,9 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   CHECK(t.h->display().peak_frame_words() < 2048u);
 
   // Shorter lengths: the pads past the end are dark.
-  t.tap(Button::Params);
-  t.tap(Button::Params);
+  for (unsigned i = 0; i < kPageSeq; ++i) {
+    t.tap(Button::Params);
+  }
   t.tap(Button::F3);
   t.turn(-3);  // 8 steps
   CHECK(t.pat().length == 8);
@@ -1100,8 +1116,9 @@ TEST_CASE("REC + Play + a key writes the note under the playhead and sounds it")
 TEST_CASE("worst cases for the display list: a full 64-step line, every ramp, all the locks, 48 patterns and a chain of 16") {
   Hands t;
   // The generator at full density with every accent and slide chance, over 64 steps.
-  t.tap(Button::Params);
-  t.tap(Button::Params);
+  for (unsigned i = 0; i < kPageSeq; ++i) {
+    t.tap(Button::Params);
+  }
   t.tap(Button::F7);
   t.turn(100);
   t.tap(Button::F8);

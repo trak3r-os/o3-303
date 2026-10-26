@@ -7,6 +7,7 @@
 #include <o3_303/perform.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
+#include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tb303/tb303.h>
 
 #include <cmath>
@@ -29,6 +30,8 @@ constexpr Entry delay(units::Delay::Param id, const char* label) noexcept {
   return Entry{Item::Delay, static_cast<std::uint16_t>(id), label};
 }
 constexpr Entry freeze(Freeze::Param id, const char* label) noexcept { return Entry{Item::Freeze, static_cast<std::uint16_t>(id), label}; }
+constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entry{Item::Growl, static_cast<std::uint16_t>(id), label}; }
+constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 constexpr Entry perf(unsigned button, const char* label) noexcept { return Entry{Item::Perf, static_cast<std::uint16_t>(button), label}; }
 constexpr Entry snap(unsigned slot, const char* label) noexcept { return Entry{Item::Snap, static_cast<std::uint16_t>(slot), label}; }
@@ -42,14 +45,24 @@ constexpr Page kPages[kPageCount] = {
     {"FX",
      {dist(Distortion::Drive), dist(Distortion::Tone), delay(units::Delay::Time, "DLY TIME"), delay(units::Delay::Feedback, "DLY FB"),
       app_item(Item::SendA), dist(Distortion::Mix, "DIST MIX"), app_item(Item::DistMode, "DIST"), app_item(Item::Master)}},
+    // The growl (M3c G, slot 0's insert 1): the formant filter's vowel, Q and mix, the tuned comb's tune, feedback and mix, and the wet / dry of the whole
+    // unit (0 is the default: a bit-exact bypass). F8 is free.
+    {"GROWL",
+     {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
+      growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}},
+    // The wobble (M3c W): what the WOBBLE performance action runs while it is on. F6..F8 are free.
+    {"WOBBLE",
+     {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleReset, "RESET"),
+      wobble(kWobbleTarget, "TARGET"), Entry{}, Entry{}, Entry{}}},
     // The transport and the step: the generator's settings are the RANDOM popup's (random_entry, Shift + F1). F6..F8 were the PERF page's.
     {"SEQ",
      {app_item(Item::Tempo), app_item(Item::Swing), app_item(Item::Length), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"),
       app_item(Item::FillVariant, "FILL"), app_item(Item::Ratchet), app_item(Item::Cond)}},
-    // The performance buttons' assignments (C4) and the beat freeze's length, until the kit's system Config exists. F1..F4: the button's name,
-    // its action as the value.
+    // The performance buttons' assignments (C4), the beat freeze's length and the roll rate, accelerate and stop time of ROLL and STOP (M3c R), until
+    // the kit's system Config exists. F1..F4: the button's name, its action as the value.
     {"PERF",
-     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), freeze(Freeze::Length, "FRZ LEN"), Entry{}, Entry{}, Entry{}}},
+     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), freeze(Freeze::Length, "FRZ LEN"), freeze(Freeze::RollRate, "ROLL RT"),
+      freeze(Freeze::Accelerate, "ROLL ACC"), freeze(Freeze::StopTime, "STP TIME")}},
     // The snapshots (R2): the keys recall and (with Shift) store, the encoder morphs; the page's own strip draws them.
     {"SNAP",
      {snap(0, "SNAP 1"), snap(1, "SNAP 2"), snap(2, "SNAP 3"), snap(3, "SNAP 4"), snap(4, "SNAP 5"), snap(5, "SNAP 6"), snap(6, "SNAP 7"),
@@ -110,6 +123,20 @@ constexpr core::ParamDesc kRatchet = {"RATCHET", "", kRatchetNames, nullptr, 0.0
 // Its text is cond_text(), not the descriptor's.
 constexpr core::ParamDesc kCond = {"COND", "", nullptr, nullptr, 0.0f, static_cast<float>(seq::kCondStepCount - 1u), 0.0f,
                                    static_cast<std::uint16_t>(seq::kCondStepCount - 1u), 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+
+// The wobble's settings (M3c W); the order is WobbleField's. Rate and shape are the sequencer's own tables (seq/wobble.h).
+constexpr const char* kOffOnNames[] = {"OFF", "ON"};
+constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL"};
+constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
+    {"RATE", "", seq::kWobbleRateNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleRateCount - 1u), static_cast<float>(seq::kWobble1_8),
+     static_cast<std::uint16_t>(seq::kWobbleRateCount - 1u), 1, static_cast<std::uint8_t>(seq::kWobbleRateCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"SHAPE", "", seq::kWobbleShapeNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleShapeCount - 1u), static_cast<float>(seq::kWobbleSine),
+     static_cast<std::uint16_t>(seq::kWobbleShapeCount - 1u), 1, static_cast<std::uint8_t>(seq::kWobbleShapeCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"DEPTH", "%", nullptr, nullptr, 0.0f, 100.0f, 50.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0},
+    {"RESET", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"TARGET", "", kWobbleTargetNames, nullptr, 0.0f, static_cast<float>(kWobbleTargetCount - 1u), 0.0f, static_cast<std::uint16_t>(kWobbleTargetCount - 1u), 1,
+     static_cast<std::uint8_t>(kWobbleTargetCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+};
 
 constexpr const char* kSnapNames[] = {"EMPTY", "SET"};
 constexpr core::ParamDesc kSnapSlot = {"SNAP", "", kSnapNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -179,6 +206,10 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return entry.id < kPerfButtons ? &kPerfAssign : nullptr;
     case Item::Snap:
       return entry.id < kSnapSlots ? &kSnapSlot : nullptr;
+    case Item::Growl:
+      return e.param_desc(w_->growl, entry.id);
+    case Item::Wobble:
+      return entry.id < kWobbleFieldCount ? &kWobbleDescs[entry.id] : nullptr;
     case Item::Blank:
       break;
   }
@@ -231,6 +262,24 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return entry.id < kPerfButtons ? static_cast<float>(w_->perf[entry.id]) : 0.0f;
     case Item::Snap:
       return w_->snaps.used(entry.id) ? 1.0f : 0.0f;
+    case Item::Growl:
+      return e.param(w_->growl, entry.id);
+    case Item::Wobble:
+      switch (entry.id) {
+        case kWobbleRate:
+          return static_cast<float>(w_->wobble.rate);
+        case kWobbleShape:
+          return static_cast<float>(w_->wobble.shape);
+        case kWobbleDepth:
+          return static_cast<float>(w_->wobble.depth_pct);
+        case kWobbleReset:
+          return w_->wobble.reset ? 1.0f : 0.0f;
+        case kWobbleTarget:
+          return static_cast<float>(w_->wobble.target);
+        default:
+          break;
+      }
+      return 0.0f;
     case Item::Blank:
       break;
   }
@@ -320,6 +369,40 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
         w_->perf[entry.id] = static_cast<std::uint8_t>(round_to_int(v));
       }
       break;
+    case Item::Growl:
+      (void)e.set_param(w_->growl, entry.id, v);
+      break;
+    case Item::Wobble: {
+      WobbleSettings& ws = w_->wobble;
+      const int n = round_to_int(v);
+      switch (entry.id) {
+        case kWobbleRate:
+          ws.rate = static_cast<std::uint8_t>(n);
+          break;
+        case kWobbleShape:
+          ws.shape = static_cast<std::uint8_t>(n);
+          break;
+        case kWobbleDepth:
+          ws.depth_pct = static_cast<std::uint8_t>(n);
+          break;
+        case kWobbleReset:
+          ws.reset = n != 0;
+          break;
+        case kWobbleTarget:
+          ws.target = static_cast<std::uint8_t>(n);
+          break;
+        default:
+          break;
+      }
+      if (w_->seq != nullptr) {  // a running wobble takes the change at once; otherwise only the note reset has a meaning of its own
+        if (w_->seq->wobble().on) {
+          apply_wobble(true);
+        } else {
+          w_->seq->set_wobble_reset(ws.reset);
+        }
+      }
+      break;
+    }
     case Item::Snap:  // a snapshot is recalled and stored by the screen's keys, not set
     case Item::Blank:
       break;
@@ -331,8 +414,11 @@ void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse
   if (d == nullptr || detents == 0) {
     return;
   }
-  if (entry.item == Item::Voice || entry.item == Item::Dist || entry.item == Item::Delay || entry.item == Item::Freeze) {
-    const dsp::UnitId unit = entry.item == Item::Voice ? w_->voice : (entry.item == Item::Dist ? w_->dist : (entry.item == Item::Delay ? w_->delay : w_->freeze));
+  if (entry.item == Item::Voice || entry.item == Item::Dist || entry.item == Item::Delay || entry.item == Item::Freeze || entry.item == Item::Growl) {
+    const dsp::UnitId unit = entry.item == Item::Voice
+                                 ? w_->voice
+                                 : (entry.item == Item::Dist ? w_->dist
+                                                             : (entry.item == Item::Delay ? w_->delay : (entry.item == Item::Freeze ? w_->freeze : w_->growl)));
     (void)e.step_param(unit, entry.id, detents, coarse);
     return;
   }
@@ -428,6 +514,9 @@ bool Controls::lane_ref(const Entry& entry, LaneRef& out) const noexcept {
     case Item::Delay:
       out = LaneRef{kLaneDelay, static_cast<std::uint8_t>(entry.id)};
       return entry.id < seq::kKnobs;
+    case Item::Growl:
+      out = LaneRef{kLaneGrowl, static_cast<std::uint8_t>(entry.id)};
+      return entry.id < seq::kKnobs;
     case Item::Level:
       out = LaneRef{kLaneMixer, kMixerLevel};
       return true;
@@ -448,6 +537,8 @@ Entry Controls::lane_entry(const LaneRef& ref) const noexcept {
       return Entry{Item::Dist, ref.id, nullptr};
     case kLaneDelay:
       return Entry{Item::Delay, ref.id, nullptr};
+    case kLaneGrowl:
+      return Entry{Item::Growl, ref.id, nullptr};
     case kLaneMixer:
       if (ref.id == kMixerLevel) {
         return Entry{Item::Level, 0, nullptr};
@@ -531,6 +622,20 @@ void Controls::snap_capture(const dsp::Engine& e, float* out) const noexcept {
 bool Controls::snap_discrete(const dsp::Engine& e, unsigned index) const noexcept {
   const core::ParamDesc* d = index < kSnapTargetCount ? desc(e, kSnapTargets[index]) : nullptr;
   return d != nullptr && d->unit == ParamUnit::Enum;
+}
+
+LaneRef Controls::wobble_target() const noexcept {
+  return w_->wobble.target == kWobbleVowel ? LaneRef{kLaneGrowl, static_cast<std::uint8_t>(Growl::Vowel)}
+                                           : LaneRef{kLaneVoice, static_cast<std::uint8_t>(Tb303::Cutoff)};
+}
+
+void Controls::apply_wobble(bool on) const noexcept {
+  if (w_->seq == nullptr) {
+    return;
+  }
+  const WobbleSettings& ws = w_->wobble;
+  w_->seq->set_wobble_reset(ws.reset);
+  (void)w_->seq->set_wobble(on, ws.rate, ws.shape, static_cast<float>(ws.depth_pct) * 0.01f, wobble_target());
 }
 
 void Controls::apply_send(dsp::Engine& e) const noexcept {

@@ -25,6 +25,10 @@ void set_freeze(o3sdk::dsp::Engine& e, const Rig& rig, bool on) noexcept {
 
 bool freeze_on(const o3sdk::dsp::Engine& e, const Rig& rig) noexcept { return e.param(rig.wiring.freeze, Freeze::Active) >= 0.5f; }
 
+void set_freeze_mode(o3sdk::dsp::Engine& e, const Rig& rig, Freeze::ModeValue mode) noexcept {
+  (void)e.set_param(rig.wiring.freeze, Freeze::Mode, static_cast<float>(mode));
+}
+
 void set_freeze_length(o3sdk::dsp::Engine& e, const Rig& rig, Freeze::LengthValue length) noexcept {
   (void)e.set_param(rig.wiring.freeze, Freeze::Length, static_cast<float>(length));
 }

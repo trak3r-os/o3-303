@@ -53,6 +53,21 @@ enum class Item : std::uint8_t {
   FillVariant,  // what FILL plays (seq::FillVariant)
   Perf,       // the action of a performance button (id 0 Note, 1 Instr, 2 Vol, 3 Fx): a PerfAction
   Snap,       // a snapshot slot of the SNAP page (id 0..7): its key recalls (Shift: stores) and the encoder morphs, it is never latched
+  Growl,      // M3c: a parameter of the growl on slot 0's insert 1 (id = its parameter id)
+  Wobble,     // M3c: a setting of the wobble (id = a WobbleField), the sequencer's LFO; the settings are Wiring::wobble
+};
+
+// The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
+// it is on applies at once); the reset-on-note is applied at once whatever.
+enum WobbleField : std::uint16_t { kWobbleRate, kWobbleShape, kWobbleDepth, kWobbleReset, kWobbleTarget, kWobbleFieldCount };
+enum WobbleTarget : std::uint8_t { kWobbleCutoff, kWobbleVowel, kWobbleTargetCount };  // the voice's Cutoff, the growl's Vowel
+
+struct WobbleSettings {
+  std::uint8_t rate = seq::kWobble1_8;      // a seq::WobbleRate
+  std::uint8_t shape = seq::kWobbleSine;    // a seq::WobbleShape
+  std::uint8_t depth_pct = 50;              // 0..100
+  bool reset = true;                        // the phase restarts on each note
+  std::uint8_t target = kWobbleCutoff;      // a WobbleTarget
 };
 
 struct Entry {
@@ -68,13 +83,15 @@ struct Page {
   Entry entry[kKeys];
 };
 
-// SOUND, FX, SEQ, PERF and SNAP (MODS comes with the voice's extra parameters). PERF is o3-303's own page until the kit's system Config exists
-// (docs/M3B-PLAN.md C4): the four performance buttons' assignments and the beat freeze's length. SEQ is the transport and the step's own
+// SOUND, FX, GROWL, WOBBLE, SEQ, PERF and SNAP (MODS comes with the voice's extra parameters). GROWL (M3c G) is the growl's seven parameters and
+// WOBBLE (M3c W) the wobble's five settings: rate, shape, depth, reset on note, and target (the voice's Cutoff or the growl's Vowel). PERF is
+// o3-303's own page until the kit's system Config exists (docs/M3B-PLAN.md C4): the four performance buttons' assignments, the beat freeze's
+// length, and the roll rate, accelerate and stop time of ROLL and STOP (M3c R). SEQ is the transport and the step's own
 // settings (tempo, swing, length, gate, transpose, what FILL plays, the ratchet and the trig condition of a step); the generator's settings
 // (scale, density, accent / slide chance) are the RANDOM popup's, `random_entry()` (C3). SNAP (R2) is eight snapshot keys: a tap recalls,
 // Shift + a key stores, the encoder morphs; it is the last of the PARAMS cycle and the Shift + PARAMS page.
-inline constexpr unsigned kPageCount = 5;
-enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageSeq = 2, kPagePerf = 3, kPageSnap = 4 };
+inline constexpr unsigned kPageCount = 7;
+enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageGrowl = 2, kPageWobble = 3, kPageSeq = 4, kPagePerf = 5, kPageSnap = 6 };
 
 const Page& page_at(unsigned index) noexcept;
 
@@ -97,6 +114,7 @@ struct Wiring {
   o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId freeze = o3sdk::dsp::kNoUnit;  // master insert 0: the beat freeze (units/freeze, M3b R6)
+  o3sdk::dsp::UnitId growl = o3sdk::dsp::kNoUnit;   // slot 0's insert 1: the growl (units/growl, M3c G); attached after the freeze (ids: voice 0, dist 1, delay 2, freeze 3)
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;  // FILL's variant (the PERF page); null: the entry reads and writes nothing
   seq::GenParams gen;        // the generator's settings (the SEQ page)
@@ -108,6 +126,7 @@ struct Wiring {
                              // scale without that, so the keyboard is chromatic until the Scale entry is touched; "No scale" or "Chromatic" unlocks it
   unsigned step_focus = 0;   // the step the Ratchet and Cond entries show and edit: the screen sets it (a held step, else the cursor)
   SnapBank snaps;            // the SNAP page's eight snapshots and the morph (RAM only; the screen reads and writes it from the main loop)
+  WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
 };
 
 class Controls {
@@ -155,6 +174,11 @@ class Controls {
   // discrete (an enum: it switches, a morph does not glide it).
   void snap_capture(const o3sdk::dsp::Engine& e, float* out) const noexcept;
   bool snap_discrete(const o3sdk::dsp::Engine& e, unsigned index) const noexcept;
+
+  // The wobble on or off with the settings of Wiring::wobble (set_wobble_reset always): the WOBBLE action calls it at its press and release, and a
+  // change of a setting while the wobble runs calls it again. The target is {kLaneVoice, Cutoff} or {kLaneGrowl, Vowel}.
+  void apply_wobble(bool on) const noexcept;
+  LaneRef wobble_target() const noexcept;
 
   // The level DELAY THROW and the base level give the engine now: call after the base or the throw changes.
   void apply_send(o3sdk::dsp::Engine& e) const noexcept;

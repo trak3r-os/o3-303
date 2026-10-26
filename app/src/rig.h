@@ -40,6 +40,8 @@ void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset
 // main loop last asked for, not whether the loop is audible yet.
 void set_freeze(o3sdk::dsp::Engine& e, const Rig& rig, bool on) noexcept;
 bool freeze_on(const o3sdk::dsp::Engine& e, const Rig& rig) noexcept;
+// The freeze's Mode (M3c R: FREEZE, ROLL, STOP, REVERSE), latched by the unit at its next entry: written just before Active when an action goes on.
+void set_freeze_mode(o3sdk::dsp::Engine& e, const Rig& rig, Freeze::ModeValue mode) noexcept;
 void set_freeze_length(o3sdk::dsp::Engine& e, const Rig& rig, Freeze::LengthValue length) noexcept;
 Freeze::LengthValue freeze_length(const o3sdk::dsp::Engine& e, const Rig& rig) noexcept;
 

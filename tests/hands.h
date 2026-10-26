@@ -28,6 +28,7 @@ inline constexpr dsp::UnitId kVoice = 0;  // the units are attached in this orde
 inline constexpr dsp::UnitId kDist = 1;
 inline constexpr dsp::UnitId kDelay = 2;
 inline constexpr dsp::UnitId kFreeze = 3;
+inline constexpr dsp::UnitId kGrowl = 4;  // attached after the freeze (M3c G): slot 0's insert 1
 
 inline o3_303::seq::Bank& bank() { return o3_303::seq::project_bank(); }
 
@@ -101,7 +102,7 @@ struct Hands {
   void assign_perf(Button which, o3_303::PerfAction action) {
     to_page(o3_303::kPagePerf);
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
-    turn(-8);
+    turn(-16);
     if (action != o3_303::PerfAction::Mute) {
       turn(static_cast<int>(action));
     }

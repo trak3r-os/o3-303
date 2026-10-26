@@ -88,7 +88,7 @@ F4 INVERT, F5 DOUBLE (length × 2, copied), F6 CLEAR, F7 REDO, F8 UNDO; they wor
 | Note / Instr / Vol / Fx | the four performance buttons, each one of MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW (the delay send to unity) or FREEZE (the beat freeze), assigned on the PERF page; momentary; the defaults are MUTE, ACC ALL, FILL, FREEZE | latch them |
 | Pattern | tap: the 303 screen (again: step view / piano roll); hold: the 48 pads are 48 patterns, a tap queues one, several taps make a chain (as the original firmware does) | — |
 | Copy / Insert / Delete | step or pattern: copy, insert, clear | paste / duplicate / clear the whole pattern |
-| Params | the next page of F keys (SOUND, FX, SEQ, PERF, SNAP) | the SNAP page, and back |
+| Params | the next page of F keys (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SNAP) | the SNAP page, and back |
 | Song | the chain, with repeats and a transpose per entry | |
 | Performance | the HOOKS screen | the split mode (section 7) |
 | SampleLoad / Play / Edit / Rec | the HOOKS sub-pages | |

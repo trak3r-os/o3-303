@@ -3,6 +3,8 @@
 wait 300
 tap params
 tap params
+tap params
+tap params
 snap 01_seq_page_without_the_generator
 press shift
 tap f1

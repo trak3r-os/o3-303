@@ -28,6 +28,31 @@ unsigned put_uint(char* out, unsigned cap, unsigned n, unsigned v) noexcept {
 
 }  // namespace
 
+FreezeCmd FreezeOwner::step(std::uint16_t on, std::uint16_t changed) noexcept {
+  FreezeCmd cmd;
+  if (owner_ >= 0) {
+    if ((on >> static_cast<unsigned>(owner_) & 1u) == 0u) {  // the owner let go: off, with the Mode as it is
+      owner_ = -1;
+      cmd.set_active = true;
+      cmd.active = false;
+    }
+    return cmd;
+  }
+  // The more specific modes first; an action that went on in this call (a press, a latch, a reassigned button) takes the unit.
+  static constexpr PerfAction kPriority[] = {PerfAction::Roll, PerfAction::Stop, PerfAction::Reverse, PerfAction::Freeze};
+  for (const PerfAction a : kPriority) {
+    if (((on & changed) & perf_bit(a)) != 0u) {
+      owner_ = static_cast<int>(a);
+      cmd.set_mode = true;
+      cmd.mode = static_cast<unsigned>(perf_freeze_mode(a));
+      cmd.set_active = true;
+      cmd.active = true;
+      break;
+    }
+  }
+  return cmd;
+}
+
 unsigned cond_text(std::uint8_t cond, char* out, unsigned cap) noexcept {
   if (out == nullptr || cap == 0u) {
     return 0;

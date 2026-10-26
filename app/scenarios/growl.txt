@@ -1,0 +1,56 @@
+# The growl and the wobble (docs/M3C-PLAN.md G and W): the GROWL page (after FX) opens the growl's Mix and sets a vowel, the WOBBLE page points the
+# wobble at the growl's Vowel (rate 1/8, depth 100 %), the PERF page gives Fx the WOBBLE action, and the factory line plays. Held, the WOBBLE action
+# runs the vowel at 1/8 (A -> U -> A about the middle vowel, I, twice a beat: the talking bass); the bottom row of pads is then the rate picker
+# (1/16 here), whose LEDs follow the rate; the release gives the pattern's rate back (the wobble is off). The WAV is the evidence: it is the 303
+# through the formants and the comb, dry for the first bar, wobbling for the next two, plain again at the end.
+wait 300
+record on
+# GROWL (two Params from SOUND): F1 VOWEL to 50 % (I), F7 GROWL MIX to 100 %.
+tap params
+tap params
+tap f1
+turn 50
+tap f7
+turn 100
+wait 100
+snap 01_growl_page
+# WOBBLE: F3 DEPTH 100 %, F5 TARGET the growl's Vowel.
+tap params
+tap f3
+turn 50
+tap f5
+turn 1
+wait 100
+snap 02_wobble_page
+# PERF (two more Params): Fx (F4) gets the WOBBLE action (the eleven actions: down to the first, then up seven); two more Params come back.
+tap params
+tap params
+tap f4
+turn -16
+turn 7
+wait 100
+snap 03_perf_wobble_on_fx
+tap params
+tap params
+tap play
+wait 2100
+# Fx held: the vowel wobbles at the set 1/8.
+press fx
+wait 2400
+snap 04_wobble_held
+# A pad of the bottom row picks the rate live: 1/16 (the seventh pad), then 1/4 (the third).
+paddown 42
+wait 300
+padup 42
+wait 1500
+snap 05_wobble_sixteenth
+paddown 38
+wait 300
+padup 38
+wait 1500
+release fx
+wait 1500
+snap 06_wobble_released
+tap play
+wait 600
+wav growl_wobble

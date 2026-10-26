@@ -10,6 +10,7 @@
 
 #include <o3sdk/app/app.h>
 #include <o3sdk/sim/harness.h>
+#include <o3_303/pages.h>
 #include <o3_303/units/freeze/freeze.h>
 
 #include <cstdint>
@@ -59,17 +60,18 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // The beat freeze's Length from the PERF page (F5, FRZ LEN): from the SOUND page Params three times; two more come back. The encoder walks
+  // The beat freeze's Length from the PERF page (F5, FRZ LEN): from the SOUND page Params five times; two more come back. The encoder walks
   // 1/4, 1/8, 1/16 and stops at the ends.
   void choose_length(Freeze::LengthValue v) {
-    for (int i = 0; i < 3; ++i) {
+    for (unsigned i = 0; i < o3_303::kPagePerf; ++i) {
       tap(Button::Params);
     }
     tap(Button::F5);
     turn(-3);
     turn(static_cast<int>(v));
-    tap(Button::Params);
-    tap(Button::Params);
+    for (unsigned i = o3_303::kPagePerf; i < o3_303::kPageCount; ++i) {
+      tap(Button::Params);
+    }
   }
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }
   std::size_t frames() const { return h->audio().size() / 2u; }
@@ -134,17 +136,18 @@ bool same(const std::vector<std::int16_t>& a, const std::vector<std::int16_t>& b
 
 }  // namespace
 
-TEST_CASE("one voice: the engine has the voice, the distortion, the delay and the freeze, and only slot 0 sounds (C1)") {
+TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the freeze and the growl, and only slot 0 sounds (C1)") {
   Hands t;
   dsp::Engine& e = t.h->engine();
-  CHECK(e.unit_count() == 4u);
+  CHECK(e.unit_count() == 5u);
   NEED(e.unit_info(kVoice) != nullptr);
   CHECK(std::string(e.unit_info(kVoice)->name) == "TB303");
   CHECK(std::string(e.unit_info(kDist)->name) == "DISTORTION");
   CHECK(std::string(e.unit_info(kDelay)->name) == "DELAY");
   CHECK(std::string(e.unit_info(kFreeze)->name) == "FREEZE");
   CHECK(e.unit_info(kFreeze)->kind == dsp::UnitKind::Effect);
-  CHECK(e.unit_info(4) == nullptr);  // no second voice, no unit after the freeze
+  CHECK(std::string(e.unit_info(4)->name) == "GROWL");  // M3c: attached after the freeze, so the ids above stay
+  CHECK(e.unit_info(5) == nullptr);                        // no second voice, no unit after the growl
   t.tap(Button::Play);
   float slot0 = 0.0f;
   float others = 0.0f;

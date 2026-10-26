@@ -25,7 +25,7 @@ std::string text_of(std::uint8_t cond) {
 
 TEST_CASE("perform: the defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (C4)") {
   CHECK(kPerfButtons == 4);
-  CHECK(kPerfActionCount == 7);
+  CHECK(kPerfActionCount == 11);
   CHECK(kDefaultPerf[0] == static_cast<std::uint8_t>(PerfAction::Mute));
   CHECK(kDefaultPerf[1] == static_cast<std::uint8_t>(PerfAction::AccAll));
   CHECK(kDefaultPerf[2] == static_cast<std::uint8_t>(PerfAction::Fill));
@@ -57,13 +57,13 @@ TEST_CASE("perform: an action is on while a button that carries it is held or la
   // A bit above the four buttons is no button.
   CHECK(perf_actions_on(assign, 1u << 5, 1u << 6) == 0);
   // Every action has its own bit.
-  std::uint8_t all = 0;
+  std::uint16_t all = 0;
   for (unsigned a = 0; a < kPerfActionCount; ++a) {
-    const std::uint8_t b = perf_bit(static_cast<PerfAction>(a));
+    const std::uint16_t b = perf_bit(static_cast<PerfAction>(a));
     CHECK((all & b) == 0);
-    all = static_cast<std::uint8_t>(all | b);
+    all = static_cast<std::uint16_t>(all | b);
   }
-  CHECK(all == 0x7F);
+  CHECK(all == 0x7FF);
 }
 
 TEST_CASE("perform: the ladder has 12 places from the knob's minimum to its maximum, and a position finds its pad") {
@@ -166,4 +166,88 @@ TEST_CASE("perform: a trig condition reads as ALWAYS, a percent, A:B, FILL, !FIL
   CHECK(std::strcmp(tiny, "!FI") == 0);
   CHECK(cond_text(kCondFill, nullptr, 8) == 0);
   CHECK(cond_text(kCondFill, tiny, 0) == 0);
+}
+
+TEST_CASE("perform: M3c's actions WOBBLE, ROLL, STOP, REV follow the old seven, and every action has a bit of a sixteen-bit mask") {
+  CHECK(static_cast<unsigned>(PerfAction::Freeze) == 6);  // append, never insert: an assignment is a number
+  CHECK(static_cast<unsigned>(PerfAction::Wobble) == 7);
+  CHECK(static_cast<unsigned>(PerfAction::Roll) == 8);
+  CHECK(static_cast<unsigned>(PerfAction::Stop) == 9);
+  CHECK(static_cast<unsigned>(PerfAction::Reverse) == 10);
+  CHECK(std::strcmp(kPerfActionNames[static_cast<unsigned>(PerfAction::Wobble)], "WOBBLE") == 0);
+  CHECK(std::strcmp(kPerfActionNames[static_cast<unsigned>(PerfAction::Reverse)], "REV") == 0);
+  std::uint8_t assign[kPerfButtons] = {static_cast<std::uint8_t>(PerfAction::Reverse), static_cast<std::uint8_t>(PerfAction::Wobble), 0, 0};
+  CHECK(perf_actions_on(assign, 1u << 0, 0) == perf_bit(PerfAction::Reverse));
+  CHECK(perf_actions_on(assign, 0, 1u << 1) == perf_bit(PerfAction::Wobble));
+  CHECK(perf_bit(PerfAction::Reverse) == 0x400);
+}
+
+TEST_CASE("perform: the WOBBLE picker is the bottom row's first eleven pads, column c = rate c") {
+  for (unsigned col = 0; col < 12; ++col) {
+    CHECK(wobble_pad_rate(36 + col) == (col < 11 ? static_cast<int>(col) : -1));
+  }
+  CHECK(wobble_pad_rate(35) == -1);  // the row above
+  CHECK(wobble_pad_rate(0) == -1);
+  CHECK(wobble_pad_rate(48) == -1);  // past the panel
+  CHECK(wobble_pad_rate(36 + 4) == seq::kWobble1_8);
+  CHECK(wobble_pad_rate(36 + 10) == seq::kWobble1_16D);
+}
+
+TEST_CASE("perform: the freeze family has one owner; Mode then Active at the entry, Active off at the owner's release (M3c R)") {
+  CHECK(perf_freeze_mode(PerfAction::Freeze) == 0);
+  CHECK(perf_freeze_mode(PerfAction::Roll) == 1);
+  CHECK(perf_freeze_mode(PerfAction::Stop) == 2);
+  CHECK(perf_freeze_mode(PerfAction::Reverse) == 3);
+  CHECK(perf_freeze_mode(PerfAction::Mute) == -1);
+  CHECK(perf_freeze_mode(PerfAction::Wobble) == -1);
+
+  FreezeOwner f;
+  // Nothing happens for an action that is not one of the four, or for a change that is a release with no owner.
+  FreezeCmd c = f.step(perf_bit(PerfAction::Mute), perf_bit(PerfAction::Mute));
+  CHECK_FALSE(c.set_mode);
+  CHECK_FALSE(c.set_active);
+  c = f.step(0, perf_bit(PerfAction::Mute));
+  CHECK_FALSE(c.set_active);
+  CHECK(f.owner() == -1);
+
+  // ROLL goes on: Mode 1 and Active on; a STOP that goes on under it does nothing; the release of ROLL is Active off and no Mode.
+  c = f.step(perf_bit(PerfAction::Roll), perf_bit(PerfAction::Roll));
+  CHECK(c.set_mode);
+  CHECK(c.mode == 1u);
+  CHECK(c.set_active);
+  CHECK(c.active);
+  CHECK(f.owner() == static_cast<int>(PerfAction::Roll));
+  const std::uint16_t both = static_cast<std::uint16_t>(perf_bit(PerfAction::Roll) | perf_bit(PerfAction::Stop));
+  c = f.step(both, perf_bit(PerfAction::Stop));
+  CHECK_FALSE(c.set_mode);
+  CHECK_FALSE(c.set_active);
+  c = f.step(perf_bit(PerfAction::Stop), perf_bit(PerfAction::Roll));
+  CHECK_FALSE(c.set_mode);
+  CHECK(c.set_active);
+  CHECK_FALSE(c.active);
+  CHECK(f.owner() == -1);
+  // STOP is still held and is not picked up by a later call that is not its own press ...
+  c = f.step(perf_bit(PerfAction::Stop), perf_bit(PerfAction::Mute));
+  CHECK_FALSE(c.set_active);
+  // ... and a new press of it is.
+  c = f.step(0, perf_bit(PerfAction::Stop));
+  CHECK_FALSE(c.set_active);
+  c = f.step(perf_bit(PerfAction::Stop), perf_bit(PerfAction::Stop));
+  CHECK(c.mode == 2u);
+  CHECK(c.active);
+  c = f.step(0, perf_bit(PerfAction::Stop));
+  CHECK_FALSE(c.active);
+  CHECK(c.set_active);
+
+  // FREEZE alone is Mode 0 and Active on, then Active off: the old unit's two writes, plus the Mode that is its default.
+  c = f.step(perf_bit(PerfAction::Freeze), perf_bit(PerfAction::Freeze));
+  CHECK(c.set_mode);
+  CHECK(c.mode == 0u);
+  CHECK(c.active);
+  f.reset();
+  CHECK(f.owner() == -1);
+  // REV, and the priority when two go on in one call (a reassigned button): the more specific mode.
+  c = f.step(static_cast<std::uint16_t>(perf_bit(PerfAction::Reverse) | perf_bit(PerfAction::Roll)),
+             static_cast<std::uint16_t>(perf_bit(PerfAction::Reverse) | perf_bit(PerfAction::Roll)));
+  CHECK(c.mode == 1u);
 }

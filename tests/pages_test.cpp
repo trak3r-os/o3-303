@@ -10,6 +10,7 @@
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
+#include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tb303/tb303.h>
 
 #include <cmath>
@@ -32,6 +33,7 @@ struct Rig {
   float fl[kCap] = {};
   float fr[kCap] = {};
   Freeze freeze{fl, fr, kCap};
+  Growl growl;
   dsp::Engine engine;
   std::unique_ptr<seq::Bank> bank = std::make_unique<seq::Bank>();
   std::unique_ptr<seq::Sequencer> sequencer = std::make_unique<seq::Sequencer>(*bank);
@@ -43,8 +45,10 @@ struct Rig {
     wiring.dist = engine.attach(dist);
     wiring.delay = engine.attach(delay);
     wiring.freeze = engine.attach(freeze);
+    wiring.growl = engine.attach(growl);
     (void)engine.set_source(0, wiring.voice);
     (void)engine.set_insert(0, 0, wiring.dist);
+    (void)engine.set_insert(0, 1, wiring.growl);
     (void)engine.set_send_effect(0, wiring.delay);
     bank->init();
     wiring.bank = bank.get();
@@ -62,9 +66,12 @@ struct Rig {
 
 }  // namespace
 
-TEST_CASE("pages: the five pages and their keys (DESIGN-303 section 3; PERF and SNAP are M3b's)") {
+TEST_CASE("pages: the seven pages and their keys (DESIGN-303 section 3; PERF and SNAP are M3b's, GROWL and WOBBLE M3c's)") {
   Rig rig;
-  CHECK(kPageCount == 5);
+  CHECK(kPageCount == 7);
+  CHECK(std::strcmp(page_at(kPageGrowl).name, "GROWL") == 0);
+  CHECK(std::strcmp(page_at(kPageWobble).name, "WOBBLE") == 0);
+  CHECK(kPageGrowl == kPageFx + 1);  // after FX
   CHECK(std::strcmp(page_at(kPageSnap).name, "SNAP") == 0);
   CHECK(std::strcmp(page_at(kPagePerf).name, "PERF") == 0);
   CHECK(std::strcmp(page_at(kPageSound).name, "SOUND") == 0);
@@ -74,7 +81,7 @@ TEST_CASE("pages: the five pages and their keys (DESIGN-303 section 3; PERF and 
   for (unsigned p = 0; p < kPageCount; ++p) {
     for (unsigned k = 0; k < kKeys; ++k) {
       const Entry e = rig.entry(p, k);
-      if (p == kPagePerf && k >= 5) {  // the freeze's length is the last key the PERF page needs
+      if ((p == kPageGrowl && k >= 7) || (p == kPageWobble && k >= 5)) {  // the growl has seven keys, the wobble five
         CHECK(e.item == Item::Blank);
         continue;
       }
@@ -186,7 +193,7 @@ TEST_CASE("pages: the PERF page (the four assignments, the freeze's length) and 
   rig.controls.set(rig.engine, vol, 2.0f);
   CHECK(rig.text(vol) == "SLD ALL");
   rig.controls.set(rig.engine, vol, 99.0f);  // clamped to the last action
-  CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::Freeze));
+  CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::Reverse));
   // F5: what FILL plays, through the sequencer.
   const Entry fill = rig.entry(kPageSeq, 5);
   CHECK(rig.text(fill) == "MUTATE");
@@ -240,7 +247,7 @@ TEST_CASE("pages: the PERF page (the four assignments, the freeze's length) and 
   // Every entry has a descriptor and a label that fits.
   for (unsigned k = 0; k < kKeys; ++k) {
     CHECK(rig.controls.desc(rig.engine, rig.entry(kPageSeq, k)) != nullptr);
-    CHECK((rig.controls.desc(rig.engine, rig.entry(kPagePerf, k)) != nullptr) == (k < 5));
+    CHECK(rig.controls.desc(rig.engine, rig.entry(kPagePerf, k)) != nullptr);  // F5..F8: the freeze's length, roll rate, accelerate, stop time
   }
 }
 
@@ -469,4 +476,65 @@ TEST_CASE("pages: the SNAP page's keys and what a snapshot holds (R2)") {
   CHECK(now[16] == doctest::Approx(-12.0f));  // the level, in dB
   CHECK(now[17] == doctest::Approx(30.0f));   // the send, in percent
   CHECK(now[kSnapTargetCount] == 0.0f);
+}
+
+TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the wobble's five settings, PERF the freeze's roll and stop (M3c)") {
+  Rig rig;
+  // GROWL: F1..F7 are the growl's ids 0..5 and 7 (Note, id 6, is the sequencer's), F8 is free.
+  static constexpr Growl::Param kIds[7] = {Growl::Vowel,      Growl::FormantQ, Growl::FormantMix, Growl::CombTune,
+                                           Growl::CombFeedback, Growl::CombMix, Growl::Mix};
+  for (unsigned k = 0; k < 7; ++k) {
+    const Entry e = rig.entry(kPageGrowl, k);
+    CHECK(e.item == Item::Growl);
+    CHECK(e.id == kIds[k]);
+    CHECK(rig.controls.get(rig.engine, e) == doctest::Approx(rig.engine.param(rig.wiring.growl, kIds[k])));
+  }
+  CHECK(rig.text(rig.entry(kPageGrowl, 6)) == "0%");  // Mix 0: the growl is a bit-exact bypass until the player opens it
+  const float vowel0 = rig.controls.get(rig.engine, rig.entry(kPageGrowl, 0));
+  rig.controls.step(rig.engine, rig.entry(kPageGrowl, 0), 10, false);
+  CHECK(rig.controls.get(rig.engine, rig.entry(kPageGrowl, 0)) > vowel0);
+  LaneRef ref{kLaneNone, 99};
+  REQUIRE(rig.controls.lane_ref(rig.entry(kPageGrowl, 0), ref));
+  CHECK(ref.target == kLaneGrowl);
+  CHECK(ref.id == Growl::Vowel);
+  const Entry back = rig.controls.lane_entry(ref);
+  CHECK(back.item == Item::Growl);
+  CHECK(back.id == Growl::Vowel);
+  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, ref), "VOWEL") == 0);
+
+  // WOBBLE: rate, shape, depth, reset, target; defaults 1/8, sine, 50 %, reset on, the voice's Cutoff.
+  CHECK(rig.text(rig.entry(kPageWobble, 0)) == "1/8");
+  CHECK(rig.text(rig.entry(kPageWobble, 1)) == "SINE");
+  CHECK(rig.text(rig.entry(kPageWobble, 2)) == "50%");
+  CHECK(rig.text(rig.entry(kPageWobble, 3)) == "ON");
+  CHECK(rig.text(rig.entry(kPageWobble, 4)) == "CUTOFF");
+  rig.controls.step(rig.engine, rig.entry(kPageWobble, 0), 2, false);  // 1/8 -> 1/8T -> 1/16
+  CHECK(rig.wiring.wobble.rate == seq::kWobble1_16);
+  rig.controls.step(rig.engine, rig.entry(kPageWobble, 0), 99, false);  // stops at the last rate
+  CHECK(rig.wiring.wobble.rate == seq::kWobbleRateCount - 1u);
+  rig.controls.step(rig.engine, rig.entry(kPageWobble, 4), 1, false);
+  CHECK(rig.wiring.wobble.target == kWobbleVowel);
+  CHECK(rig.text(rig.entry(kPageWobble, 4)) == "VOWEL");
+  CHECK(rig.controls.wobble_target().target == kLaneGrowl);
+  CHECK(rig.controls.wobble_target().id == Growl::Vowel);
+  rig.controls.step(rig.engine, rig.entry(kPageWobble, 3), -1, false);
+  CHECK_FALSE(rig.wiring.wobble.reset);
+  CHECK(rig.sequencer->wobble().reset_on_note == false);  // the reset applies at once, even with the wobble off
+  rig.controls.step(rig.engine, rig.entry(kPageWobble, 2), -99, false);
+  CHECK(rig.wiring.wobble.depth_pct == 0);
+  for (unsigned k = 0; k < 5; ++k) {  // the wobble's settings drive no lane (the lane for its rate and depth is kLaneSeq's)
+    CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageWobble, k), ref));
+  }
+
+  // PERF: F5 the freeze's length, F6..F8 the roll rate, accelerate and stop time (the unit's ids 4, 5, 6).
+  CHECK(rig.entry(kPagePerf, 5).item == Item::Freeze);
+  CHECK(rig.entry(kPagePerf, 5).id == Freeze::RollRate);
+  CHECK(rig.entry(kPagePerf, 6).id == Freeze::Accelerate);
+  CHECK(rig.entry(kPagePerf, 7).id == Freeze::StopTime);
+  CHECK(rig.text(rig.entry(kPagePerf, 5)) == "1/16");
+  rig.controls.step(rig.engine, rig.entry(kPagePerf, 5), 1, false);
+  CHECK(rig.text(rig.entry(kPagePerf, 5)) == "1/32");
+  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::RollRate) == doctest::Approx(2.0f));
+  rig.controls.step(rig.engine, rig.entry(kPagePerf, 7), 1, false);
+  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::StopTime) == doctest::Approx(3.0f));
 }

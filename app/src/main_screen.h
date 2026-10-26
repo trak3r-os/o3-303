@@ -76,6 +76,9 @@ class MainScreen final : public o3sdk::app::Screen {
   void perf_press(o3sdk::app::Context& ctx, unsigned button, bool shift) noexcept;
   void perf_release(o3sdk::app::Context& ctx, unsigned button) noexcept;
   void apply_perf(o3sdk::app::Context& ctx) noexcept;
+  void wobble_pad(o3sdk::app::Context& ctx, unsigned pad) noexcept;
+  void wobble_leds(o3sdk::app::PadLeds& leds) const noexcept;
+  bool wobble_on() const noexcept { return (perf_applied_ & perf_bit(PerfAction::Wobble)) != 0u; }
   void sync_perf_assignments(o3sdk::app::Context& ctx) noexcept;
   void push_live_transpose() noexcept;
   void master_press(o3sdk::app::Context& ctx, bool shift) noexcept;
@@ -164,7 +167,8 @@ class MainScreen final : public o3sdk::app::Screen {
   // The four performance buttons (Note, Instr, Vol, Fx: bit b = button b) and the actions they do now (a bit per PerfAction, applied).
   unsigned perf_held_ = 0;
   unsigned perf_latched_ = 0;
-  std::uint8_t perf_applied_ = 0;
+  std::uint16_t perf_applied_ = 0;
+  FreezeOwner freeze_owner_;  // which of FREEZE, ROLL, STOP and REV has the beat freeze now (M3c R)
   std::uint8_t perf_seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
   EncLatch enc_latch_ = EncLatch::None;
   // Master (R7): a tap latches the encoder, a hold and a turn nudges the tempo and gives it back at the release.

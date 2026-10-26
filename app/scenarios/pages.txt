@@ -1,5 +1,5 @@
 # F1..F8 and the encoder (DESIGN-303 section 3): tap latches, hold + turn is for a moment, two held move together, Shift is coarse,
-# PARAMS goes to the next page (SOUND, FX, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back.
+# PARAMS goes to the next page (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back.
 # Choices made here: SOUND's F8 VOLUME is slot 0's level in dB, default -6 dB (the voice's own volume stays at 0 dB, so it is not a motion
 # lane); FX's F6 is the distortion MIX and F7 DIST, its Active and Type as one key (OFF, GRIT .. FOLD): the reverb send takes F6 when the
 # reverb exists; Shift + a turn keeps the strip (the tools row waits for the encoder to be still for 600 ms); the generator's Scale, Density and ACC/SLD (one macro:
@@ -49,6 +49,10 @@ snap 09_fx_edited
 tap f7
 turn -5
 snap 09b_distortion_off
+tap params
+snap 10a_growl
+tap params
+snap 10b_wobble
 tap params
 snap 10_seq
 tap f1

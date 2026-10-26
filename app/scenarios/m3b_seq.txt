@@ -56,7 +56,9 @@ pad 11
 padup 17
 wait 100
 snap 02_ratchets
-# Conditions: SEQ page (two Params), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
+# Conditions: SEQ page (four Params), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
+tap params
+tap params
 tap params
 tap params
 tap f8
