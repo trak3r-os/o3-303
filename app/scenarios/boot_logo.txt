@@ -1,0 +1,4 @@
+# O3-303's boot screen: the first frame of a unit, the logo of logo/logo.png (the groovebox, a fine dither shown at 2x from 400 x 182 at
+# L4), the app's name and the build line under it. The runtime's next frame replaces it.
+wait 50
+boot 01_boot_logo

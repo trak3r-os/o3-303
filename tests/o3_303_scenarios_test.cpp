@@ -28,7 +28,7 @@ std::string slurp(const fs::path& path) {
   return text.str();
 }
 
-// The words after `snap` and `wav` on each line of a scenario.
+// The words after `snap` (or `boot`, the boot screen's picture) and `wav` on each line of a scenario.
 void outputs(const std::string& text, std::vector<std::string>& snaps, std::vector<std::string>& wavs) {
   std::istringstream lines(text);
   for (std::string line; std::getline(lines, line);) {
@@ -36,7 +36,7 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
     std::string cmd;
     std::string name;
     if (words >> cmd >> name) {
-      if (cmd == "snap") {
+      if (cmd == "snap" || cmd == "boot") {
         snaps.push_back(name);
       } else if (cmd == "wav") {
         wavs.push_back(name);

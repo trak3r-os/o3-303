@@ -7,6 +7,8 @@ endif()
 # O3-303: the app (docs/DESIGN-303.md). o3sdk_app() (o3-sdk/cmake/O3sdkTargets.cmake) builds the library `app_o3_303`, the simulator
 # `o3_303_sim` on the host and, with -DO3SDK_PLATFORM=mk66, the image `o3_303.elf` / `.hex` / `.ptf` with its ctests.
 o3sdk_app(o3_303 SOURCES src/o3_303_app.cpp src/step_model.cpp src/pages.cpp src/step_view.cpp src/knob_strip.cpp src/snapshot.cpp src/main_screen.cpp src/main_screen_perf.cpp src/main_screen_snap.cpp src/perform.cpp src/vault_screen.cpp src/rig.cpp
-  DEPENDS unit_delay unit_tb303 unit_distortion unit_freeze unit_growl o3_303_seq)
+  DEPENDS unit_delay unit_tb303 unit_distortion unit_freeze unit_growl o3_303_seq
+  # The boot logo of the image (o3-sdk docs/FRAMEWORK.md, "The boot logo"): the groovebox drawing, converted at build time; a grey picture, drawn white.
+  LOGO ../logo/logo.png)
 # <o3_303/pad_map.h>: the pure parts of the app, which the tests include.
 target_include_directories(app_o3_303 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
