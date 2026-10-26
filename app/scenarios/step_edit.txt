@@ -21,10 +21,9 @@ padup 5
 tap up
 wait 100
 snap 04_cursor_semitone
-# The PERF page (Shift + Params): F7 is RATCHET and F8 is COND for the step held, or for the cursor step when none is.
-press shift
+# The SEQ page (two Params): F7 is RATCHET and F8 is COND for the step held, or for the cursor step when none is.
 tap params
-release shift
+tap params
 tap f7
 paddown 7
 turn 2
@@ -49,6 +48,8 @@ release shift
 wait 100
 snap 08_cond_coarse
 padup 15
+tap params
+tap params
 tap params
 # Hold ACC (pad 8): the step pads show the steps that have the accent; right rotates only the accents one step later.
 paddown 8

@@ -160,7 +160,15 @@ inline constexpr std::uint8_t kLaneVoice = 1;  // the voice: id = the tb303 para
 inline constexpr std::uint8_t kLaneDist = 2;   // the distortion insert: id = its parameter id
 inline constexpr std::uint8_t kLaneDelay = 3;  // the delay: id = its parameter id
 inline constexpr std::uint8_t kLaneMixer = 4;  // slot 0's mixer: id = o3sdk::dsp::MixField (the mixer ids below)
-inline constexpr unsigned kLaneTargetCount = 5;
+inline constexpr std::uint8_t kLaneGrowl = 5;  // M3c: the growl (units/growl), slot 0's insert 1: id = its parameter id
+inline constexpr std::uint8_t kLaneSeq = 6;    // M3c: the sequencer's own performance values: id = the kSeq* ids below
+inline constexpr unsigned kLaneTargetCount = 7;
+
+// The values of kLaneSeq (a motion lane on them sequences the wobble per step): the wobble rate is an Enum 0..10 (seq/wobble.h: 1/1 ... 1/16D),
+// the depth 0..1. A point of kNoLock leaves the rate and depth that set_wobble() and the pad override say.
+inline constexpr std::uint8_t kSeqWobbleRate = 0;
+inline constexpr std::uint8_t kSeqWobbleDepth = 1;
+inline constexpr unsigned kSeqValueCount = 2;
 
 // The ids of the mixer's fields: the values of o3sdk::dsp::MixField, which this header does not include (checked against it in
 // tests/pattern_test.cpp).
@@ -211,7 +219,7 @@ constexpr std::uint8_t mixer_value_to_point(unsigned field, float value) noexcep
 }
 
 struct LaneRef {
-  std::uint8_t target;  // kLaneNone .. kLaneMixer
+  std::uint8_t target;  // kLaneNone .. kLaneSeq
   std::uint8_t id;
 };
 

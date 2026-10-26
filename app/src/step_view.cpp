@@ -2,6 +2,7 @@
 #include "step_view.h"
 
 #include <o3_303/pad_map.h>
+#include <o3_303/perform.h>
 
 namespace o3_303::view {
 
@@ -68,6 +69,34 @@ int lane_height(int h, bool roll) noexcept {
   return h - kNumbersH - 2 - (roll ? 0 : kFlagRows * kFlagRowH + kFlagGap);
 }
 
+// The R/C cell of a step at (x, y): its ratchet ("x2".."x4") at the left, its condition at the right, both in Micro; when both do not fit the
+// cell the condition alone stays (the bar already shows the ratchet). The step the RATCHET / COND keys edit gets a frame.
+namespace {
+
+void draw_ratchet_cond(ui::Renderer& r, int x, int y, const Step& st, bool is_note, bool focus) noexcept {
+  const unsigned hits = is_note ? ratchet_hits(st.flags) : 1u;
+  char cond[8];
+  unsigned cn = 0;
+  if (st.cond != kCondAlways && is_note) {
+    cn = cond_text(st.cond, cond, sizeof cond);
+  } else {
+    cond[0] = '\0';
+  }
+  const int cw = static_cast<int>(cn) * 6;
+  if (hits > 1u && (cn == 0u || 2 + 12 + 2 + cw + 2 <= kCellW)) {
+    const char rt[3] = {'x', static_cast<char>('0' + hits), '\0'};
+    r.text(x + 3, y, rt, Color::Instr, Face::Micro);
+  }
+  if (cn != 0u) {
+    r.text(x + kCellW - 3 - cw, y, cond, Color::Fx, Face::Micro);
+  }
+  if (focus) {
+    r.frame(Rect{x + 1, y, kCellW - 2, kFlagRowH}, Color::TextDim);
+  }
+}
+
+}  // namespace
+
 void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks& m) noexcept {
   const ui::Theme& theme = r.theme();
   const Geo g = geometry(area, m.roll);
@@ -77,13 +106,18 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
   const int span_y = g.numbers.y + g.numbers.h;  // the columns run from here to g.bottom
   const int span_h = g.bottom - span_y;
 
-  // ---- The translucent layer: black-key rows, the steps past the length, the cursor's and the playhead's columns ----
+  // ---- The translucent layer: black-key rows, the beat columns, the steps past the length, the cursor's and the playhead's columns ----
+  // The playhead's column is the one saturated thing: the beats (1, 5, 9, 13) are a lighter ground, the cursor's column only a lighter tint.
   r.begin_raw();
   r.raw(dl::color_a(64));
   for (int n = w.lo; n <= w.hi(); ++n) {
     if (!is_natural(static_cast<unsigned>(n))) {
       r.panel(Rect{kGridX, row_top(g.lane, w, n), kGridW, w.px}, Color::Empty);
     }
+  }
+  r.raw(dl::color_a(26));
+  for (int i = 0; i < 16; i += 4) {
+    r.panel(Rect{cell_x(i), span_y, kCellW, span_h}, Color::Text);
   }
   r.raw(dl::color_a(90));
   for (int i = 0; i < 16; ++i) {
@@ -92,11 +126,11 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
     }
   }
   if (m.cursor >= first && m.cursor < first + 16) {
-    r.raw(dl::color_a(70));
-    r.panel(Rect{cell_x(m.cursor - first), span_y, kCellW, span_h}, Color::Sel);
+    r.raw(dl::color_a(40));
+    r.panel(Rect{cell_x(m.cursor - first), span_y, kCellW, span_h}, Color::Text);
   }
   if (m.playhead >= first && m.playhead < first + 16) {
-    r.raw(dl::color_a(64));
+    r.raw(dl::color_a(112));
     r.panel(Rect{cell_x(m.playhead - first), span_y, kCellW, span_h}, Color::Play);
   }
   r.end_raw();
@@ -107,7 +141,7 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
     for (int n = w.lo; n <= w.hi(); ++n) {
       const int rt = row_top(g.lane, w, n);
       const int h = w.px > 2 ? w.px - 1 : w.px;
-      r.panel(Rect{gx + 2, rt, kGutterW - 6, h}, Color::Text);
+      r.panel(Rect{gx + 2, rt, kGutterW - 6, h}, Color::TextDim);  // the white keys are dim: they must not outshine the notes
     }
     for (int n = w.lo; n <= w.hi(); ++n) {
       if (!is_natural(static_cast<unsigned>(n))) {
@@ -124,13 +158,16 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
       }
     }
   } else {
+    const StepInfo cur = m.cursor >= 0 ? describe(p, static_cast<unsigned>(m.cursor)) : StepInfo{};
     for (int n = w.lo; n <= w.hi(); ++n) {
       if (n % 12 == 0) {
         const int rt = row_top(g.lane, w, n);
         char name[6];
         (void)note_name(static_cast<unsigned>(n), name, sizeof name);
-        r.text(gx + 6, ui::caps_y(theme, Face::Label, rt, w.px), name, Color::TextDim, Face::Label);
-        r.rule(kGridX, rt + w.px - 1, kGridW, ui::Axis::Horizontal, Color::Empty);
+        if (!(cur.kind != Cell::Rest && cur.note == n && w.px >= 8)) {  // the cursor's chip below names its own row
+          r.text(gx + 6, ui::caps_y(theme, Face::Label, rt, w.px), name, Color::Text, Face::Label);
+        }
+        r.rule(kGridX, rt + w.px - 1, kGridW, ui::Axis::Horizontal, Color::TextDim);  // the octave lines are the bright ones
       }
     }
   }
@@ -219,7 +256,17 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
         const int full = kCellW - (info.kind == Cell::Note ? 4 : 2);
         x1 = x0 + (full * static_cast<int>(p.gate) / 100 > 4 ? full * static_cast<int>(p.gate) / 100 : 4);
       }
-      r.panel(Rect{x0, rt, x1 - x0, h}, ink);
+      const unsigned hits = ratchet_hits(p.steps[s].flags);  // a ratchet is the bar in its hits (a tie has none: the sequencer ignores it)
+      if (info.kind == Cell::Note && hits > 1u && x1 - x0 >= 5 * static_cast<int>(hits)) {
+        const int part = x1 - x0;
+        for (unsigned k = 0; k < hits; ++k) {
+          const int xa = x0 + part * static_cast<int>(k) / static_cast<int>(hits);
+          const int xb = x0 + part * static_cast<int>(k + 1u) / static_cast<int>(hits) - 2;
+          r.panel(Rect{xa, rt, xb - xa, h}, ink);
+        }
+      } else {
+        r.panel(Rect{x0, rt, x1 - x0, h}, ink);
+      }
       if (info.slide && info.ramp_to >= 0 && i < 15 && static_cast<unsigned>(s + 1) < len) {
         const int rt2 = row_top(g.lane, w, info.ramp_to);
         if (rt2 == rt) {
@@ -247,7 +294,7 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
         }
         const StepInfo info = describe(p, static_cast<unsigned>(s));
         const bool is_cursor = s == m.cursor;
-        if (info.kind != Cell::Note || is_cursor != (pass == 1)) {
+        if (info.kind != Cell::Note || is_cursor != (pass == 1) || info.note % 12 == 0) {  // a C is named by its octave line
           continue;
         }
         char name[6];
@@ -257,10 +304,10 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
         r.text(cell_x(i) + (kCellW - tw) / 2, rt - 14, name, is_cursor ? Color::Text : Color::TextDim, Face::Label);
       }
     }
-    // The flag rows: ACC (orange), SLD (green), TIE (blue), with their names in the gutter.
+    // The flag rows: ACC (orange), SLD (green), TIE (blue), with their names in the gutter, and R/C: the ratchet's number and the trig condition.
     r.rule(kGridX, g.flags.y - 2, kGridW, ui::Axis::Horizontal, Color::Empty);
-    static constexpr const char* kFlagNames[kFlagRows] = {"ACC", "SLD", "TIE"};
-    static constexpr Color kFlagInk[kFlagRows] = {Color::Accent, Color::Vol, Color::Instr};
+    static constexpr const char* kFlagNames[kFlagRows] = {"ACC", "SLD", "TIE", "R/C"};
+    static constexpr Color kFlagInk[kFlagRows] = {Color::Accent, Color::Vol, Color::Instr, Color::Fx};
     for (int k = 0; k < kFlagRows; ++k) {
       const int ry = g.flags.y + k * kFlagRowH;
       r.text(gx + 6, ry, kFlagNames[k], Color::TextDim, Face::Micro);
@@ -270,6 +317,10 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
           break;
         }
         const StepInfo info = describe(p, static_cast<unsigned>(s));
+        if (k == 3) {
+          draw_ratchet_cond(r, cell_x(i), ry, p.steps[s], info.kind == Cell::Note, s == m.focus);
+          continue;
+        }
         bool on = false;
         if (k == 0) {
           on = info.kind == Cell::Note && info.accent;
@@ -299,6 +350,10 @@ void draw_motion(ui::Renderer& r, const Rect& area, const Pattern& p, const Mark
   r.text(area.x + 6, area.y + 20, name, focus_on_sound ? Color::Fx : Color::TextDim, Face::Micro);
 
   r.begin_raw();
+  r.raw(dl::color_a(26));
+  for (int i = 0; i < 16; i += 4) {
+    r.panel(Rect{cell_x(i), area.y + 1, kCellW, area.h - 1}, Color::Text);
+  }
   r.raw(dl::color_a(90));
   for (int i = 0; i < 16; ++i) {
     if (static_cast<unsigned>(first + i) >= len) {
@@ -306,11 +361,11 @@ void draw_motion(ui::Renderer& r, const Rect& area, const Pattern& p, const Mark
     }
   }
   if (m.cursor >= first && m.cursor < first + 16) {
-    r.raw(dl::color_a(70));
-    r.panel(Rect{cell_x(m.cursor - first), area.y + 1, kCellW, area.h - 1}, Color::Sel);
+    r.raw(dl::color_a(40));
+    r.panel(Rect{cell_x(m.cursor - first), area.y + 1, kCellW, area.h - 1}, Color::Text);
   }
   if (m.playhead >= first && m.playhead < first + 16) {
-    r.raw(dl::color_a(64));
+    r.raw(dl::color_a(112));
     r.panel(Rect{cell_x(m.playhead - first), area.y + 1, kCellW, area.h - 1}, Color::Play);
   }
   r.end_raw();
@@ -323,6 +378,48 @@ void draw_motion(ui::Renderer& r, const Rect& area, const Pattern& p, const Mark
   r.rule(kGridX, base - 1 - static_cast<int>(kn * static_cast<float>(bar_h - 2)), kGridW, ui::Axis::Horizontal, Color::TextDim);
 
   if (lane < kMotionLanes) {
+    // The faint curve: what the lane plays at each of the page's points (its lock, or the knob where it has none), as runs of one level
+    // joined by short rises, under the bars; and ticks at both ends of the grid at the lowest and highest lock of the whole pattern.
+    int level[16 * kMotionPointsPerStep];
+    unsigned points = 0;
+    const int knob_y = base - 1 - static_cast<int>(kn * static_cast<float>(bar_h - 2));
+    for (int i = 0; i < 16 && static_cast<unsigned>(first + i) < len; ++i) {
+      for (unsigned q = 0; q < kMotionPointsPerStep; ++q) {
+        const std::uint8_t v = p.motion[lane][static_cast<unsigned>(first + i) * kMotionPointsPerStep + q];
+        level[points++] = v == kNoLock ? knob_y : base - 1 - static_cast<int>(v) * (bar_h - 2) / 254;
+      }
+    }
+    unsigned ends[2] = {255u, 0u};  // the lowest and the highest lock of the pattern
+    for (unsigned j = 0; j < len * kMotionPointsPerStep; ++j) {
+      const unsigned v = p.motion[lane][j];
+      if (v != kNoLock) {
+        ends[0] = v < ends[0] ? v : ends[0];
+        ends[1] = v > ends[1] ? v : ends[1];
+      }
+    }
+    translucent(r, 96, [&] {
+      for (unsigned j = 0; j < points;) {
+        unsigned k = j + 1u;
+        while (k < points && level[k] == level[j]) {
+          ++k;
+        }
+        const int x0 = kGridX + static_cast<int>(j) * kPointW;
+        r.rule(x0, level[j], static_cast<int>(k - j) * kPointW, ui::Axis::Horizontal, Color::Text);
+        if (k < points) {  // the join to the next run
+          const int ya = level[j] < level[k] ? level[j] : level[k];
+          const int yb = level[j] < level[k] ? level[k] : level[j];
+          r.rule(x0 + static_cast<int>(k - j) * kPointW, ya, yb - ya + 1, ui::Axis::Vertical, Color::Text);
+        }
+        j = k;
+      }
+    });
+    if (ends[0] <= ends[1]) {
+      for (const unsigned v : ends) {
+        const int y = base - 1 - static_cast<int>(v) * (bar_h - 2) / 254;
+        r.rule(kGridX - 7, y, 6, ui::Axis::Horizontal, Color::Fx);
+        r.rule(kGridX + kGridW + 1, y, 6, ui::Axis::Horizontal, Color::Fx);
+      }
+    }
     for (int i = 0; i < 16; ++i) {
       const int s = first + i;
       if (static_cast<unsigned>(s) >= len) {

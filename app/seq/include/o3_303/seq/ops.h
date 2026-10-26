@@ -139,7 +139,7 @@ bool lane_has_motion(const Pattern& p, unsigned lane) noexcept;
 std::uint8_t value_to_point(const o3sdk::core::ParamDesc& d, float value) noexcept;
 float point_to_value(const o3sdk::core::ParamDesc& d, std::uint8_t point) noexcept;
 
-// The lane of the pattern that drives (target, id) (pattern.h: kLaneVoice .. kLaneMixer), the lowest if two do; -1 if none does.
+// The lane of the pattern that drives (target, id) (pattern.h: kLaneVoice .. kLaneSeq), the lowest if two do; -1 if none does.
 int find_lane(const Pattern& p, std::uint8_t target, std::uint8_t id) noexcept;
 
 // ---- Generators -------------------------------------------------------------------------------------------------------------

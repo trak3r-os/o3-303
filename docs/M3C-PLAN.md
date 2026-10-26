@@ -84,3 +84,12 @@ Done when:
 - `o3_303.ptf` passes the gate;
 - the unit measures the render CPU with everything on below the governor;
 - the tester records each effect over USB, with no clicks where none are meant.
+
+
+## Made (dsp+seq), 2026-10-26
+
+Built: G (units/growl), R (the freeze modes) and W (the wobble in app/seq). Nothing is wired into the app (the ui slice does that), so no scenario was added and the existing ones are untouched.
+- **growl** (Effect, slot 0 insert 1): 0 Vowel 0..1 (A E I O U), 1 Formant Q 1..20, 2 Formant Mix, 3 Comb Tune +-24 st, 4 Comb Feedback +-0.95, 5 Comb Mix, 6 Note (set by the sequencer), 7 Mix (default 0: bit-exact bypass). Three parallel TPT band-passes (Peterson-Barney male formants) then a peak-normalised feedback comb (linear-interpolated delay, 2048 floats in the unit, no SDRAM); the wet path is mono. Vowel, pitch, mixes smoothed at a 16-frame control rate. Cost [est], from the cross build: see the unit's header; to be measured on the unit.
+- **freeze** (appended): 3 Mode FREEZE/ROLL/STOP/REVERSE, 4 Roll Rate 1/8..1/64, 5 Accelerate OFF/BEAT/BAR, 6 Stop Time 1/8..2 bars. FREEZE is bit for bit the old unit (checked on 1.5 M frames of random gesture against HEAD). ROLL = freeze with the rate as loop; a shorter rate takes the head of the old loop (no join), a longer one leaves and enters again, on a ring that holds the roll's own repeats (so the longer loop is copies of the short one plus about 5 ms of input; a fresh capture would need `len` frames of real input first: open). STOP and REVERSE leave the ring a true record of the input. REVERSE is limited to (ring - headroom) / 2 and then starts over.
+- **sequencer**: `set_wobble(on, rate, shape, depth, LaneRef)`, `set_wobble_reset`, `wobble_rate_override(rate | kWobbleRateNone)`, `wobble()`, `wobble_rate_now()`, `set_unit(kLaneGrowl, id)` (after setup(), before start()). pattern.h: kLaneGrowl = 5, kLaneSeq = 6 (id 0 rate index, 1 depth), kLaneTargetCount = 7; Pattern unchanged. The hook sets the growl's Note (id 6) on every note start. Wobble depth d swings the target +-d/2 of its range around its base (lock, else slew, else knob; after a morph's slew, its goal), clamped to the range, so it flat-tops near the ends and depth 1 sweeps the whole range only from a centred base, 4 events a block + one per note restart (kWobbleEvents = 8).
+- Not measured: CPU of any of it on the unit.

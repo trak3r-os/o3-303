@@ -59,13 +59,16 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // The beat freeze's Length from the PERF page (F6, FRZ LEN): from the SOUND page Shift + Params is the previous page, PERF; Params
-  // comes back. The encoder walks 1/4, 1/8, 1/16 and stops at the ends.
+  // The beat freeze's Length from the PERF page (F5, FRZ LEN): from the SOUND page Params three times; two more come back. The encoder walks
+  // 1/4, 1/8, 1/16 and stops at the ends.
   void choose_length(Freeze::LengthValue v) {
-    shift_tap(Button::Params);
-    tap(Button::F6);
+    for (int i = 0; i < 3; ++i) {
+      tap(Button::Params);
+    }
+    tap(Button::F5);
     turn(-3);
     turn(static_cast<int>(v));
+    tap(Button::Params);
     tap(Button::Params);
   }
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }

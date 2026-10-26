@@ -4,9 +4,11 @@
 // The 303 screen (docs/DESIGN-303.md sections 2 to 5): the step view as the hero, the motion lane, the knob strip, the soft keys and
 // every pad and button gesture that does not need the card or MIDI. Also the pattern grid it shows while Pattern is held.
 //
-// It is one class in two files: main_screen.cpp (the step editing, the pages, the tools, the drawing) and main_screen_perf.cpp (the
-// performance gestures of M3b: the four assignable performance buttons, the KEYS ladders, the Master gestures, the scale lock).
+// It is one class in three files: main_screen.cpp (the step editing, the pages, the tools, the drawing), main_screen_perf.cpp (the
+// performance gestures of M3b: the four assignable performance buttons, the KEYS ladders, the Master gestures, the scale lock) and
+// main_screen_snap.cpp (the SNAP page and its morph, the RANDOM popup).
 
+#include "knob_strip.h"
 #include "rig.h"
 
 #include <o3sdk/app/screen.h>
@@ -43,7 +45,8 @@ class MainScreen final : public o3sdk::app::Screen {
   int octave() const noexcept { return octave_; }
   unsigned page_index() const noexcept { return keys_.page_index(); }
   // A line in the info strip for a moment (what a tool or a load just did).
-  void toast(o3sdk::app::Context& ctx, const char* text) noexcept;
+  // `off`: the line says something went off ("MOTION REC OFF"): drawn as an outline, not a filled chip.
+  void toast(o3sdk::app::Context& ctx, const char* text, bool off = false) noexcept;
 
  private:
   // What the encoder is latched to by a tap of Master (R7), whatever page the F keys are on; an F key press gives it back to the page.
@@ -82,6 +85,17 @@ class MainScreen final : public o3sdk::app::Screen {
   void latch_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
   void ladder_press(o3sdk::app::Context& ctx, unsigned pad, bool shift) noexcept;
   void ladder_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept;
+  // ---- snapshots and the RANDOM popup (main_screen_snap.cpp)
+  bool on_snap_page() const noexcept { return keys_.page_index() == kPageSnap; }
+  void snap_press(o3sdk::app::Context& ctx, unsigned slot, bool shift) noexcept;
+  void snap_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
+  void snap_apply(o3sdk::app::Context& ctx, float ms) noexcept;     // the morph's blend on the sequencer's slews (nothing stored yet)
+  void snap_finish(o3sdk::app::Context& ctx, bool at_once) noexcept;  // the blend stored in the engine, once the slews are over (or now)
+  void random_toggle(o3sdk::app::Context& ctx) noexcept;
+  void random_press(o3sdk::app::Context& ctx, unsigned key) noexcept;
+  void random_generate(o3sdk::app::Context& ctx) noexcept;
+  void draw_snap(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_random(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   bool scale_locked() const noexcept;                // a scale that leaves notes out is chosen (R8)
   bool scale_locked_out(int note) const noexcept;    // ... and `note` is one of them
   // An encoder move or a ladder tap is written as motion under the playhead (REC or the MOTION latch, while the pattern plays).
@@ -109,6 +123,8 @@ class MainScreen final : public o3sdk::app::Screen {
   // ---- drawing
   void draw_info(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_strip(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_tabs(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area, const char* hint) noexcept;
+  void fill_knob(o3sdk::app::Context& ctx, unsigned k, const Entry& entry, view::Knob& out) noexcept;
   void draw_tools(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_grid(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
 
@@ -169,7 +185,15 @@ class MainScreen final : public o3sdk::app::Screen {
   std::uint64_t pattern_down_ms_ = 0;
   bool copy_is_pattern_ = false;
 
+  // The RANDOM popup (Shift + F1, C3): while it is open the knob strip is its three settings, a key to generate and a key to close.
+  bool random_open_ = false;
+  unsigned random_focus_ = 0;      // the setting the encoder drives, 0..kRandomEntries-1
+  // The morph's slews are running (R2): at `snap_deadline_ms_` the blend is stored in the engine (sequencer.h, slew(): store = false).
+  bool snap_pending_ = false;
+  std::uint64_t snap_deadline_ms_ = 0;
+
   // Feedback.
+  bool toast_off_ = false;
   char toast_[40] = {};
   std::uint64_t toast_until_ms_ = 0;
   bool lock_active_ = false;

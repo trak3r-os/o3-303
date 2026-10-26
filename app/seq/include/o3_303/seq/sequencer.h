@@ -83,6 +83,28 @@
 //               slew_stop() it before the main loop writes the target. Its end is exact: the goal is emitted at the frame the time
 //               runs out. Cost: nothing while no slew runs; about a lerp, a curve inverse and an event for each slew each tick.
 //
+// M3c (docs/M3C-PLAN.md), on top of those:
+//
+//   wobble      a tempo-synced LFO that moves one target around its base value (set_wobble()): the hook emits a Param event toward the
+//               target every 16 frames (frame 0 of the block, 16, 32, 48 at 64 frames a block; a mixer field one write a block), like the
+//               slew. The target is any LaneRef whose parameter is not an Enum (the default: the voice's Cutoff; the growl's Vowel is the
+//               classic; a mixer field works). The value is base + depth / 2 x wave in the target's normalised position (depth 1 sweeps
+//               the whole range, centred on the base, clamped at its ends), through the descriptor's curve. The BASE is what the target would
+//               be without the wobble: the p-lock or motion point holding it (to the frame, and back to the knob when it ends), else the
+//               slew that is gliding to a goal, else the knob (update()). The wobble owns its target while it runs (a slew on it only counts
+//               its time). Rates 1/1 1/2 1/4 1/4T 1/8 1/8T 1/16 1/16T 1/32 1/8D 1/16D (seq/wobble.h), shapes sine, triangle, saw down,
+//               saw up, square, sample and hold. The phase is counted from the transport (it restarts with Play) and, with the reset
+//               on note (the default), restarts at 0 on every note that starts, ratchet hits and slides included, at that frame (one
+//               extra event). It runs when the transport is stopped, free, at the transport's tempo. A rate change keeps the phase, so
+//               nothing jumps. The sample and hold draws a new value when a cycle begins (a wrap seen at a tick or the end of a block,
+//               so it lands within one block of it), from a generator seeded by set_seed(): same seed, same play, same values.
+//               Cost: about four events, a sine and two curve conversions a tick, nothing when off.
+//               The rate and the depth can also be sequenced: a motion lane on kLaneSeq (pattern.h) sets them for as long as its point
+//               holds; the momentary pad override (wobble_rate_override()) beats the lane, and the lane beats set_wobble().
+//   growl       given to set_unit(kLaneGrowl, id), the growl's parameters are lane and slew targets like the other units' (kLaneGrowl), and
+//               the hook sets its Note parameter (kGrowlNoteParam, the MIDI note that starts, clamped as played) at every note start, ratchet
+//               hits included: one Param event a note.
+//
 // Contexts. Everything not marked "render" is the main loop. The main loop never touches the render's state: it queues commands on a
 // lock-free ring (the same way the engine takes its commands; a full ring refuses and returns false), sets a few atomics, and
 // reads the playhead from one atomic word. The patterns are shared through the Bank's seqlock (bank.h).
@@ -93,6 +115,7 @@
 #include <o3_303/pattern.h>
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/rng.h>
+#include <o3_303/seq/wobble.h>
 
 #include <atomic>
 #include <cstdint>
@@ -114,6 +137,8 @@ inline constexpr unsigned kMixerSlot = 0;   // the slot whose mixer the mixer la
 inline constexpr unsigned kKnobs = 32;      // parameter ids 0..31 of a unit can be a lane's or a slew's target
 inline constexpr unsigned kMaxSlews = 32;   // slews running at once (a snapshot morph moves up to about 26 parameters)
 inline constexpr unsigned kSlewEvents = 12; // the most Param events the slews put in one unit's list in one block (the list holds 32)
+inline constexpr unsigned kWobbleEvents = 8;  // the most Param events the wobble puts in its unit's list in one block (4 ticks and up to 4 note resets)
+inline constexpr std::uint8_t kGrowlNoteParam = 6;  // the growl's Note parameter id (units/growl: Growl::Note; tests/seq_wobble_test.cpp checks it)
 inline constexpr std::uint32_t kDefaultSeed = 0x30330303u;  // the Rng of the probability draws and of the Mutate fill, until set_seed()
 
 // What the screens read: the playhead as of the end of the last block.
@@ -140,6 +165,17 @@ struct ChainView {
   bool loop = false;                   // the chain starts again after its last entry
 };
 
+// The wobble as the main loop set it (Sequencer::wobble()).
+struct Wobble {
+  bool on = false;
+  bool reset_on_note = true;
+  unsigned rate = kWobble1_8;         // WobbleRate
+  unsigned shape = kWobbleSine;       // WobbleShape
+  float depth = 0.5f;                 // 0..1
+  LaneRef target{kLaneVoice, 0};      // default: the voice's Cutoff
+  int override_rate = kWobbleRateNone;  // the pad's momentary rate, or kWobbleRateNone
+};
+
 class Sequencer final : public o3sdk::dsp::Clocked {
  public:
   explicit Sequencer(Bank& bank) noexcept;
@@ -152,6 +188,11 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   // runs before the render does.
   bool setup(o3sdk::dsp::Engine& engine, o3sdk::dsp::UnitId voice, o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit,
              o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit) noexcept;
+
+  // Gives a unit to a lane target that setup() did not get: kLaneDist, kLaneDelay or kLaneGrowl (M3c: the growl, slot 0's insert 1). Call it
+  // after setup() (which forgets the units) and before engine.start() (the render reads the table); false otherwise, for another target or a
+  // unit the engine does not know. kNoUnit takes the target away. With the growl given, the hook sets its Note parameter at every note start.
+  bool set_unit(std::uint8_t target, o3sdk::dsp::UnitId unit) noexcept;
 
   // ---- Every UI frame (main loop) -----------------------------------------------------------------------------------------
   // Hands the hook the knob values (the engine's stored values of the voice's, the distortion's and the delay's parameters 0..kKnobs-1
@@ -222,6 +263,21 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   // Slews running as of the end of the last block, and the commands the hook had no room for (more than kMaxSlews at once).
   unsigned slewing() const noexcept { return slewing_.load(std::memory_order_relaxed); }
   std::uint32_t slew_overflow() const noexcept { return slew_overflow_.load(std::memory_order_relaxed); }
+
+  // ---- Wobble (main loop; atomics, effective at the next block) ---------------------------------------------------------------
+  // The wobble (see "M3c" above). `rate` is a WobbleRate, `shape` a WobbleShape, `depth` 0..1 (clamped), `target` a lane target whose parameter
+  // is not an Enum and that is available (a unit that was not given gives false; kLaneSeq is not a target). With `on` false only the switch
+  // changes (the rest of the arguments are not looked at): the target goes back to its base. The settings are kept while it is off. Moving the
+  // target restores the old one. false: nothing changed.
+  bool set_wobble(bool on, unsigned rate, unsigned shape, float depth, LaneRef target = LaneRef{kLaneVoice, 0}) noexcept;
+  void set_wobble_reset(bool reset_on_note) noexcept;  // default on
+  // The momentary rate of the pad gesture: the wobble runs at `rate` (a WobbleRate) while it holds, whatever the pattern's lane says;
+  // kWobbleRateNone gives the pattern's back. Effective with the wobble off too (it takes the rate when it is switched on).
+  void wobble_rate_override(int rate) noexcept;
+  Wobble wobble() const noexcept;
+  // The rate the wobble runs at as of the end of the last block (the override, else the lane's, else set_wobble()'s), for the LEDs; -1 while
+  // it is off.
+  int wobble_rate_now() const noexcept { return wob_rate_now_.load(std::memory_order_relaxed); }
 
   // ---- Readback (main loop) -----------------------------------------------------------------------------------------------
   Playhead playhead() const noexcept;
@@ -302,6 +358,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void restore_target(o3sdk::dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, unsigned frame) noexcept;
   bool write_target(o3sdk::dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, float value, unsigned frame) noexcept;
   float knob_value(std::uint8_t target, std::uint8_t id) const noexcept;
+  float unstored_or(unsigned target, unsigned id, float stored) noexcept;  // main loop: Unstored's goal, else `stored`
   void load_pattern(unsigned index) noexcept;
   void refresh_shadow() noexcept;
   void append_chain(unsigned pattern) noexcept;
@@ -322,11 +379,18 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   bool slew_locked_at(const Slew& s, unsigned frame) const noexcept;
   void mark_lock(std::uint8_t target, std::uint8_t id, unsigned frame, bool on) noexcept;
   void run_slews(o3sdk::dsp::BlockContext& ctx) noexcept;
+  void run_wobble(o3sdk::dsp::BlockContext& ctx) noexcept;
+  void note_started(o3sdk::dsp::BlockContext& ctx, unsigned frame, std::uint8_t note) noexcept;
+  bool is_unit_target(std::uint8_t target) const noexcept;
+  bool wobbleable(std::uint8_t target, std::uint8_t id) const noexcept;
+  bool wob_owns(const Slew& s) const noexcept { return wob_active_ && s.target == wob_target_ && s.id == wob_id_; }
+  bool lane_lock_value(std::uint8_t target, std::uint8_t id, float& value) const noexcept;
+  float wobble_value(std::uint8_t target, std::uint8_t id, float base, float amplitude) const noexcept;
 
   Bank& bank_;
   o3sdk::dsp::Engine* engine_ = nullptr;
   o3sdk::dsp::UnitId voice_ = o3sdk::dsp::kNoUnit;
-  UnitTable tab_[kLaneTargetCount];  // indexed by a lane target; the mixer's and kLaneNone's are empty (the mixer has no unit)
+  UnitTable tab_[kLaneTargetCount];  // indexed by a lane target; the mixer's and kLaneNone's are empty (the mixer has no unit); kLaneSeq's has the descriptors of its two values
 
   // ---- main -> render
   o3sdk::core::SpscRing<Command, 32> commands_;
@@ -338,6 +402,14 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   std::atomic<std::uint32_t> seed_version_{0};
   // The stored values of the targets' parameters (update()), per lane target; the mixer's fields are knob_[kLaneMixer][0..4].
   std::atomic<float> knob_[kLaneTargetCount][kKnobs];
+  // The goal of the last slew(..., store = false) of each target and the stored value it left behind (main loop only): the next slew
+  // starts from that goal, and update() gives it as the target's knob (the wobble's base), while the stored value is still the same.
+  struct Unstored {
+    float goal = 0.0f;
+    float stored = 0.0f;
+    bool valid = false;
+  };
+  Unstored unstored_[kLaneTargetCount][kKnobs];
 
   // ---- render -> main
   std::atomic<std::uint32_t> playhead_{0};  // packed (sequencer.cpp)
@@ -432,6 +504,39 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   // Slews.
   Slew slews_[kMaxSlews];
   unsigned slew_rr_ = 0;            // where the next block starts walking the table: a crowded block shares its events fairly
+
+  // ---- Wobble. main -> render: one word (a single writer, the main loop) and the depth.
+  //   bit 0 on | 1 reset on note | 2..5 rate | 6..8 shape | 9..11 target | 12..16 id | 17..21 override rate + 1 (0: none)
+  std::atomic<std::uint32_t> wobble_;
+  std::atomic<float> wobble_depth_{0.5f};
+  std::atomic<int> wob_rate_now_{-1};  // render -> main
+  // Render state.
+  static constexpr unsigned kMaxWobbleResets = 4;
+  static constexpr unsigned kMaxWobbleBase = 8;
+  struct BaseEvent {
+    std::uint16_t frame;
+    float value;
+  };
+  std::uint32_t wob_cfg_ = 0;          // the word as of this block
+  bool wob_active_ = false;            // the hook is moving wob_target_ / wob_id_
+  std::uint8_t wob_target_ = 0;
+  std::uint8_t wob_id_ = 0;
+  std::uint64_t wob_phase_ = 0;        // Q0.64 turns at frame 0 of the next block
+  std::uint64_t wob_inc_ = 0;          // per frame at the rate in use (wob_inc_tick_ is the transport inc and wob_inc_rate_ the rate it was made for)
+  std::uint64_t wob_inc_tick_ = 0;
+  unsigned wob_inc_rate_ = kWobbleRateCount;
+  float wob_held_ = 0.0f;              // the sample and hold's value
+  Rng wob_rng_{kDefaultSeed};
+  std::uint16_t wob_resets_[kMaxWobbleResets] = {};  // frames of this block where a note started
+  unsigned wob_reset_count_ = 0;
+  BaseEvent wob_base_[kMaxWobbleBase] = {};          // writes to the wobbled target (locks, restores) in this block, in time order
+  unsigned wob_base_count_ = 0;
+  bool wob_hold_valid_ = false;        // a lane lock holds the base at the start of the block ...
+  float wob_hold_ = 0.0f;              // ... at this value
+  bool wob_emitted_ = false;
+  float wob_last_ = 0.0f;
+  int seq_rate_lane_ = -1;             // a motion lane on kLaneSeq: the rate it holds (-1: none) and the depth (< 0: none)
+  float seq_depth_lane_ = -1.0f;
 };
 
 }  // namespace o3_303::seq

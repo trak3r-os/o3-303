@@ -144,6 +144,39 @@ PitchWindow fit_window(int lowest, int highest, int lane_h, int top_px) noexcept
   return w;
 }
 
+PitchWindow range_window(int lowest, int highest, int lane_h, int pad) noexcept {
+  PitchWindow w;
+  if (highest < lowest) {
+    const int t = lowest;
+    lowest = highest;
+    highest = t;
+  }
+  pad = pad < 0 ? 0 : pad;
+  const int span = highest - lowest + 1;
+  const int want = span + 2 * pad;
+  int px = 16;
+  while (px > 5 && lane_h / px < want) {
+    --px;
+  }
+  int rows = lane_h / px;
+  rows = rows < 1 ? 1 : (rows > 128 ? 128 : rows);
+  int lo;
+  if (rows >= want) {
+    rows = want;
+    lo = lowest - pad;
+  } else {
+    lo = lowest - (rows - span) / 2;  // too wide for the lane: the rows that fit, round the middle of the range
+  }
+  lo = lo < 0 ? 0 : lo;
+  if (lo + rows - 1 > 127) {
+    lo = 128 - rows;
+  }
+  w.lo = lo;
+  w.rows = rows;
+  w.px = px;
+  return w;
+}
+
 unsigned note_name(unsigned note, char* out, unsigned cap) noexcept {
   static constexpr char kNames[12][3] = {{'C', ' ', 0}, {'C', '#', 0}, {'D', ' ', 0}, {'D', '#', 0}, {'E', ' ', 0}, {'F', ' ', 0},
                                          {'F', '#', 0}, {'G', ' ', 0}, {'G', '#', 0}, {'A', ' ', 0}, {'A', '#', 0}, {'B', ' ', 0}};

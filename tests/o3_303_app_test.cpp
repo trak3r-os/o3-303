@@ -92,15 +92,18 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // A performance button's action from the SOUND page: Shift + Params is the previous page, PERF; F1..F4 are Note, Instr, Vol, Fx; the
-  // encoder walks the seven actions (to the first, then up); Params wraps back to SOUND.
+  // A performance button's action from the SOUND page: PERF is the fourth page (three Params); F1..F4 are Note, Instr, Vol, Fx; the
+  // encoder walks the seven actions (to the first, then up); two more Params wrap back to SOUND (through SNAP).
   void assign_perf(Button which, PerfAction action) {
-    shift_tap(Button::Params);
+    for (int i = 0; i < 3; ++i) {
+      tap(Button::Params);
+    }
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
     turn(-8);
     if (action != PerfAction::Mute) {
       turn(static_cast<int>(action));
     }
+    tap(Button::Params);
     tap(Button::Params);
   }
   std::uint8_t led(unsigned pad_index) const { return h->leds().level(pad_index); }
@@ -514,7 +517,7 @@ TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two 
   CHECK(t.param(kVoice, Tb303::Wave) == doctest::Approx(1.0f));
 }
 
-TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF), Shift + PARAMS to the previous one; the pages reach the whole engine") {
+TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back; the pages reach the whole engine") {
   Hands t;
   const float drive0 = t.param(kDist, Distortion::Drive);
   t.tap(Button::Params);  // FX
@@ -547,12 +550,19 @@ TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF), Shift + PARAMS t
   CHECK(t.pat().length == 32);
 
   t.tap(Button::Params);  // PERF: its F3 is Vol's action; the encoder would change that, which this test does not do
+  t.tap(Button::Params);  // SNAP: no key is latched there
   t.tap(Button::Params);  // wraps to SOUND; F3 was the latched key on SEQ, so it is on SOUND too (ENV MOD)
   const float env0 = t.param(kVoice, Tb303::EnvMod);
   t.turn(3);
   CHECK(t.param(kVoice, Tb303::EnvMod) != env0);
-  t.shift_tap(Button::Params);  // the previous page: PERF
-  t.shift_tap(Button::Params);  // and SEQ
+  t.shift_tap(Button::Params);  // the SNAP page
+  CHECK(t.h->runtime().context().screen() != nullptr);
+  t.shift_tap(Button::Params);  // and back to the page it came from, SOUND
+  const float env1 = t.param(kVoice, Tb303::EnvMod);
+  t.turn(3);
+  CHECK(t.param(kVoice, Tb303::EnvMod) != env1);  // ENV MOD is still the latched key
+  t.tap(Button::Params);
+  t.tap(Button::Params);  // SEQ
   const std::uint32_t tempo1 = t.h->engine().tempo();
   t.tap(Button::F1);
   t.turn(2);
@@ -640,7 +650,10 @@ TEST_CASE("REC + Play + the encoder records motion under the playhead; a tap on 
 TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO walk them (DESIGN-303 section 3)") {
   Hands t;
   const Pattern first = bank().pattern(0);
-  t.shift_tap(Button::F1);  // RANDOM
+  t.shift_tap(Button::F1);  // RANDOM: the popup opens (C3) ...
+  CHECK(t.pat().steps[0].note == first.steps[0].note);
+  t.tap(Button::F8);        // ... and F8 makes the line
+  t.shift_tap(Button::F1);  // Shift + F1 closes the popup
   const Pattern random = t.pat();
   bool differs = false;
   for (unsigned i = 0; i < 16; ++i) {
@@ -1420,27 +1433,27 @@ TEST_CASE("a p-lock with an F key held gives the latch back at the release, like
   CHECK(t.param(kVoice, Tb303::EnvMod) == doctest::Approx(env));
 }
 
-TEST_CASE("Shift shows the tools row only while the encoder is still: a coarse Shift + turn keeps the parameter's name on the keys") {
+TEST_CASE("Shift shows the tools row only while the encoder is still: a coarse Shift + turn keeps the knob strip; the key row has no names otherwise (they are in the boxes)") {
   Hands t;
   const auto first_label = [&]() {
     app::SoftKeys keys;
     t.h->runtime().context().screen()->soft_keys(t.h->runtime().context(), keys);
     return std::string(keys.label[0] != nullptr ? keys.label[0] : "");
   };
-  CHECK(first_label() == "CUTOFF");
+  CHECK(first_label().empty());
   t.press(Button::Shift);
   t.wait(100);
-  CHECK(first_label() == "CUTOFF");  // not yet: a turn may follow
+  CHECK(first_label().empty());  // not yet: a turn may follow
   t.wait(700);
   CHECK(first_label() == "RANDOM");
   t.turn(3);  // a coarse step: the strip with its names and values comes back
-  CHECK(first_label() == "CUTOFF");
+  CHECK(first_label().empty());
   t.wait(300);
-  CHECK(first_label() == "CUTOFF");
+  CHECK(first_label().empty());
   t.wait(700);
   CHECK(first_label() == "RANDOM");
   t.release(Button::Shift);
-  CHECK(first_label() == "CUTOFF");
+  CHECK(first_label().empty());
 
   // The tools work from the press of Shift, with or without the row shown.
   t.press(Button::Shift);
@@ -1513,7 +1526,8 @@ TEST_CASE("RANDOM is not the same line after every boot") {
   Pattern first;
   {
     Hands t;
-    t.shift_tap(Button::F1);
+    t.shift_tap(Button::F1);  // the popup
+    t.tap(Button::F8);        // GENERATE
     first = t.pat();
   }
   Pattern second;
@@ -1521,6 +1535,7 @@ TEST_CASE("RANDOM is not the same line after every boot") {
     Hands t;
     t.wait(37);  // a hand does not press at the same moment twice
     t.shift_tap(Button::F1);
+    t.tap(Button::F8);
     second = t.pat();
   }
   bool differs = false;

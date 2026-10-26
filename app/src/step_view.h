@@ -22,8 +22,8 @@ inline constexpr int kCellW = 46;     // one step
 inline constexpr int kGridX = kGutterW;
 inline constexpr int kGridW = kCellW * 16;
 inline constexpr int kNumbersH = 18;  // the row of step numbers
-inline constexpr int kFlagRowH = 11;  // one of the flag rows (ACC, SLD, TIE)
-inline constexpr int kFlagRows = 3;
+inline constexpr int kFlagRowH = 11;  // one of the flag rows (ACC, SLD, TIE, and R/C: the ratchet and the trig condition)
+inline constexpr int kFlagRows = 4;
 inline constexpr int kMotionH = 46;   // the motion lane with its caption
 inline constexpr int kPointW = kCellW / 4;
 
@@ -35,6 +35,7 @@ struct Marks {
   int playpoint = 0;            // the playhead's quarter of its step, for the motion lane
   std::uint32_t held = 0;       // bit k: step pad k of the page is held
   std::uint32_t emphasis = 0;   // bit k: step k of the page is outlined (a held modifier's steps, motion steps)
+  int focus = -1;               // global step whose ratchet and condition the RATCHET / COND keys edit (Wiring::step_focus), -1: none marked
   bool roll = false;            // the piano-roll form
   PitchWindow window;
 };
@@ -42,7 +43,8 @@ struct Marks {
 // The height the pitch lane gets inside a hero area of height `h` (the step view keeps room for the flag rows).
 int lane_height(int h, bool roll) noexcept;
 
-// The hero inside `area`: the step numbers, the pitch lane with its gutter, the flag rows (not in the roll).
+// The hero inside `area`: the step numbers, the pitch lane with its gutter, the flag rows (not in the roll). A ratchet is the bar in its hits, a
+// condition and the ratchet's number are on the R/C row.
 void draw_steps(ui::Renderer& r, const ui::Rect& area, const Pattern& p, const Marks& m) noexcept;
 
 // The lane of motion points of `lane` under the same 16 columns. `knob_norm` (0..1) is where the knob stands, drawn as a guide;

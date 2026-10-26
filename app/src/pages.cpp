@@ -31,6 +31,7 @@ constexpr Entry delay(units::Delay::Param id, const char* label) noexcept {
 constexpr Entry freeze(Freeze::Param id, const char* label) noexcept { return Entry{Item::Freeze, static_cast<std::uint16_t>(id), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 constexpr Entry perf(unsigned button, const char* label) noexcept { return Entry{Item::Perf, static_cast<std::uint16_t>(button), label}; }
+constexpr Entry snap(unsigned slot, const char* label) noexcept { return Entry{Item::Snap, static_cast<std::uint16_t>(slot), label}; }
 
 constexpr Page kPages[kPageCount] = {
     {"SOUND",
@@ -41,15 +42,29 @@ constexpr Page kPages[kPageCount] = {
     {"FX",
      {dist(Distortion::Drive), dist(Distortion::Tone), delay(units::Delay::Time, "DLY TIME"), delay(units::Delay::Feedback, "DLY FB"),
       app_item(Item::SendA), dist(Distortion::Mix, "DIST MIX"), app_item(Item::DistMode, "DIST"), app_item(Item::Master)}},
+    // The transport and the step: the generator's settings are the RANDOM popup's (random_entry, Shift + F1). F6..F8 were the PERF page's.
     {"SEQ",
      {app_item(Item::Tempo), app_item(Item::Swing), app_item(Item::Length), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"),
-      app_item(Item::Scale), app_item(Item::Density), app_item(Item::AccSlide, "ACC/SLD")}},
-    // The performance buttons' assignments (C4) and what goes with them, until the kit's system Config exists; the last three are the SEQ
-    // page's after C3 (the RANDOM popup takes Scale, Density and ACC/SLD out of F6..F8). F1..F4: the button's name, its action as the value.
+      app_item(Item::FillVariant, "FILL"), app_item(Item::Ratchet), app_item(Item::Cond)}},
+    // The performance buttons' assignments (C4) and the beat freeze's length, until the kit's system Config exists. F1..F4: the button's name,
+    // its action as the value.
     {"PERF",
-     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), app_item(Item::FillVariant, "FILL"), freeze(Freeze::Length, "FRZ LEN"),
-      app_item(Item::Ratchet), app_item(Item::Cond)}},
+     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), freeze(Freeze::Length, "FRZ LEN"), Entry{}, Entry{}, Entry{}}},
+    // The snapshots (R2): the keys recall and (with Shift) store, the encoder morphs; the page's own strip draws them.
+    {"SNAP",
+     {snap(0, "SNAP 1"), snap(1, "SNAP 2"), snap(2, "SNAP 3"), snap(3, "SNAP 4"), snap(4, "SNAP 5"), snap(5, "SNAP 6"), snap(6, "SNAP 7"),
+      snap(7, "SNAP 8")}},
 };
+
+constexpr Entry kRandomEntries3[kRandomEntries] = {app_item(Item::Scale), app_item(Item::Density), app_item(Item::AccSlide, "ACC/SLD")};
+
+// What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
+// delay's four, the level and the send.
+constexpr Entry kSnapTargets[kSnapTargetCount] = {
+    voice(Tb303::Cutoff), voice(Tb303::Reso), voice(Tb303::EnvMod), voice(Tb303::Decay), voice(Tb303::Accent), voice(Tb303::Wave), voice(Tb303::Tune),
+    dist(Distortion::Active), dist(Distortion::Type), dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix),
+    delay(units::Delay::Time, nullptr), delay(units::Delay::Feedback, nullptr), delay(units::Delay::Tone, nullptr), delay(units::Delay::Mode, nullptr),
+    app_item(Item::Level, "VOLUME"), app_item(Item::SendA)};
 
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
 // curve, flags, page) ---------------------------------------------------------------------------------------------------------
@@ -96,6 +111,9 @@ constexpr core::ParamDesc kRatchet = {"RATCHET", "", kRatchetNames, nullptr, 0.0
 constexpr core::ParamDesc kCond = {"COND", "", nullptr, nullptr, 0.0f, static_cast<float>(seq::kCondStepCount - 1u), 0.0f,
                                    static_cast<std::uint16_t>(seq::kCondStepCount - 1u), 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 
+constexpr const char* kSnapNames[] = {"EMPTY", "SET"};
+constexpr core::ParamDesc kSnapSlot = {"SNAP", "", kSnapNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+
 constexpr unsigned kLengthCount = sizeof(kLengths) / sizeof(kLengths[0]);
 
 unsigned length_index(unsigned length) noexcept {
@@ -112,6 +130,8 @@ int round_to_int(float v) noexcept { return static_cast<int>(v < 0.0f ? v - 0.5f
 }  // namespace
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
+const Entry& random_entry(unsigned index) noexcept { return kRandomEntries3[index < kRandomEntries ? index : 0u]; }
+const Entry& snap_target(unsigned index) noexcept { return kSnapTargets[index < kSnapTargetCount ? index : 0u]; }
 
 // ---- Controls ---------------------------------------------------------------------------------------------------------------
 
@@ -157,6 +177,8 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kFillVariant;
     case Item::Perf:
       return entry.id < kPerfButtons ? &kPerfAssign : nullptr;
+    case Item::Snap:
+      return entry.id < kSnapSlots ? &kSnapSlot : nullptr;
     case Item::Blank:
       break;
   }
@@ -207,6 +229,8 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return w_->seq != nullptr ? static_cast<float>(w_->seq->fill_variant()) : 0.0f;
     case Item::Perf:
       return entry.id < kPerfButtons ? static_cast<float>(w_->perf[entry.id]) : 0.0f;
+    case Item::Snap:
+      return w_->snaps.used(entry.id) ? 1.0f : 0.0f;
     case Item::Blank:
       break;
   }
@@ -296,6 +320,7 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
         w_->perf[entry.id] = static_cast<std::uint8_t>(round_to_int(v));
       }
       break;
+    case Item::Snap:  // a snapshot is recalled and stored by the screen's keys, not set
     case Item::Blank:
       break;
   }
@@ -495,6 +520,17 @@ float Controls::from_point(const dsp::Engine& e, const Entry& entry, std::uint8_
   }
   const core::ParamDesc* d = desc(e, entry);
   return d != nullptr ? seq::point_to_value(*d, point) : 0.0f;
+}
+
+void Controls::snap_capture(const dsp::Engine& e, float* out) const noexcept {
+  for (unsigned i = 0; i < kSnapValues; ++i) {
+    out[i] = i < kSnapTargetCount ? get(e, kSnapTargets[i]) : 0.0f;
+  }
+}
+
+bool Controls::snap_discrete(const dsp::Engine& e, unsigned index) const noexcept {
+  const core::ParamDesc* d = index < kSnapTargetCount ? desc(e, kSnapTargets[index]) : nullptr;
+  return d != nullptr && d->unit == ParamUnit::Enum;
 }
 
 void Controls::apply_send(dsp::Engine& e) const noexcept {

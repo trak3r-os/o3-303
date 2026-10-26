@@ -7,6 +7,8 @@ release shift
 press shift
 tap f1
 release shift
+tap f8
+tap f7
 press shift
 tap insert
 release shift

@@ -181,6 +181,54 @@ TEST_CASE("step model: a narrow line gets the tallest rows, a wide one smaller r
   CHECK(swapped.lo == narrow.lo);
 }
 
+TEST_CASE("step model: the step view's window is the real range and three semitones each side (S1)") {
+  const int lane_h = 202;
+  // A narrow line: 11 rows of the tallest size, centred, exactly the range +-3.
+  const PitchWindow narrow = range_window(40, 44, lane_h);
+  CHECK(narrow.px == 16);
+  CHECK(narrow.rows == 11);
+  CHECK(narrow.lo == 37);
+  CHECK(narrow.hi() == 47);
+  // A wider one gets smaller rows, still exactly the range +-3 while 5 px rows hold it.
+  const PitchWindow mid = range_window(36, 60, lane_h);
+  CHECK(mid.rows == 25 + 6);
+  CHECK(mid.lo == 33);
+  CHECK(mid.px == lane_h / mid.rows);
+  CHECK(mid.rows * mid.px <= lane_h);
+  // Too wide for 5 px rows: the rows that fit, round the middle, never past the lane.
+  const PitchWindow huge = range_window(10, 100, lane_h);
+  CHECK(huge.px == 5);
+  CHECK(huge.rows == lane_h / 5);
+  CHECK(huge.rows * huge.px <= lane_h);
+  CHECK(huge.lo >= 0);
+  CHECK(huge.hi() <= 127);
+  // The edges of MIDI: the window slides to stay inside 0..127, a swapped range is the same.
+  const PitchWindow low = range_window(0, 2, lane_h);
+  CHECK(low.lo == 0);
+  const PitchWindow high = range_window(126, 127, lane_h);
+  CHECK(high.hi() == 127);
+  const PitchWindow swapped = range_window(44, 40, lane_h);
+  CHECK(swapped.lo == narrow.lo);
+  CHECK(swapped.rows == narrow.rows);
+  for (int lowest = 0; lowest <= 120; lowest += 5) {
+    for (int span = 0; span <= 40; span += 4) {
+      if (lowest + span > 127) {
+        continue;
+      }
+      const PitchWindow w = range_window(lowest, lowest + span, lane_h);
+      CHECK(w.px >= 5);
+      CHECK(w.px <= 16);
+      CHECK(w.rows * w.px <= lane_h);
+      CHECK(w.lo >= 0);
+      CHECK(w.hi() <= 127);
+      if (w.rows >= span + 7 && lowest >= 3 && lowest + span + 3 <= 127) {
+        CHECK(w.lo == lowest - 3);
+        CHECK(w.hi() == lowest + span + 3);
+      }
+    }
+  }
+}
+
 TEST_CASE("step model: note and pattern names") {
   char n[8];
   CHECK(note_name(36, n, sizeof n) == 2);

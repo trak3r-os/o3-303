@@ -280,13 +280,21 @@ void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noe
     hi = 48;
   }
   view::Marks m;
-  m.window = fit_window(lo, hi, view::lane_height(hero.h, false));
+  m.window = range_window(lo, hi, view::lane_height(hero.h, false));
   view::draw_steps(r, hero, pr.pattern, m);
 
-  // ---- What the keys do ----
-  const int hy = hero.y + hero.h + 4;
-  r.text(10, hy, "F1-F8 bank   ENCODER slot (SHIFT seed)   PADS slot   REC GEN a new take   PARAMS what to load", Color::TextDim, Face::Label);
-  r.text(10, hy + 18, "FILE load the slot into the current pattern and the sound   PATTERN back without loading", Color::TextDim, Face::Label);
+  // ---- What the keys do: one line, the keys bright and what they do dim ----
+  static constexpr const char* kHelp[][2] = {{"F1-F8", "BANK"}, {"ENC", "SLOT"},  {"SHIFT+ENC", "SEED"}, {"PADS", "SLOT"},
+                                            {"REC", "GEN"},    {"PARAMS", "WHAT"}, {"FILE", "LOAD"},      {"PATTERN", "BACK"}};
+  const int hy = area.y + area.h - 20;
+  r.rule(area.x, hy - 3, area.w, ui::Axis::Horizontal, Color::Empty);
+  int hx = 10;
+  for (const auto& pair : kHelp) {
+    r.text(hx, hy, pair[0], Color::Text, Face::Label);
+    hx += r.text_width(pair[0], Face::Label) + 8;
+    r.text(hx, hy, pair[1], Color::TextDim, Face::Label);
+    hx += r.text_width(pair[1], Face::Label) + 16;
+  }
 }
 
 }  // namespace o3_303

@@ -158,10 +158,10 @@ TEST_CASE("hold a step + UP / DOWN moves its octave (the note is kept inside 0..
   CHECK(t.pat().steps[0].note == before.steps[0].note - 1);
 }
 
-TEST_CASE("hold a step + the encoder on RATCHET (the PERF page's F7) sets that step's ratchet; hold two and both move") {
+TEST_CASE("hold a step + the encoder on RATCHET (SEQ's F7) sets that step's ratchet; hold two and both move") {
   Hands t;
   set_layers(t);
-  t.to_page(kPagePerf);
+  t.to_page(kPageSeq);
   t.tap(Button::F7);
   t.down(step_pad_of(2));
   t.turn(2);
@@ -198,7 +198,7 @@ TEST_CASE("hold a step + the encoder on COND walks the conditions with seq::step
   p.steps[9].cond = cond_probability(50);  // a step that starts somewhere else on the walk
   bank().replace(t.selected(), p);
   bank().clear_history();
-  t.to_page(kPagePerf);
+  t.to_page(kPageSeq);
   t.tap(Button::F8);
   t.down(step_pad_of(3));
   t.turn(1);
@@ -240,7 +240,7 @@ TEST_CASE("a condition edit is undoable and the pattern is otherwise as it was")
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
-  t.to_page(kPagePerf);
+  t.to_page(kPageSeq);
   t.tap(Button::F8);
   t.down(step_pad_of(3));
   t.turn(4);

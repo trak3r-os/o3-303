@@ -34,6 +34,10 @@ using o3sdk::core::ParamUnit;
 
 constexpr const char* kActiveNames[] = {"OFF", "ON"};
 constexpr const char* kLengthNames[] = {"1/4", "1/8", "1/16"};
+constexpr const char* kModeNames[] = {"FREEZE", "ROLL", "STOP", "REVERSE"};
+constexpr const char* kRollNames[] = {"1/8", "1/16", "1/32", "1/64"};
+constexpr const char* kAccelNames[] = {"OFF", "BEAT", "BAR"};
+constexpr const char* kStopNames[] = {"1/8", "1/4", "1/2", "1", "2"};
 constexpr std::uint8_t kSmooth = o3sdk::core::kParamSmooth;
 
 // name, unit text, names, knots, min, max, default, detents, coarse, list count, display, curve, flags, page
@@ -41,11 +45,17 @@ constexpr o3sdk::core::ParamDesc kParams[Freeze::kParamCount] = {
     {"ACTIVE", "", kActiveNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"LENGTH", "", kLengthNames, nullptr, 0.0f, 2.0f, 1.0f, 2, 1, 3, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 1.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
+    {"MODE", "", kModeNames, nullptr, 0.0f, 3.0f, 0.0f, 3, 1, 4, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"ROLL RATE", "", kRollNames, nullptr, 0.0f, 3.0f, 1.0f, 3, 1, 4, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"ACCELERATE", "", kAccelNames, nullptr, 0.0f, 2.0f, 0.0f, 2, 1, 3, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"STOP TIME", "bar", kStopNames, nullptr, 0.0f, 4.0f, 2.0f, 4, 1, 5, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
 };
 
 constexpr dsp::UnitInfo kInfo{"FREEZE", dsp::UnitKind::Effect, kParams, Freeze::kParamCount, nullptr, 0};
 
 constexpr float kSixteenths[Freeze::kLengthCount] = {4.0f, 2.0f, 1.0f};  // 1/4, 1/8, 1/16 of a bar
+constexpr float kRollSixteenths[Freeze::kRollRateCount] = {2.0f, 1.0f, 0.5f, 0.25f};          // 1/8, 1/16, 1/32, 1/64 note
+constexpr float kStopSixteenths[Freeze::kStopTimeCount] = {2.0f, 4.0f, 8.0f, 16.0f, 32.0f};  // 1/8, 1/4, 1/2, 1, 2 bars
 constexpr float kFadeSeconds = 0.005f;                                     // the crossfades
 constexpr float kMixSeconds = 0.005f;                                      // the Mix smoother
 
@@ -57,6 +67,19 @@ constexpr std::uint32_t kBakeSpan = 2u * Freeze::kMaxFade + 2u * dsp::kMaxBlockF
 static_assert(Freeze::kMinLoop - Freeze::kMaxFade > kBakeSpan, "the baking must end before the first loop reaches its tail");
 static_assert(Freeze::kHeadroom - Freeze::kMaxFade > kBakeSpan, "the baking must end before the write head reaches what it reads");
 static_assert(Freeze::kMinCapacity >= Freeze::kMinLoop + Freeze::kHeadroom, "a ring holds at least the shortest loop and the headroom");
+// The same for the shortest ROLL loop, whose fade is a quarter of it: the baking (twice the fade and two blocks) ends before the loop point.
+static_assert(Freeze::kMinRoll - Freeze::kMinRoll / 4u > 2u * (Freeze::kMinRoll / 4u) + 2u * dsp::kMaxBlockFrames,
+              "the baking of the shortest roll must end before the first loop reaches its tail");
+static_assert(Freeze::kMinRoll > Freeze::kMaxFade && Freeze::kMinSpin > 4u * Freeze::kMaxFade, "the roll and the spin-up are longer than their fades");
+
+// An Enum value (the descriptor's index) as a table index: rounded, clamped (a NaN is 0).
+std::uint8_t enum_index(float v, unsigned count) noexcept {
+  if (!(v > 0.0f)) {
+    return 0;
+  }
+  const float n = v + 0.5f;
+  return n >= static_cast<float>(count) ? static_cast<std::uint8_t>(count - 1u) : static_cast<std::uint8_t>(n);
+}
 
 constexpr std::uint32_t floor_pow2(std::uint32_t n) noexcept {
   std::uint32_t p = 1;
@@ -96,6 +119,38 @@ std::uint32_t Freeze::fade_frames(float sample_rate, std::uint32_t loop) noexcep
   return n != 0u ? n : 1u;
 }
 
+std::uint32_t Freeze::roll_frames(unsigned rate, std::uint32_t tempo_mbpm, std::uint32_t capacity) noexcept {
+  const unsigned i = rate < kRollRateCount ? rate : kRollRateCount - 1u;
+  const std::uint32_t longest = capacity > kHeadroom + kMinRoll ? capacity - kHeadroom : kMinRoll;
+  const float exact = kRollSixteenths[i] * dsp::samples_per_sixteenth(tempo_mbpm) + 0.5f;
+  if (!(exact < static_cast<float>(longest))) {  // also a NaN
+    return longest;
+  }
+  const auto n = static_cast<std::uint32_t>(exact);
+  return n < kMinRoll ? kMinRoll : n;
+}
+
+std::uint32_t Freeze::accel_frames(unsigned accel, std::uint32_t tempo_mbpm) noexcept {
+  if (accel != kAccelBeat && accel != kAccelBar) {
+    return 0;
+  }
+  const float exact = (accel == kAccelBeat ? 4.0f : 16.0f) * dsp::samples_per_sixteenth(tempo_mbpm) + 0.5f;
+  return exact < 1.0e7f ? static_cast<std::uint32_t>(exact) : 10'000'000u;
+}
+
+std::uint32_t Freeze::stop_frames(unsigned time, std::uint32_t tempo_mbpm, std::uint32_t capacity) noexcept {
+  const unsigned i = time < kStopTimeCount ? time : kStopTimeCount - 1u;
+  const std::uint32_t room = capacity > kHeadroom ? capacity - kHeadroom : 0u;
+  const float exact = kStopSixteenths[i] * dsp::samples_per_sixteenth(tempo_mbpm) + 0.5f;
+  std::uint32_t n = exact < 1.0e7f ? static_cast<std::uint32_t>(exact) : 10'000'000u;
+  if (n > 2u * room) {
+    n = 2u * room;
+  }
+  return n < kMinSpin ? kMinSpin : n;
+}
+
+std::uint32_t Freeze::reverse_span(std::uint32_t capacity) noexcept { return capacity > kHeadroom ? (capacity - kHeadroom) / 2u : 0u; }
+
 void Freeze::prepare(float sample_rate) noexcept {
   fs_ = sample_rate > 1000.0f ? sample_rate : 44100.0f;
   mix_k_ = 1.0f - std::exp(-1.0f / (kMixSeconds * fs_));
@@ -114,6 +169,31 @@ void Freeze::prepare(float sample_rate) noexcept {
   bake_origin_ = 0;
   bake_next_ = fade_;  // nothing to bake
   baked_ = 0;
+  cur_mode_ = kModeFreeze;
+  lag_ = 0;
+  roll_cur_ = kRoll16;
+  roll_want_ = kRoll16;
+  roll_dirty_ = false;
+  roll_restart_ = false;
+  relatch_ = false;
+  roll_pos_ = 0;
+  roll_tempo_ = 120'000;
+  accel_period_ = 0;
+  accel_left_ = 0;
+  xfade_ = 1;
+  inv_xfade_ = 1.0f;
+  xp_ = 0;
+  sp_ = 1.0f;
+  dec_ = 0.0f;
+  inc_ = 0.0f;
+  lf_ = 0.0f;
+  li_ = 0;
+  lag_max_ = 0;
+  fading_ = false;
+  rev_org2_ = 0;
+  rev_k_ = 0;
+  rev_span_ = 0;
+  rev_forced_ = false;
   for (unsigned p = 0; p < kParamCount; ++p) {
     set(static_cast<std::uint16_t>(p), kParams[p].def);
   }
@@ -133,6 +213,21 @@ void Freeze::set(std::uint16_t id, float v) noexcept {
     case Mix:
       mix_target_ = v > 1.0f ? 1.0f : (v > 0.0f ? v : 0.0f);
       break;
+    case Mode:
+      mode_ = enum_index(v, kModeCount);
+      break;
+    case RollRate:
+      roll_rate_ = enum_index(v, kRollRateCount);
+      roll_dirty_ = true;  // a ROLL that is on takes it as the request at its next loop boundary
+      break;
+    case Accelerate:
+      accel_ = enum_index(v, kAccelCount);
+      accel_period_ = accel_frames(accel_, roll_tempo_);
+      accel_left_ = accel_period_;
+      break;
+    case StopTime:
+      stop_time_ = enum_index(v, kStopTimeCount);
+      break;
     default:
       break;
   }
@@ -141,7 +236,32 @@ void Freeze::set(std::uint16_t id, float v) noexcept {
 // ---- the freeze ---------------------------------------------------------------------------------------------------------------
 
 void Freeze::enter(std::uint32_t tempo_mbpm) noexcept {
-  loop_ = loop_frames(length_, tempo_mbpm, mask_ + 1u);
+  cur_mode_ = mode_;
+  if (cur_mode_ == kModeStop) {
+    enter_stop(tempo_mbpm);
+    return;
+  }
+  if (cur_mode_ == kModeReverse) {
+    enter_reverse();
+    return;
+  }
+  if (cur_mode_ == kModeRoll) {
+    if (!roll_restart_) {
+      roll_want_ = roll_rate_;  // a roll that starts over to go longer takes the request it left for
+    }
+    roll_restart_ = false;
+    roll_dirty_ = false;
+    roll_cur_ = roll_want_;
+    roll_tempo_ = tempo_mbpm;
+    roll_pos_ = 0;
+    relatch_ = false;
+    accel_period_ = accel_frames(accel_, tempo_mbpm);
+    accel_left_ = accel_period_;
+    loop_ = roll_frames(roll_cur_, tempo_mbpm, mask_ + 1u);
+  } else {
+    loop_ = loop_frames(length_, tempo_mbpm, mask_ + 1u);
+  }
+  lag_ = loop_;
   fade_ = fade_frames(fs_, loop_);
   inv_fade_ = 1.0f / static_cast<float>(fade_);
   fp_ = 0;
@@ -204,7 +324,7 @@ void Freeze::hold(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_
   float* const lr = l_;
   float* const rr = r_;
   const std::uint32_t mask = mask_;
-  const std::uint32_t d = loop_;
+  const std::uint32_t d = lag_;
   const float target = mix_target_;
   const float k = mix_k_;
   const float inv = inv_fade_;
@@ -241,7 +361,7 @@ void Freeze::leave(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32
   float* const lr = l_;
   float* const rr = r_;
   const std::uint32_t mask = mask_;
-  const std::uint32_t d = loop_;
+  const std::uint32_t d = lag_;
   const float target = mix_target_;
   const float k = mix_k_;
   const float inv = inv_fade_;
@@ -281,6 +401,9 @@ void Freeze::run(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t
       // within kBakeSpan frames of its entry, so after the shortest freeze (5 ms in, 5 ms out) the wait is a few frames. A new loop's own
       // baking and the loop itself read what the old baking is still replacing, and the baking has one state.
       if (!want_ || bake_next_ < fade_) {
+        if (!want_) {
+          roll_restart_ = false;  // a roll that left to start over, and was released meanwhile, starts from the Roll Rate next time
+        }
         idle(args, from, to);
         return;
       }
@@ -291,6 +414,18 @@ void Freeze::run(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t
       // of the tail, if it is not over, goes on at its own pace through the exit (nothing reads the tail before kMinLoop - kMaxFade
       // frames after the entry, and the exit reads the loop's head), so an exit adds no work to its block.
       phase_ = Phase::Leave;
+    }
+    if (phase_ == Phase::Stop) {
+      from = run_stop(args, from, to);
+      continue;
+    }
+    if (phase_ == Phase::Reverse) {
+      from = run_reverse(args, from, to);
+      continue;
+    }
+    if (phase_ == Phase::Hold && cur_mode_ == kModeRoll) {
+      from = run_roll(args, from, to);
+      continue;
     }
     if (phase_ == Phase::Hold) {
       if (fp_ < fade_) {
@@ -310,6 +445,319 @@ void Freeze::run(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t
       }
     }
   }
+}
+
+
+// ---- ROLL ---------------------------------------------------------------------------------------------------------------------
+
+// A ROLL is a FREEZE whose loop is the Roll Rate; its entry is enter()'s and run()'s (the same crossfade, the same baking). What it adds
+// is the change of rate at a loop boundary, and the Accelerate steps that ask for it.
+
+// `frames` of the roll went by: they count toward the next Accelerate step. A step only moves the request; the loop changes at its boundary.
+void Freeze::roll_tick(std::uint32_t frames) noexcept {
+  if (accel_period_ == 0u) {
+    return;
+  }
+  while (frames >= accel_left_) {
+    frames -= accel_left_;
+    accel_left_ = accel_period_;
+    if (roll_want_ + 1u < kRollRateCount) {
+      ++roll_want_;
+    }
+  }
+  accel_left_ -= frames;
+}
+
+// A repeat is over (roll_pos_ == loop_). The head of the loop comes next, so a loop of the head's first n frames goes on without a join.
+void Freeze::roll_boundary() noexcept {
+  roll_pos_ = 0;
+  if (relatch_) {
+    relatch_ = false;
+    lag_ = loop_;  // the short repeat is in the ring: from here the loop is read one repeat behind
+  }
+  if (roll_want_ == roll_cur_) {
+    return;
+  }
+  const std::uint32_t len = roll_frames(roll_want_, roll_tempo_, mask_ + 1u);
+  if (len == loop_) {  // both rates are clamped to the same length
+    roll_cur_ = roll_want_;
+    return;
+  }
+  if (len > loop_) {
+    roll_restart_ = true;  // longer than what the ring holds as the loop: leave and capture again
+    phase_ = Phase::Leave;
+    return;
+  }
+  // Shorter: the head of the old loop. The first repeat copies it from the old repeat (lag_ stays the old length) and blends its tail
+  // with the end of the old loop in relatch_tail(); no baking is pending, so the fade is the new loop's.
+  roll_cur_ = roll_want_;
+  loop_ = len;
+  fade_ = fade_frames(fs_, len);
+  inv_fade_ = 1.0f / static_cast<float>(fade_);
+  fp_ = fade_;
+  bake_next_ = fade_;
+  relatch_ = true;
+}
+
+// The last `fade_` frames of the first repeat of a shorter loop: the copy of the old loop's head, blended into the end of the old loop
+// (ring[w - loop_] there), so that the new loop point joins the old loop's end to the old loop's head, which is what the ring had.
+void Freeze::relatch_tail(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept {
+  float* const lr = l_;
+  float* const rr = r_;
+  const std::uint32_t mask = mask_;
+  const std::uint32_t d = lag_;
+  const std::uint32_t nl = loop_;
+  const std::uint32_t fade = fade_;
+  const float inv = inv_fade_;
+  const float target = mix_target_;
+  const float k = mix_k_;
+  std::uint32_t w = w_;
+  std::uint32_t t = roll_pos_ - (nl - fade);
+  float m = mix_;
+  for (std::uint32_t i = from; i < to; ++i) {
+    const float a = (t + 1u == fade) ? 1.0f : static_cast<float>(t + 1u) * inv;
+    const std::uint32_t rd = (w - d) & mask;
+    const std::uint32_t re = (w - nl) & mask;
+    const float cl = lr[rd] * (1.0f - a) + lr[re] * a;
+    const float cr = rr[rd] * (1.0f - a) + rr[re] * a;
+    lr[w] = cl;
+    rr[w] = cr;
+    m += k * (target - m);
+    const float il = args.in_l[i];
+    const float ir = args.in_r[i];
+    args.out_l[i] = il * (1.0f - m) + cl * m;
+    args.out_r[i] = ir * (1.0f - m) + cr * m;
+    w = (w + 1u) & mask;
+    ++t;
+  }
+  w_ = w;
+  mix_ = std::fabs(target - m) < 1e-4f ? target : m;
+}
+
+std::uint32_t Freeze::run_roll(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept {
+  if (roll_dirty_) {
+    roll_dirty_ = false;
+    roll_want_ = roll_rate_;
+    accel_left_ = accel_period_;
+  }
+  if (fp_ < fade_) {  // the entry crossfade, as FREEZE has it
+    const std::uint32_t n = to - from < fade_ - fp_ ? to - from : fade_ - fp_;
+    hold<true>(args, from, from + n);
+    roll_pos_ += n;
+    roll_tick(n);
+    return from + n;
+  }
+  if (roll_pos_ >= loop_) {
+    roll_boundary();
+    if (phase_ != Phase::Hold) {
+      return from;  // restarting: the caller leaves, then enters again
+    }
+  }
+  std::uint32_t n = to - from < loop_ - roll_pos_ ? to - from : loop_ - roll_pos_;
+  if (relatch_ && roll_pos_ >= loop_ - fade_) {
+    relatch_tail(args, from, from + n);
+  } else {
+    if (relatch_ && n > loop_ - fade_ - roll_pos_) {
+      n = loop_ - fade_ - roll_pos_;  // up to where the tail's blend begins
+    }
+    hold<false>(args, from, from + n);
+  }
+  roll_pos_ += n;
+  roll_tick(n);
+  return from + n;
+}
+
+// ---- STOP ---------------------------------------------------------------------------------------------------------------------
+
+void Freeze::enter_stop(std::uint32_t tempo_mbpm) noexcept {
+  const std::uint32_t cap = mask_ + 1u;
+  const std::uint32_t len = stop_frames(stop_time_, tempo_mbpm, cap);
+  const std::uint32_t spin = len / 4u > kMinSpin ? len / 4u : kMinSpin;
+  dec_ = 1.0f / static_cast<float>(len);
+  inc_ = 1.0f / static_cast<float>(spin);
+  sp_ = 1.0f;
+  li_ = 0;
+  lf_ = 0.0f;
+  lag_max_ = cap - kHeadroom;
+  xfade_ = fade_frames(fs_, len);
+  inv_xfade_ = 1.0f / static_cast<float>(xfade_);
+  xp_ = xfade_;
+  fading_ = false;
+  mix_ = mix_target_;  // at entry the output is the input whatever Mix is, so it may jump
+  phase_ = Phase::Stop;
+}
+
+// One piece of a STOP, K: 0 the speed falls (Active on), 1 it rises (released), 2 the final crossfade to the input. The input is recorded
+// first, so the read at a lag of 0 is the input itself. The read is between the frames `lag` and `lag + 1` behind the write head (the lag's
+// fraction weighs the older one). Returns the frame it got to: a spin-up ends the piece the frame the speed is back to 1, and the crossfade
+// ends it with the share at 0 (the phase is then Idle).
+template <int K>
+std::uint32_t Freeze::stop_loop(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept {
+  float* const lr = l_;
+  float* const rr = r_;
+  const std::uint32_t mask = mask_;
+  const std::uint32_t lag_max = lag_max_;
+  const float target = mix_target_;
+  const float k = mix_k_;
+  const float dec = dec_;
+  const float inc = inc_;
+  const float inv = inv_xfade_;
+  const std::uint32_t xfade = xfade_;
+  std::uint32_t w = w_;
+  std::uint32_t li = li_;
+  std::uint32_t xp = xp_;
+  float s = sp_;
+  float lf = lf_;
+  float m = mix_;
+  bool done = false;
+  std::uint32_t i = from;
+  for (; i < to && !done; ++i) {
+    const float il = args.in_l[i];
+    const float ir = args.in_r[i];
+    lr[w] = il;
+    rr[w] = ir;
+    if constexpr (K == 0) {
+      s -= dec;
+      s = s > 0.0f ? s : 0.0f;
+    } else if constexpr (K == 1) {
+      s += inc;
+      s = s < 1.0f ? s : 1.0f;
+    }
+    lf += 1.0f - s;
+    if (lf >= 1.0f) {
+      lf -= 1.0f;
+      ++li;
+    }
+    if (li >= lag_max) {
+      li = lag_max;
+      lf = 0.0f;
+    }
+    const std::uint32_t b = (w - li) & mask;
+    const std::uint32_t a = (b - 1u) & mask;
+    const float gain = s * 4.0f < 1.0f ? s * 4.0f : 1.0f;  // the level follows the speed: the stop ends in silence
+    const float wl = (lr[a] * lf + lr[b] * (1.0f - lf)) * gain;
+    const float wr = (rr[a] * lf + rr[b] * (1.0f - lf)) * gain;
+    m += k * (target - m);
+    float share = 1.0f;
+    if constexpr (K == 2) {
+      share = xp >= xfade ? 1.0f : static_cast<float>(xp) * inv;
+      --xp;
+      done = xp == 0u;
+    }
+    const float c = m * share;
+    args.out_l[i] = il * (1.0f - c) + wl * c;
+    args.out_r[i] = ir * (1.0f - c) + wr * c;
+    w = (w + 1u) & mask;
+    if constexpr (K == 1) {
+      done = s >= 1.0f;
+    }
+  }
+  w_ = w;
+  li_ = li;
+  lf_ = lf;
+  sp_ = s;
+  xp_ = xp;
+  mix_ = std::fabs(target - m) < 1e-4f ? target : m;
+  if constexpr (K == 1) {
+    if (done) {
+      fading_ = true;  // back at full speed: the crossfade into the input, from the full share
+      xp_ = xfade_;
+    }
+  } else if constexpr (K == 2) {
+    if (done) {
+      fading_ = false;
+      phase_ = Phase::Idle;
+    }
+  }
+  return i;
+}
+
+std::uint32_t Freeze::run_stop(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept {
+  if (fading_) {
+    return stop_loop<2>(args, from, to);
+  }
+  return want_ ? stop_loop<0>(args, from, to) : stop_loop<1>(args, from, to);
+}
+
+// ---- REVERSE ------------------------------------------------------------------------------------------------------------------
+
+void Freeze::enter_reverse() noexcept {
+  rev_span_ = reverse_span(mask_ + 1u);
+  xfade_ = fade_frames(fs_, rev_span_);
+  inv_xfade_ = 1.0f / static_cast<float>(xfade_);
+  xp_ = 0;
+  rev_k_ = 0;
+  rev_forced_ = false;
+  rev_org2_ = 2u * w_;
+  mix_ = mix_target_;  // the share of the reversal starts at 0
+  phase_ = Phase::Reverse;
+}
+
+// K: +1 the share of the reversal rises, 0 it is full, -1 it falls. The read is the ring `2 k` frames behind the write head, k frames since
+// the entry: org - k, where org is the ring index of the entry (org2 = 2 org, modulo the ring). The input is recorded first.
+template <int K>
+void Freeze::reverse_loop(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept {
+  float* const lr = l_;
+  float* const rr = r_;
+  const std::uint32_t mask = mask_;
+  const std::uint32_t org2 = rev_org2_;
+  const float target = mix_target_;
+  const float k = mix_k_;
+  const float inv = inv_xfade_;
+  const std::uint32_t xfade = xfade_;
+  std::uint32_t w = w_;
+  std::uint32_t xp = xp_;
+  float m = mix_;
+  for (std::uint32_t i = from; i < to; ++i) {
+    const float il = args.in_l[i];
+    const float ir = args.in_r[i];
+    lr[w] = il;
+    rr[w] = ir;
+    const std::uint32_t rd = (org2 - w) & mask;
+    const float pl = lr[rd];
+    const float pr = rr[rd];
+    m += k * (target - m);
+    float share = 1.0f;
+    if constexpr (K != 0) {
+      share = xp >= xfade ? 1.0f : static_cast<float>(xp) * inv;
+      xp = K > 0 ? xp + 1u : xp - 1u;
+    }
+    const float c = m * share;
+    args.out_l[i] = il * (1.0f - c) + pl * c;
+    args.out_r[i] = ir * (1.0f - c) + pr * c;
+    w = (w + 1u) & mask;
+  }
+  w_ = w;
+  xp_ = xp;
+  rev_k_ += to - from;
+  mix_ = std::fabs(target - m) < 1e-4f ? target : m;
+}
+
+std::uint32_t Freeze::run_reverse(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept {
+  const std::uint32_t limit = rev_span_ - xfade_;  // after this many frames the reversal must leave (the ring behind it ends)
+  if (!rev_forced_ && rev_k_ >= limit) {
+    rev_forced_ = true;
+  }
+  if (rev_forced_ || !want_) {
+    if (xp_ == 0u) {
+      phase_ = Phase::Idle;  // nothing of the reversal is in the output: the input records and passes
+      return from;
+    }
+    const std::uint32_t n = to - from < xp_ ? to - from : xp_;
+    reverse_loop<-1>(args, from, from + n);
+    if (xp_ == 0u) {
+      phase_ = Phase::Idle;
+    }
+    return from + n;
+  }
+  std::uint32_t n = to - from < limit - rev_k_ ? to - from : limit - rev_k_;
+  if (xp_ < xfade_) {
+    n = n < xfade_ - xp_ ? n : xfade_ - xp_;
+    reverse_loop<1>(args, from, from + n);
+  } else {
+    reverse_loop<0>(args, from, from + n);
+  }
+  return from + n;
 }
 
 void Freeze::process(const dsp::ProcessArgs& args) noexcept {

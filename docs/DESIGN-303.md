@@ -34,10 +34,10 @@ row 3    C    C#   D    D#   E    F    F#   G    G#    A     A#    B    (lower o
 | hold a step + ACC / SLIDE / TIE / REST | toggles that attribute on the step |
 | hold a step + OCT+ / OCT- | the step's ratchet one hit up or down (x1 to x4) |
 | hold a step + up / down | the step's octave |
-| hold a step + encoder | locks the focused parameter on that step (a p-lock), on the lane that drives it; on the PERF page's RATCHET and COND the step's own ratchet and trig condition |
+| hold a step + encoder | locks the focused parameter on that step (a p-lock), on the lane that drives it; on the SEQ page's RATCHET and COND the step's own ratchet and trig condition |
 | hold ACC (or SLIDE) + left / right | rotates that layer of the pattern alone, one step |
 | hold KEYS + a pad of rows 2 and 3 | the filter ladders: row 2 is 12 places of Cutoff, row 3 of Reso (Shift: Env Mod), through a 30 ms slew; the LEDs draw the position as a bar. A tap of KEYS toggles live play as before |
-| a scale chosen on the SEQ page | the keyboard pads out of it go dark and do nothing; lit means playable. The generator's default scale is not a choice: the keyboard is chromatic until the Scale key is turned, and "No scale" or "Chromatic" unlocks it |
+| a scale chosen in the RANDOM popup | the keyboard pads out of it go dark and do nothing; lit means playable. The generator's default scale is not a choice: the keyboard is chromatic until the popup's Scale key is turned, and "No scale" or "Chromatic" unlocks it |
 | hold ACC (or SLIDE, TIE…) alone | the step pads show which steps have it; tap steps to toggle (TR style) |
 | playing, REC off | the keyboard transposes the pattern live (the 303's track-mode transpose); KEYS switches to playing the voice live |
 | hold MOTION | steps with automation light up; Delete clears it |
@@ -53,17 +53,29 @@ change it for a moment; hold two and turn to move both; Shift + turn for coarse.
 | SOUND | Cutoff | Reso | Env Mod | Decay | Accent | Wave | Tune | Volume |
 | MODS | Acc Decay | Filter Track | Slide time | Soft Attack* | Sub Osc* | Filter FM* | Sweep* | Muffler* |
 | FX | Drive* | Drive Tone* | Delay time (sync) | Delay FB | Delay send | Reverb send* | — | Master |
-| SEQ | Tempo | Swing | Length | Gate | Transpose | Scale | Density (generator) | Acc/Slide % |
-| PERF | Note's action | Instr's | Vol's | Fx's | FILL's variant | Freeze length | Ratchet (of the step) | Trig condition (of the step) |
+| SEQ | Tempo | Swing | Length | Gate | Transpose | FILL's variant | Ratchet (of the step) | Trig condition (of the step) |
+| PERF | Note's action | Instr's | Vol's | Fx's | Freeze length | — | — | — |
+| SNAP | snapshot 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+| RANDOM popup (Shift + F1) | Scale | Density (generator) | Acc/Slide % | — | — | — | Close | Generate |
 
 \* not in track3r-os's `modules/tb303` (Drive, Soft Attack and the sub-oscillator were left out there for CPU); the delay exists as
 `units/delay`.
 
-PERF is o3-303's own page until the kit's system Config exists (o3-sdk FRAMEWORK.md section 5) and until the RANDOM popup (M3b C3) takes Scale, Density and Acc / Slide % off the SEQ page, which frees F6..F8 there for FILL's variant, the ratchet and the condition. The encoder
-can also be latched on the tempo (tap Master) or the swing (Shift + tap Master), whatever page the F keys are on.
+PERF is o3-303's own page until the kit's system Config exists (o3-sdk FRAMEWORK.md section 5). SEQ is the transport and the step's settings;
+the generator's settings are the RANDOM popup's (M3b C3): Shift + F1 opens it over the knob strip, F1..F3 latch the encoder on Scale, Density and
+Acc / Slide % (the accent chance, with the slide chance at four fifths of it; the Scale goes through the same control as ever, so the keyboard's
+scale lock engages), F8 makes a new line (again and again, the settings stay), F7 or Shift + F1 or Params closes it. The encoder can also be
+latched on the tempo (tap Master) or the swing (Shift + tap Master), whatever page the F keys are on.
 
-With Shift held the soft-key row becomes the pattern tools: F1 RANDOM, F2 MUTATE, F3 REVERSE, F4 INVERT, F5 DOUBLE (length × 2,
-copied), F6 CLEAR, F7 REDO, F8 UNDO.
+SNAP (M3b R2) is the page of eight snapshots of the sound: SOUND, the distortion, the delay, the level and the delay send (MODS joins when it
+exists), in RAM, not saved. A tap on its F key recalls (the values glide in 30 ms), Shift + an F key stores what the sound is now. The encoder
+morphs from the snapshot recalled before (the sound as it was, for the first recall) to the one recalled last: 32 detents, Shift + turn four
+at a time; a switch (the wave, the distortion's model, the delay's time and mode) changes at the middle. It runs on the sequencer's slew, and
+the engine stores the blend when the glide is over. SNAP is the last page of the PARAMS cycle and what Shift + Params gives; Shift + Params
+again goes back to the page it came from. Shift + F stores here, so there is no tools row on this page.
+
+With Shift held (and the encoder still for 600 ms) the knob strip becomes the pattern tools: F1 RANDOM (the popup), F2 MUTATE, F3 REVERSE,
+F4 INVERT, F5 DOUBLE (length × 2, copied), F6 CLEAR, F7 REDO, F8 UNDO; they work from the press of Shift.
 
 ## 4. The other buttons
 
@@ -76,7 +88,7 @@ copied), F6 CLEAR, F7 REDO, F8 UNDO.
 | Note / Instr / Vol / Fx | the four performance buttons, each one of MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW (the delay send to unity) or FREEZE (the beat freeze), assigned on the PERF page; momentary; the defaults are MUTE, ACC ALL, FILL, FREEZE | latch them |
 | Pattern | tap: the 303 screen (again: step view / piano roll); hold: the 48 pads are 48 patterns, a tap queues one, several taps make a chain (as the original firmware does) | — |
 | Copy / Insert / Delete | step or pattern: copy, insert, clear | paste / duplicate / clear the whole pattern |
-| Params | the next page of F keys | the previous page |
+| Params | the next page of F keys (SOUND, FX, SEQ, PERF, SNAP) | the SNAP page, and back |
 | Song | the chain, with repeats and a transpose per entry | |
 | Performance | the HOOKS screen | the split mode (section 7) |
 | SampleLoad / Play / Edit / Rec | the HOOKS sub-pages | |
@@ -98,10 +110,20 @@ The printed legends are the original firmware's; the screen always shows what th
 +--------------------------------------------------------------------------+
 | motion CUTOFF  ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▁                                          |
 +--------------------------------------------------------------------------+
-|  CUTOFF   RESO   ENVMOD   DECAY   ACCENT   WAVE    TUNE    VOL           |  (the kit's knob strip)
-|  F1       F2     F3       F4      F5       F6      F7      F8            |
+|  F1 CUTOFF  F2 RESO  F3 ENV MOD  F4 DECAY ...  (the knob strip: the F-number and the  |
+|  350 Hz     65 %     60 %        750 ms        name small and dim, the value large     |
+|  ▓▓▓▓░░░░░░ ...                                  and bright, as the fill of the box)    |
 +--------------------------------------------------------------------------+
 ```
+
+The step view (M3b S1) draws the pattern's real pitch range and three semitones each side, the octave lines (the Cs) bright and the Cs named in
+the gutter, note names above the bars only for the notes that are not a C; the beat columns (1, 5, 9, 13) have a lighter ground and the playhead's
+column is the one saturated thing. A ratchet is the bar split into its hits; under the ACC / SLD / TIE rows an R/C row has the ratchet's number
+and the trig condition of each step, and the step the RATCHET and COND keys edit (the held one, else the cursor's) is framed. The knob strip
+(S2) has the F-number and the name in each box, no second label row (the kit's key row keeps its F-number caps and no names), larger values and
+the value as the fill of the box; labels are dim and values bright, the header's LEN / SW / GATE / TR row too. S3: in the piano roll the white keys
+are dim; a state that is off (MOTION REC OFF, the KEYS or TRNSP chip that is not the mode, a performance button at rest) is an outline, not a
+filled box; the motion lane has a faint curve of what it plays and ticks at its lowest and highest lock; the vault's help is one footer line.
 
 ## 6. The sequencer
 

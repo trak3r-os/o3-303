@@ -3,18 +3,19 @@
 # Choices made here: CONFIG cycles the theme (amiga, black, white) for this round; MUTE is the sequencer's (no new notes), DELAY THROW opens
 # send A to unity for as long as it is held or latched.
 # Since M3b (docs/M3B-PLAN.md C4) the four buttons are assignable and Vol and Fx default to FILL and FREEZE; this scenario shows SLIDE ALL and
-# DELAY THROW, so it first gives them to Vol and Fx on the PERF page (Shift + Params: the page before SOUND; F3 and F4 are Vol and Fx; the
+# DELAY THROW, so it first gives them to Vol and Fx on the PERF page (three Params from SOUND; F3 and F4 are Vol and Fx; the
 # encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE) and comes back to SOUND with F1 latched, as it began; the wait makes
 # the 300 ms the scenario always started with, so that its pictures are the ones of before.
-press shift
 tap params 5
-release shift
+tap params 5
+tap params 5
 tap f3 5
 turn -8
 turn 2
 tap f4 5
 turn -8
 turn 5
+tap params 5
 tap params 5
 tap f1 5
 wait 259

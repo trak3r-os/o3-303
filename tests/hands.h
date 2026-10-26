@@ -84,12 +84,8 @@ struct Hands {
   unsigned selected() const { return bank().selected(); }
   const o3_303::Pattern& pat() const { return bank().pattern(bank().selected()); }
 
-  // The pages are SOUND, FX, SEQ, PERF; these start from SOUND (a fresh run) and come back to it.
-  void to_page(unsigned page) {  // from SOUND: Params (or Shift + Params for PERF) the way round
-    if (page == o3_303::kPagePerf) {
-      shift_tap(Button::Params);
-      return;
-    }
+  // The pages are SOUND, FX, SEQ, PERF, SNAP; these start from SOUND (a fresh run), go forward with Params and come back to it.
+  void to_page(unsigned page) {
     for (unsigned i = 0; i < page; ++i) {
       tap(Button::Params);
     }
@@ -99,6 +95,8 @@ struct Hands {
       tap(Button::Params);
     }
   }
+  // The RANDOM popup (Shift + F1), and the key that sets its three settings up.
+  void random_popup() { shift_tap(Button::F1); }
   // A performance button's action (the PERF page's F1..F4), from the SOUND page.
   void assign_perf(Button which, o3_303::PerfAction action) {
     to_page(o3_303::kPagePerf);

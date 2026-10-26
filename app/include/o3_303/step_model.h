@@ -54,6 +54,11 @@ struct PitchWindow {
 };
 PitchWindow fit_window(int lowest, int highest, int lane_h, int top_px = 18) noexcept;
 
+// The step view's lane (docs/M3B-PLAN.md S1): the pattern's real range [lowest, highest] and `pad` semitones each side, no more, in the tallest
+// rows (16 px down to 5) that lane_h holds; the rows are centred in the lane, so a narrow pattern leaves empty lane at both ends. A range too
+// wide for 5 px rows shows as many rows as fit, centred on it.
+PitchWindow range_window(int lowest, int highest, int lane_h, int pad = 3) noexcept;
+
 // "C2", "C#3", "A#-1"-style name of a MIDI note (C2 = 36: the octave is note / 12 - 1) into `out` (cap at least 5). Returns its length.
 unsigned note_name(unsigned note, char* out, unsigned cap) noexcept;
 

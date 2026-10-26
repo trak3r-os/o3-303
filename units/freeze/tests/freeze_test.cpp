@@ -245,7 +245,7 @@ TEST_CASE("freeze: the table is valid, in the contract's order, and the text is 
   CHECK(info.kind == dsp::UnitKind::Effect);
   CHECK(std::strcmp(info.name, "FREEZE") == 0);
   NEED(info.param_count == Freeze::kParamCount);
-  CHECK(Freeze::kParamCount == 3);
+  CHECK(Freeze::kParamCount == 7);  // the three of M3b, then the four of M3c (Mode ... Stop Time)
   CHECK(Freeze::Active == 0);
   CHECK(Freeze::Length == 1);
   CHECK(Freeze::Mix == 2);

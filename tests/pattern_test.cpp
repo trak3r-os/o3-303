@@ -205,6 +205,10 @@ TEST_CASE("condition: an invalid request encodes as always") {
 TEST_CASE("lanes: the default table is the SOUND page, and a fresh pattern has it") {
   static_assert(kMotionLanes == 8);
   static_assert(kLaneNone == 0 && kLaneVoice == 1 && kLaneDist == 2 && kLaneDelay == 3 && kLaneMixer == 4);
+  // M3c's targets are appended (the contract of docs/M3C-PLAN.md), and the Pattern is as large and laid out as before.
+  static_assert(kLaneGrowl == 5 && kLaneSeq == 6 && kLaneTargetCount == 7);
+  static_assert(kSeqWobbleRate == 0 && kSeqWobbleDepth == 1 && kSeqValueCount == 2);
+  static_assert(sizeof(Pattern) == 2260 && offsetof(Pattern, motion) == 196 && offsetof(Pattern, lanes) == 2244);
 
   const Pattern p = fresh();
   for (unsigned i = 0; i < 7; ++i) {  // Cutoff, Reso, Env Mod, Decay, Accent, Wave, Tune: the tb303 ids 0..6

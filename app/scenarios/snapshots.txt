@@ -1,0 +1,77 @@
+# Snapshots and the morph (docs/M3B-PLAN.md R2): the SNAP page (Shift + Params; it is also the last of the PARAMS cycle) has eight keys: a tap recalls,
+# Shift + a key stores, the encoder morphs from the previous snapshot to the one recalled last, through the sequencer's slew. RAM only.
+wait 300
+tap play
+wait 300
+# Sound 1: the SOUND and FX pages as they are, stored on key 1 (Shift + F1).
+press shift
+tap params
+release shift
+wait 100
+snap 01_snap_page_empty
+press shift
+tap f1
+release shift
+wait 100
+snap 02_stored_1
+# Sound 2: a bright, resonant, driven sound: back to the pages with Shift + Params, turn, come back and store on key 2.
+press shift
+tap params
+release shift
+tap f1
+turn 25
+tap f2
+turn 20
+tap f3
+turn 15
+tap f6
+turn 1
+tap params
+tap f1
+turn 25
+tap f5
+turn 20
+tap params
+press shift
+tap params
+release shift
+press shift
+tap f2
+release shift
+wait 100
+snap 03_stored_2
+# Recall 1: the first recall starts the morph from the sound as it was; the encoder walks it back and forth.
+tap f1
+wait 300
+snap 04_recall_1
+tap f2
+wait 300
+snap 05_recall_2
+turn -16
+wait 300
+snap 06_morph_half_way
+turn -16
+wait 300
+snap 07_morph_start_is_snapshot_1
+turn 32
+wait 300
+snap 08_morph_end_is_snapshot_2
+# An empty key says so; Shift + turn is the coarse step.
+tap f5
+snap 09_empty_key
+press shift
+turn -2
+release shift
+wait 300
+snap 10_coarse_morph
+record on
+turn 32
+turn -32
+wait 400
+wav snapshots
+# Back on the page it came from.
+press shift
+tap params
+release shift
+wait 100
+snap 11_back_on_the_page

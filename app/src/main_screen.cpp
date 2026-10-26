@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "main_screen.h"
 
+#include "knob_strip.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -68,6 +69,16 @@ void append(char* out, unsigned cap, const char* s) noexcept {
 
 int wrap(int v, int n) noexcept { return n > 0 ? ((v % n) + n) % n : 0; }
 
+// The off form of a chip: the same size drawn as an outline, so a state that is not on never reads as a filled box (S3).
+void outline_chip(ui::Renderer& r, ui::FieldRow& row, int baseline, Face face, const char* s, Color ink) noexcept {
+  const ui::Metrics& m = r.theme().metrics;
+  const int cap_h = r.theme().geometry(face).cap_h;
+  r.frame(Rect{row.x(), baseline - cap_h - 2 * m.border, r.text_width(s, face) + 2 * m.gap, cap_h + 4 * m.border}, ink);
+  row.skip(m.gap);
+  row.put(face, s, ink);
+  row.skip(m.gap);
+}
+
 }  // namespace
 
 // ---- Setup and screen hooks -------------------------------------------------------------------------------------------------
@@ -131,6 +142,12 @@ void MainScreen::init(Rig& rig) noexcept {
   copy_is_pattern_ = false;
   toast_[0] = '\0';
   toast_until_ms_ = 0;
+  toast_off_ = false;
+  random_open_ = false;
+  random_focus_ = 0;
+  snap_pending_ = false;
+  snap_deadline_ms_ = 0;
+  rig.wiring.snaps.clear();
   lock_active_ = false;
   lock_step_ = 0;
   lock_norm_ = 0.0f;
@@ -167,6 +184,8 @@ void MainScreen::leave(app::Context& ctx) noexcept {
   }
   audition_off(ctx);
   keys_.release_all();
+  snap_finish(ctx, true);
+  random_open_ = false;
   nudge_end(ctx);  // a tempo nudge ends with the screen: its release would reach another one
   master_down_ = false;
   perf_held_ = 0;
@@ -250,8 +269,9 @@ void MainScreen::move_cursor(app::Context& ctx, int to) noexcept {
   ctx.redraw();
 }
 
-void MainScreen::toast(app::Context& ctx, const char* text) noexcept {
+void MainScreen::toast(app::Context& ctx, const char* text, bool off) noexcept {
   cut(text, sizeof toast_ - 1u, toast_, sizeof toast_);
+  toast_off_ = off;
   toast_until_ms_ = ctx.uptime_ms() + kToastMs;
   ctx.redraw();
 }
@@ -287,6 +307,9 @@ void MainScreen::update(app::Context& ctx) noexcept {
   }
   if (toast_[0] != '\0' && ctx.uptime_ms() >= toast_until_ms_) {
     toast_[0] = '\0';
+  }
+  if (snap_pending_ && ctx.uptime_ms() >= snap_deadline_ms_) {
+    snap_finish(ctx, false);
   }
   sync_perf_assignments(ctx);
   sync_step_focus();
@@ -555,7 +578,7 @@ void MainScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
           mod_down_[ri] = false;
           if (!mod_used_[ri] && !overlay_ && ctx.uptime_ms() - mod_down_ms_[ri] < kHoldMs) {
             motion_latched_ = !motion_latched_;
-            toast(ctx, motion_latched_ ? "MOTION REC ON" : "MOTION REC OFF");
+            toast(ctx, motion_latched_ ? "MOTION REC ON" : "MOTION REC OFF", !motion_latched_);
           }
           mod_used_[ri] = false;
         }
@@ -796,6 +819,15 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     latch_turn(ctx, in.delta(), in.shift);
     return;
   }
+  if (random_open_) {  // the RANDOM popup has the encoder: the setting its key latched
+    controls_->step(ctx.engine(), random_entry(random_focus_), in.delta(), in.shift);
+    ctx.redraw();
+    return;
+  }
+  if (on_snap_page()) {  // the SNAP page's encoder is the morph
+    snap_turn(ctx, in.delta(), in.shift);
+    return;
+  }
   const std::uint32_t affected = keys_.held() != 0u ? keys_.held() : (1u << keys_.focus());
   const Page& pg = keys_.page();
   (void)keys_.input(ctx, in, *controls_);
@@ -820,9 +852,8 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
 void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   switch (index) {
-    case 0:
-      (void)bank.random_fill(sel(), rig_->wiring.gen, next_seed(ctx));
-      toast(ctx, "RANDOM LINE");
+    case 0:  // the RANDOM popup (C3): its F8 makes the line
+      random_toggle(ctx);
       break;
     case 1:
       (void)bank.mutate(sel(), rig_->wiring.gen, next_seed(ctx), 25);
@@ -942,13 +973,26 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {
-      if (in.shift) {  // Shift + F: the tools row
+      if (in.shift) {  // Shift + F: the tools row; on the SNAP page it stores the snapshot
         tool_mask_ |= 1u << k;
-        tool(ctx, k);
+        if (on_snap_page() && !random_open_) {
+          snap_press(ctx, k, true);
+        } else {
+          tool(ctx, k);
+        }
         ctx.redraw();
         return;
       }
       enc_latch_ = EncLatch::None;  // the encoder is the page's again (Master's tap had it on TEMPO or SWING)
+      if (random_open_ || on_snap_page()) {  // the popup's keys and the snapshots are not the pages' latches
+        tool_mask_ |= 1u << k;
+        if (random_open_) {
+          random_press(ctx, k);
+        } else {
+          snap_press(ctx, k, false);
+        }
+        return;
+      }
       if (mod_down_[role_index(PadRole::Motion)]) {  // MOTION held + an F key: the lane shown now drives that key's parameter
         mod_used_[role_index(PadRole::Motion)] = true;
         assign_lane(ctx, keys_.page().entry[k]);
@@ -994,10 +1038,18 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
 
   switch (in.which()) {
     case Button::Params:
-      if (in.shift) {
-        keys_.prev_page();
+      if (random_open_) {  // the popup closes first
+        random_open_ = false;
       } else {
-        keys_.next_page();
+        const bool was_snap = on_snap_page();
+        if (in.shift) {  // the SNAP page, and back from it
+          keys_.toggle_snap();
+        } else {
+          keys_.next_page();
+        }
+        if (was_snap && !on_snap_page()) {
+          snap_finish(ctx, true);
+        }
       }
       ctx.redraw();
       break;
@@ -1076,7 +1128,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
 // The tools row (and its labels on the F keys) shows while Shift is held and the encoder is still: a coarse Shift + turn keeps the name
 // and the value of the parameter on the screen. The tools themselves work from the moment Shift is down.
 bool MainScreen::tools_visible(const app::Context& ctx) const noexcept {
-  if (!ctx.panel().shift()) {
+  if (!ctx.panel().shift() || on_snap_page()) {  // Shift + F on the SNAP page stores: no tools row there
     return false;
   }
   const std::uint64_t since = shift_ms_ > last_turn_ms_ ? shift_ms_ : last_turn_ms_;
@@ -1096,14 +1148,7 @@ void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
     }
     return;
   }
-  const Page& pg = keys_.page();
-  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    out.label[k] = controls_->label(ctx.engine(), pg.entry[k]);
-    if (pg.entry[k].item == Item::Blank) {
-      out.dim = static_cast<std::uint8_t>(out.dim | (1u << k));
-    }
-  }
-  out.hot = enc_latch_ == EncLatch::None ? static_cast<std::uint8_t>(1u << keys_.focus()) : std::uint8_t{0};  // Master's latch has the encoder
+  // No labels: the knob strip's boxes carry the F-number and the name (S2), so the key row is the keys alone and there is no second label row.
 }
 
 void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
@@ -1236,7 +1281,11 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   const int baseline = strip.y + 23;
   ui::FieldRow row(r, 68, baseline);
   if (toast_[0] != '\0') {
-    row.chip(Face::Data, toast_, Color::Sel, Color::SelText);
+    if (toast_off_) {
+      outline_chip(r, row, baseline, Face::Data, toast_, Color::ChromeText);
+    } else {
+      row.chip(Face::Data, toast_, Color::Sel, Color::SelText);
+    }
     row.skip(12);
   } else {
     char v[8];
@@ -1258,18 +1307,19 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     tr[n++] = p.transpose < 0 ? '-' : '+';
     n += view::fmt_uint(static_cast<unsigned>(p.transpose < 0 ? -p.transpose : p.transpose), tr + n);
     tr[n] = '\0';
-    row.field("TR", Face::Data, tr, Color::ChromeDim, p.transpose != 0 ? Color::ChromeText : Color::ChromeDim);
+    row.field("TR", Face::Data, tr, Color::ChromeDim, Color::ChromeText);
   }
   if (rec_) {
     row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
     row.skip(6);
   }
-  if (keys_live_) {
+  if (keys_live_) {  // the mode that is on is a filled chip, the other an outline
     row.chip(Face::Label, "KEYS", Color::ChromeText, Color::Chrome);
-    row.put(Face::Label, "TRNSP", Color::ChromeDim);
+    row.skip(4);
+    outline_chip(r, row, baseline, Face::Label, "TRNSP", Color::ChromeDim);
   } else {
-    row.put(Face::Label, "KEYS", Color::ChromeDim);
-    row.skip(8);
+    outline_chip(r, row, baseline, Face::Label, "KEYS", Color::ChromeDim);
+    row.skip(4);
     char t[12] = "TRNSP";
     if (live_trn_ != 0) {
       char num[8];
@@ -1303,83 +1353,78 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
       perf.chip(Face::Label, chip[i], Color::Sel, Color::SelText);
     } else if ((perf_held_ >> i & 1u) != 0u) {
       perf.chip(Face::Label, chip[i], Color::Accent, Color::AccentText);
-    } else {
-      perf.skip(theme.metrics.gap);
-      perf.put(Face::Label, chip[i], Color::ChromeDim);
-      perf.skip(theme.metrics.gap);
+    } else {  // off: an outline of the same size
+      outline_chip(r, perf, baseline, Face::Label, chip[i], Color::ChromeDim);
     }
     perf.skip(6);
   }
   (void)ctx;
 }
 
-void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
-  const Page& pg = keys_.page();
-  dsp::Engine& e = ctx.engine();
-  const int cell_w = area.w / static_cast<int>(app::kFKeyCount);
+// The page tabs in the corner (the page the F keys are on, and the others one PARAMS away), a hint after them, and the state chips.
+void MainScreen::draw_tabs(app::Context& ctx, ui::Renderer& r, const Rect& area, const char* hint) noexcept {
   r.panel(area, Color::Pane);
   r.rule(area.x, area.y, area.w, ui::Axis::Horizontal, Color::Empty);
-
-  // The page tabs in the corner: the page the F keys are on, and the others one PARAMS away.
   int tx = area.x + 6;
   for (unsigned i = 0; i < kPageCount; ++i) {
     const char* nm = page_at(i).name;
     const int w = r.text_width(nm, Face::Micro);
-    const bool cur = i == keys_.page_index();
+    const bool cur = hint == nullptr && i == keys_.page_index();
     r.text(tx, area.y + 3, nm, cur ? Color::Text : Color::Empty, Face::Micro);
     if (cur) {
       r.rule(tx, area.y + 14, w, ui::Axis::Horizontal, Color::Sel);
     }
     tx += w + 12;
   }
+  if (hint != nullptr) {
+    r.text(tx + 4, area.y + 3, hint, Color::TextDim, Face::Micro);
+  }
   draw_state_chips(ctx, r, area);
+}
 
+// The knob of an entry: its name, value and unit as the page shows them, the value as the fill.
+void MainScreen::fill_knob(app::Context& ctx, unsigned k, const Entry& entry, view::Knob& out) noexcept {
+  static constexpr const char* kFKeys[kKeys] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
+  dsp::Engine& e = ctx.engine();
+  const core::ParamDesc* d = controls_->desc(e, entry);
+  out = view::Knob{};
+  out.fkey = kFKeys[k];
+  if (d == nullptr) {
+    out.blank = true;
+    return;
+  }
+  out.label = controls_->label(e, entry);
+  (void)controls_->format(e, entry, out.value, sizeof out.value);
+  out.unit = controls_->unit_text(e, entry);
+  out.norm = core::param_norm(*d, controls_->get(e, entry));
+}
+
+void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  const Page& pg = keys_.page();
+  draw_tabs(ctx, r, area, nullptr);
+  view::Knob knobs[view::kKnobs];
+  char label[16];
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    const Rect cell{area.x + static_cast<int>(k) * cell_w, area.y + 1, cell_w, area.h - 1};
-    if (k != 0u) {
-      r.rule(cell.x, cell.y + 16, cell.h - 20, ui::Axis::Vertical, Color::Empty);
-    }
-    const Entry& entry = pg.entry[k];
-    const core::ParamDesc* d = controls_->desc(e, entry);
-    if (d == nullptr) {
+    view::Knob& kn = knobs[k];
+    fill_knob(ctx, k, pg.entry[k], kn);
+    if (kn.blank) {
       continue;
     }
-    const bool focus = enc_latch_ == EncLatch::None && k == keys_.focus();
-    const bool held = (keys_.held() >> k & 1u) != 0u;
-    const bool locked = lock_active_ && focus;
-    const Rect box{cell.x + 3, cell.y + 16, cell.w - 6, cell.h - 18};
-    if (focus) {
-      r.panel(box, Color::Sel);
-    } else if (held) {
-      r.frame(box, Color::Accent);
-    }
-    char label[16];
-    if (locked) {
+    kn.focus = enc_latch_ == EncLatch::None && k == keys_.focus();
+    kn.held = (keys_.held() >> k & 1u) != 0u;
+    if (lock_active_ && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];
       view::fmt_uint(static_cast<unsigned>(lock_step_ + 1), num);
       cut("LOCK ", 5, label, sizeof label);
       append(label, sizeof label, num);
-    } else {
-      cut(controls_->label(e, entry), static_cast<unsigned>((box.w - 6) / 8), label, sizeof label);
+      kn.label = label;
+      cut(lock_text_, sizeof kn.value - 1u, kn.value, sizeof kn.value);
+      kn.unit = "";
+      kn.norm = lock_norm_;
+      kn.locked = true;
     }
-    r.text(box.x + 4, box.y + 1, label, focus ? Color::SelText : Color::TextDim, Face::Label);
-
-    char value[24];
-    if (locked) {
-      cut(lock_text_, sizeof value - 1u, value, sizeof value);
-    } else {
-      (void)controls_->format(e, entry, value, sizeof value);
-      append(value, sizeof value, controls_->unit_text(e, entry));
-    }
-    char shown[16];
-    cut(value, static_cast<unsigned>((box.w - 6) / 10), shown, sizeof shown);
-    r.text(box.x + 4, box.y + 17, shown, locked ? Color::Accent : (focus ? Color::SelText : Color::Text), Face::Data);
-
-    const float norm = locked ? lock_norm_ : core::param_norm(*d, controls_->get(e, entry));
-    const auto filled = static_cast<unsigned>(norm * 1000.0f + 0.5f);
-    ui::bar(r, Rect{box.x + 4, box.y + box.h - 7, box.w - 8, 4}, filled, 1000u, focus ? Color::SelText : Color::Empty,
-            locked ? Color::Accent : (focus ? Color::Accent : Color::Instr));
   }
+  view::draw_knobs(r, area, knobs);
 }
 
 void MainScreen::draw_tools(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
@@ -1567,7 +1612,8 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
       }
     }
     const Rect hero{area.x, area.y + kHeroY, area.w, kHeroH};
-    m.window = fit_window(wlo, whi, view::lane_height(hero.h, roll_));
+    m.window = roll_ ? fit_window(wlo, whi, view::lane_height(hero.h, roll_)) : range_window(wlo, whi, view::lane_height(hero.h, roll_));
+    m.focus = Controls::is_step_entry(keys_.focused()) ? static_cast<int>(rig_->wiring.step_focus) : -1;  // the step RATCHET / COND edit
     view::draw_steps(r, hero, p, m);
     if (pattern_is_empty(p)) {
       const char* a = "EMPTY PATTERN";
@@ -1597,6 +1643,10 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
 
   if (tools_visible(ctx)) {
     draw_tools(ctx, r, strip_area);
+  } else if (random_open_) {
+    draw_random(ctx, r, strip_area);
+  } else if (on_snap_page()) {
+    draw_snap(ctx, r, strip_area);
   } else {
     draw_strip(ctx, r, strip_area);
   }

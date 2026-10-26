@@ -11,4 +11,4 @@ target_include_directories(o3_303_seq_oracle SYSTEM PUBLIC ${CMAKE_CURRENT_SOURC
 target_compile_options(o3_303_seq_oracle PRIVATE -w)
 
 file(GLOB test_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp)
-o3sdk_test_suite(o3_303_seq_tests SOURCES ${test_sources} DEPENDS o3_303_seq o3_303_seq_oracle unit_tb303 unit_distortion)
+o3sdk_test_suite(o3_303_seq_tests SOURCES ${test_sources} DEPENDS o3_303_seq o3_303_seq_oracle unit_tb303 unit_distortion unit_growl)

@@ -24,6 +24,7 @@
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
+#include <o3_303/snapshot.h>
 
 #include <cstdint>
 
@@ -51,6 +52,7 @@ enum class Item : std::uint8_t {
   Cond,       // ... its trig condition, as a place on the encoder's walk (seq::step_cond)
   FillVariant,  // what FILL plays (seq::FillVariant)
   Perf,       // the action of a performance button (id 0 Note, 1 Instr, 2 Vol, 3 Fx): a PerfAction
+  Snap,       // a snapshot slot of the SNAP page (id 0..7): its key recalls (Shift: stores) and the encoder morphs, it is never latched
 };
 
 struct Entry {
@@ -66,11 +68,26 @@ struct Page {
   Entry entry[kKeys];
 };
 
-// SOUND, FX, SEQ and PERF (MODS comes with the voice's extra parameters). PERF is o3-303's own page until the kit's system Config exists
-// (docs/M3B-PLAN.md C4): the four performance buttons' assignments, what FILL plays, the beat freeze's length, and the ratchet and the
-// trig condition of a step. M3b's C3 moves the last three to the SEQ page when the RANDOM popup frees F6..F8 there.
-inline constexpr unsigned kPageCount = 4;
-enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageSeq = 2, kPagePerf = 3 };
+// SOUND, FX, SEQ, PERF and SNAP (MODS comes with the voice's extra parameters). PERF is o3-303's own page until the kit's system Config exists
+// (docs/M3B-PLAN.md C4): the four performance buttons' assignments and the beat freeze's length. SEQ is the transport and the step's own
+// settings (tempo, swing, length, gate, transpose, what FILL plays, the ratchet and the trig condition of a step); the generator's settings
+// (scale, density, accent / slide chance) are the RANDOM popup's, `random_entry()` (C3). SNAP (R2) is eight snapshot keys: a tap recalls,
+// Shift + a key stores, the encoder morphs; it is the last of the PARAMS cycle and the Shift + PARAMS page.
+inline constexpr unsigned kPageCount = 5;
+enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageSeq = 2, kPagePerf = 3, kPageSnap = 4 };
+
+const Page& page_at(unsigned index) noexcept;
+
+// The RANDOM popup's three settings (Shift + F1): Scale, Density, Acc / Slide %, on its F1..F3. The popup is the app's (main_screen.cpp);
+// setting the Scale through Controls::set() is what engages the keyboard's scale lock.
+inline constexpr unsigned kRandomEntries = 3;
+const Entry& random_entry(unsigned index) noexcept;
+
+// What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
+// SOUND, MODS and FX pages' values). Each is an entry, so a value is in the units the entry shows and steps in.
+inline constexpr unsigned kSnapTargetCount = 18;
+static_assert(kSnapTargetCount <= kSnapValues, "a snapshot has room for its targets");
+const Entry& snap_target(unsigned index) noexcept;
 
 const Page& page_at(unsigned index) noexcept;
 
@@ -90,6 +107,7 @@ struct Wiring {
   bool scale_set = false;    // the player chose a scale (the SEQ page's Scale): the keyboard is locked to it (R8). A boot has the generator's default
                              // scale without that, so the keyboard is chromatic until the Scale entry is touched; "No scale" or "Chromatic" unlocks it
   unsigned step_focus = 0;   // the step the Ratchet and Cond entries show and edit: the screen sets it (a held step, else the cursor)
+  SnapBank snaps;            // the SNAP page's eight snapshots and the morph (RAM only; the screen reads and writes it from the main loop)
 };
 
 class Controls {
@@ -133,6 +151,11 @@ class Controls {
   static bool is_step_entry(const Entry& entry) noexcept { return entry.item == Item::Ratchet || entry.item == Item::Cond; }
   void step_at(o3sdk::dsp::Engine& e, const Entry& entry, unsigned step, int detents, bool coarse) noexcept;
 
+  // The snapshot targets' values now (kSnapTargetCount of them, `out` holds kSnapValues; the rest is zeroed) and whether target `index` is
+  // discrete (an enum: it switches, a morph does not glide it).
+  void snap_capture(const o3sdk::dsp::Engine& e, float* out) const noexcept;
+  bool snap_discrete(const o3sdk::dsp::Engine& e, unsigned index) const noexcept;
+
   // The level DELAY THROW and the base level give the engine now: call after the base or the throw changes.
   void apply_send(o3sdk::dsp::Engine& e) const noexcept;
   // Slot 0's level from level_db (silence at or below -59.5 dB, the engine's 1.5 cap above): call after it changes.
@@ -148,7 +171,15 @@ class PageKeys {
  public:
   void set_page(unsigned index) noexcept;
   void next_page() noexcept { set_page((page_ + 1u) % kPageCount); }
-  void prev_page() noexcept { set_page((page_ + kPageCount - 1u) % kPageCount); }
+  // Shift + PARAMS: the SNAP page, and from it back to the page it was reached from.
+  void toggle_snap() noexcept {
+    if (page_ == kPageSnap) {
+      set_page(snap_from_);
+    } else {
+      snap_from_ = page_;
+      set_page(kPageSnap);
+    }
+  }
   unsigned page_index() const noexcept { return page_; }
   const Page& page() const noexcept { return page_at(page_); }
 
@@ -173,6 +204,7 @@ class PageKeys {
 
  private:
   unsigned page_ = 0;
+  unsigned snap_from_ = 0;
   unsigned latched_ = 0;
   unsigned before_hold_ = 0;
   unsigned held_ = 0;

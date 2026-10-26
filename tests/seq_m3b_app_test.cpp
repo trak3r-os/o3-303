@@ -103,12 +103,11 @@ TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF pag
   CHECK(seq::get_ratchet(p, 2) == 1);
   CHECK(seq::get_cond(p, 11) == kCondFill);
 
-  // The variant: PERF is the page before SOUND; F5 is FILL's variant, MUTATE, OCT UP, RATCHET, ACC ROT.
+  // The variant: SEQ is two pages on from SOUND; F6 is FILL's variant, MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  hands.press(Button::Shift);
   hands.tap(Button::Params);
-  hands.release(Button::Shift);
-  hands.tap(Button::F5);
+  hands.tap(Button::Params);
+  hands.tap(Button::F6);
   hands.h->turn(1);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::OctUp);
@@ -118,7 +117,9 @@ TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF pag
   hands.h->turn(-3);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  hands.tap(Button::Params);  // back to SOUND
+  for (int i = 0; i < 3; ++i) {
+    hands.tap(Button::Params);  // back to SOUND
+  }
 
   hands.tap(Button::Play);
   hands.h->run_ms(300);

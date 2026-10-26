@@ -1,11 +1,13 @@
 # The pattern tools under Shift + F1..F8: RANDOM, MUTATE, REVERSE, INVERT, DOUBLE, CLEAR, REDO, UNDO (DESIGN-303 section 3).
-# The SEQ page's scale, density and accent / slide settings are the generator's.
+# Shift + F1 opens the RANDOM popup (its scale, density and accent / slide settings are the generator's; random.txt): F8 makes the line, F7 closes it.
 wait 300
 press shift
 wait 700
 snap 01_tools_row
 tap f1
 release shift
+tap f8
+tap f7
 wait 50
 snap 02_random
 press shift

@@ -56,10 +56,9 @@ pad 11
 padup 17
 wait 100
 snap 02_ratchets
-# Conditions: PERF page (Shift + Params), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
-press shift
+# Conditions: SEQ page (two Params), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
 tap params
-release shift
+tap params
 tap f8
 paddown 3
 turn 10
@@ -81,7 +80,7 @@ turn 48
 wait 100
 snap 03_conditions
 padup 19
-# Play: the line on its own for two passes, then FILL (the Vol button, F5 picks the variant) for one pass of each variant.
+# Play: the line on its own for two passes, then FILL (the Vol button, SEQ's F6 picks the variant) for one pass of each variant.
 record on
 tap play
 wait 3840
@@ -91,20 +90,20 @@ wait 1920
 snap 05_fill_mutate
 release vol
 wait 1920
-tap f5
+tap f6
 turn 1
 press vol
 wait 1920
 release vol
 wait 1920
-tap f5
+tap f6
 turn 1
 press vol
 wait 1920
 snap 06_fill_ratchet
 release vol
 wait 1920
-tap f5
+tap f6
 turn 1
 press vol
 wait 1920

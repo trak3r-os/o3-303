@@ -13,34 +13,37 @@ wait 1700
 snap 02_frozen_eighth
 release fx
 wait 1300
-# 1/16 of a bar: the PERF page (Shift + Params is the page before SOUND), F6 FRZ LEN, down to the first entry and up two.
-press shift
+# 1/16 of a bar: the PERF page (three Params from SOUND; two more come back), F5 FRZ LEN, down to the first entry and up two.
 tap params
-release shift
-tap f6
+tap params
+tap params
+tap f5
 turn -3
 turn 2
 snap 03_perf_page_sixteenth
+tap params
 tap params
 press fx
 wait 1300
 release fx
 wait 1200
 # 1/4 of a bar, a whole beat
-press shift
 tap params
-release shift
+tap params
+tap params
 turn -3
+tap params
 tap params
 press fx
 wait 2200
 release fx
 wait 1200
 # a stutter by hand: short holds, the Length back to 1/8; the last one latched with Shift and let go again
-press shift
 tap params
-release shift
+tap params
+tap params
 turn 1
+tap params
 tap params
 tap fx 140
 wait 260

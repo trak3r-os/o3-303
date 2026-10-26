@@ -128,6 +128,24 @@ one undo step; a parameter some lane already has is only shown). Existing scenar
 VOLUME's lane and the SCL chip; `perform` and `edit` assign / use the new gestures and are otherwise byte for byte what they were. Needs the unit: the tap / hold
 feel of KEYS and Master, the ladder's 30 ms slew by ear, the freeze on the Fx button.
 
+**Made 2026-10-26 (ui-2: pages, snapshots and the look)** (`app/src/main_screen_snap.cpp`, `knob_strip.{h,cpp}`, `snapshot.cpp`, `app/include/o3_303/snapshot.h`,
+`pages.{h,cpp}`, `step_view.cpp`, `step_model.cpp`, `main_screen.cpp`, `vault_screen.cpp`; tests `snapshot`, `snapshots_app`, `pages`, `step_model`; scenarios
+`random`, `snapshots`, `roll`, with `scale`, `pages`, `tools`, `freeze`, `perf_assign`, `perform`, `step_edit`, `m3b_seq`, `lanes` re-walked). *C3* SEQ is Tempo, Swing,
+Length, Gate, Transpose, FILL's variant, Ratchet, Cond; PERF is the four buttons and the freeze's Length (F6..F8 blank); Scale, Density and ACC/SLD
+are the RANDOM popup (`random_entry()`), Shift + F1: F1..F3 latch the encoder on them (`Controls::step`, so Scale sets `scale_set` and the lock engages), F8 generates, F7 /
+Shift + F1 / Params close; Shift + F1 no longer generates by itself. *R2* the pages are SOUND, FX, SEQ, PERF, SNAP (`kPageCount` 5: Shift + Params is SNAP, again
+back; PERF is three Params from SOUND now, so the older tests' and scenarios' route changed). `SnapBank` (pure) holds 8 snapshots of 24 numbers (18 in use: the voice's 7, the
+distortion's 5, the delay's 4, Level, Send A); a tap recalls (30 ms slews), Shift + F stores, the encoder moves a 32-step morph (Shift: 4 a step) from the snapshot
+recalled before (the live sound for the first recall) to the last, each detent a `slew(..., 50 ms, store = false)` per gliding target (about 13 slews; the 5 enums switch at
+the middle), and the blend is stored in the engine 90 ms after the last detent, or at once when the page is left. Cost: a detent starts about 13 slews, in the estimate
+above 0.9 % to 2.5 % of a block while they run; measure it. *S1* `range_window` (the real range +-3 semitones, 16 px rows down to 5), octave lines bright, names for non-C notes
+only, the beat columns tinted, the cursor column a white tint and the playhead's the one saturated one, ratchets as the bar in its hits, an R/C row (`ratchet_hits`,
+`cond_text`; the step of `Wiring::step_focus` framed while Ratchet or Cond is the focused key). *S2* `knob_strip`: F-number and name in the box, values in the Display
+face when they fit (else Data), the value as a translucent fill of the box, no names on the kit's key row (its F-number caps stay: kit-owned); the header's values are
+ChromeText always. *S3* dim white keys in the roll, off states as outlines (`outline_chip`: the off toasts, KEYS / TRNSP, the idle performance chips), the motion lane's
+faint curve and its min / max ticks, the vault's help one footer line. Every scenario's peak list is under 900 words (the vault 1,395). Needs the unit: the look of the
+translucent fills and the Display face values on the panel, the morph by ear (13 glides at once), the cost of a morph on a busy block.
+
 **C1, one voice (made 2026-10-25):** nothing was left to remove: o3-303 never built a second voice (M3 wired one `tb303` on slot 0 and
 slots 1..7 have no source), so the cut frees no CPU or memory; the 39.8 % the unit measured is the one-voice figure. `tests/freeze_app_test.cpp`
 keeps it that way (four units, only slot 0 sounds).

@@ -82,6 +82,28 @@ int frame_at_or_past(const dsp::Transport& t, std::uint64_t tick) noexcept {
   return ((tick << 32) + t.inc) <= t.pos ? 0 : -1;
 }
 
+// The descriptors of kLaneSeq's two values (a motion lane on them goes through point_to_value like any other): the wobble rate as an Enum over
+// the table of wobble.h, the depth as a fraction.
+constexpr core::ParamDesc kSeqParams[kSeqValueCount] = {
+    {"WOB RATE", "", kWobbleRateNames, nullptr, 0.0f, 10.0f, 4.0f, 10, 1, static_cast<std::uint8_t>(kWobbleRateCount), core::ParamUnit::Enum,
+     core::ParamCurve::Linear, 0, 0},
+    {"WOB DEPTH", "%", nullptr, nullptr, 0.0f, 1.0f, 0.5f, 100, 10, 0, core::ParamUnit::NormPct, core::ParamCurve::Linear, 0, 0},
+};
+static_assert(kWobbleRateCount == 11, "the wobble rate is an Enum over 11 names: kSeqParams[0].max is 10");
+
+// The wobble word (sequencer.h): bit 0 on | 1 reset on note | 2..5 rate | 6..8 shape | 9..11 target | 12..16 id | 17..21 override rate + 1.
+constexpr std::uint32_t kWobOn = 1u;
+constexpr std::uint32_t kWobReset = 2u;
+constexpr unsigned kWobRateShift = 2;
+constexpr unsigned kWobShapeShift = 6;
+constexpr unsigned kWobTargetShift = 9;
+constexpr unsigned kWobIdShift = 12;
+constexpr unsigned kWobOverShift = 17;
+constexpr std::uint32_t kWobOverMask = 31u << kWobOverShift;
+constexpr std::uint32_t kWobDefault = kWobReset | (static_cast<std::uint32_t>(kWobble1_8) << kWobRateShift) | (static_cast<std::uint32_t>(kLaneVoice) << kWobTargetShift);
+constexpr std::uint32_t kWobbleSeedMix = 0x5eed0b1eu;  // the sample and hold's generator is the seed's, scrambled: it draws apart from the conditions'
+constexpr unsigned kWobbleTick = 16;                   // frames between two Param events of the wobble
+
 float default_mix(unsigned field) noexcept { return field == kMixerLevel ? 1.0f : 0.0f; }
 
 // A mixer value as Engine::set_mix stores it (clamped; NaN is the field's default).
@@ -101,7 +123,7 @@ float clamp_mix(unsigned field, float v) noexcept {
 
 }  // namespace
 
-Sequencer::Sequencer(Bank& bank) noexcept : bank_(bank), seed_(kDefaultSeed) {
+Sequencer::Sequencer(Bank& bank) noexcept : bank_(bank), seed_(kDefaultSeed), wobble_(kWobDefault), wob_rng_(kDefaultSeed ^ kWobbleSeedMix) {
   for (auto& row : knob_) {
     for (auto& k : row) {
       k.store(0.0f, std::memory_order_relaxed);
@@ -131,13 +153,14 @@ bool Sequencer::setup(dsp::Engine& engine, dsp::UnitId voice, dsp::UnitId dist, 
   for (auto& t : tab_) {
     t = UnitTable{};
   }
-  const dsp::UnitId ids[kLaneTargetCount] = {dsp::kNoUnit, voice, dist, delay, dsp::kNoUnit};
+  const dsp::UnitId ids[kLaneTargetCount] = {dsp::kNoUnit, voice, dist, delay, dsp::kNoUnit, dsp::kNoUnit, dsp::kNoUnit};
   for (unsigned target = kLaneVoice; target <= kLaneDelay; ++target) {
     const dsp::UnitInfo* ui = ids[target] != dsp::kNoUnit ? engine.unit_info(ids[target]) : nullptr;
     if (ui != nullptr) {
       tab_[target] = UnitTable{ids[target], ui->params, ui->param_count};
     }
   }
+  tab_[kLaneSeq] = UnitTable{dsp::kNoUnit, kSeqParams, kSeqValueCount};  // set_unit() adds the growl's
   // The hook forgets what a previous run left (the app object outlives a run in the simulator's tests): setup() runs before the render.
   for (auto& s : slews_) {
     s = Slew{};
@@ -146,6 +169,19 @@ bool Sequencer::setup(dsp::Engine& engine, dsp::UnitId voice, dsp::UnitId dist, 
   slewing_.store(0u, std::memory_order_relaxed);
   slew_overflow_.store(0u, std::memory_order_relaxed);
   rng_ = Rng(seed_.load(std::memory_order_relaxed));
+  wob_rng_ = Rng(seed_.load(std::memory_order_relaxed) ^ kWobbleSeedMix);
+  wob_active_ = false;
+  wob_phase_ = 0;
+  wob_inc_tick_ = 0;
+  wob_inc_rate_ = kWobbleRateCount;
+  wob_held_ = 0.0f;
+  wob_reset_count_ = 0;
+  wob_base_count_ = 0;
+  wob_hold_valid_ = false;
+  wob_emitted_ = false;
+  seq_rate_lane_ = -1;
+  seq_depth_lane_ = -1.0f;
+  wob_rate_now_.store(-1, std::memory_order_relaxed);
   seed_seen_ = seed_version_.load(std::memory_order_relaxed);
   fill_count_ = 0;
   pass_ = 0;
@@ -154,6 +190,11 @@ bool Sequencer::setup(dsp::Engine& engine, dsp::UnitId voice, dsp::UnitId dist, 
   variant_valid_ = false;
   hit_n_ = 0;
   hit_k_ = 0;
+  for (auto& row : unstored_) {
+    for (auto& u : row) {
+      u = Unstored{};
+    }
+  }
   update();
   return engine.add_hook(*this);
 }
@@ -162,26 +203,42 @@ void Sequencer::update() noexcept {
   if (engine_ == nullptr) {
     return;
   }
-  for (unsigned target = kLaneVoice; target <= kLaneDelay; ++target) {
+  for (unsigned target = kLaneVoice; target <= kLaneGrowl; ++target) {
     const UnitTable& t = tab_[target];
-    if (t.unit == dsp::kNoUnit) {
+    if (target == kLaneMixer || t.unit == dsp::kNoUnit) {
       continue;
     }
     const unsigned n = t.count < kKnobs ? t.count : kKnobs;
     for (unsigned id = 0; id < n; ++id) {
-      knob_[target][id].store(engine_->param(t.unit, static_cast<std::uint16_t>(id)), std::memory_order_relaxed);
+      knob_[target][id].store(unstored_or(target, id, engine_->param(t.unit, static_cast<std::uint16_t>(id))), std::memory_order_relaxed);
     }
   }
   for (unsigned field = 0; field < kMixerFieldCount; ++field) {
-    knob_[kLaneMixer][field].store(engine_->mix(kMixerSlot, static_cast<dsp::MixField>(field)), std::memory_order_relaxed);
+    knob_[kLaneMixer][field].store(unstored_or(kLaneMixer, field, engine_->mix(kMixerSlot, static_cast<dsp::MixField>(field))),
+                                   std::memory_order_relaxed);
   }
+}
+
+float Sequencer::unstored_or(unsigned target, unsigned id, float stored) noexcept {
+  Unstored& u = unstored_[target][id];
+  if (u.valid && u.stored != stored) {
+    u.valid = false;  // the target was written since: the stored value is the truth again
+  }
+  return u.valid ? u.goal : stored;
+}
+
+bool Sequencer::is_unit_target(std::uint8_t target) const noexcept {
+  return target == kLaneVoice || target == kLaneDist || target == kLaneDelay || target == kLaneGrowl;
 }
 
 bool Sequencer::resolvable(std::uint8_t target, std::uint8_t id) const noexcept {
   if (target == kLaneMixer) {
     return id < kMixerFieldCount;
   }
-  if (target < kLaneVoice || target > kLaneDelay) {
+  if (target == kLaneSeq) {
+    return id < kSeqValueCount;
+  }
+  if (!is_unit_target(target)) {
     return false;
   }
   const UnitTable& t = tab_[target];
@@ -189,7 +246,24 @@ bool Sequencer::resolvable(std::uint8_t target, std::uint8_t id) const noexcept 
 }
 
 const core::ParamDesc* Sequencer::desc_of(std::uint8_t target, std::uint8_t id) const noexcept {
-  return (target >= kLaneVoice && target <= kLaneDelay && resolvable(target, id)) ? &tab_[target].params[id] : nullptr;
+  return (target != kLaneMixer && resolvable(target, id)) ? &tab_[target].params[id] : nullptr;
+}
+
+bool Sequencer::set_unit(std::uint8_t target, dsp::UnitId unit) noexcept {
+  if (engine_ == nullptr || engine_->started() || (target != kLaneDist && target != kLaneDelay && target != kLaneGrowl)) {
+    return false;
+  }
+  if (unit == dsp::kNoUnit) {
+    tab_[target] = UnitTable{};
+    return true;
+  }
+  const dsp::UnitInfo* ui = engine_->unit_info(unit);
+  if (ui == nullptr) {
+    return false;
+  }
+  tab_[target] = UnitTable{unit, ui->params, ui->param_count};
+  update();
+  return true;
 }
 
 // true: the command is on the ring. The hook may still refuse the entry (a full chain with the loop on): chain() is the truth.
@@ -270,15 +344,18 @@ bool Sequencer::record_motion(unsigned lane, float value) noexcept {
 // ---- Slews (main loop) ----------------------------------------------------------------------------------------------------------
 
 bool Sequencer::slew(std::uint8_t target, std::uint8_t id, float value, float ms, bool store) noexcept {
-  if (engine_ == nullptr || !resolvable(target, id)) {
+  if (engine_ == nullptr || target == kLaneSeq || !resolvable(target, id)) {
     return false;
   }
   const bool mixer = target == kLaneMixer;
   const core::ParamDesc* d = mixer ? nullptr : desc_of(target, id);
   const dsp::UnitId unit = tab_[target].unit;  // the mixer's entry is empty and unused
   const float goal = mixer ? clamp_mix(id, value) : core::param_clamp(*d, value);
-  const float from = mixer ? engine_->mix(kMixerSlot, static_cast<dsp::MixField>(id)) : engine_->param(unit, id);
+  const float stored = mixer ? engine_->mix(kMixerSlot, static_cast<dsp::MixField>(id)) : engine_->param(unit, id);
+  // After a slew that did not store its goal (a morph), the engine still holds the value from before it: start from that goal instead.
+  const float from = unstored_or(target, id, stored);
   const auto write = [&]() {
+    unstored_[target][id].valid = false;
     if (mixer) {
       (void)engine_->set_mix(kMixerSlot, static_cast<dsp::MixField>(id), goal);
     } else {
@@ -296,6 +373,8 @@ bool Sequencer::slew(std::uint8_t target, std::uint8_t id, float value, float ms
     if (slew_commands_.push(SlewCommand{SlewOp::Start, target, id, 0, frames, goal, from})) {
       if (store) {
         write();
+      } else {
+        unstored_[target][id] = Unstored{goal, stored, true};
       }
       return true;
     }
@@ -307,10 +386,20 @@ bool Sequencer::slew(std::uint8_t target, std::uint8_t id, float value, float ms
 }
 
 bool Sequencer::slew_stop(std::uint8_t target, std::uint8_t id) noexcept {
+  if (target < kLaneTargetCount && id < kKnobs) {
+    unstored_[target][id].valid = false;  // stopped short of its goal: where it stands is not known here
+  }
   return slew_commands_.push(SlewCommand{SlewOp::Stop, target, id, 0, 0, 0.0f, 0.0f});
 }
 
-bool Sequencer::slew_stop_all() noexcept { return slew_commands_.push(SlewCommand{SlewOp::StopAll, 0, 0, 0, 0, 0.0f, 0.0f}); }
+bool Sequencer::slew_stop_all() noexcept {
+  for (auto& row : unstored_) {
+    for (auto& u : row) {
+      u.valid = false;
+    }
+  }
+  return slew_commands_.push(SlewCommand{SlewOp::StopAll, 0, 0, 0, 0, 0.0f, 0.0f});
+}
 
 // ---- Render context -----------------------------------------------------------------------------------------------------------
 
@@ -330,6 +419,7 @@ void Sequencer::drain_commands(dsp::BlockContext& ctx) noexcept {
   if (version != seed_seen_) {
     seed_seen_ = version;
     rng_ = Rng(seed_.load(std::memory_order_relaxed));
+    wob_rng_ = Rng(seed_.load(std::memory_order_relaxed) ^ kWobbleSeedMix);
     fill_count_ = 0;
     variant_valid_ = false;
   }
@@ -463,6 +553,21 @@ float Sequencer::knob_value(std::uint8_t target, std::uint8_t id) const noexcept
 
 // One value to a lane's target: a Param event at `frame`, or the mixer field of slot 0 for the block.
 bool Sequencer::write_target(dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, float value, unsigned frame) noexcept {
+  if (target == kLaneSeq) {  // the sequencer's own values: a motion lane sets the wobble's rate or depth for as long as its point holds
+    if (id == kSeqWobbleRate) {
+      const int r = static_cast<int>(value + 0.5f);
+      seq_rate_lane_ = r < 0 ? 0 : (r >= static_cast<int>(kWobbleRateCount) ? static_cast<int>(kWobbleRateCount) - 1 : r);
+    } else {
+      seq_depth_lane_ = value > 0.0f ? (value < 1.0f ? value : 1.0f) : 0.0f;
+    }
+    return true;
+  }
+  if (wob_active_ && target == wob_target_ && id == wob_id_) {
+    // The wobble owns this target: the write is its new base (a lock, or the knob back), which run_wobble() moves around.
+    const unsigned at = wob_base_count_ < kMaxWobbleBase ? wob_base_count_++ : kMaxWobbleBase - 1u;
+    wob_base_[at] = BaseEvent{static_cast<std::uint16_t>(frame), value};
+    return true;
+  }
   if (target == kLaneMixer) {
     return ctx.set_mix(kMixerSlot, static_cast<dsp::MixField>(id), value);
   }
@@ -471,6 +576,14 @@ bool Sequencer::write_target(dsp::BlockContext& ctx, std::uint8_t target, std::u
 
 // A lock on a target ended: the knob's value comes back, or the slew that is gliding there takes it from where it has got to.
 void Sequencer::restore_target(dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, unsigned frame) noexcept {
+  if (target == kLaneSeq) {  // the lane's hold ends: set_wobble()'s rate and depth apply again
+    if (id == kSeqWobbleRate) {
+      seq_rate_lane_ = -1;
+    } else {
+      seq_depth_lane_ = -1.0f;
+    }
+    return;
+  }
   if (Slew* s = find_slew(target, id)) {
     if (!s->mixer) {  // a mixer slew writes at the end of the block, after this
       const float v = slew_value(*s, s->pos + frame);
@@ -530,6 +643,8 @@ void Sequencer::begin_run(const dsp::Transport& t) noexcept {
   chain_dirty_ = true;
   load_pattern(bank_.selected());  // also the first pass
   step_tick_ = (t.pos + 0xFFFFFFFFull) >> 32;  // the first whole tick the transport has not passed
+  wob_phase_ = 0;  // the wobble's cycles are counted from the transport's start
+  wob_held_ = wob_rng_.next_float() * 2.0f - 1.0f;
 }
 
 void Sequencer::emit_points(dsp::BlockContext& ctx, unsigned frame, unsigned quarter) noexcept {
@@ -757,6 +872,7 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
     (void)emit(ctx, dsp::note_on(note8, velocity, accent_flag, f));
   }
   held_ = note;
+  note_started(ctx, frame, note8);
   const bool last = hits == 1u;
   off_due_ = !(last && hold);  // only the last hit of a sliding step (or one with a tie behind it) is held into the next step
   off_tick_ = start + gate_ticks;
@@ -784,6 +900,7 @@ void Sequencer::fire_hit(dsp::BlockContext& ctx, unsigned frame) noexcept {
   }
   (void)emit(ctx, dsp::note_on(hit_note_, hit_velocity_, hit_note_flags_, f));
   held_ = hit_note_;
+  note_started(ctx, frame, hit_note_);
   const std::uint64_t begin = cur_start_ + (static_cast<std::uint64_t>(k) * cur_len_) / hit_n_;
   const std::uint64_t end = cur_start_ + (static_cast<std::uint64_t>(k + 1u) * cur_len_) / hit_n_;
   const auto part = static_cast<std::uint32_t>(end - begin);
@@ -937,7 +1054,7 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
     const bool ends_here = remaining < frames;
 
     if (s.mixer) {
-      const bool locked = slew_locked(s);
+      const bool locked = slew_locked(s) || wob_owns(s);
       // The mixer ramps across the block to its target, so the value that belongs at the block's end is the one to write.
       if (!locked) {
         const bool final = ends_here;
@@ -967,7 +1084,7 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
       if (budget[t] <= kSlewExtraEvents) {
         break;  // the rest of the unit's share is for the slews' last events
       }
-      if (slew_locked_at(s, f)) {
+      if (slew_locked_at(s, f) || wob_owns(s)) {
         continue;
       }
       const float v = slew_value(s, s.pos + f);
@@ -981,7 +1098,7 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
       s.last = v;
       s.emitted = true;
     }
-    if (ends_here && budget[t] > 0u && !slew_locked_at(s, remaining)) {
+    if (ends_here && budget[t] > 0u && !slew_locked_at(s, remaining) && !wob_owns(s)) {
       // The goal, at the frame the time runs out. A slew that cannot say it now (a full share, a full list, a lock) says it at frame 0
       // of the next block.
       if (emit_to(ctx, unit, dsp::param_change(s.id, s.goal, static_cast<std::uint16_t>(remaining)))) {
@@ -1003,6 +1120,245 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
     left += s.active ? 1u : 0u;
   }
   slewing_.store(left, std::memory_order_relaxed);
+}
+
+// ---- Wobble (main loop) ----------------------------------------------------------------------------------------------------------
+
+bool Sequencer::wobbleable(std::uint8_t target, std::uint8_t id) const noexcept {
+  if (target == kLaneNone || target == kLaneSeq || !resolvable(target, id)) {
+    return false;
+  }
+  if (target == kLaneMixer) {
+    return id != kMixerMute;
+  }
+  return desc_of(target, id)->unit != core::ParamUnit::Enum;
+}
+
+bool Sequencer::set_wobble(bool on, unsigned rate, unsigned shape, float depth, LaneRef target) noexcept {
+  const std::uint32_t old = wobble_.load(std::memory_order_relaxed);
+  if (!on) {
+    wobble_.store(old & ~kWobOn, std::memory_order_relaxed);
+    return true;
+  }
+  if (rate >= kWobbleRateCount || shape >= kWobbleShapeCount || !wobbleable(target.target, target.id)) {
+    return false;
+  }
+  wobble_depth_.store(depth > 0.0f ? (depth < 1.0f ? depth : 1.0f) : 0.0f, std::memory_order_relaxed);  // depth first: the word publishes it
+  const std::uint32_t w = (old & (kWobReset | kWobOverMask)) | kWobOn | (rate << kWobRateShift) | (shape << kWobShapeShift) |
+                          (static_cast<std::uint32_t>(target.target) << kWobTargetShift) | (static_cast<std::uint32_t>(target.id) << kWobIdShift);
+  wobble_.store(w, std::memory_order_relaxed);
+  return true;
+}
+
+void Sequencer::set_wobble_reset(bool reset_on_note) noexcept {
+  const std::uint32_t old = wobble_.load(std::memory_order_relaxed);
+  wobble_.store(reset_on_note ? (old | kWobReset) : (old & ~kWobReset), std::memory_order_relaxed);
+}
+
+void Sequencer::wobble_rate_override(int rate) noexcept {
+  const std::uint32_t old = wobble_.load(std::memory_order_relaxed) & ~kWobOverMask;
+  const std::uint32_t v = (rate >= 0 && rate < static_cast<int>(kWobbleRateCount)) ? static_cast<std::uint32_t>(rate) + 1u : 0u;
+  wobble_.store(old | (v << kWobOverShift), std::memory_order_relaxed);
+}
+
+Wobble Sequencer::wobble() const noexcept {
+  const std::uint32_t w = wobble_.load(std::memory_order_relaxed);
+  Wobble o;
+  o.on = (w & kWobOn) != 0u;
+  o.reset_on_note = (w & kWobReset) != 0u;
+  o.rate = (w >> kWobRateShift) & 15u;
+  o.shape = (w >> kWobShapeShift) & 7u;
+  o.depth = wobble_depth_.load(std::memory_order_relaxed);
+  o.target = LaneRef{static_cast<std::uint8_t>((w >> kWobTargetShift) & 7u), static_cast<std::uint8_t>((w >> kWobIdShift) & 31u)};
+  o.override_rate = static_cast<int>((w >> kWobOverShift) & 31u) - 1;
+  return o;
+}
+
+// ---- Wobble and the growl's note (render) -------------------------------------------------------------------------------------------
+
+// A note started at `frame`: the growl follows it (one Param event), and the wobble restarts with it when it is told to.
+void Sequencer::note_started(dsp::BlockContext& ctx, unsigned frame, std::uint8_t note) noexcept {
+  const dsp::UnitId growl = tab_[kLaneGrowl].unit;
+  if (growl != dsp::kNoUnit) {
+    (void)emit_to(ctx, growl, dsp::param_change(kGrowlNoteParam, static_cast<float>(note), static_cast<std::uint16_t>(frame)));
+  }
+  if ((wob_cfg_ & (kWobOn | kWobReset)) == (kWobOn | kWobReset) && wob_reset_count_ < kMaxWobbleResets) {
+    wob_resets_[wob_reset_count_++] = static_cast<std::uint16_t>(frame);
+  }
+}
+
+// The value a lane lock holds on (target, id) now, if one does.
+bool Sequencer::lane_lock_value(std::uint8_t target, std::uint8_t id, float& value) const noexcept {
+  for (unsigned lane = 0; lane < kMotionLanes && overridden_ != 0u; ++lane) {
+    if ((overridden_ >> lane & 1u) != 0u && lane_target_[lane] == target && lane_id_[lane] == id) {
+      value = last_value_[lane];
+      return true;
+    }
+  }
+  return false;
+}
+
+// `base` moved by `delta` (a fraction of the target's range, signed) through the target's own curve, held inside the range.
+float Sequencer::wobble_value(std::uint8_t target, std::uint8_t id, float base, float delta) const noexcept {
+  if (delta == 0.0f) {
+    return base;
+  }
+  if (target == kLaneMixer) {
+    const LaneRange r = kMixerRange[id];
+    const float n = (base - r.min) / (r.max - r.min) + delta;
+    return r.min + (n < 0.0f ? 0.0f : (n > 1.0f ? 1.0f : n)) * (r.max - r.min);
+  }
+  const core::ParamDesc* d = desc_of(target, id);
+  if (d == nullptr) {
+    return base;
+  }
+  const float n = core::param_norm(*d, base) + delta;
+  return core::param_denorm(*d, n < 0.0f ? 0.0f : (n > 1.0f ? 1.0f : n));
+}
+
+// Once per block, after the sequencer and before the slews. Param events toward the target at frames 0, 16, 32 ... of the block and at the
+// frame of every note that restarts the phase; a mixer field gets one write, the value at the block's end.
+void Sequencer::run_wobble(dsp::BlockContext& ctx) noexcept {
+  const dsp::Transport& t = ctx.transport();
+  const std::uint32_t frames = t.frames;
+  const std::uint32_t cfg = wob_cfg_;
+  const auto tg = static_cast<std::uint8_t>((cfg >> kWobTargetShift) & 7u);
+  const auto id = static_cast<std::uint8_t>((cfg >> kWobIdShift) & 31u);
+  const bool want = (cfg & kWobOn) != 0u && frames != 0u && wobbleable(tg, id);
+
+  // A wobble that stopped or moved: its target goes back to its base (the lock, the slew or the knob), then it is the wobble's no more.
+  if (wob_active_ && (!want || tg != wob_target_ || id != wob_id_)) {
+    const std::uint8_t old_t = wob_target_;
+    const std::uint8_t old_id = wob_id_;
+    wob_active_ = false;
+    float base = 0.0f;
+    if (!lane_lock_value(old_t, old_id, base)) {
+      const Slew* s = find_slew(old_t, old_id);
+      base = s != nullptr ? slew_value(*s, s->pos) : knob_value(old_t, old_id);
+    }
+    (void)write_target(ctx, old_t, old_id, base, 0);
+  }
+  if (!want) {
+    wob_active_ = false;
+    wob_reset_count_ = 0;
+    wob_base_count_ = 0;
+    wob_rate_now_.store(-1, std::memory_order_relaxed);
+    return;
+  }
+
+  // The rate: the pad's override, else the lane's, else the setting. The phase carries on across a change of rate.
+  const int over = static_cast<int>((cfg >> kWobOverShift) & 31u) - 1;
+  unsigned rate = (cfg >> kWobRateShift) & 15u;
+  if (over >= 0) {
+    rate = static_cast<unsigned>(over);
+  } else if (seq_rate_lane_ >= 0) {
+    rate = static_cast<unsigned>(seq_rate_lane_);
+  }
+  rate = rate < kWobbleRateCount ? rate : kWobbleRateCount - 1u;
+  const unsigned shape = (cfg >> kWobShapeShift) & 7u;
+  const float depth = seq_depth_lane_ >= 0.0f ? seq_depth_lane_ : wobble_depth_.load(std::memory_order_relaxed);
+  const float amplitude = 0.5f * depth;
+  if (t.inc != wob_inc_tick_ || rate != wob_inc_rate_) {
+    const std::uint64_t inc = t.inc < (1ull << 31) ? t.inc : (1ull << 31);  // 300 BPM is about 2^29: the shift below cannot overflow
+    wob_inc_ = (inc << 32) / kWobbleTicks[rate];                              // Q0.64 turns a frame
+    wob_inc_tick_ = t.inc;
+    wob_inc_rate_ = rate;
+  }
+  const std::uint64_t inc = wob_inc_;
+  wob_rate_now_.store(static_cast<int>(rate), std::memory_order_relaxed);
+
+  const bool mixer = tg == kLaneMixer;
+  const dsp::UnitId unit = mixer ? dsp::kNoUnit : tab_[tg].unit;
+  const Slew* slew = find_slew(tg, id);
+  const auto live = [&](unsigned frame) {
+    return slew != nullptr ? slew_value(*slew, slew->pos + frame) : knob_value(tg, id);
+  };
+  const auto draw = [&]() { wob_held_ = wob_rng_.next_float() * 2.0f - 1.0f; };
+  if (!wob_active_) {
+    // Switched on: the cycle is where the transport's is (a free one from 0 while stopped), so the wobble is on the grid from the start.
+    wob_active_ = true;
+    wob_target_ = tg;
+    wob_id_ = id;
+    wob_emitted_ = false;
+    wob_hold_valid_ = lane_lock_value(tg, id, wob_hold_);
+    const std::uint64_t period = kWobbleTicks[rate];
+    wob_phase_ = t.playing ? ((t.pos % (period << 32)) / period) << 32 : 0u;
+    draw();
+  }
+
+  std::uint64_t ph = wob_phase_;  // the phase at frame `seg`
+  unsigned seg = 0;
+  std::uint64_t prev = wob_phase_;  // at the last point looked at: a smaller one now is a wrap, the start of a cycle
+  bool base_valid = wob_hold_valid_;
+  float base_now = wob_hold_;
+  unsigned bi = 0;
+  unsigned ri = 0;
+  unsigned tick = 0;
+  for (;;) {
+    const unsigned f_tick = tick < frames ? tick : ~0u;
+    const unsigned f_reset = ri < wob_reset_count_ ? wob_resets_[ri] : ~0u;
+    if (f_tick == ~0u && f_reset == ~0u) {
+      break;
+    }
+    const unsigned f = f_tick < f_reset ? f_tick : f_reset;
+    bool restarted = false;
+    while (ri < wob_reset_count_ && wob_resets_[ri] <= f) {
+      restarted = true;
+      ++ri;
+    }
+    if (restarted) {
+      ph = 0;
+      seg = f;
+      prev = 0;
+      draw();
+    }
+    const std::uint64_t at = ph + inc * (f - seg);
+    if (!restarted && at < prev) {
+      draw();
+    }
+    prev = at;
+    if (f_tick == f) {
+      tick += kWobbleTick;
+    }
+    if (mixer) {
+      continue;  // a mixer field is written once, below
+    }
+    while (bi < wob_base_count_ && wob_base_[bi].frame <= f) {
+      base_now = wob_base_[bi].value;
+      base_valid = true;
+      ++bi;
+    }
+    const float base = base_valid ? base_now : live(f);
+    const float v = wobble_value(tg, id, base, amplitude * wobble_wave(shape, static_cast<std::uint32_t>(at >> 32), wob_held_));
+    if (f == 0u || !wob_emitted_ || v != wob_last_) {  // frame 0 always speaks: the wobble owns its target, the main loop's write must not win
+      (void)emit_to(ctx, unit, dsp::param_change(id, v, static_cast<std::uint16_t>(f)));
+    }
+    wob_last_ = v;
+    wob_emitted_ = true;
+  }
+  const std::uint64_t end = ph + inc * (frames - seg);
+  if (end < prev) {
+    draw();
+  }
+  if (mixer) {
+    while (bi < wob_base_count_) {
+      base_now = wob_base_[bi++].value;
+      base_valid = true;
+    }
+    const float base = base_valid ? base_now : live(frames);
+    (void)ctx.set_mix(kMixerSlot, static_cast<dsp::MixField>(id),
+                      wobble_value(tg, id, base, amplitude * wobble_wave(shape, static_cast<std::uint32_t>(end >> 32), wob_held_)));
+  }
+  wob_phase_ = end;
+
+  // The base carries on into the next block when a lane lock holds it.
+  float held = 0.0f;
+  wob_hold_valid_ = lane_lock_value(tg, id, held);
+  if (wob_hold_valid_) {
+    wob_hold_ = held;
+  }
+  wob_reset_count_ = 0;
+  wob_base_count_ = 0;
 }
 
 void Sequencer::publish() noexcept {
@@ -1074,8 +1430,10 @@ ChainView Sequencer::chain() const noexcept {
 
 void Sequencer::block(dsp::BlockContext& ctx) noexcept {
   mark_count_ = 0;
+  wob_cfg_ = wobble_.load(std::memory_order_relaxed);
   drain_commands(ctx);
   sequence(ctx);
+  run_wobble(ctx);  // before the slews: a slew on the wobbled target only counts its time, and the wobble reads where it stands
   run_slews(ctx);
 }
 

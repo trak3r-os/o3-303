@@ -132,7 +132,8 @@ void MainScreen::master_release(app::Context& ctx) noexcept {
   if (!master_used_ && ctx.uptime_ms() - master_down_ms_ < kHoldMs) {  // a tap: TEMPO (Shift: SWING) on the encoder; again, back to the page
     const EncLatch want = master_shift_ ? EncLatch::Swing : EncLatch::Tempo;
     enc_latch_ = enc_latch_ == want ? EncLatch::None : want;
-    toast(ctx, enc_latch_ == EncLatch::Tempo ? "ENCODER: TEMPO" : (enc_latch_ == EncLatch::Swing ? "ENCODER: SWING" : "ENCODER: THE PAGE"));
+    toast(ctx, enc_latch_ == EncLatch::Tempo ? "ENCODER: TEMPO" : (enc_latch_ == EncLatch::Swing ? "ENCODER: SWING" : "ENCODER: THE PAGE"),
+          enc_latch_ == EncLatch::None);
   }
   ctx.redraw();
 }
