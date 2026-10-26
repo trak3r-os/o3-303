@@ -334,6 +334,12 @@ TEST_CASE("growl: Mix 0 is the input bit for bit, in place or not, also after th
   CHECK(std::memcmp(out.r.data() + 12400, in.r.data() + 12400, (n - 12400) * sizeof(float)) == 0);
   CHECK(std::memcmp(out.l.data() + 4000, in.l.data() + 4000, 4000 * sizeof(float)) != 0);  // and it did something in between
   CHECK(g.idle());
+  // A Mix that shows 0 % but is a float step's residue above 0 is off too: the unit goes idle (no cost) and passes the input exactly.
+  Growl gh;
+  gh.prepare(static_cast<float>(kRate));
+  const Stereo hair = run(gh, in, {{2000, Growl::Mix, 1.0f}, {12000, Growl::Mix, 2.2e-8f}}, 64, false);
+  CHECK(std::memcmp(hair.l.data() + 12400, in.l.data() + 12400, (n - 12400) * sizeof(float)) == 0);
+  CHECK(gh.idle());
   // The dry part keeps the stereo image: Mix 0.5 on different channels differs from the mono sum.
   Growl h;
   h.prepare(static_cast<float>(kRate));

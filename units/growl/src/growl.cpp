@@ -42,6 +42,7 @@ constexpr float kMixesSeconds = 0.005f;  // Formant Mix, Comb Mix, Feedback
 constexpr float kMixRampSeconds = 0.005f;
 constexpr float kTinyAudio = 1.0e-20f;   // below this a comb sample is zero: no denormals in the loop
 constexpr float kTinyState = 1.0e-15f;   // the same for the filter states, checked once a period
+constexpr float kMixOff = 1.0e-3f;       // a Mix below this is 0: the unit is bypassed (a tenth of the 1 % the page shows)
 constexpr float kHugeState = 1.0e6f;     // a filter state above this has blown up: it is cleared, like a NaN
 
 struct VowelRow {
@@ -176,7 +177,9 @@ void Growl::set(std::uint16_t id, float v) noexcept {
       break;
     case Mix: {
       const bool was_idle = idle();
-      mix_target_ = x;
+      // Below the display's last digit is off: a knob walked down in float steps can stop a hair above 0 and show 0 %, and the unit would
+      // then run its whole path at no audible effect (the unit round of 2026-10-26 found +7 % of a block that way).
+      mix_target_ = x < kMixOff ? 0.0f : x;
       if (was_idle && x > 0.0f) {
         if (!cleared_) {
           clear_state();  // a ramp to 0 that ended on a block's last frame leaves the state uncleared until the next block's process()
