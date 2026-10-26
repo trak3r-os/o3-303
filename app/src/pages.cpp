@@ -226,7 +226,7 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
     case Item::Delay:
       return e.param(w_->delay, entry.id);
     case Item::Tempo:
-      return static_cast<float>(e.tempo()) * 0.001f;
+      return static_cast<float>(e.own_tempo()) * 0.001f;  // the app's own: while following a MIDI clock the header shows the master's
     case Item::Swing:
       return static_cast<float>(p.swing);
     case Item::Length:

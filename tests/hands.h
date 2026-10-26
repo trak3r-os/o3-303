@@ -8,6 +8,7 @@
 
 #include <o3sdk/app/app.h>
 #include <o3sdk/app/pad_leds.h>
+#include <o3sdk/platform/host/fake_midi.h>
 #include <o3sdk/sim/harness.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/pages.h>
@@ -39,7 +40,10 @@ inline unsigned step_pad_of(unsigned k) { return o3_303::step_pad(k); }
 struct Hands {
   std::unique_ptr<sim::Harness> h = std::make_unique<sim::Harness>(o3sdk_app());
 
-  Hands() {
+  Hands() { boot(); }
+  // With a MIDI device (the platform's; the system Config then has a MIDI section and setup()'s route takes).
+  explicit Hands(platform::host::FakeMidi& midi) : h(std::make_unique<sim::Harness>(o3sdk_app(), nullptr, &midi)) { boot(); }
+  void boot() {
     REQUIRE(h->start());
     h->run_ms(100);
   }

@@ -9,6 +9,7 @@
 #include <o3_303/perform.h>
 #include <o3_303/units/distortion/distortion.h>
 
+#include <algorithm>
 #include <cstring>
 
 using namespace hands;
@@ -138,4 +139,45 @@ TEST_CASE("a nudge ends when the screen is left; the vault does not keep the tem
   t.tap(Button::Pattern);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   CHECK(tempo(t) == t0);
+}
+
+TEST_CASE("MIDI: setup routes the voice; while a master's clock leads, TEMPO and the nudge step the own tempo, not the master's") {
+  platform::host::FakeMidi midi;
+  Hands t(midi);
+  app::Midi& m = t.h->runtime().context().midi();
+  CHECK(m.routes() == 1u);
+  // A note on the user's channel (omni by default) plays the voice.
+  t.h->record(true);
+  midi.in(platform::host::FakeMidi::Port::Usb, 0x90, 45, 110);
+  t.wait(120);
+  int peak = 0;
+  for (const std::int16_t s : t.h->audio()) {
+    peak = std::max(peak, s < 0 ? -static_cast<int>(s) : static_cast<int>(s));
+  }
+  CHECK(peak > 1000);
+  midi.in(platform::host::FakeMidi::Port::Usb, 0x80, 45, 0);
+  t.h->record(false);
+
+  const std::uint32_t own = t.h->engine().own_tempo();
+  hal::midi::Config c = m.config();
+  c.follow = true;
+  m.set_config(c);
+  midi.clock_tempo(140'000);
+  t.wait(20);
+  REQUIRE(t.h->engine().following());
+  CHECK(tempo(t) == 140'000u);
+  t.tap(Button::Master);
+  t.turn(2);  // half a BPM a detent, from the own tempo
+  CHECK(t.h->engine().own_tempo() == own + 1000);
+  CHECK(tempo(t) == 140'000u);
+  t.tap(Button::Master);
+  // The nudge: hold Master and turn; the release puts the own tempo back, not the master's.
+  t.press(Button::Master);
+  t.turn(2);
+  t.release(Button::Master);
+  CHECK(t.h->engine().own_tempo() == own + 1000);
+  midi.clock_off();
+  t.wait(1200);  // 48 clocks of a gone master (0.86 s at 140), then the own tempo again
+  CHECK_FALSE(t.h->engine().following());
+  CHECK(tempo(t) == own + 1000);
 }

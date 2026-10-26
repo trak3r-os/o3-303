@@ -179,7 +179,7 @@ void MainScreen::master_turn(app::Context& ctx, int detents) noexcept {
     return;
   }
   if (nudge_pct_ == 0) {
-    nudge_base_ = ctx.engine().tempo();
+    nudge_base_ = ctx.engine().own_tempo();  // not the MIDI master's: the release puts this back as the own tempo
   }
   nudge_pct_ = next;
   std::uint32_t mbpm = nudged_tempo(nudge_base_, nudge_pct_);

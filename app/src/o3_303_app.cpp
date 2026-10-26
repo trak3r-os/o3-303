@@ -82,6 +82,7 @@ class O3_303App final : public app::App {
     (void)e.set_insert(0, 1, growl);
     (void)e.set_send_effect(0, delay);
     (void)e.set_master_insert(0, freeze);
+    (void)ctx.midi().route(voice);  // MIDI notes on the user's channel (system Config, MIDI) play the voice; no device, no effect
     (void)sequencer_.setup(e, voice, dist, delay);  // adds its hook to the engine; the lanes may drive the voice, the distortion, the delay
     (void)sequencer_.set_unit(o3_303::kLaneGrowl, growl);  // ... and the growl, whose Note the hook sets on every note start (after setup(), before start())
     // A run starts with no performance flag, no live transpose and no chain (the app object outlives a run in the simulator's tests).
@@ -136,11 +137,6 @@ class O3_303App final : public app::App {
     }
     if (in.press(Button::File) && ctx.screen() == &main_) {
       ctx.show(vault_);
-      return true;
-    }
-    if (in.press(Button::Config)) {
-      ctx.set_theme(ui::next_theme(ctx.theme()));
-      ctx.redraw();
       return true;
     }
     return false;
