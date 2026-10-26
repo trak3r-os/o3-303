@@ -30,6 +30,23 @@ bool has_flag(const Pattern& p, unsigned step, std::uint8_t flag) noexcept;
 // those two the note is kept), with no ratchet and no condition. Returns the next cursor: step + 1, or 0 at the end of the length.
 unsigned write_advance(Pattern& p, unsigned step, unsigned note, std::uint8_t flags) noexcept;
 
+// The ratchet of a step (flags bits 4-5, pattern.h): 0 = one hit .. kMaxRatchet (3) = four hits; more is clamped. The other flags stay.
+// A ratchet on a rest or a tie step is kept (it comes back when the step plays again) and is not played.
+void set_ratchet(Pattern& p, unsigned step, unsigned ratchet) noexcept;
+unsigned get_ratchet(const Pattern& p, unsigned step) noexcept;
+// The trig condition of a step (pattern.h: kCondAlways, 1..99, cond_ratio(), kCondFill ..). A reserved value is stored as kCondAlways, so
+// a step never holds data the sequencer would not understand. The note and the flags stay.
+void set_cond(Pattern& p, unsigned step, std::uint8_t cond) noexcept;
+std::uint8_t get_cond(const Pattern& p, unsigned step) noexcept;
+// The encoder's walk through the conditions: `cond` moved `detents` places (negative: back) along one list, clamped at both ends. The list:
+// always; the probabilities 10, 20 .. 90 %; the ratios A:B for B = 2..8 and A = 1..B (35 of them); FILL, NOT FILL, FIRST, NOT FIRST
+// (kCondStepCount = 49 entries). A value that is not on the list (a probability of 33 %, a reserved byte) counts as the nearest entry
+// below it on the list (always for a reserved byte), so a stray value from the data still lets the encoder move.
+inline constexpr unsigned kCondStepCount = 49;
+std::uint8_t cond_at(unsigned index) noexcept;       // the entry (an index past the end gives the last)
+unsigned cond_index(std::uint8_t cond) noexcept;     // where `cond` stands on the list, 0..kCondStepCount-1
+std::uint8_t step_cond(std::uint8_t cond, int detents) noexcept;
+
 // Insert: the steps from `at` to the end of the length move one later (the last falls off) and `at` becomes a rest.
 // Delete: the steps after `at` move one earlier and the last step of the length becomes a rest. Motion moves with them.
 void insert_step(Pattern& p, unsigned at) noexcept;
@@ -62,6 +79,42 @@ bool double_length(Pattern& p) noexcept;
 // fresh pattern instead.)
 void clear_pattern(Pattern& p) noexcept;
 
+// One layer of the steps, for the gestures that rotate a layer alone (hold ACC / SLIDE + left / right, docs/M3B-PLAN.md R3).
+enum class Layer : std::uint8_t {
+  Accent,   // the accent bits
+  Slide,    // the slide bits
+  Tie,      // the tie bits
+  Rest,     // the rest bits (the rhythm: which steps sound)
+  Note,     // the pitches
+  Ratchet,  // the ratchets
+  Cond,     // the trig conditions
+};
+inline constexpr unsigned kLayerCount = 7;
+// Rotates ONE layer of the steps inside the length by `steps` (positive moves it later, the end wraps to the start); every other layer
+// of every step, and the motion, stay where they are. Tie and rest exclude each other (set_flag): when a rotated tie lands on a rest, or a
+// rotated rest on a tie, the layer that was rotated wins and the other bit of that step goes. A rotation by a multiple of the length
+// changes nothing.
+void rotate_layer(Pattern& p, Layer layer, int steps) noexcept;
+
+// ---- Fills (docs/M3B-PLAN.md R3): the variant the sequencer plays while FILL is held ----------------------------------------------------
+//
+// Pure functions on a COPY of the playing pattern (the stored pattern is never touched), deterministic from the seed. They work on the
+// steps below the length, and every one keeps the length, swing, gate, transpose, motion and lanes.
+enum class FillVariant : std::uint8_t {
+  Mutate,     // about 40 % of the playing steps change (a note borrowed from another step of the pattern, so the fill stays in its key; an
+              // octave up or down; a toggled accent; a toggled slide) and about 30 % of the rests become notes. Ties and step 0 stay.
+  OctUp,      // every note an octave higher (clamped to 127)
+  Ratchet,    // every playing step is at least a double hit, and those in the last quarter of the pattern four hits: a roll into the downbeat
+  AccRotate,  // the accent layer rotated one step later
+};
+inline constexpr unsigned kFillVariantCount = 4;
+
+void fill_mutate(Pattern& p, std::uint32_t seed) noexcept;
+void fill_octave_up(Pattern& p) noexcept;
+void fill_ratchet(Pattern& p) noexcept;
+// `variant` applied to `p` (`seed` only matters to Mutate).
+void apply_fill(Pattern& p, FillVariant variant, std::uint32_t seed) noexcept;
+
 // 8, 16, 32 or 64; false (unchanged) for anything else.
 bool set_length(Pattern& p, unsigned length) noexcept;
 void set_swing(Pattern& p, int percent) noexcept;      // 0..kMaxSwing
@@ -85,6 +138,9 @@ bool lane_has_motion(const Pattern& p, unsigned lane) noexcept;
 // to their entries.
 std::uint8_t value_to_point(const o3sdk::core::ParamDesc& d, float value) noexcept;
 float point_to_value(const o3sdk::core::ParamDesc& d, std::uint8_t point) noexcept;
+
+// The lane of the pattern that drives (target, id) (pattern.h: kLaneVoice .. kLaneMixer), the lowest if two do; -1 if none does.
+int find_lane(const Pattern& p, std::uint8_t target, std::uint8_t id) noexcept;
 
 // ---- Generators -------------------------------------------------------------------------------------------------------------
 

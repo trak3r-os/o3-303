@@ -5,6 +5,7 @@
 #include <o3_303/seq/bank.h>
 
 #include <cstring>
+#include <initializer_list>
 #include <memory>
 
 using namespace o3_303;
@@ -440,4 +441,40 @@ TEST_CASE("clear_history forgets every undo and redo step and leaves the pattern
     ++undone;
   }
   CHECK(undone == kHistoryDepth);
+}
+
+TEST_CASE("M3b edits: ratchet and condition turns join per step, a layer rotation is one undo step, the getters read the pattern") {
+  auto bank = make_bank();
+  Pattern p;
+  clear(p);
+  for (unsigned j = 0; j < kMaxSteps; ++j) {
+    p.steps[j].flags = (j % 3u == 0u) ? kStepAccent : std::uint8_t{0};
+    p.steps[j].note = static_cast<std::uint8_t>(30 + j);
+  }
+  bank->replace(1, p);
+  bank->clear_history();  // the setup is not an edit of the user's
+  for (unsigned r = 1; r <= kMaxRatchet; ++r) {
+    CHECK(bank->set_ratchet(1, 4, r));
+  }
+  CHECK(bank->get_ratchet(1, 4) == kMaxRatchet);
+  for (const int d : {1, 2, 3}) {
+    CHECK(bank->set_cond(1, 4, step_cond(bank->get_cond(1, 4), d)));
+  }
+  CHECK(bank->get_cond(1, 4) != kCondAlways);
+  CHECK(bank->set_ratchet(1, 5, 1));  // another step: another gesture
+  CHECK(bank->set_ratchet(1, 5, 2));
+  CHECK(bank->rotate_layer(1, Layer::Note, 1));
+  CHECK(bank->rotate_layer(1, Layer::Accent, 1));
+  unsigned n = 0;
+  while (bank->undo() >= 0) {
+    ++n;
+  }
+  CHECK(n == 5);  // ratchets of step 4, conditions of step 4, ratchets of step 5, two rotations
+  CHECK(same(bank->pattern(1), p));
+  CHECK(bank->get_ratchet(1, 4) == 0);
+  CHECK(bank->get_cond(1, 4) == kCondAlways);
+
+  // A rotation by the length changes nothing and is not recorded.
+  CHECK_FALSE(bank->rotate_layer(1, Layer::Note, 16));
+  CHECK_FALSE(bank->can_undo());  // (the undone edits are redo steps now)
 }

@@ -68,6 +68,7 @@ struct Wiring {
   o3sdk::dsp::UnitId voice = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit;
+  o3sdk::dsp::UnitId freeze = o3sdk::dsp::kNoUnit;  // master insert 0: the beat freeze (units/freeze, M3b R6)
   seq::Bank* bank = nullptr;
   seq::GenParams gen;        // the generator's settings (the SEQ page)
   float send_a_pct = 30.0f;  // the voice's send A level in percent: the base; DELAY THROW raises it for a while

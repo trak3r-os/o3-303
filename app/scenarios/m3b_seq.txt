@@ -1,0 +1,42 @@
+# M3b sequencer (docs/M3B-PLAN.md R3 FILL, R4 ratchets, R5 trig conditions): the demo line on pattern A01, eight passes of 1.92 s with FILL
+# held for one pass in each of its four variants. Ratchets, conditions and FILL have no control on the SEQ page yet, so this runs on the
+# host-only stand-ins of app/src/o3_303_app.cpp (O3_303_TEST_HOOKS): SampleLoad loads the demo line, SamplePlay held is FILL, Shift +
+# SampleEdit picks the next variant (MUTATE, OCT UP, RATCHET, ACC ROTATE). The probability steps draw from the sequencer's fixed seed,
+# so every run plays the same notes.
+wait 300
+tap sampleload
+wait 100
+snap 01_demo_line
+record on
+tap play
+wait 3840
+snap 02_playing
+press sampleplay
+wait 1920
+snap 03_fill_mutate
+release sampleplay
+wait 1920
+press shift
+tap sampleedit
+release shift
+press sampleplay
+wait 1920
+release sampleplay
+wait 1920
+press shift
+tap sampleedit
+release shift
+press sampleplay
+wait 1920
+snap 04_fill_ratchet
+release sampleplay
+wait 1920
+press shift
+tap sampleedit
+release shift
+press sampleplay
+wait 1920
+release sampleplay
+wait 1920
+tap play
+wav m3b_seq

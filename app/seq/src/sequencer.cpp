@@ -28,6 +28,8 @@
 //
 #include <o3_303/seq/sequencer.h>
 
+#include <o3sdk/core/audio_clock.h>
+#include <o3sdk/core/param.h>
 #include <o3_303/seq/ops.h>
 
 namespace o3_303::seq {
@@ -35,19 +37,24 @@ namespace o3_303::seq {
 namespace {
 
 namespace dsp = o3sdk::dsp;
+namespace core = o3sdk::core;
 
 constexpr std::uint8_t kVelocityNormal = 80;   // Replicant's: accented notes 110, the others 80
 constexpr std::uint8_t kVelocityAccent = 110;
 constexpr std::uint32_t kRecordKey = 0x07000000u;  // coalescing key of a motion recording (bank.cpp has the others)
 constexpr int kMaxLiveTranspose = 48;
-constexpr unsigned kMaxEventsLoop = 16;  // a bound on the events handled in one block (at most two steps and their points are due)
+constexpr unsigned kMaxEventsLoop = 16;  // a bound on the events handled in one block (at most two steps, their hits and points are due)
+constexpr float kMaxSlewFrames = 1048576.0f;  // 23 s: a float counts samples exactly up to 2^24
+constexpr unsigned kSlewExtraEvents = 4;  // a slew's last event (its goal) may go beyond kSlewEvents: the end state must land
 
 // The playhead word: one atomic, so a reader never sees half of it.
 //   bit 0 playing | 1..6 pattern | 7..13 step + 1 (0: none) | 14..15 point | 16..22 queued + 1 (0: none) | 23..27 queue length | 28 sounding
+//   | 29 fill
 std::uint32_t pack_playhead(const Playhead& h) noexcept {
   const auto u = [](int v) { return static_cast<std::uint32_t>(v); };
   return (h.playing ? 1u : 0u) | ((u(h.pattern < 0 ? 0 : h.pattern) & 0x3Fu) << 1) | ((u(h.step + 1) & 0x7Fu) << 7) |
-         ((u(h.point) & 3u) << 14) | ((u(h.queued + 1) & 0x7Fu) << 16) | ((h.queue_length & 0x1Fu) << 23) | ((h.sounding ? 1u : 0u) << 28);
+         ((u(h.point) & 3u) << 14) | ((u(h.queued + 1) & 0x7Fu) << 16) | ((h.queue_length & 0x1Fu) << 23) | ((h.sounding ? 1u : 0u) << 28) |
+         ((h.fill ? 1u : 0u) << 29);
 }
 
 Playhead unpack_playhead(std::uint32_t w) noexcept {
@@ -59,6 +66,7 @@ Playhead unpack_playhead(std::uint32_t w) noexcept {
   h.queued = static_cast<int>((w >> 16) & 0x7Fu) - 1;
   h.queue_length = (w >> 23) & 0x1Fu;
   h.sounding = ((w >> 28) & 1u) != 0u;
+  h.fill = ((w >> 29) & 1u) != 0u;
   return h;
 }
 
@@ -66,7 +74,7 @@ unsigned length_of(const Pattern& p) noexcept { return valid_length(p.length) ? 
 
 // The frame of this block at which `tick` is reached; 0 for a tick that already went by (the hook was late), -1 for one that is still
 // ahead.
-int frame_for(const dsp::Transport& t, std::uint64_t tick) noexcept {
+int frame_at_or_past(const dsp::Transport& t, std::uint64_t tick) noexcept {
   const int f = dsp::frame_at(t, tick);
   if (f >= 0) {
     return f;
@@ -74,11 +82,30 @@ int frame_for(const dsp::Transport& t, std::uint64_t tick) noexcept {
   return ((tick << 32) + t.inc) <= t.pos ? 0 : -1;
 }
 
+float default_mix(unsigned field) noexcept { return field == kMixerLevel ? 1.0f : 0.0f; }
+
+// A mixer value as Engine::set_mix stores it (clamped; NaN is the field's default).
+float clamp_mix(unsigned field, float v) noexcept {
+  if (v != v) {
+    return default_mix(field);
+  }
+  switch (field) {
+    case kMixerPan:
+      return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
+    case kMixerMute:
+      return v >= 0.5f ? 1.0f : 0.0f;
+    default:
+      return v < 0.0f ? 0.0f : (v > 1.5f ? 1.5f : v);
+  }
+}
+
 }  // namespace
 
-Sequencer::Sequencer(Bank& bank) noexcept : bank_(bank) {
-  for (auto& k : knob_) {
-    k.store(0.0f, std::memory_order_relaxed);
+Sequencer::Sequencer(Bank& bank) noexcept : bank_(bank), seed_(kDefaultSeed) {
+  for (auto& row : knob_) {
+    for (auto& k : row) {
+      k.store(0.0f, std::memory_order_relaxed);
+    }
   }
   for (auto& w : chain_words_) {
     w.store(0u, std::memory_order_relaxed);
@@ -86,21 +113,48 @@ Sequencer::Sequencer(Bank& bank) noexcept : bank_(bank) {
   for (auto& sh : shadow_) {
     clear(sh);  // until the first consistent copy of a pattern arrives the hook plays silence
   }
+  clear(variant_);
+  for (auto& s : slews_) {
+    s = Slew{};
+  }
 }
 
 // ---- Main loop ----------------------------------------------------------------------------------------------------------------
 
-bool Sequencer::setup(dsp::Engine& engine, dsp::UnitId voice) noexcept {
+bool Sequencer::setup(dsp::Engine& engine, dsp::UnitId voice, dsp::UnitId dist, dsp::UnitId delay) noexcept {
   const dsp::UnitInfo* info = engine.unit_info(voice);
   if (info == nullptr || info->param_count < kMotionLanes) {
     return false;
   }
   engine_ = &engine;
   voice_ = voice;
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    lane_desc_[lane] = engine.param_desc(voice, static_cast<std::uint16_t>(lane));
-    knob_[lane].store(engine.param(voice, static_cast<std::uint16_t>(lane)), std::memory_order_relaxed);
+  for (auto& t : tab_) {
+    t = UnitTable{};
   }
+  const dsp::UnitId ids[kLaneTargetCount] = {dsp::kNoUnit, voice, dist, delay, dsp::kNoUnit};
+  for (unsigned target = kLaneVoice; target <= kLaneDelay; ++target) {
+    const dsp::UnitInfo* ui = ids[target] != dsp::kNoUnit ? engine.unit_info(ids[target]) : nullptr;
+    if (ui != nullptr) {
+      tab_[target] = UnitTable{ids[target], ui->params, ui->param_count};
+    }
+  }
+  // The hook forgets what a previous run left (the app object outlives a run in the simulator's tests): setup() runs before the render.
+  for (auto& s : slews_) {
+    s = Slew{};
+  }
+  slew_rr_ = 0;
+  slewing_.store(0u, std::memory_order_relaxed);
+  slew_overflow_.store(0u, std::memory_order_relaxed);
+  rng_ = Rng(seed_.load(std::memory_order_relaxed));
+  seed_seen_ = seed_version_.load(std::memory_order_relaxed);
+  fill_count_ = 0;
+  pass_ = 0;
+  fill_on_ = false;
+  draw_valid_ = false;
+  variant_valid_ = false;
+  hit_n_ = 0;
+  hit_k_ = 0;
+  update();
   return engine.add_hook(*this);
 }
 
@@ -108,9 +162,34 @@ void Sequencer::update() noexcept {
   if (engine_ == nullptr) {
     return;
   }
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    knob_[lane].store(engine_->param(voice_, static_cast<std::uint16_t>(lane)), std::memory_order_relaxed);
+  for (unsigned target = kLaneVoice; target <= kLaneDelay; ++target) {
+    const UnitTable& t = tab_[target];
+    if (t.unit == dsp::kNoUnit) {
+      continue;
+    }
+    const unsigned n = t.count < kKnobs ? t.count : kKnobs;
+    for (unsigned id = 0; id < n; ++id) {
+      knob_[target][id].store(engine_->param(t.unit, static_cast<std::uint16_t>(id)), std::memory_order_relaxed);
+    }
   }
+  for (unsigned field = 0; field < kMixerFieldCount; ++field) {
+    knob_[kLaneMixer][field].store(engine_->mix(kMixerSlot, static_cast<dsp::MixField>(field)), std::memory_order_relaxed);
+  }
+}
+
+bool Sequencer::resolvable(std::uint8_t target, std::uint8_t id) const noexcept {
+  if (target == kLaneMixer) {
+    return id < kMixerFieldCount;
+  }
+  if (target < kLaneVoice || target > kLaneDelay) {
+    return false;
+  }
+  const UnitTable& t = tab_[target];
+  return t.unit != dsp::kNoUnit && id < t.count && id < kKnobs;
+}
+
+const core::ParamDesc* Sequencer::desc_of(std::uint8_t target, std::uint8_t id) const noexcept {
+  return (target >= kLaneVoice && target <= kLaneDelay && resolvable(target, id)) ? &tab_[target].params[id] : nullptr;
 }
 
 // true: the command is on the ring. The hook may still refuse the entry (a full chain with the loop on): chain() is the truth.
@@ -150,17 +229,37 @@ void Sequencer::set_perf_flag(std::uint8_t flag, bool on) noexcept {
   perf_.store(on ? static_cast<std::uint8_t>(cur | flag) : static_cast<std::uint8_t>(cur & ~flag), std::memory_order_relaxed);
 }
 
+void Sequencer::set_fill_variant(FillVariant v) noexcept {
+  fill_variant_.store(static_cast<std::uint8_t>(static_cast<unsigned>(v) < kFillVariantCount ? static_cast<unsigned>(v) : 0u),
+                      std::memory_order_relaxed);
+}
+
+FillVariant Sequencer::fill_variant() const noexcept {
+  const unsigned v = fill_variant_.load(std::memory_order_relaxed);
+  return static_cast<FillVariant>(v < kFillVariantCount ? v : 0u);
+}
+
+void Sequencer::set_seed(std::uint32_t seed) noexcept {
+  seed_.store(seed, std::memory_order_relaxed);  // one writer: the main loop. The version, released after the seed, tells the render.
+  seed_version_.store(seed_version_.load(std::memory_order_relaxed) + 1u, std::memory_order_release);
+}
+
 Playhead Sequencer::playhead() const noexcept { return unpack_playhead(playhead_.load(std::memory_order_relaxed)); }
 
 bool Sequencer::record_motion(unsigned lane, float value) noexcept {
-  if (lane >= kMotionLanes || lane_desc_[lane] == nullptr) {
+  if (lane >= kMotionLanes) {
     return false;
   }
   const Playhead ph = playhead();
   if (!ph.playing || ph.step < 0 || ph.pattern < 0) {
     return false;
   }
-  const std::uint8_t point = value_to_point(*lane_desc_[lane], value);
+  const LaneRef ref = bank_.pattern(static_cast<unsigned>(ph.pattern)).lanes[lane];
+  if (!resolvable(ref.target, ref.id)) {
+    return false;
+  }
+  const std::uint8_t point =
+      ref.target == kLaneMixer ? mixer_value_to_point(ref.id, value) : value_to_point(*desc_of(ref.target, ref.id), value);
   (void)bank_.edit(
       static_cast<unsigned>(ph.pattern),
       [&](Pattern& p) { set_motion_point(p, lane, static_cast<unsigned>(ph.step), static_cast<unsigned>(ph.point), point); },
@@ -168,17 +267,90 @@ bool Sequencer::record_motion(unsigned lane, float value) noexcept {
   return true;
 }
 
+// ---- Slews (main loop) ----------------------------------------------------------------------------------------------------------
+
+bool Sequencer::slew(std::uint8_t target, std::uint8_t id, float value, float ms, bool store) noexcept {
+  if (engine_ == nullptr || !resolvable(target, id)) {
+    return false;
+  }
+  const bool mixer = target == kLaneMixer;
+  const core::ParamDesc* d = mixer ? nullptr : desc_of(target, id);
+  const dsp::UnitId unit = tab_[target].unit;  // the mixer's entry is empty and unused
+  const float goal = mixer ? clamp_mix(id, value) : core::param_clamp(*d, value);
+  const float from = mixer ? engine_->mix(kMixerSlot, static_cast<dsp::MixField>(id)) : engine_->param(unit, id);
+  const auto write = [&]() {
+    if (mixer) {
+      (void)engine_->set_mix(kMixerSlot, static_cast<dsp::MixField>(id), goal);
+    } else {
+      (void)engine_->set_param(unit, id, goal);
+    }
+  };
+
+  const float frames_f = ms * (core::kRefRateHz * 0.001f) + 0.5f;  // to the nearest sample: 30 ms are 1,323 at 44.1 kHz whatever the rounding
+  const bool glides = ms > 0.0f && frames_f >= 1.0f && !(d != nullptr && d->unit == core::ParamUnit::Enum);
+  if (glides) {
+    const auto frames = static_cast<std::uint32_t>(frames_f > kMaxSlewFrames ? kMaxSlewFrames : frames_f);
+    // The slew goes on the ring BEFORE the stored value changes. The hook starts it from `from`, at frame 0 of the block that takes it,
+    // and a block takes the engine's commands first and the hook after: so the jump to the goal that write() queues never sounds,
+    // whichever block the two land in (the hook's event at frame 0 comes later in the unit's list and wins).
+    if (slew_commands_.push(SlewCommand{SlewOp::Start, target, id, 0, frames, goal, from})) {
+      if (store) {
+        write();
+      }
+      return true;
+    }
+  } else {
+    (void)slew_commands_.push(SlewCommand{SlewOp::Stop, target, id, 0, 0, 0.0f, 0.0f});  // at once: nothing glides on this target now
+  }
+  write();
+  return !glides;  // false: the ring was full and the value went in without its glide
+}
+
+bool Sequencer::slew_stop(std::uint8_t target, std::uint8_t id) noexcept {
+  return slew_commands_.push(SlewCommand{SlewOp::Stop, target, id, 0, 0, 0.0f, 0.0f});
+}
+
+bool Sequencer::slew_stop_all() noexcept { return slew_commands_.push(SlewCommand{SlewOp::StopAll, 0, 0, 0, 0, 0.0f, 0.0f}); }
+
 // ---- Render context -----------------------------------------------------------------------------------------------------------
 
-bool Sequencer::emit(dsp::BlockContext& ctx, const dsp::Event& e) noexcept {
-  if (ctx.emit(voice_, e)) {
+bool Sequencer::emit_to(dsp::BlockContext& ctx, dsp::UnitId unit, const dsp::Event& e) noexcept {
+  if (ctx.emit(unit, e)) {
     return true;
   }
   dropped_.fetch_add(1u, std::memory_order_relaxed);
   return false;
 }
 
-void Sequencer::drain_commands() noexcept {
+bool Sequencer::emit(dsp::BlockContext& ctx, const dsp::Event& e) noexcept { return emit_to(ctx, voice_, e); }
+
+void Sequencer::drain_commands(dsp::BlockContext& ctx) noexcept {
+  // A new seed (set_seed()) restarts the draws; the version was released after the seed.
+  const std::uint32_t version = seed_version_.load(std::memory_order_acquire);
+  if (version != seed_seen_) {
+    seed_seen_ = version;
+    rng_ = Rng(seed_.load(std::memory_order_relaxed));
+    fill_count_ = 0;
+    variant_valid_ = false;
+  }
+  SlewCommand sc;
+  for (unsigned n = 0; n < 64u && slew_commands_.pop(sc); ++n) {
+    switch (sc.op) {
+      case SlewOp::Start:
+        start_slew(ctx, sc);
+        break;
+      case SlewOp::Stop:
+        if (Slew* s = find_slew(sc.target, sc.id)) {
+          s->active = false;
+        }
+        break;
+      case SlewOp::StopAll:
+        for (auto& s : slews_) {
+          s.active = false;
+        }
+        break;
+    }
+  }
   Command c;
   for (unsigned n = 0; n < 32u && commands_.pop(c); ++n) {
     switch (c.op) {
@@ -267,7 +439,10 @@ void Sequencer::refresh_shadow() noexcept {
 
 void Sequencer::load_pattern(unsigned index) noexcept {
   playing_ = index < kPatternCount ? index : 0u;
+  pass_ = 0;  // a pattern change: the first pass again
+  draw_valid_ = false;
   shadow_valid_ = false;
+  variant_valid_ = false;
   refresh_shadow();
 }
 
@@ -279,11 +454,41 @@ void Sequencer::release_held(dsp::BlockContext& ctx, unsigned frame) noexcept {
   off_due_ = false;
 }
 
+// ---- Lanes: whose parameter a lane drives, and what it does to it ---------------------------------------------------------------
+
+// The value the main loop last handed over for a target (update()).
+float Sequencer::knob_value(std::uint8_t target, std::uint8_t id) const noexcept {
+  return knob_[target < kLaneTargetCount ? target : 0u][id < kKnobs ? id : 0u].load(std::memory_order_relaxed);
+}
+
+// One value to a lane's target: a Param event at `frame`, or the mixer field of slot 0 for the block.
+bool Sequencer::write_target(dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, float value, unsigned frame) noexcept {
+  if (target == kLaneMixer) {
+    return ctx.set_mix(kMixerSlot, static_cast<dsp::MixField>(id), value);
+  }
+  return emit_to(ctx, tab_[target].unit, dsp::param_change(id, value, static_cast<std::uint16_t>(frame)));
+}
+
+// A lock on a target ended: the knob's value comes back, or the slew that is gliding there takes it from where it has got to.
+void Sequencer::restore_target(dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, unsigned frame) noexcept {
+  if (Slew* s = find_slew(target, id)) {
+    if (!s->mixer) {  // a mixer slew writes at the end of the block, after this
+      const float v = slew_value(*s, s->pos + frame);
+      if (write_target(ctx, target, id, v, frame)) {
+        s->last = v;
+        s->emitted = true;
+      }
+    }
+    return;
+  }
+  (void)write_target(ctx, target, id, knob_value(target, id), frame);
+}
+
 void Sequencer::restore_lanes(dsp::BlockContext& ctx, unsigned frame) noexcept {
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
     if ((overridden_ >> lane & 1u) != 0u) {
-      (void)emit(ctx, dsp::param_change(static_cast<std::uint16_t>(lane), knob_[lane].load(std::memory_order_relaxed),
-                                        static_cast<std::uint16_t>(frame)));
+      restore_target(ctx, lane_target_[lane], lane_id_[lane], frame);
+      mark_lock(lane_target_[lane], lane_id_[lane], frame, false);
     }
   }
   overridden_ = 0;
@@ -296,6 +501,10 @@ void Sequencer::end_run(dsp::BlockContext& ctx) noexcept {
   cur_step_ = -1;
   cur_point_ = 0;
   pt_q_ = 4;
+  hit_n_ = 0;
+  hit_k_ = 0;
+  fill_on_ = false;
+  draw_valid_ = false;
   prev_slide_ = false;
   jump_to_ = -1;
   chain_next_ = 0;  // a stopped sequencer starts the chain from its first entry
@@ -309,6 +518,9 @@ void Sequencer::begin_run(const dsp::Transport& t) noexcept {
   cur_step_ = -1;
   cur_point_ = 0;
   pt_q_ = 4;
+  hit_n_ = 0;
+  hit_k_ = 0;
+  fill_on_ = false;
   off_due_ = false;
   held_ = -1;
   prev_slide_ = false;
@@ -316,7 +528,7 @@ void Sequencer::begin_run(const dsp::Transport& t) noexcept {
   chain_next_ = 0;
   from_chain_ = false;
   chain_dirty_ = true;
-  load_pattern(bank_.selected());
+  load_pattern(bank_.selected());  // also the first pass
   step_tick_ = (t.pos + 0xFFFFFFFFull) >> 32;  // the first whole tick the transport has not passed
 }
 
@@ -324,30 +536,95 @@ void Sequencer::emit_points(dsp::BlockContext& ctx, unsigned frame, unsigned qua
   if (!shadow_motion_ && overridden_ == 0u) {
     return;
   }
+  const Pattern& pat = shadow_[cur_];  // the lanes and the motion are the stored pattern's, whatever the fill plays
   const unsigned at = static_cast<unsigned>(cur_step_) * kMotionPointsPerStep + quarter;
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    const o3sdk::core::ParamDesc* d = lane_desc_[lane];
-    if (d == nullptr) {
-      continue;
-    }
-    const std::uint8_t point = shadow_[cur_].motion[lane][at];
+    const std::uint8_t point = pat.motion[lane][at];
     const std::uint8_t bit = static_cast<std::uint8_t>(1u << lane);
-    if (point == kNoLock) {
-      if ((overridden_ & bit) != 0u) {  // the lock ended: the knob's value comes back
-        (void)emit(ctx, dsp::param_change(static_cast<std::uint16_t>(lane), knob_[lane].load(std::memory_order_relaxed),
-                                          static_cast<std::uint16_t>(frame)));
-        overridden_ = static_cast<std::uint8_t>(overridden_ & ~bit);
-      }
+    const LaneRef ref = pat.lanes[lane];
+    if ((overridden_ & bit) != 0u && (point == kNoLock || ref.target != lane_target_[lane] || ref.id != lane_id_[lane])) {
+      // The lock ended (or the lane drives another parameter now): the old target gets its knob's value back.
+      restore_target(ctx, lane_target_[lane], lane_id_[lane], frame);
+      mark_lock(lane_target_[lane], lane_id_[lane], frame, false);
+      overridden_ = static_cast<std::uint8_t>(overridden_ & ~bit);
+    }
+    if (point == kNoLock || !resolvable(ref.target, ref.id)) {
       continue;
     }
-    const float value = point_to_value(*d, point);
+    const float value = ref.target == kLaneMixer ? mixer_point_to_value(ref.id, point) : point_to_value(*desc_of(ref.target, ref.id), point);
     if ((overridden_ & bit) == 0u || value != last_value_[lane]) {
-      (void)emit(ctx, dsp::param_change(static_cast<std::uint16_t>(lane), value, static_cast<std::uint16_t>(frame)));
+      if ((overridden_ & bit) == 0u) {
+        mark_lock(ref.target, ref.id, frame, true);
+      }
+      (void)write_target(ctx, ref.target, ref.id, value, frame);
       last_value_[lane] = value;
+      lane_target_[lane] = ref.target;
+      lane_id_[lane] = ref.id;
       overridden_ = static_cast<std::uint8_t>(overridden_ | bit);
     }
   }
 }
+
+// ---- Conditions and the fill ----------------------------------------------------------------------------------------------------
+
+// Does the condition of step `step`, on pass `pass` of the pattern, pass? A probability draws 0..99 from 24 bits (c.a of 100 pass, in the long
+// run), once for a step: `ahead` is the tie look-ahead of the step before, which draws and keeps the draw for the step's own start.
+bool Sequencer::cond_passes(std::uint8_t cond, unsigned step, std::uint32_t pass, bool ahead) noexcept {
+  const Cond c = decode_cond(cond);
+  switch (c.kind) {
+    case CondKind::Always:
+      return true;
+    case CondKind::Probability: {
+      unsigned draw;
+      if (draw_valid_ && draw_step_ == step && draw_pass_ == pass) {
+        draw = draw_value_;
+        draw_valid_ = ahead;  // the step's own start takes the draw it was kept for
+      } else {
+        draw = ((rng_.next() >> 8) * 100u) >> 24;
+        if (ahead) {
+          draw_valid_ = true;
+          draw_step_ = step;
+          draw_pass_ = pass;
+          draw_value_ = draw;
+        }
+      }
+      return draw < c.a;
+    }
+    case CondKind::Ratio:
+      return pass % c.b == static_cast<std::uint32_t>(c.a) - 1u;
+    case CondKind::Fill:
+      return fill_on_;
+    case CondKind::NotFill:
+      return !fill_on_;
+    case CondKind::First:
+      return pass == 0u;
+    case CondKind::NotFirst:
+      return pass != 0u;
+  }
+  return true;
+}
+
+// Is variant_ the fill of the pattern now playing, as the current choice asks? (Mutate differs from one fill to the next.)
+bool Sequencer::variant_current() const noexcept {
+  const std::uint8_t kind = fill_variant_.load(std::memory_order_relaxed);
+  return variant_valid_ && variant_pattern_ == playing_ && variant_version_ == shadow_version_ && variant_kind_ == kind &&
+         variant_fill_ == (kind == static_cast<std::uint8_t>(FillVariant::Mutate) ? fill_count_ : 0u);
+}
+
+void Sequencer::build_variant() noexcept {
+  const std::uint8_t raw = fill_variant_.load(std::memory_order_relaxed);
+  const std::uint8_t kind = raw < kFillVariantCount ? raw : std::uint8_t{0};
+  const bool mutate = kind == static_cast<std::uint8_t>(FillVariant::Mutate);
+  variant_ = shadow_[cur_];  // a copy: the Bank's pattern is never touched
+  apply_fill(variant_, static_cast<FillVariant>(kind), seed_.load(std::memory_order_relaxed) ^ (fill_count_ * 0x9e3779b9u));
+  variant_valid_ = true;
+  variant_pattern_ = playing_;
+  variant_version_ = shadow_version_;
+  variant_kind_ = kind;
+  variant_fill_ = mutate ? fill_count_ : 0u;
+}
+
+// ---- One step -------------------------------------------------------------------------------------------------------------------
 
 void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   // Which step: a pending jump starts its pattern here; the end of the length is the end of the pattern (queue, chain).
@@ -359,9 +636,21 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
     chain_dirty_ = true;
   } else if (next_step_ >= length_of(shadow_[cur_])) {
     next_step_ = 0;
-    advance_chain();
+    ++pass_;         // the pattern starts over ...
+    advance_chain();  // ... unless the chain loads another one, whose first pass this is
   }
-  const Pattern& pat = shadow_[cur_];
+
+  // FILL is looked at here and nowhere else: the variant starts and ends on a step boundary.
+  const std::uint8_t perf = perf_.load(std::memory_order_relaxed);
+  const bool fill = (perf & kPerfFill) != 0u;
+  if (fill && !fill_on_) {
+    ++fill_count_;
+  }
+  fill_on_ = fill;
+  if (fill_on_ && !variant_current()) {
+    build_variant();
+  }
+  const Pattern& pat = fill_on_ ? variant_ : shadow_[cur_];
   const unsigned n = length_of(pat);
   const unsigned j = next_step_ < n ? next_step_ : 0u;
   const Step s = pat.steps[j];
@@ -385,7 +674,6 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   }
   const auto len = static_cast<std::uint32_t>(following - start);
   const unsigned gate_pct = pat.gate < 5u ? 5u : (pat.gate > 100u ? 100u : pat.gate);
-  const std::uint32_t gate_ticks = (len * gate_pct + 50u) / 100u;
 
   cur_step_ = static_cast<int>(j);
   cur_point_ = 0;
@@ -395,41 +683,61 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   pt_q_ = 1;
   pt_tick_ = start + len / kMotionPointsPerStep;
   next_step_ = j + 1u;
+  hit_n_ = 0;  // the hits of the step before all came before this tick
+  hit_k_ = 0;
 
   // The locks first: the note then starts with them.
   emit_points(ctx, frame, 0);
 
-  const std::uint8_t perf = perf_.load(std::memory_order_relaxed);
   const bool mute = (perf & kPerfMute) != 0u;
   const bool slide = (s.flags & kStepSlide) != 0u || (perf & kPerfSlideAll) != 0u;
-  const bool rest = (s.flags & kStepRest) != 0u || mute;
+  if (draw_valid_ && (draw_step_ != j || draw_pass_ != pass_)) {
+    draw_valid_ = false;  // a draw kept for a step that did not come (the look-ahead of a step that was cut short)
+  }
+  bool rest = (s.flags & kStepRest) != 0u || mute;
+  if (!rest && s.cond != kCondAlways && !cond_passes(s.cond, j, pass_, false)) {
+    rest = true;  // the trig condition did not pass: the step does not play
+  }
   const bool tie = (s.flags & kStepTie) != 0u && !rest;
-
-  // Does the note go on into the next step (a slide, or a tie behind it)? The look-ahead stays in this pattern.
-  const unsigned after = j + 1u < n ? j + 1u : 0u;
-  const std::uint8_t after_flags = pat.steps[after].flags;
-  const bool tie_follows = (after_flags & kStepTie) != 0u && (after_flags & kStepRest) == 0u && !mute;
-  const bool hold = slide || tie_follows;
 
   if (rest) {
     release_held(ctx, frame);
     prev_slide_ = false;
     return;
   }
+
+  // Does the note go on into the next step (a slide, or a tie behind it that plays)? The look-ahead stays in this pattern; a slide
+  // holds the note whatever follows, so it asks nothing. A tie step with a condition is asked now (the next pass's, past the end of
+  // the pattern), and its draw is kept for its own start.
+  bool tie_follows = false;
+  if (!slide) {
+    const unsigned after = j + 1u < n ? j + 1u : 0u;
+    const Step& next = pat.steps[after];
+    if ((next.flags & kStepTie) != 0u && (next.flags & kStepRest) == 0u && !mute) {
+      tie_follows = next.cond == kCondAlways || cond_passes(next.cond, after, after == 0u ? pass_ + 1u : pass_, true);
+    }
+  }
+  const bool hold = slide || tie_follows;
   if (tie) {
     if (held_ < 0) {
       prev_slide_ = false;  // nothing to go on with: silent
       return;
     }
     off_due_ = !hold;
-    off_tick_ = start + gate_ticks;
+    off_tick_ = start + (len * gate_pct + 50u) / 100u;
     prev_slide_ = slide;
     return;
   }
 
+  // The hits: hit k starts at start + k * len / hits and lasts to the start of hit k + 1 (the step's end for the last).
+  const unsigned hits = ratchet_hits(s.flags);
+  const auto part0 = static_cast<std::uint32_t>(hits > 1u ? len / hits : len);
+  const std::uint32_t gate_ticks = (part0 * gate_pct + 50u) / 100u;
+
   const int transposed = static_cast<int>(s.note) + static_cast<int>(pat.transpose) + live_transpose_.load(std::memory_order_relaxed);
   const int note = transposed < 0 ? 0 : (transposed > static_cast<int>(kMaxNote) ? static_cast<int>(kMaxNote) : transposed);
-  const bool accent = (s.flags & kStepAccent) != 0u || (perf & kPerfAccAll) != 0u;
+  const bool acc_all = (perf & kPerfAccAll) != 0u;
+  const bool accent = (s.flags & kStepAccent) != 0u || acc_all;
   const std::uint8_t velocity = accent ? kVelocityAccent : kVelocityNormal;
   const std::uint8_t accent_flag = accent ? dsp::kNoteAccent : std::uint8_t{0};
   const auto f = static_cast<std::uint16_t>(frame);
@@ -449,9 +757,252 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
     (void)emit(ctx, dsp::note_on(note8, velocity, accent_flag, f));
   }
   held_ = note;
-  off_due_ = !hold;
+  const bool last = hits == 1u;
+  off_due_ = !(last && hold);  // only the last hit of a sliding step (or one with a tie behind it) is held into the next step
   off_tick_ = start + gate_ticks;
-  prev_slide_ = slide;
+  prev_slide_ = last && slide;
+  if (!last) {
+    hit_n_ = hits;
+    hit_k_ = 1;
+    hit_tick_ = start + len / hits;
+    hit_note_ = note8;
+    hit_velocity_ = acc_all ? kVelocityAccent : kVelocityNormal;  // the step's own accent was on the first hit
+    hit_note_flags_ = acc_all ? dsp::kNoteAccent : std::uint8_t{0};
+    hit_gate_ = static_cast<std::uint8_t>(gate_pct);
+    hit_hold_ = hold;
+    hit_slide_ = slide;
+  }
+}
+
+// The next hit of a ratcheted step: a plain note-on (the earlier hit's gate ended at or before this tick; a hit never glides), then
+// the gate of its part of the step. The last hit takes over the step's hold and slide.
+void Sequencer::fire_hit(dsp::BlockContext& ctx, unsigned frame) noexcept {
+  const unsigned k = hit_k_;
+  const auto f = static_cast<std::uint16_t>(frame);
+  if (held_ >= 0) {
+    (void)emit(ctx, dsp::note_off(static_cast<std::uint8_t>(held_), f));
+  }
+  (void)emit(ctx, dsp::note_on(hit_note_, hit_velocity_, hit_note_flags_, f));
+  held_ = hit_note_;
+  const std::uint64_t begin = cur_start_ + (static_cast<std::uint64_t>(k) * cur_len_) / hit_n_;
+  const std::uint64_t end = cur_start_ + (static_cast<std::uint64_t>(k + 1u) * cur_len_) / hit_n_;
+  const auto part = static_cast<std::uint32_t>(end - begin);
+  const bool last = k + 1u >= hit_n_;
+  off_due_ = !(last && hit_hold_);
+  off_tick_ = begin + (part * hit_gate_ + 50u) / 100u;
+  if (last) {
+    prev_slide_ = hit_slide_;
+    hit_k_ = hit_n_;
+  } else {
+    hit_k_ = k + 1u;
+    hit_tick_ = end;
+  }
+}
+
+// ---- Slews (render) -------------------------------------------------------------------------------------------------------------
+
+Sequencer::Slew* Sequencer::find_slew(std::uint8_t target, std::uint8_t id) noexcept {
+  for (auto& s : slews_) {
+    if (s.active && s.target == target && s.id == id) {
+      return &s;
+    }
+  }
+  return nullptr;
+}
+
+// Where a slew stands `pos` samples into its time.
+float Sequencer::slew_value(const Slew& s, std::uint32_t pos) const noexcept {
+  if (s.snap || pos >= s.total) {
+    return s.goal;
+  }
+  const float x = s.a + (s.b - s.a) * (static_cast<float>(pos) * s.inv_total);
+  return s.mixer ? x : core::param_denorm(*s.desc, x);
+}
+
+void Sequencer::start_slew(dsp::BlockContext& ctx, const SlewCommand& c) noexcept {
+  if (!resolvable(c.target, c.id)) {
+    return;
+  }
+  Slew* s = find_slew(c.target, c.id);
+  float from = c.from;
+  if (s != nullptr) {
+    from = slew_value(*s, s->pos);  // a slew still gliding: the new one goes on from where it has got to
+  } else {
+    for (auto& slot : slews_) {
+      if (!slot.active) {
+        s = &slot;
+        break;
+      }
+    }
+    if (s == nullptr) {
+      // No room: the target jumps to its goal now, so it ends where it should even when the main loop did not write it (store = false).
+      slew_overflow_.fetch_add(1u, std::memory_order_relaxed);
+      (void)write_target(ctx, c.target, c.id, c.to, 0);
+      return;
+    }
+  }
+  const bool mixer = c.target == kLaneMixer;
+  const core::ParamDesc* d = mixer ? nullptr : desc_of(c.target, c.id);
+  *s = Slew{};
+  s->active = true;
+  s->mixer = mixer;
+  s->snap = d != nullptr && d->unit == core::ParamUnit::Enum;
+  s->target = c.target;
+  s->id = c.id;
+  s->desc = d;
+  s->goal = c.to;
+  s->a = mixer ? from : core::param_norm(*d, from);
+  s->b = mixer ? c.to : core::param_norm(*d, c.to);
+  s->total = s->snap ? 0u : (c.frames < 1u ? 1u : c.frames);
+  s->inv_total = s->total != 0u ? 1.0f / static_cast<float>(s->total) : 0.0f;
+}
+
+// A lane's lock is on this target right now: the lock wins, the slew only counts the time.
+bool Sequencer::slew_locked(const Slew& s) const noexcept {
+  for (unsigned lane = 0; lane < kMotionLanes && overridden_ != 0u; ++lane) {
+    if ((overridden_ >> lane & 1u) != 0u && lane_target_[lane] == s.target && lane_id_[lane] == s.id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void Sequencer::mark_lock(std::uint8_t target, std::uint8_t id, unsigned frame, bool on) noexcept {
+  const auto f = static_cast<std::uint16_t>(frame);
+  if (on) {
+    if (mark_count_ < kMaxMarks) {
+      marks_[mark_count_++] = LockMark{target, id, f, kOpen};
+    }
+    return;
+  }
+  for (unsigned i = mark_count_; i > 0u; --i) {
+    LockMark& m = marks_[i - 1u];
+    if (m.target == target && m.id == id && m.to == kOpen) {
+      m.to = f;  // a lock that began in this block ends in it
+      return;
+    }
+  }
+  if (mark_count_ < kMaxMarks) {
+    marks_[mark_count_++] = LockMark{target, id, 0, f};  // one that began before this block
+  }
+}
+
+// Is the slew's target locked at `frame` of this block? The marks say where a lock began or ended in the block; with none for the
+// target the state is the one the block ended in.
+bool Sequencer::slew_locked_at(const Slew& s, unsigned frame) const noexcept {
+  bool marked = false;
+  for (unsigned i = 0; i < mark_count_; ++i) {
+    const LockMark& m = marks_[i];
+    if (m.target == s.target && m.id == s.id) {
+      marked = true;
+      if (frame >= m.from && (m.to == kOpen || frame < m.to)) {
+        return true;
+      }
+    }
+  }
+  return marked ? false : slew_locked(s);
+}
+
+// Once per block, after the sequencer (stopped or playing). A parameter slew: an event at frame 0 and one every 16 frames (fewer when
+// many slews share a unit's list), the goal at the frame its time runs out. A mixer slew: one write, the value at the block's end.
+void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
+  const std::uint32_t frames = ctx.transport().frames;
+  unsigned active = 0;
+  unsigned per_unit[kLaneTargetCount] = {};
+  for (const Slew& s : slews_) {
+    if (s.active) {
+      ++active;
+      per_unit[s.mixer ? 0u : s.target] += 1u;
+    }
+  }
+  if (active == 0u || frames == 0u) {
+    slewing_.store(active, std::memory_order_relaxed);
+    return;
+  }
+  // Ticks per slew in this block: 4 (every 16 frames) while the unit's budget holds them all, else 2 or 1.
+  unsigned ticks[kLaneTargetCount];
+  unsigned budget[kLaneTargetCount];
+  for (unsigned t = 0; t < kLaneTargetCount; ++t) {
+    const unsigned n = per_unit[t];
+    ticks[t] = n * 4u <= kSlewEvents ? 4u : (n * 2u <= kSlewEvents ? 2u : 1u);
+    budget[t] = kSlewEvents + kSlewExtraEvents;
+  }
+
+  for (unsigned i = 0; i < kMaxSlews; ++i) {
+    Slew& s = slews_[(slew_rr_ + i) % kMaxSlews];
+    if (!s.active) {
+      continue;
+    }
+    const std::uint32_t remaining = s.pos < s.total ? s.total - s.pos : 0u;  // samples to the end, from the start of this block
+    const bool ends_here = remaining < frames;
+
+    if (s.mixer) {
+      const bool locked = slew_locked(s);
+      // The mixer ramps across the block to its target, so the value that belongs at the block's end is the one to write.
+      if (!locked) {
+        const bool final = ends_here;
+        const float v = final ? s.goal : slew_value(s, s.pos + frames);
+        if (ctx.set_mix(kMixerSlot, static_cast<dsp::MixField>(s.id), v)) {
+          s.last = v;
+          s.emitted = true;
+          if (final) {
+            s.active = false;
+            continue;
+          }
+        }
+      }
+      s.pos = (s.pos + frames < s.total) ? s.pos + frames : s.total;
+      continue;
+    }
+
+    bool done = false;
+    const dsp::UnitId unit = tab_[s.target].unit;
+    const unsigned t = s.target;
+    const unsigned stride = 64u / ticks[t];
+    for (unsigned k = 0; k < ticks[t]; ++k) {
+      const unsigned f = k * stride;
+      if (f >= frames || f >= remaining) {
+        break;  // past the block, or past the end of the slew (the goal below)
+      }
+      if (budget[t] <= kSlewExtraEvents) {
+        break;  // the rest of the unit's share is for the slews' last events
+      }
+      if (slew_locked_at(s, f)) {
+        continue;
+      }
+      const float v = slew_value(s, s.pos + f);
+      if (k != 0u && s.emitted && v == s.last) {
+        continue;  // unchanged since the last event (frame 0 always speaks: the slew owns its target while it runs)
+      }
+      if (!emit_to(ctx, unit, dsp::param_change(s.id, v, static_cast<std::uint16_t>(f)))) {
+        break;  // the unit's list is full: the next block goes on
+      }
+      --budget[t];
+      s.last = v;
+      s.emitted = true;
+    }
+    if (ends_here && budget[t] > 0u && !slew_locked_at(s, remaining)) {
+      // The goal, at the frame the time runs out. A slew that cannot say it now (a full share, a full list, a lock) says it at frame 0
+      // of the next block.
+      if (emit_to(ctx, unit, dsp::param_change(s.id, s.goal, static_cast<std::uint16_t>(remaining)))) {
+        --budget[t];
+        s.last = s.goal;
+        s.emitted = true;
+        done = true;
+      }
+    }
+    if (done) {
+      s.active = false;
+    } else {
+      s.pos = (s.pos + frames < s.total) ? s.pos + frames : s.total;
+    }
+  }
+  slew_rr_ = (slew_rr_ + 1u) % kMaxSlews;
+  unsigned left = 0;
+  for (const Slew& s : slews_) {
+    left += s.active ? 1u : 0u;
+  }
+  slewing_.store(left, std::memory_order_relaxed);
 }
 
 void Sequencer::publish() noexcept {
@@ -463,6 +1014,7 @@ void Sequencer::publish() noexcept {
   h.queued = chain_queued();
   h.queue_length = chain_len_ > chain_next_ ? chain_len_ - chain_next_ : 0u;
   h.sounding = held_ >= 0;
+  h.fill = running_ && fill_on_;
   playhead_.store(pack_playhead(h), std::memory_order_relaxed);
   if (chain_dirty_) {
     publish_chain();
@@ -521,7 +1073,13 @@ ChainView Sequencer::chain() const noexcept {
 }
 
 void Sequencer::block(dsp::BlockContext& ctx) noexcept {
-  drain_commands();
+  mark_count_ = 0;
+  drain_commands(ctx);
+  sequence(ctx);
+  run_slews(ctx);
+}
+
+void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {
   const dsp::Transport& t = ctx.transport();
 
   if (t.stopped && running_) {
@@ -543,12 +1101,17 @@ void Sequencer::block(dsp::BlockContext& ctx) noexcept {
   refresh_shadow();
 
   for (unsigned n = 0; n < kMaxEventsLoop; ++n) {
-    // The earliest thing due: the gate end of the held note, a motion quarter, or the next step. At the same tick the gate end goes
-    // first (so a full-length gate does not glide into the next note), and a quarter before a step cannot tie (it is inside its step).
-    enum class Due : std::uint8_t { Step, Point, Off };
+    // The earliest thing due: the gate end of the held note, a motion quarter, a ratchet hit, or the next step. At the same tick the gate
+    // end goes first (so a full-length gate does not glide into the next note), then a quarter (its lock lands before the hit), then
+    // the hit; a quarter or a hit cannot tie with a step: they are inside their step.
+    enum class Due : std::uint8_t { Step, Hit, Point, Off };
     Due due = Due::Step;
     std::uint64_t tick = step_tick_;
-    if (pt_q_ < kMotionPointsPerStep && pt_tick_ <= tick) {
+    if (hit_k_ < hit_n_ && hit_tick_ <= tick) {
+      due = Due::Hit;
+      tick = hit_tick_;
+    }
+    if (pt_q_ < kMotionPointsPerStep && pt_tick_ <= tick) {  // a lock lands before a hit at the same tick
       due = Due::Point;
       tick = pt_tick_;
     }
@@ -556,7 +1119,7 @@ void Sequencer::block(dsp::BlockContext& ctx) noexcept {
       due = Due::Off;
       tick = off_tick_;
     }
-    const int f = frame_for(t, tick);
+    const int f = frame_at_or_past(t, tick);
     if (f < 0) {
       break;
     }
@@ -564,6 +1127,9 @@ void Sequencer::block(dsp::BlockContext& ctx) noexcept {
     switch (due) {
       case Due::Off:
         release_held(ctx, frame);
+        break;
+      case Due::Hit:
+        fire_hit(ctx, frame);
         break;
       case Due::Point:
         cur_point_ = static_cast<int>(pt_q_);

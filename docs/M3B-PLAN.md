@@ -52,9 +52,9 @@ R9 and R10 wait for o3-sdk M2c; R+ goes with W4. Everything else is this round.
 helpers are `ratchet_of`, `ratchet_hits`, `with_ratchet`; `cond_probability`, `cond_ratio`, `decode_cond`, `encode_cond`, `cond_valid`
 (a reserved value decodes as `Always`; an invalid request encodes as `kCondAlways`); `kLane*` targets, `kMixer*` ids (the values of
 `dsp::MixField`, checked in the test), `kMixerRange` (level and sends 0..1.5 linear gain, pan -1..1, mute 0..1) with
-`mixer_point_to_value` / `mixer_value_to_point`, and `kDefaultLanes`. `clear()` sets cond 0 and the default lanes. The sequencer does not
-read `cond`, the ratchet or `lanes` yet: it still plays lane i as the voice's id i (the default's lane 7 is the mixer's level; in M3 lane 7
-was the voice's id 7, Volume, which no page could write, so no pattern has a point there). Operations that rewrite a whole step (`write_advance`, `random_fill`, a deleted
+`mixer_point_to_value` / `mixer_value_to_point`, and `kDefaultLanes`. `clear()` sets cond 0 and the default lanes. (When this was made the
+sequencer did not read `cond`, the ratchet or `lanes`; it does now, see "Made (seq slice)". The default's lane 7 is the mixer's level; in M3
+lane 7 was the voice's id 7, Volume, which no page could write, so no pattern has a point there.) Operations that rewrite a whole step (`write_advance`, `random_fill`, a deleted
 step, `clear_pattern`) reset its ratchet and condition; the ones that move a step (insert, delete, rotate, reverse, double, the step
 clipboard) carry them; `set_flag` and `mutate` leave them alone.
 
@@ -66,8 +66,47 @@ emits `Param` events (mixer writes for the mixer) every 16 frames toward them ov
 use it. A p-lock or a motion point on the same target overrides the slew for its step.
 
 **The `freeze` unit (dsp):** `units/freeze`, an effect on master insert 0. Parameters: 0 Active (OFF / ON), 1 Length (1/4, 1/8,
-1/16 of a bar, from the transport's tempo), 2 Mix. It records the master into an SDRAM ring all the time (at most 1 MB) and, when
-active, loops the last Length with short crossfades at the loop point and at entry and exit.
+1/16 of a bar, from the transport's tempo), 2 Mix. It keeps the master in an SDRAM ring (at most 1 MB): off, it records the master all the
+time; active, the ring holds the loop itself (the master is not recorded during a freeze, so the loop cannot be overwritten), and the unit loops
+the last Length with short crossfades at the loop point and at entry and exit.
+
+**Made 2026-10-25 (dsp slice)** (`units/freeze`, `tests/freeze_app_test.cpp`, `app/scenarios/freeze.txt`): class `o3_303::Freeze`, ids 0 Active
+(default OFF), 1 Length (1/4, 1/8, 1/16 of a bar, default 1/8), 2 Mix (0..1, default 1); attached after the delay (unit id 3), master insert
+0, ring 131,072 frames a side (1 MiB, `O3SDK_BIG`). Off, the master passes through bit for bit (every scenario's WAV is unchanged). The loop is
+latched at entry (a tempo or Length change while frozen waits for the next entry); the loop point is a 5 ms crossfade baked into the ring at
+entry (paced, at most 32 frames in a 64-frame block, through an exit if one comes first), so while frozen the ring holds the loop itself
+(the master is not recorded during a freeze); an exit asked for within 5 ms of the entry waits for the entry crossfade, and an entry asked
+for before the previous one's baking is over (a few frames after the shortest freeze) waits for it. Main loop (`app/src/rig.h`): `set_freeze(engine, rig, on)`, `freeze_on`, `set_freeze_length`,
+`freeze_length`, or `Engine::set_param(rig.wiring.freeze, Freeze::Active, 1)`. Until the FREEZE action exists, Song is a provisional key (hold
+= on, Shift + tap = the next Length; `app/src/o3_303_app.cpp`): the ui slice removes it. The cost is estimated at +0.6 % of a block off
+(recording), +2.3 % held, +4.2 % in the worst block (an entry, or an exit that overlaps the end of the baking; `src/freeze.cpp`); measure it
+on the unit.
+
+**Made 2026-10-25 (seq slice)** (`app/seq`, `tests/seq_m3b_app_test.cpp`, `app/scenarios/m3b_seq.txt`): the hook plays what the contracts
+describe; `sequencer.h` has every rule, these are the ones the ui slice needs. *Ratchet:* hit k of n at `start + k * len / n` ticks (swing
+included), each with the gate of its part; the step's accent is on the first hit (ACC ALL accents all); a slide step holds its last hit into
+the next step, a step after a slide glides on its first hit only; a ratchet on a rest or a tie is ignored. *Condition:* evaluated at the
+step's start; a failed step acts as a rest, and a note before a tie step asks the tie's condition (the draw is kept for the tie's own start: one draw a step); pass counter 0 on the first pass since Play, a jump or the chain loading the pattern; A:B is
+`pass % B == A - 1`; probabilities draw from the sequencer's own `Rng` (one draw per probability step; `set_seed()`, a fixed default). *FILL
+(R3):* `kPerfFill` (`set_fill(bool)`), seen at each step start, so entry and exit are on step boundaries; the variant (`FillVariant` in
+`ops.h`: MUTATE, OCT UP, RATCHET, ACC ROTATE; `set_fill_variant()`) is built from a copy of the playing pattern; FILL / NOT FILL follow the
+same state; `Playhead::fill` says it is playing. *Lanes (C2):* lane i drives `Pattern::lanes[i]`; unit targets as Param events, the mixer
+through `set_mix`; `setup(engine, voice, dist, delay)`; an unavailable target is silent. *Slew:* `slew(target, id, value, ms, store = true)` for
+a voice, distortion or delay parameter or a slot 0 mixer field, in the target's own curve; at most 32 at once (a 33rd jumps to its goal, counted by
+`slew_overflow()`), at most 16 events per unit per block; `store = false` for a many-parameter morph (see `sequencer.h` for why: the stored write costs the unit a second event in the first
+block); a lock or motion point on the target wins while it holds. *Ops and Bank for the screens:* `set_ratchet` / `get_ratchet`, `set_cond` /
+`get_cond`, `step_cond` (the encoder's walk over 49 conditions), `rotate_layer(Layer)`, `find_lane`, each also on `Bank` where it edits
+(`rotate_layer`, `set_ratchet`, `set_cond`, undoable and joined per step). The ids of the lanes' coalescing keys: 0x08 ratchet, 0x09 condition.
+The scenario runs on host-only stand-in controls (`O3_303_TEST_HOOKS`: SampleLoad loads a demo line, SamplePlay held is FILL, Shift +
+SampleEdit the next variant) until the SEQ page has the controls; the ui slice replaces them. Estimated cost (a block of 64 frames is about 261,000
+cycles): no slew running, a scan of the 32 slots, about 150 cycles (0.06 %); a ratchet hit or a condition is a few dozen cycles at the step;
+entering a fill copies the pattern (2,260 bytes, about 1,800 cycles) and rewrites up to 64 steps, once, about 5,000 cycles in all; a running
+slew is a lerp, a curve inverse and an event for each tick, about 200 cycles (3 slews x 4 ticks, or a dozen at one tick each, about 2,400
+cycles, 0.9 %; a full 32-slew morph, about 6,500, 2.5 %). Estimates, not measurements: measure on the unit (skill `rt-optimize`).
+
+**C1, one voice (made 2026-10-25):** nothing was left to remove: o3-303 never built a second voice (M3 wired one `tb303` on slot 0 and
+slots 1..7 have no source), so the cut frees no CPU or memory; the 39.8 % the unit measured is the one-voice figure. `tests/freeze_app_test.cpp`
+keeps it that way (four units, only slot 0 sounds).
 
 ## Gestures this round adds (where Fable's gesture collided, the nearest free one)
 

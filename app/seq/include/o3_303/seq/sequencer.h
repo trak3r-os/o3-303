@@ -43,8 +43,45 @@
 //   tie         no new note: the held note goes on through this step; it ends with the gate of the last tied step. With nothing
 //               held a tie is silent. A slide flag on a tie step holds the note into the next step.
 //   rest        the held note is released at the step's start.
-//   motion      the lane points of the step (four, at the quarters of the step) go to the voice as Param events; a point of
-//               kNoLock puts the knob's value back (see update()).
+//   motion      the lane points of the step (four, at the quarters of the step) go to the lane's target; a point of kNoLock puts the
+//               knob's value back (see update()).
+//
+// M3b (docs/M3B-PLAN.md), on top of those rules:
+//
+//   lanes       lane i drives Pattern::lanes[i], not "voice id i": the voice, the distortion or the delay as Param events, slot 0's
+//               mixer through BlockContext::set_mix (the point maps linearly over kMixerRange). The default lanes are the SOUND page,
+//               so a pattern that never touched them plays as in M3. A mixer write lands for the whole block (the mixer has one ramp
+//               per block); a Param event is frame-exact. Two lanes on one target are the author's mistake: the later lane wins and
+//               nothing sticks. A lane whose target does not exist (no distortion given to setup(), an id past the unit's table or
+//               past kKnobs, kLaneNone) is silent.
+//   ratchet     a playing step with a ratchet of n = 1..4 hits plays n notes at the starts of n equal parts of the step (hit k at
+//               start + k * len / n, in ticks: swing included, so the hits fill the swung step and the next step is not moved). Each
+//               hit has the pattern's gate of ITS part (a 50 % gate and 4 hits: 4 notes of an eighth of the step). The step's accent
+//               is on the FIRST hit; the others are normal unless ACC ALL is on. Slide: a slide step holds its LAST hit into the next
+//               step (that hit has no note-off; the next note-on glides), the earlier hits are plain separate notes; a step that
+//               follows a slide glides on its first hit only (the other hits retrigger). A tie after a ratcheted step holds its last
+//               hit as it holds a plain note. A ratchet on a rest or a tie step is ignored.
+//   condition   a step with a trig condition (pattern.h) is evaluated when it starts; if it does not pass it acts as a rest: a held
+//               note ends at its start and the slide that led to it is over. The tie look-ahead asks the next step's condition when
+//               the note is not sliding (a probability is drawn then and kept for that step's own start: one draw a step, in step
+//               order), so a note before a tie that fails ends with its own gate. A FILL or NOT FILL tie reads the fill as it stands
+//               then (a change on that very boundary leaves the note held or released a step early). A rest has no condition. The pass counter is the number of times the playing pattern has started over since it was
+//               loaded (Play, a jump, or the chain starting it): 0 on the first pass. A:B passes when pass % B == A - 1; FIRST is
+//               pass 0. Probabilities draw from the sequencer's own Rng, one draw for each probability step evaluated, seeded by
+//               set_seed(): the same seed and the same play give the same notes. Locks and motion points do not depend on the
+//               condition: they are the pattern's automation.
+//   fill        while FILL is held (kPerfFill, set_fill()) the pattern plays a variant of itself (FillVariant, ops.h; chosen with
+//               set_fill_variant()), derived from a copy: the stored pattern never changes. The hook looks at FILL when a step starts,
+//               so the variant starts and ends on a step boundary. The FILL / NOT FILL conditions follow the same state.
+//   slew        slew() moves a target (a parameter of the voice, the distortion or the delay, or a field of slot 0's mixer) to a
+//               value over a time: the hook emits Param events (or a mixer write) toward it, in the target's own curve (a cutoff glides
+//               along its knob position, not in Hz). A parameter gets an event at frame 0 of every block (so it wins over a write the
+//               main loop queued for the same frame) and one every 16 frames; with many slews on a unit, every 32 or 64 frames, so
+//               that the slews put at most kSlewEvents events (16 with the ones that end a slew) in the unit's list of 32 in a block.
+//               A mixer field gets one write per block, the value at the block's end. A lock or motion point on the target wins for as
+//               long as it holds, to the frame, and the slew goes on along its line when it ends. While a slew runs it owns its target:
+//               slew_stop() it before the main loop writes the target. Its end is exact: the goal is emitted at the frame the time
+//               runs out. Cost: nothing while no slew runs; about a lerp, a curve inverse and an event for each slew each tick.
 //
 // Contexts. Everything not marked "render" is the main loop. The main loop never touches the render's state: it queues commands on a
 // lock-free ring (the same way the engine takes its commands; a full ring refuses and returns false), sets a few atomics, and
@@ -55,6 +92,7 @@
 #include <o3sdk/dsp/engine.h>
 #include <o3_303/pattern.h>
 #include <o3_303/seq/bank.h>
+#include <o3_303/seq/rng.h>
 
 #include <atomic>
 #include <cstdint>
@@ -70,6 +108,13 @@ inline constexpr unsigned kMaxQueue = 16;  // entries of the chain
 inline constexpr std::uint8_t kPerfMute = 1u << 0;      // no new notes (the playhead goes on; a held note is released)
 inline constexpr std::uint8_t kPerfAccAll = 1u << 1;    // every note is accented
 inline constexpr std::uint8_t kPerfSlideAll = 1u << 2;  // every step slides
+inline constexpr std::uint8_t kPerfFill = 1u << 3;      // FILL: the pattern plays its fill variant, from the next step (set_fill())
+
+inline constexpr unsigned kMixerSlot = 0;   // the slot whose mixer the mixer lanes and slews write (pattern.h: "slot 0's mixer")
+inline constexpr unsigned kKnobs = 32;      // parameter ids 0..31 of a unit can be a lane's or a slew's target
+inline constexpr unsigned kMaxSlews = 32;   // slews running at once (a snapshot morph moves up to about 26 parameters)
+inline constexpr unsigned kSlewEvents = 12; // the most Param events the slews put in one unit's list in one block (the list holds 32)
+inline constexpr std::uint32_t kDefaultSeed = 0x30330303u;  // the Rng of the probability draws and of the Mutate fill, until set_seed()
 
 // What the screens read: the playhead as of the end of the last block.
 struct Playhead {
@@ -81,6 +126,7 @@ struct Playhead {
                            // is at its end), -1 if the playing pattern simply repeats
   unsigned queue_length = 0;  // chain entries still to come after the playing one (a loop's wrap not counted), 0..kMaxQueue
   bool sounding = false;   // a note is held now
+  bool fill = false;       // the fill variant is the one playing (FILL was held when the last step started)
 };
 
 // The chain as the sequencer holds it (the patterns that follow the playing one, in order), read-only for the screens.
@@ -99,14 +145,18 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   explicit Sequencer(Bank& bank) noexcept;
 
   // ---- Setup (main loop, before engine.start()) ---------------------------------------------------------------------------
-  // `voice` is the instrument unit the notes go to; its parameter ids 0..7 are the motion lanes (their descriptors are read here).
+  // `voice` is the instrument unit the notes go to (the target of the default lanes: its parameter ids 0..6); `dist` and `delay` are the
+  // other units a lane or a slew may drive (kNoUnit: that target is not available). The units' parameter tables are read here.
   // Adds this hook to the engine: the app does not call engine.add_hook(). false: the engine refused the hook (full, started), or
-  // `voice` has fewer than 8 parameters.
-  bool setup(o3sdk::dsp::Engine& engine, o3sdk::dsp::UnitId voice) noexcept;
+  // `voice` has fewer than 8 parameters. Resets everything the hook remembers (slews, the pass counter, the Rng, the fill): setup()
+  // runs before the render does.
+  bool setup(o3sdk::dsp::Engine& engine, o3sdk::dsp::UnitId voice, o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit,
+             o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit) noexcept;
 
   // ---- Every UI frame (main loop) -----------------------------------------------------------------------------------------
-  // Hands the hook the knob values (the engine's stored values of the voice's ids 0..7), which it puts back when a p-lock or a
-  // motion lane ends. Call it once per UI frame; a missing call only leaves the old knob value after a lock.
+  // Hands the hook the knob values (the engine's stored values of the voice's, the distortion's and the delay's parameters 0..kKnobs-1
+  // and slot 0's mixer fields), which it puts back when a p-lock or a motion lane ends. Call it once per UI frame; a missing call only
+  // leaves the old knob value after a lock.
   void update() noexcept;
 
   Bank& bank() noexcept { return bank_; }
@@ -136,13 +186,51 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void set_perf_flag(std::uint8_t flag, bool on) noexcept;
   std::uint8_t perf() const noexcept { return perf_.load(std::memory_order_relaxed); }
 
+  // ---- FILL and the trig conditions (main loop; atomics, effective at the next step) -------------------------------------------
+  // FILL held / released: the performance flag kPerfFill (a screen that rewrites the whole flag word with set_perf() owns it too).
+  void set_fill(bool held) noexcept { set_perf_flag(kPerfFill, held); }
+  bool fill_held() const noexcept { return (perf() & kPerfFill) != 0u; }
+  // What the fill plays (ops.h FillVariant); the choice is not part of a pattern. Default: Mutate.
+  void set_fill_variant(FillVariant v) noexcept;
+  FillVariant fill_variant() const noexcept;
+  // Seeds the probability draws and the Mutate fill, from the next block on (it also restarts the fill counter). Same seed, same
+  // play, same notes. The seed at construction is fixed, so a fresh app is reproducible without calling this.
+  void set_seed(std::uint32_t seed) noexcept;
+
+  // ---- Slews (main loop): a parameter or a mixer field glides to a value ---------------------------------------------------------
+  // `target` is kLaneVoice, kLaneDist, kLaneDelay (pattern.h; `id` the unit's parameter id < kKnobs) or kLaneMixer (`id` a MixField of
+  // slot 0, kMixerSlot). `value` is in the target's own units (the descriptor's, or the mixer's linear gain / pan / mute); it is clamped
+  // as the engine clamps it. The target reaches `value` after `ms`; `ms` of 0 or less, or an enum parameter, is a plain write.
+  // A second slew() on a target that is still gliding goes on from where the first has got to. A slew started while stopped runs.
+  //
+  // `store`: the engine's stored value (what param() and mix() report, what update() hands to the hook, what the screens show) becomes
+  // `value` NOW, with the call, while the sound is on its way. That costs the unit's event list two events in the first block (the stored
+  // write, and the slew's own first event, which wins it back to the start value): start at most about eight such slews on one unit in a
+  // block. With store = false nothing is written to the engine: a morph of two dozen parameters starts them all that way (one event
+  // each) and stores the values when it is done, because the hook puts back the STORED value when a lock ends, once its slew is over.
+  // The immediate case always stores.
+  //
+  // More than kMaxSlews running at once: the hook has no room for the extra one and writes its goal at once instead (the target jumps
+  // there whatever `store` says; slew_overflow() counts it), so a target always ends at its goal; slew() still returns true.
+  //
+  // Returns false when nothing was started or written (a bad target or id, a unit that was not given to setup()), or when the command
+  // ring is full (the value was then written at once, so the target is where it should be, without the glide).
+  bool slew(std::uint8_t target, std::uint8_t id, float value, float ms, bool store = true) noexcept;
+  // Stops the slew of a target where it is (the sound stays at its last step; set the target afterwards if it has to be somewhere).
+  bool slew_stop(std::uint8_t target, std::uint8_t id) noexcept;
+  bool slew_stop_all() noexcept;
+  // Slews running as of the end of the last block, and the commands the hook had no room for (more than kMaxSlews at once).
+  unsigned slewing() const noexcept { return slewing_.load(std::memory_order_relaxed); }
+  std::uint32_t slew_overflow() const noexcept { return slew_overflow_.load(std::memory_order_relaxed); }
+
   // ---- Readback (main loop) -----------------------------------------------------------------------------------------------
   Playhead playhead() const noexcept;
   // The chain, its cursor and the loop flag, as of the end of the last block (a consistent copy; the render publishes it when it
   // changes). Read-only: change it with queue(), clear_queue(), set_chain_loop().
   ChainView chain() const noexcept;
-  // Writes `value` (the voice parameter `lane`'s own units) as the motion point under the playhead of the playing pattern: the
-  // live recording of an encoder move. An undoable edit, joined per lane. false: not playing, bad lane.
+  // Writes `value` (the lane's target in its own units: the descriptor's for a unit's parameter, the mixer's linear value for a mixer
+  // field) as the motion point under the playhead of the playing pattern, for the lane as that pattern's `lanes` table says: the live
+  // recording of an encoder move. An undoable edit, joined per lane. false: not playing, bad lane, a lane with no target.
   bool record_motion(unsigned lane, float value) noexcept;
   // Events the hook could not place because the voice's list for a block was full.
   std::uint32_t dropped_events() const noexcept { return dropped_.load(std::memory_order_relaxed); }
@@ -159,14 +247,61 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   };
   static_assert(sizeof(Command) == 4, "a command is one word");
 
+  enum class SlewOp : std::uint8_t { Start, Stop, StopAll };
+  struct SlewCommand {
+    SlewOp op;
+    std::uint8_t target;
+    std::uint8_t id;
+    std::uint8_t pad;
+    std::uint32_t frames;  // the time in samples (>= 1)
+    float to;              // the goal, in the target's units
+    float from;            // where the target stands on the main side; used when no slew is running on it
+  };
+  static_assert(sizeof(SlewCommand) == 16, "a slew command is four words");
+
+  // A running slew (render side). It interpolates between `a` and `b` in the target's domain: the normalised position for a unit's
+  // parameter (so a cutoff glides along its knob), the value itself for a mixer field.
+  struct Slew {
+    bool active;
+    bool mixer;
+    bool snap;  // an Enum parameter: it takes its value at once
+    std::uint8_t target;
+    std::uint8_t id;
+    const o3sdk::core::ParamDesc* desc;
+    float a;
+    float b;
+    float goal;       // the exact value at the end
+    float last;       // the last value emitted (valid once `emitted`)
+    bool emitted;
+    float inv_total;
+    std::uint32_t total;  // samples
+    std::uint32_t pos;    // samples since the start, as of the start of the current block
+  };
+
+  // A unit a lane or a slew can address (setup()).
+  struct UnitTable {
+    o3sdk::dsp::UnitId unit = o3sdk::dsp::kNoUnit;
+    const o3sdk::core::ParamDesc* params = nullptr;
+    unsigned count = 0;
+  };
+
+  // ---- main loop side
+  bool resolvable(std::uint8_t target, std::uint8_t id) const noexcept;
+  const o3sdk::core::ParamDesc* desc_of(std::uint8_t target, std::uint8_t id) const noexcept;
+
   // ---- render side
-  void drain_commands() noexcept;
+  void drain_commands(o3sdk::dsp::BlockContext& ctx) noexcept;
+  void sequence(o3sdk::dsp::BlockContext& ctx) noexcept;
   void begin_run(const o3sdk::dsp::Transport& t) noexcept;
   void end_run(o3sdk::dsp::BlockContext& ctx) noexcept;
   void start_step(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
+  void fire_hit(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
   void emit_points(o3sdk::dsp::BlockContext& ctx, unsigned frame, unsigned quarter) noexcept;
   void release_held(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
   void restore_lanes(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
+  void restore_target(o3sdk::dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, unsigned frame) noexcept;
+  bool write_target(o3sdk::dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id, float value, unsigned frame) noexcept;
+  float knob_value(std::uint8_t target, std::uint8_t id) const noexcept;
   void load_pattern(unsigned index) noexcept;
   void refresh_shadow() noexcept;
   void append_chain(unsigned pattern) noexcept;
@@ -176,21 +311,39 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void publish() noexcept;
   void publish_chain() noexcept;
   bool emit(o3sdk::dsp::BlockContext& ctx, const o3sdk::dsp::Event& e) noexcept;
+  bool emit_to(o3sdk::dsp::BlockContext& ctx, o3sdk::dsp::UnitId unit, const o3sdk::dsp::Event& e) noexcept;
+  bool cond_passes(std::uint8_t cond, unsigned step, std::uint32_t pass, bool ahead) noexcept;
+  bool variant_current() const noexcept;
+  void build_variant() noexcept;
+  void start_slew(o3sdk::dsp::BlockContext& ctx, const SlewCommand& c) noexcept;
+  Slew* find_slew(std::uint8_t target, std::uint8_t id) noexcept;
+  float slew_value(const Slew& s, std::uint32_t pos) const noexcept;
+  bool slew_locked(const Slew& s) const noexcept;
+  bool slew_locked_at(const Slew& s, unsigned frame) const noexcept;
+  void mark_lock(std::uint8_t target, std::uint8_t id, unsigned frame, bool on) noexcept;
+  void run_slews(o3sdk::dsp::BlockContext& ctx) noexcept;
 
   Bank& bank_;
   o3sdk::dsp::Engine* engine_ = nullptr;
   o3sdk::dsp::UnitId voice_ = o3sdk::dsp::kNoUnit;
-  const o3sdk::core::ParamDesc* lane_desc_[kMotionLanes] = {};
+  UnitTable tab_[kLaneTargetCount];  // indexed by a lane target; the mixer's and kLaneNone's are empty (the mixer has no unit)
 
   // ---- main -> render
   o3sdk::core::SpscRing<Command, 32> commands_;
+  o3sdk::core::SpscRing<SlewCommand, 64> slew_commands_;
   std::atomic<int> live_transpose_{0};
   std::atomic<std::uint8_t> perf_{0};
-  std::atomic<float> knob_[kMotionLanes];  // the voice's stored values, see update()
+  std::atomic<std::uint8_t> fill_variant_{0};
+  std::atomic<std::uint32_t> seed_;          // single writer (the main loop), read by the render when seed_version_ moves
+  std::atomic<std::uint32_t> seed_version_{0};
+  // The stored values of the targets' parameters (update()), per lane target; the mixer's fields are knob_[kLaneMixer][0..4].
+  std::atomic<float> knob_[kLaneTargetCount][kKnobs];
 
   // ---- render -> main
   std::atomic<std::uint32_t> playhead_{0};  // packed (sequencer.cpp)
   std::atomic<std::uint32_t> dropped_{0};
+  std::atomic<std::uint32_t> slewing_{0};
+  std::atomic<std::uint32_t> slew_overflow_{0};
   // The chain, published by the render when it changes: a seqlock (single writer: the render; odd while writing) over 4 words of
   // entries (4 bytes each) and a word of length, position and loop. chain() retries when a write overlapped its read.
   std::atomic<std::uint32_t> chain_seq_{0};
@@ -221,6 +374,8 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   bool from_chain_ = false;         // the playing pattern is the entry before chain_next_ (not the selected one, not a jump)
   bool chain_dirty_ = true;         // the published chain is out of date
   std::uint8_t overridden_ = 0;     // motion lanes whose value the hook set (bit per lane)
+  std::uint8_t lane_target_[kMotionLanes] = {};  // what an overridden lane drives (the pattern's table may change under it)
+  std::uint8_t lane_id_[kMotionLanes] = {};
   float last_value_[kMotionLanes] = {};
   // The playing pattern, as of shadow_version_: two buffers, shadow_[cur_] is the one played from; the other receives the next
   // snapshot and becomes current only when the copy is consistent (refresh_shadow()).
@@ -230,6 +385,53 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   bool shadow_valid_ = false;       // shadow_[cur_] is a consistent copy of the playing pattern at shadow_version_
   bool shadow_motion_ = false;      // it has at least one motion point (the Bank keeps the flag; the hook never scans)
   std::uint64_t pair_tick_ = 0;     // the tick the current pair (an even step and its odd step) began at
+
+  // Ratchets: the hits of the current step still to come (hit 0 is played by start_step()).
+  unsigned hit_n_ = 0;              // hits in the step (1 when it is not ratcheted)
+  unsigned hit_k_ = 0;              // the next hit to play; == hit_n_: none left
+  std::uint64_t hit_tick_ = 0;      // its tick
+  std::uint8_t hit_note_ = 0;
+  std::uint8_t hit_velocity_ = 0;   // the later hits: normal, or accented by ACC ALL
+  std::uint8_t hit_note_flags_ = 0;
+  std::uint8_t hit_gate_ = 0;       // the pattern's gate, percent
+  bool hit_hold_ = false;           // the last hit goes on into the next step (slide, or a tie behind it)
+  bool hit_slide_ = false;          // ... and the next note glides
+
+  // Conditions and FILL.
+  Rng rng_{kDefaultSeed};
+  std::uint32_t seed_seen_ = 0;     // the seed_version_ rng_ was last seeded at
+  std::uint32_t pass_ = 0;          // times the playing pattern has started over since it was loaded
+  // The draw of a probability condition that the look-ahead made for the step after a note (it asks a tie step's condition to know whether
+  // the note is held into it): the step's own start uses it instead of drawing again, so there is one draw per step.
+  bool draw_valid_ = false;
+  unsigned draw_step_ = 0;
+  std::uint32_t draw_pass_ = 0;
+  unsigned draw_value_ = 0;         // 0..99
+  bool fill_on_ = false;            // the fill variant is playing (FILL as the last step start saw it)
+  std::uint32_t fill_count_ = 0;    // fills entered since the seed: the Mutate variant differs each time
+  alignas(4) Pattern variant_;      // shadow_[cur_] with the fill applied, valid while variant_valid_ (a copy: the Bank is never touched)
+  bool variant_valid_ = false;
+  unsigned variant_pattern_ = 0;
+  std::uint32_t variant_version_ = 0;
+  std::uint8_t variant_kind_ = 0;
+  std::uint32_t variant_fill_ = 0;
+
+  // Where in this block the lanes' locks began and ended (reset at the start of a block): a slew is quiet exactly while its target is
+  // locked, to the frame. A lock that lasts the whole block leaves no mark.
+  struct LockMark {
+    std::uint8_t target;
+    std::uint8_t id;
+    std::uint16_t from;  // the lock holds from this frame ...
+    std::uint16_t to;    // ... up to (not including) this one; kOpen: to the end of the block
+  };
+  static constexpr unsigned kMaxMarks = 16;
+  static constexpr std::uint16_t kOpen = 0xFFFF;
+  LockMark marks_[kMaxMarks];
+  unsigned mark_count_ = 0;
+
+  // Slews.
+  Slew slews_[kMaxSlews];
+  unsigned slew_rr_ = 0;            // where the next block starts walking the table: a crowded block shares its events fairly
 };
 
 }  // namespace o3_303::seq

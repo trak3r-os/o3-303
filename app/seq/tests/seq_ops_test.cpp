@@ -648,3 +648,246 @@ TEST_CASE("a motion point on a Table-curve parameter (tb303's Cutoff) follows th
   CHECK(at35 > 200.0f);
   CHECK(at35 < 300.0f);
 }
+
+// ---- M3b: ratchet, condition, layers, fills, lanes ----------------------------------------------------------------------------
+
+TEST_CASE("ratchet and condition of a step: set, get, clamp; reserved conditions are not stored") {
+  Pattern p = make({});
+  set_flag(p, 3, kStepAccent, true);
+  set_ratchet(p, 3, 2);
+  CHECK(get_ratchet(p, 3) == 2);
+  CHECK(p.steps[3].flags == (kStepAccent | (2u << kStepRatchetShift)));  // the other flags stay
+  set_ratchet(p, 3, 9);
+  CHECK(get_ratchet(p, 3) == kMaxRatchet);
+  set_ratchet(p, 3, 0);
+  CHECK(p.steps[3].flags == kStepAccent);
+  set_ratchet(p, 999, 1);  // the step is clamped, as everywhere
+  CHECK(get_ratchet(p, 63) == 1);
+
+  set_cond(p, 3, cond_ratio(2, 3));
+  CHECK(get_cond(p, 3) == cond_ratio(2, 3));
+  CHECK(p.steps[3].flags == kStepAccent);
+  CHECK(p.steps[3].note == 36);
+  set_cond(p, 3, 77 + 100);  // 177 is the ratio 5:2 (a > b): reserved
+  CHECK(get_cond(p, 3) == kCondAlways);
+  set_cond(p, 3, 150);       // 150 is the ratio 3:7... valid? 0x96 = 0x80 | 2 << 3 | 6: 3:7
+  CHECK(get_cond(p, 3) == 150);
+  set_cond(p, 3, 100);       // 100..0x7F are reserved
+  CHECK(get_cond(p, 3) == kCondAlways);
+  set_cond(p, 3, kCondNotFirst);
+  CHECK(get_cond(p, 3) == kCondNotFirst);
+}
+
+TEST_CASE("step_cond walks one list of 49 conditions: always, 10..90 %, the ratios, then FILL, NOT FILL, FIRST, NOT FIRST") {
+  std::uint8_t seen[kCondStepCount];
+  for (unsigned i = 0; i < kCondStepCount; ++i) {
+    seen[i] = cond_at(i);
+    CAPTURE(i);
+    CHECK(cond_valid(seen[i]));
+    CHECK(cond_index(seen[i]) == i);
+    for (unsigned j = 0; j < i; ++j) {
+      CHECK(seen[j] != seen[i]);
+    }
+  }
+  CHECK(cond_at(0) == kCondAlways);
+  CHECK(cond_at(1) == 10);
+  CHECK(cond_at(9) == 90);
+  CHECK(cond_at(10) == cond_ratio(1, 2));
+  CHECK(cond_at(11) == cond_ratio(2, 2));
+  CHECK(cond_at(12) == cond_ratio(1, 3));
+  CHECK(cond_at(44) == cond_ratio(8, 8));
+  CHECK(cond_at(45) == kCondFill);
+  CHECK(cond_at(46) == kCondNotFill);
+  CHECK(cond_at(47) == kCondFirst);
+  CHECK(cond_at(48) == kCondNotFirst);
+  CHECK(cond_at(500) == kCondNotFirst);  // past the end: the last
+
+  CHECK(step_cond(kCondAlways, 1) == 10);
+  CHECK(step_cond(10, -1) == kCondAlways);
+  CHECK(step_cond(kCondAlways, -5) == kCondAlways);  // clamped at both ends
+  CHECK(step_cond(kCondNotFirst, 5) == kCondNotFirst);
+  CHECK(step_cond(90, 1) == cond_ratio(1, 2));
+  CHECK(step_cond(cond_ratio(8, 8), 1) == kCondFill);
+  CHECK(step_cond(kCondAlways, 48) == kCondNotFirst);
+  CHECK(step_cond(kCondNotFirst, -48) == kCondAlways);
+  // A value off the list counts as the entry below it; a reserved byte as always; 1:1 plays always.
+  CHECK(step_cond(33, 0) == 30);
+  CHECK(step_cond(33, 1) == 40);
+  CHECK(step_cond(5, 1) == 10);
+  CHECK(step_cond(0x7F, 1) == 10);
+  CHECK(step_cond(cond_ratio(1, 1), 1) == 10);
+  CHECK(step_cond(99, 1) == cond_ratio(1, 2));
+}
+
+namespace {
+
+// A pattern whose every layer is told apart: the notes 40.., accents on 0 mod 3, slides on 1 mod 4, ratchet j mod 4, a condition on odd steps,
+// some ties and rests, and a motion point under every step.
+Pattern layered(unsigned length = 16) {
+  Pattern p = make({}, length);
+  for (unsigned j = 0; j < kMaxSteps; ++j) {
+    Step& s = p.steps[j];
+    s.note = static_cast<std::uint8_t>(40 + j);
+    s.flags = static_cast<std::uint8_t>(((j % 3u) == 0u ? kStepAccent : 0u) | ((j % 4u) == 1u ? kStepSlide : 0u) |
+                                       ((j % 7u) == 3u ? kStepTie : 0u) | ((j % 7u) == 5u ? kStepRest : 0u) | ((j % 4u) << kStepRatchetShift));
+    s.cond = (j % 2u) == 1u ? cond_probability(10 + j) : kCondAlways;
+    for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
+      p.motion[lane][j * 4] = static_cast<std::uint8_t>(j + lane);
+    }
+  }
+  return p;
+}
+
+std::uint8_t layer_of(const Step& s, Layer l) {
+  switch (l) {
+    case Layer::Accent: return s.flags & kStepAccent;
+    case Layer::Slide: return s.flags & kStepSlide;
+    case Layer::Tie: return s.flags & kStepTie;
+    case Layer::Rest: return s.flags & kStepRest;
+    case Layer::Note: return s.note;
+    case Layer::Ratchet: return s.flags & kStepRatchetMask;
+    case Layer::Cond: return s.cond;
+  }
+  return 0;
+}
+
+}  // namespace
+
+TEST_CASE("rotate_layer moves one layer later (wrapping) and leaves every other layer and the motion where they are") {
+  const Layer all[] = {Layer::Accent, Layer::Slide, Layer::Tie, Layer::Rest, Layer::Note, Layer::Ratchet, Layer::Cond};
+  for (const Layer l : all) {
+    for (const int by : {1, 3, -1, -5, 15, 17}) {
+      CAPTURE(static_cast<int>(l));
+      CAPTURE(by);
+      const Pattern before = layered(16);
+      Pattern p = before;
+      rotate_layer(p, l, by);
+      const int n = 16;
+      for (int j = 0; j < n; ++j) {
+        const int from = ((j - by) % n + n) % n;
+        // The rotated layer: step j has what step j - by had. (Tie and rest may lose a bit to each other: see the next test.)
+        if (l != Layer::Tie && l != Layer::Rest) {
+          CHECK(layer_of(p.steps[j], l) == layer_of(before.steps[from], l));
+        }
+        // Every other layer is untouched.
+        for (const Layer other : all) {
+          if (other != l && !((l == Layer::Tie || l == Layer::Rest) && (other == Layer::Tie || other == Layer::Rest))) {
+            CHECK(layer_of(p.steps[j], other) == layer_of(before.steps[j], other));
+          }
+        }
+      }
+      CHECK(std::memcmp(p.motion, before.motion, sizeof(p.motion)) == 0);
+      CHECK(p.steps[16].note == before.steps[16].note);  // the hidden steps above the length
+    }
+  }
+  // A multiple of the length is no change.
+  Pattern p = layered(16);
+  const Pattern before = p;
+  for (const Layer l : all) {
+    rotate_layer(p, l, 16);
+    rotate_layer(p, l, -32);
+    rotate_layer(p, l, 0);
+  }
+  CHECK(same(p, before));
+  // 8 steps: only those rotate.
+  Pattern q = layered(8);
+  rotate_layer(q, Layer::Accent, 1);
+  const Pattern ref = layered(8);
+  CHECK((q.steps[0].flags & kStepAccent) == (ref.steps[7].flags & kStepAccent));
+  CHECK((q.steps[8].flags & kStepAccent) == (ref.steps[8].flags & kStepAccent));
+}
+
+TEST_CASE("rotate_layer: a rotated tie or rest wins over the other when they land on one step") {
+  Pattern p = make({}, 8);
+  set_flag(p, 0, kStepTie, true);
+  set_flag(p, 1, kStepRest, true);
+  rotate_layer(p, Layer::Tie, 1);  // the tie lands on the rest of step 1: the rest goes
+  CHECK((p.steps[1].flags & kStepTie) != 0);
+  CHECK((p.steps[1].flags & kStepRest) == 0);
+  CHECK((p.steps[0].flags & kStepTie) == 0);
+
+  Pattern q = make({}, 8);
+  set_flag(q, 0, kStepRest, true);
+  set_flag(q, 1, kStepTie, true);
+  rotate_layer(q, Layer::Rest, 1);  // the rest lands on the tie: the tie goes
+  CHECK((q.steps[1].flags & kStepRest) != 0);
+  CHECK((q.steps[1].flags & kStepTie) == 0);
+  CHECK((q.steps[0].flags & kStepRest) == 0);
+  for (unsigned j = 0; j < 8; ++j) {  // never both
+    CHECK((q.steps[j].flags & (kStepRest | kStepTie)) != (kStepRest | kStepTie));
+  }
+}
+
+TEST_CASE("fills: octave up clamps, ratchet doubles and rolls the last quarter, accent rotate, and the stored fields stay") {
+  Pattern p = make({}, 16);
+  p.steps[2].note = 120;
+  set_flag(p, 4, kStepRest, true);
+  set_flag(p, 5, kStepTie, true);
+  set_ratchet(p, 13, 1);  // already x2: the last quarter makes it x4
+  set_ratchet(p, 1, 2);   // x3 in the first part stays x3
+  set_flag(p, 6, kStepAccent, true);
+  set_flag(p, 15, kStepAccent, true);
+  set_plock(p, 0, 3, 9);
+  p.swing = 30;
+  p.gate = 70;
+  p.transpose = -3;
+  p.lanes[2] = LaneRef{kLaneDist, 1};
+
+  Pattern o = p;
+  fill_octave_up(o);
+  CHECK(o.steps[0].note == p.steps[0].note + 12);
+  CHECK(o.steps[2].note == 127);
+  Pattern r = p;
+  fill_ratchet(r);
+  CHECK(get_ratchet(r, 0) == 1);
+  CHECK(get_ratchet(r, 1) == 2);
+  CHECK(get_ratchet(r, 11) == 1);
+  CHECK(get_ratchet(r, 12) == kMaxRatchet);
+  CHECK(get_ratchet(r, 13) == kMaxRatchet);
+  CHECK(get_ratchet(r, 4) == 0);  // a rest
+  CHECK(get_ratchet(r, 5) == 0);  // a tie
+  Pattern a = p;
+  apply_fill(a, FillVariant::AccRotate, 0);
+  CHECK((a.steps[7].flags & kStepAccent) != 0);
+  CHECK((a.steps[6].flags & kStepAccent) == 0);
+  CHECK((a.steps[0].flags & kStepAccent) != 0);  // 15 wraps to 0
+  CHECK((a.steps[15].flags & kStepAccent) == 0);
+  for (const FillVariant v : {FillVariant::Mutate, FillVariant::OctUp, FillVariant::Ratchet, FillVariant::AccRotate}) {
+    Pattern x = p;
+    apply_fill(x, v, 5);
+    CHECK(x.length == p.length);
+    CHECK(x.swing == p.swing);
+    CHECK(x.gate == p.gate);
+    CHECK(x.transpose == p.transpose);
+    CHECK(std::memcmp(x.motion, p.motion, sizeof(p.motion)) == 0);
+    CHECK(std::memcmp(x.lanes, p.lanes, sizeof(p.lanes)) == 0);
+    for (unsigned j = 16; j < kMaxSteps; ++j) {
+      CHECK(std::memcmp(&x.steps[j], &p.steps[j], sizeof(Step)) == 0);  // nothing above the length
+    }
+  }
+  // Mutate: deterministic; a pattern with no playing step is left alone.
+  Pattern m1 = p;
+  Pattern m2 = p;
+  fill_mutate(m1, 99);
+  fill_mutate(m2, 99);
+  CHECK(same(m1, m2));
+  Pattern silent = make({}, 16);
+  for (Step& s : silent.steps) {
+    s.flags = kStepRest;
+  }
+  const Pattern silent_before = silent;
+  fill_mutate(silent, 99);
+  CHECK(same(silent, silent_before));
+}
+
+TEST_CASE("find_lane: the lowest lane that drives a target, or -1") {
+  Pattern p = make({});
+  CHECK(find_lane(p, kLaneVoice, 0) == 0);
+  CHECK(find_lane(p, kLaneVoice, 6) == 6);
+  CHECK(find_lane(p, kLaneMixer, kMixerLevel) == 7);
+  CHECK(find_lane(p, kLaneDist, 0) == -1);
+  p.lanes[4] = LaneRef{kLaneDist, 0};
+  p.lanes[5] = LaneRef{kLaneDist, 0};
+  CHECK(find_lane(p, kLaneDist, 0) == 4);
+  CHECK(find_lane(p, kLaneVoice, 4) == -1);
+}

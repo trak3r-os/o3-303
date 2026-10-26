@@ -1364,6 +1364,7 @@ TEST_CASE("random patterns play exactly as the model says, at any tempo and bloc
     set_swing(p, r.next_int(0, 66));
     set_gate(p, r.next_int(5, 100));
     set_transpose(p, r.next_int(-24, 24));
+    p.lanes[7] = LaneRef{kLaneVoice, 7};  // the default lane 7 is the mixer's level (M3b); this model has the voice's eight ids as lanes
     for (unsigned m = 0; m < 6; ++m) {  // some locks and motion points
       set_motion_point(p, static_cast<unsigned>(r.next_int(0, 7)), static_cast<unsigned>(r.next_int(0, static_cast<int>(p.length) - 1)),
                        static_cast<unsigned>(r.next_int(0, 3)), static_cast<std::uint8_t>(r.next_int(0, 254)));

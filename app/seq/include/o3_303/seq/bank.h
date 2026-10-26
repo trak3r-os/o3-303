@@ -84,6 +84,12 @@ class Bank {
   bool insert_step(unsigned index, unsigned at) noexcept;
   bool delete_step(unsigned index, unsigned at) noexcept;
   bool rotate(unsigned index, int steps) noexcept;
+  bool rotate_layer(unsigned index, Layer layer, int steps) noexcept;  // one layer only (ops.h)
+  // A step's ratchet (0..3) and trig condition: consecutive turns on one step are one undo step. get_* read the stored pattern.
+  bool set_ratchet(unsigned index, unsigned step, unsigned ratchet) noexcept;
+  bool set_cond(unsigned index, unsigned step, std::uint8_t cond) noexcept;
+  unsigned get_ratchet(unsigned index, unsigned step) const noexcept { return seq::get_ratchet(pattern(index), step); }
+  std::uint8_t get_cond(unsigned index, unsigned step) const noexcept { return seq::get_cond(pattern(index), step); }
   bool transpose_notes(unsigned index, int semitones) noexcept;  // false: a note would leave 0..127, nothing changed
   bool reverse(unsigned index) noexcept;
   bool invert(unsigned index) noexcept;

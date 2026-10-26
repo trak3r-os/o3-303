@@ -9,6 +9,7 @@
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/gen.h>
 #include <o3_303/seq/sequencer.h>
+#include <o3_303/units/freeze/freeze.h>
 
 #include <cstdint>
 
@@ -32,5 +33,14 @@ enum class LoadWhat : std::uint8_t {
 // (one undoable edit), the patch goes to the voice and the distortion as parameter values, the tempo to the engine. Master and the
 // level are not part of a preset: loading never jumps the volume of a set.
 void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what) noexcept;
+
+// The beat freeze (units/freeze, docs/M3B-PLAN.md R6) on master insert 0, from the main loop: engine parameters, applied at frame 0 of the
+// next block. Off is the default and is invisible (the unit passes the master through bit for bit). The Fx performance button's FREEZE
+// action calls these. `set_freeze_length` takes effect at the next entry (the loop is latched when it starts); `freeze_on` is what the
+// main loop last asked for, not whether the loop is audible yet.
+void set_freeze(o3sdk::dsp::Engine& e, const Rig& rig, bool on) noexcept;
+bool freeze_on(const o3sdk::dsp::Engine& e, const Rig& rig) noexcept;
+void set_freeze_length(o3sdk::dsp::Engine& e, const Rig& rig, Freeze::LengthValue length) noexcept;
+Freeze::LengthValue freeze_length(const o3sdk::dsp::Engine& e, const Rig& rig) noexcept;
 
 }  // namespace o3_303

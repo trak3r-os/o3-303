@@ -15,6 +15,8 @@ constexpr std::uint32_t kKeyLock = 0x02000000u;
 constexpr std::uint32_t kKeySwing = 0x03000000u;
 constexpr std::uint32_t kKeyGate = 0x04000000u;
 constexpr std::uint32_t kKeyTranspose = 0x05000000u;
+constexpr std::uint32_t kKeyRatchet = 0x08000000u;  // (0x07 is the sequencer's motion recording)
+constexpr std::uint32_t kKeyCond = 0x09000000u;
 
 // Word accesses, not bytes: the patterns are 4-byte aligned and a multiple of 4 long (bank.h), and a write window over the SDRAM stays
 // as short as it can. (memcpy of one word compiles to a load and a store.)
@@ -170,6 +172,18 @@ bool Bank::delete_step(unsigned index, unsigned at) noexcept {
 
 bool Bank::rotate(unsigned index, int steps) noexcept {
   return edit(index, [&](Pattern& p) { seq::rotate(p, steps); });
+}
+
+bool Bank::rotate_layer(unsigned index, Layer layer, int steps) noexcept {
+  return edit(index, [&](Pattern& p) { seq::rotate_layer(p, layer, steps); });
+}
+
+bool Bank::set_ratchet(unsigned index, unsigned step, unsigned ratchet) noexcept {
+  return edit(index, [&](Pattern& p) { seq::set_ratchet(p, step, ratchet); }, kKeyRatchet | (step & 0xFFu));
+}
+
+bool Bank::set_cond(unsigned index, unsigned step, std::uint8_t cond) noexcept {
+  return edit(index, [&](Pattern& p) { seq::set_cond(p, step, cond); }, kKeyCond | (step & 0xFFu));
 }
 
 bool Bank::transpose_notes(unsigned index, int semitones) noexcept {
