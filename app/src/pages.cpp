@@ -4,7 +4,9 @@
 #include <o3sdk/core/scales.h>
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/pattern.h>
+#include <o3_303/perform.h>
 #include <o3_303/units/distortion/distortion.h>
+#include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/tb303/tb303.h>
 
 #include <cmath>
@@ -26,7 +28,9 @@ constexpr Entry dist(Distortion::Param id, const char* label = nullptr) noexcept
 constexpr Entry delay(units::Delay::Param id, const char* label) noexcept {
   return Entry{Item::Delay, static_cast<std::uint16_t>(id), label};
 }
+constexpr Entry freeze(Freeze::Param id, const char* label) noexcept { return Entry{Item::Freeze, static_cast<std::uint16_t>(id), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
+constexpr Entry perf(unsigned button, const char* label) noexcept { return Entry{Item::Perf, static_cast<std::uint16_t>(button), label}; }
 
 constexpr Page kPages[kPageCount] = {
     {"SOUND",
@@ -40,6 +44,11 @@ constexpr Page kPages[kPageCount] = {
     {"SEQ",
      {app_item(Item::Tempo), app_item(Item::Swing), app_item(Item::Length), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"),
       app_item(Item::Scale), app_item(Item::Density), app_item(Item::AccSlide, "ACC/SLD")}},
+    // The performance buttons' assignments (C4) and what goes with them, until the kit's system Config exists; the last three are the SEQ
+    // page's after C3 (the RANDOM popup takes Scale, Density and ACC/SLD out of F6..F8). F1..F4: the button's name, its action as the value.
+    {"PERF",
+     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), app_item(Item::FillVariant, "FILL"), freeze(Freeze::Length, "FRZ LEN"),
+      app_item(Item::Ratchet), app_item(Item::Cond)}},
 };
 
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
@@ -73,6 +82,19 @@ constexpr const char* kDistModeNames[] = {"OFF", "GRIT", "TUBE", "HARD", "FUZZ",
 constexpr core::ParamDesc kDistMode = {"DIST", "", kDistModeNames, nullptr, 0.0f, 5.0f, 1.0f, 5, 1, 6, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kLevel = {"VOLUME", "dB", nullptr, nullptr, -60.0f, 3.5f, -6.0f, 127, 6, 0, ParamUnit::Fixed1, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kMaster = {"MASTER", "%", nullptr, nullptr, 0.0f, 150.0f, 100.0f, 150, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+
+constexpr const char* kFillNames[seq::kFillVariantCount] = {"MUTATE", "OCT UP", "RATCHET", "ACC ROT"};
+constexpr core::ParamDesc kFillVariant = {"FILL", "", kFillNames, nullptr, 0.0f, 3.0f, 0.0f, 3, 1, seq::kFillVariantCount, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr, 0.0f, static_cast<float>(kPerfActionCount - 1u), 0.0f,
+                                         static_cast<std::uint16_t>(kPerfActionCount - 1u), 1, static_cast<std::uint8_t>(kPerfActionCount),
+                                         ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr const char* kRatchetNames[kMaxRatchet + 1u] = {"x1", "x2", "x3", "x4"};
+constexpr core::ParamDesc kRatchet = {"RATCHET", "", kRatchetNames, nullptr, 0.0f, static_cast<float>(kMaxRatchet), 0.0f, kMaxRatchet, 1,
+                                      kMaxRatchet + 1u, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+// The condition is a place on the encoder's walk (ops.h step_cond): 0 always, 1..9 the 10..90 %, 10..44 the ratios, 45..48 FILL .. NOT FIRST.
+// Its text is cond_text(), not the descriptor's.
+constexpr core::ParamDesc kCond = {"COND", "", nullptr, nullptr, 0.0f, static_cast<float>(seq::kCondStepCount - 1u), 0.0f,
+                                   static_cast<std::uint16_t>(seq::kCondStepCount - 1u), 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 
 constexpr unsigned kLengthCount = sizeof(kLengths) / sizeof(kLengths[0]);
 
@@ -125,6 +147,16 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kLevel;
     case Item::DistMode:
       return &kDistMode;
+    case Item::Freeze:
+      return e.param_desc(w_->freeze, entry.id);
+    case Item::Ratchet:
+      return &kRatchet;
+    case Item::Cond:
+      return &kCond;
+    case Item::FillVariant:
+      return &kFillVariant;
+    case Item::Perf:
+      return entry.id < kPerfButtons ? &kPerfAssign : nullptr;
     case Item::Blank:
       break;
   }
@@ -165,6 +197,16 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
     case Item::DistMode:
       // OFF when the insert is inactive, else 1 + its model.
       return e.param(w_->dist, Distortion::Active) < 0.5f ? 0.0f : 1.0f + std::floor(e.param(w_->dist, Distortion::Type) + 0.5f);
+    case Item::Freeze:
+      return e.param(w_->freeze, entry.id);
+    case Item::Ratchet:
+      return static_cast<float>(w_->bank->get_ratchet(w_->bank->selected(), w_->step_focus));
+    case Item::Cond:
+      return static_cast<float>(seq::cond_index(w_->bank->get_cond(w_->bank->selected(), w_->step_focus)));
+    case Item::FillVariant:
+      return w_->seq != nullptr ? static_cast<float>(w_->seq->fill_variant()) : 0.0f;
+    case Item::Perf:
+      return entry.id < kPerfButtons ? static_cast<float>(w_->perf[entry.id]) : 0.0f;
     case Item::Blank:
       break;
   }
@@ -205,6 +247,7 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       break;
     case Item::Scale:
       w_->gen.scale = static_cast<std::uint8_t>(round_to_int(v));
+      w_->scale_set = true;  // the player chose it: the keyboard is locked to it (R8)
       break;
     case Item::Density:
       w_->gen.density = static_cast<std::uint8_t>(round_to_int(v));
@@ -234,6 +277,25 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       }
       break;
     }
+    case Item::Freeze:
+      (void)e.set_param(w_->freeze, entry.id, v);
+      break;
+    case Item::Ratchet:
+      (void)w_->bank->set_ratchet(sel, w_->step_focus, static_cast<unsigned>(round_to_int(v)));
+      break;
+    case Item::Cond:
+      (void)w_->bank->set_cond(sel, w_->step_focus, seq::cond_at(static_cast<unsigned>(round_to_int(v))));
+      break;
+    case Item::FillVariant:
+      if (w_->seq != nullptr) {
+        w_->seq->set_fill_variant(static_cast<seq::FillVariant>(round_to_int(v)));
+      }
+      break;
+    case Item::Perf:
+      if (entry.id < kPerfButtons) {
+        w_->perf[entry.id] = static_cast<std::uint8_t>(round_to_int(v));
+      }
+      break;
     case Item::Blank:
       break;
   }
@@ -244,13 +306,32 @@ void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse
   if (d == nullptr || detents == 0) {
     return;
   }
-  if (entry.item == Item::Voice || entry.item == Item::Dist || entry.item == Item::Delay) {
-    const dsp::UnitId unit = entry.item == Item::Voice ? w_->voice : (entry.item == Item::Dist ? w_->dist : w_->delay);
+  if (entry.item == Item::Voice || entry.item == Item::Dist || entry.item == Item::Delay || entry.item == Item::Freeze) {
+    const dsp::UnitId unit = entry.item == Item::Voice ? w_->voice : (entry.item == Item::Dist ? w_->dist : (entry.item == Item::Delay ? w_->delay : w_->freeze));
     (void)e.step_param(unit, entry.id, detents, coarse);
+    return;
+  }
+  if (is_step_entry(entry)) {
+    step_at(e, entry, w_->step_focus, detents, coarse);
     return;
   }
   const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
   set(e, entry, core::param_step(*d, get(e, entry), n));
+}
+
+void Controls::step_at(dsp::Engine& e, const Entry& entry, unsigned step, int detents, bool coarse) noexcept {
+  const core::ParamDesc* d = desc(e, entry);
+  if (d == nullptr || detents == 0 || !is_step_entry(entry)) {
+    return;
+  }
+  const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
+  const unsigned sel = w_->bank->selected();
+  if (entry.item == Item::Ratchet) {
+    const int r = static_cast<int>(w_->bank->get_ratchet(sel, step)) + n;
+    (void)w_->bank->set_ratchet(sel, step, static_cast<unsigned>(r < 0 ? 0 : (r > static_cast<int>(kMaxRatchet) ? static_cast<int>(kMaxRatchet) : r)));
+  } else {
+    (void)w_->bank->set_cond(sel, step, seq::step_cond(w_->bank->get_cond(sel, step), n));
+  }
 }
 
 unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, unsigned cap) const noexcept {
@@ -290,6 +371,9 @@ unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, u
     out[n] = '\0';
     return n;
   }
+  if (entry.item == Item::Cond) {
+    return cond_text(w_->bank->get_cond(w_->bank->selected(), w_->step_focus), out, cap);
+  }
   return core::param_format(*d, get(e, entry), out, cap);
 }
 
@@ -306,12 +390,111 @@ const char* Controls::label(const dsp::Engine& e, const Entry& entry) const noex
   return d != nullptr && d->name != nullptr ? d->name : "";
 }
 
-bool Controls::lane(const Entry& entry, unsigned& out) const noexcept {
-  if (entry.item == Item::Voice && entry.id < kMotionLanes) {
-    out = entry.id;
-    return true;
+// ---- Motion lanes -----------------------------------------------------------------------------------------------------------
+
+bool Controls::lane_ref(const Entry& entry, LaneRef& out) const noexcept {
+  switch (entry.item) {
+    case Item::Voice:
+      out = LaneRef{kLaneVoice, static_cast<std::uint8_t>(entry.id)};
+      return entry.id < seq::kKnobs;
+    case Item::Dist:
+      out = LaneRef{kLaneDist, static_cast<std::uint8_t>(entry.id)};
+      return entry.id < seq::kKnobs;
+    case Item::Delay:
+      out = LaneRef{kLaneDelay, static_cast<std::uint8_t>(entry.id)};
+      return entry.id < seq::kKnobs;
+    case Item::Level:
+      out = LaneRef{kLaneMixer, kMixerLevel};
+      return true;
+    case Item::SendA:
+      out = LaneRef{kLaneMixer, kMixerSendA};
+      return true;
+    default:
+      break;
   }
   return false;
+}
+
+Entry Controls::lane_entry(const LaneRef& ref) const noexcept {
+  switch (ref.target) {
+    case kLaneVoice:
+      return Entry{Item::Voice, ref.id, nullptr};
+    case kLaneDist:
+      return Entry{Item::Dist, ref.id, nullptr};
+    case kLaneDelay:
+      return Entry{Item::Delay, ref.id, nullptr};
+    case kLaneMixer:
+      if (ref.id == kMixerLevel) {
+        return Entry{Item::Level, 0, nullptr};
+      }
+      if (ref.id == kMixerSendA) {
+        return Entry{Item::SendA, 0, nullptr};
+      }
+      break;
+    default:
+      break;
+  }
+  return Entry{};
+}
+
+const char* Controls::lane_name(const dsp::Engine& e, const LaneRef& ref) const noexcept {
+  static constexpr const char* kMixerNames[kMixerFieldCount] = {"LEVEL", "PAN", "SEND A", "SEND B", "MUTE"};
+  if (ref.target == kLaneNone || ref.target >= kLaneTargetCount) {
+    return "";
+  }
+  if (ref.target == kLaneMixer) {
+    return ref.id < kMixerFieldCount ? kMixerNames[ref.id] : "";
+  }
+  const core::ParamDesc* d = desc(e, lane_entry(ref));
+  return d != nullptr && d->name != nullptr ? d->name : "";
+}
+
+float Controls::to_lane(const Entry& entry, float v) const noexcept {
+  switch (entry.item) {
+    case Item::Level:  // the dB the page shows, as the linear gain apply_level() writes
+      return v <= -59.5f ? 0.0f : std::fmin(1.5f, std::pow(10.0f, v * 0.05f));
+    case Item::SendA:
+      return v * 0.01f;
+    default:
+      break;
+  }
+  return v;
+}
+
+float Controls::from_lane(const Entry& entry, float v) const noexcept {
+  switch (entry.item) {
+    case Item::Level:
+      return v <= 0.001f ? -60.0f : std::fmax(-60.0f, std::fmin(3.5f, 20.0f * std::log10(v)));
+    case Item::SendA:
+      return v * 100.0f;
+    default:
+      break;
+  }
+  return v;
+}
+
+std::uint8_t Controls::to_point(const dsp::Engine& e, const Entry& entry, float v) const noexcept {
+  LaneRef ref{kLaneNone, 0};
+  if (!lane_ref(entry, ref)) {
+    return 0;
+  }
+  if (ref.target == kLaneMixer) {
+    return mixer_value_to_point(ref.id, to_lane(entry, v));
+  }
+  const core::ParamDesc* d = desc(e, entry);
+  return d != nullptr ? seq::value_to_point(*d, v) : std::uint8_t{0};
+}
+
+float Controls::from_point(const dsp::Engine& e, const Entry& entry, std::uint8_t point) const noexcept {
+  LaneRef ref{kLaneNone, 0};
+  if (!lane_ref(entry, ref)) {
+    return 0.0f;
+  }
+  if (ref.target == kLaneMixer) {
+    return from_lane(entry, mixer_point_to_value(ref.id, point));
+  }
+  const core::ParamDesc* d = desc(e, entry);
+  return d != nullptr ? seq::point_to_value(*d, point) : 0.0f;
 }
 
 void Controls::apply_send(dsp::Engine& e) const noexcept {

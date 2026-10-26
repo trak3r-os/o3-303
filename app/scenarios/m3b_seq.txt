@@ -1,42 +1,114 @@
-# M3b sequencer (docs/M3B-PLAN.md R3 FILL, R4 ratchets, R5 trig conditions): the demo line on pattern A01, eight passes of 1.92 s with FILL
-# held for one pass in each of its four variants. Ratchets, conditions and FILL have no control on the SEQ page yet, so this runs on the
-# host-only stand-ins of app/src/o3_303_app.cpp (O3_303_TEST_HOOKS): SampleLoad loads the demo line, SamplePlay held is FILL, Shift +
-# SampleEdit picks the next variant (MUTATE, OCT UP, RATCHET, ACC ROTATE). The probability steps draw from the sequencer's fixed seed,
-# so every run plays the same notes.
+# M3b sequencer (docs/M3B-PLAN.md R3 FILL, R4 ratchets, R5 trig conditions), entered with the real gestures: the demo line is written on
+# pattern A01 with REC and the keys (ACC and SLIDE held for those steps, the REST pad for the rest), the ratchets are hold a step + OCT+,
+# the conditions hold a step + the encoder on the PERF page's COND. Then eight passes of 1.92 s with FILL (the Vol button) held for one pass in
+# each of the four variants, chosen with the PERF page's F5. The probability steps draw from the sequencer's fixed seed, so every run
+# plays the same notes.
 wait 300
-tap sampleload
+# Clear the pattern (Shift + Delete) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
+press shift
+tap delete
+release shift
+tap rec
+paddown 8
+pad 36
+padup 8     # step 1: accent
+pad 36
+pad 39
+pad 43
+pad 36
+paddown 9
+pad 41
+padup 9     # step 6: slide
+pad 43
+pad 46
+paddown 8
+pad 36
+padup 8     # step 9: accent
+pad 21      # step 10: REST
+paddown 8
+pad 39
+padup 8     # step 11: accent
+pad 43
+pad 24
+paddown 9
+pad 46
+padup 9     # step 14: slide
+pad 43
+pad 41
+tap rec
+wait 200
+snap 01_line_entered
+# Ratchets: hold a step pad and tap OCT+ (pad 11): steps 3 and 14 x2, step 7 x3, step 11 x4.
+paddown 2
+pad 11
+padup 2
+paddown 6
+pad 11
+pad 11
+padup 6
+paddown 14
+pad 11
+pad 11
+pad 11
+padup 14
+paddown 17
+pad 11
+padup 17
 wait 100
-snap 01_demo_line
+snap 02_ratchets
+# Conditions: PERF page (Shift + Params), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
+press shift
+tap params
+release shift
+tap f8
+paddown 3
+turn 10
+padup 3
+paddown 7
+turn 5
+padup 7
+paddown 15
+turn 45
+padup 15
+paddown 16
+turn 46
+padup 16
+paddown 18
+turn 47
+padup 18
+paddown 19
+turn 48
+wait 100
+snap 03_conditions
+padup 19
+# Play: the line on its own for two passes, then FILL (the Vol button, F5 picks the variant) for one pass of each variant.
 record on
 tap play
 wait 3840
-snap 02_playing
-press sampleplay
+snap 04_playing
+press vol
 wait 1920
-snap 03_fill_mutate
-release sampleplay
+snap 05_fill_mutate
+release vol
 wait 1920
-press shift
-tap sampleedit
-release shift
-press sampleplay
+tap f5
+turn 1
+press vol
 wait 1920
-release sampleplay
+release vol
 wait 1920
-press shift
-tap sampleedit
-release shift
-press sampleplay
+tap f5
+turn 1
+press vol
 wait 1920
-snap 04_fill_ratchet
-release sampleplay
+snap 06_fill_ratchet
+release vol
 wait 1920
-press shift
-tap sampleedit
-release shift
-press sampleplay
+tap f5
+turn 1
+press vol
 wait 1920
-release sampleplay
+release vol
 wait 1920
 tap play
 wav m3b_seq

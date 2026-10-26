@@ -1,6 +1,9 @@
 # M3c: the bass-music round (plan, contracts and ownership)
 
-Status: planned, 2026-10-26. The maintainer asked for Skrillex-style effects ("alguna idea para añadir efectos estilo skrillex?"); the
+Status: planned, 2026-10-26. **Cut the same day** (the maintainer, short of weekly tokens: "recortamos hasta trance_gate y pump (que
+se quedan fuera)"): this round builds **W, G and R** only. T (gate and pump), C (crush), P (dive and riser) and O (OTT) are out; they stay
+below as the backlog. The slices are now one dsp+seq slice (the growl, the freeze modes, the wobble and its lane targets), then one ui slice
+(the WOBBLE, ROLL, STOP and REV actions, a GROWL page, the wiring). The maintainer asked for Skrillex-style effects ("alguna idea para añadir efectos estilo skrillex?"); the
 orchestrator proposed seven, and the maintainer said "vamos con todo" (all of them). "Skrillex" names a style only: no sample, preset or code from anyone's
 records or plug-ins. All DSP is written here, or ported from a licence-compatible source after the licence gate (skill `dsp-port`).
 It starts when M3b's ui-2 is under way; its dsp slices may run alongside M3b's ui because they own different files.

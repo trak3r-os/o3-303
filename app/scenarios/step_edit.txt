@@ -1,0 +1,71 @@
+# Step editing of M3b (docs/M3B-PLAN.md R3 layer rotate, R4 ratchets and the step's octave, R5 trig conditions) on the factory line in A01.
+# The step view does not draw ratchets and conditions yet (the step-view round does); the evidence here is the info strip's line (STEP n RATCHET xn,
+# STEP n COND ...), the PERF page's strip and the note and accent rows moving. Step pads: steps 1..8 are pads 0..7, steps 9..16 pads 12..19.
+wait 300
+# Hold step 4 and tap OCT+ (pad 11) twice: its ratchet is x3. OCT- (pad 10) takes one back. The keyboard's octave does not move.
+paddown 3
+pad 11
+pad 11
+wait 100
+snap 01_ratchet_x3
+pad 10
+wait 100
+snap 02_ratchet_x2
+padup 3
+# Hold step 6 and tap the up arrow: that step's note moves an octave (up / down alone are one semitone on the cursor step).
+paddown 5
+tap up
+wait 100
+snap 03_step_octave_up
+padup 5
+tap up
+wait 100
+snap 04_cursor_semitone
+# The PERF page (Shift + Params): F7 is RATCHET and F8 is COND for the step held, or for the cursor step when none is.
+press shift
+tap params
+release shift
+tap f7
+paddown 7
+turn 2
+wait 100
+snap 05_perf_ratchet_encoder
+padup 7
+tap f8
+paddown 7
+turn 10
+wait 100
+snap 06_cond_one_of_two
+padup 7
+paddown 15
+turn 45
+wait 100
+snap 07_cond_fill
+padup 15
+paddown 15
+press shift
+turn 1
+release shift
+wait 100
+snap 08_cond_coarse
+padup 15
+tap params
+# Hold ACC (pad 8): the step pads show the steps that have the accent; right rotates only the accents one step later.
+paddown 8
+wait 100
+snap 09_acc_held
+tap right
+wait 100
+snap 10_accents_rotated_right
+padup 8
+paddown 9
+tap left
+wait 100
+snap 11_slides_rotated_left
+padup 9
+# Undo walks the edits back (Shift + F8): the slides first.
+press shift
+tap f8
+release shift
+wait 100
+snap 12_undo

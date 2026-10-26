@@ -10,6 +10,7 @@
 #include <o3_303/app_access.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/pattern.h>
+#include <o3_303/perform.h>
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/gen.h>
 #include <o3_303/step_model.h>
@@ -90,6 +91,17 @@ struct Hands {
   void turn(int d) {
     h->turn(d);
     h->run_ms(2);
+  }
+  // A performance button's action from the SOUND page: Shift + Params is the previous page, PERF; F1..F4 are Note, Instr, Vol, Fx; the
+  // encoder walks the seven actions (to the first, then up); Params wraps back to SOUND.
+  void assign_perf(Button which, PerfAction action) {
+    shift_tap(Button::Params);
+    tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
+    turn(-8);
+    if (action != PerfAction::Mute) {
+      turn(static_cast<int>(action));
+    }
+    tap(Button::Params);
   }
   std::uint8_t led(unsigned pad_index) const { return h->leds().level(pad_index); }
   const char* title() { return h->runtime().context().screen()->title(); }
@@ -321,16 +333,17 @@ TEST_CASE("hold a step + a key sets that step's note and leaves the cursor where
   CHECK(t.pat().steps[5].note == 55);
 }
 
-TEST_CASE("hold a step + ACC / SLIDE / TIE / REST / OCT toggles that attribute on it, and the step is not selected") {
+TEST_CASE("hold a step + ACC / SLIDE / TIE / REST toggles that attribute on it, OCT+ is its ratchet, and the step is not selected") {
   Hands t;
   const Pattern before = bank().pattern(0);
   t.down(step_pad_of(3));  // step 4: C3, plain
   t.pad(kAccPad);
   t.pad(kSlidePad);
-  t.pad(kOctUpPad);
+  t.pad(kOctUpPad);  // M3b R4: the ratchet, no longer the octave
   t.up(step_pad_of(3));
-  CHECK(t.pat().steps[3].flags == (before.steps[3].flags ^ kStepAccent ^ kStepSlide));
-  CHECK(t.pat().steps[3].note == before.steps[3].note + 12);
+  CHECK(seq::get_ratchet(t.pat(), 3) == 1);
+  CHECK((t.pat().steps[3].flags & ~kStepRatchetMask) == ((before.steps[3].flags ^ kStepAccent ^ kStepSlide) & ~kStepRatchetMask));
+  CHECK(t.pat().steps[3].note == before.steps[3].note);
   t.pad(step_pad_of(3), 5);  // a tap selects; a second toggle through the cursor and the tap on a modifier
   t.tap(Button::Delete);
   CHECK((t.pat().steps[3].flags & kStepRest) != 0);
@@ -501,7 +514,7 @@ TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two 
   CHECK(t.param(kVoice, Tb303::Wave) == doctest::Approx(1.0f));
 }
 
-TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ), Shift + PARAMS to the previous one; the pages reach the whole engine") {
+TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ, PERF), Shift + PARAMS to the previous one; the pages reach the whole engine") {
   Hands t;
   const float drive0 = t.param(kDist, Distortion::Drive);
   t.tap(Button::Params);  // FX
@@ -533,11 +546,13 @@ TEST_CASE("PARAMS goes to the next page (SOUND, FX, SEQ), Shift + PARAMS to the 
   t.turn(1);
   CHECK(t.pat().length == 32);
 
+  t.tap(Button::Params);  // PERF: its F3 is Vol's action; the encoder would change that, which this test does not do
   t.tap(Button::Params);  // wraps to SOUND; F3 was the latched key on SEQ, so it is on SOUND too (ENV MOD)
   const float env0 = t.param(kVoice, Tb303::EnvMod);
   t.turn(3);
   CHECK(t.param(kVoice, Tb303::EnvMod) != env0);
-  t.shift_tap(Button::Params);  // the previous page: SEQ
+  t.shift_tap(Button::Params);  // the previous page: PERF
+  t.shift_tap(Button::Params);  // and SEQ
   const std::uint32_t tempo1 = t.h->engine().tempo();
   t.tap(Button::F1);
   t.turn(2);
@@ -735,8 +750,12 @@ TEST_CASE("Play plays and stops at the press; Shift + Play taps the tempo") {
   CHECK(t.h->engine().tempo() < 62'000u);
 }
 
-TEST_CASE("performance: Note / Instr / Vol / Fx are MUTE, ACC ALL, SLIDE ALL and DELAY THROW, momentary, and Shift + the button latches") {
+TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four buttons (assigned), momentary, and Shift + the button latches") {
   Hands t;
+  // The defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (tests/perf_buttons_test.cpp); SLIDE ALL and THROW, which
+  // this test checks as it did before C4, are one assignment each away.
+  t.assign_perf(Button::Vol, PerfAction::SlideAll);
+  t.assign_perf(Button::Fx, PerfAction::Throw);
   seq::Sequencer& sequencer = app_sequencer();
   const std::uint8_t kMute = seq::kPerfMute;
   const std::uint8_t kAcc = seq::kPerfAccAll;
@@ -865,6 +884,7 @@ TEST_CASE("playing, the keyboard transposes the pattern (the bottom left C is no
     t.pad(36);
   }
   t.tap(Button::Rec);
+  t.assign_perf(Button::Vol, PerfAction::SlideAll);
   t.shift_tap(Button::Vol);
   CHECK(sequencer.perf() == seq::kPerfSlideAll);
   // A plain saw so that the pitch can be measured: the filter wide open with no resonance and no envelope, the distortion off, no delay
@@ -920,12 +940,13 @@ TEST_CASE("playing, the keyboard transposes the pattern (the bottom left C is no
   CHECK(back / base > 0.95);
   CHECK(back / base < 1.05);
 
-  t.pad(kKeysPad);  // KEYS: the keyboard plays the voice, the transposition is left alone
+  t.pad(kKeysPad);  // KEYS: the keyboard plays the voice, the transposition is left alone (a tap: it toggles at the release)
   t.pad(key_pad(48));
   t.wait(30);
   CHECK(sequencer.live_transpose() == 0);
   CHECK(t.led(kKeysPad) == app::kLedMid);
   t.pad(kKeysPad);
+  t.wait(40);
   CHECK(t.led(kKeysPad) == app::kLedDim);
 
   // The transposition ends with the run, also when another screen is up.
@@ -1446,7 +1467,7 @@ TEST_CASE("Shift + Insert on the last pattern refuses (nothing wraps round to ov
   CHECK(t.selected() == kPatternCount - 1);
 }
 
-TEST_CASE("hold a step + UP / DOWN edits the held step, not the cursor's") {
+TEST_CASE("hold a step + UP / DOWN moves the held step's octave, not the cursor's; UP / DOWN alone are a semitone on the cursor step") {
   Hands t;
   const Pattern before = bank().pattern(0);
   t.down(step_pad_of(5));
@@ -1454,7 +1475,7 @@ TEST_CASE("hold a step + UP / DOWN edits the held step, not the cursor's") {
   t.tap(Button::Up);
   t.tap(Button::Down);
   t.up(step_pad_of(5));
-  CHECK(t.pat().steps[5].note == before.steps[5].note + 1);
+  CHECK(t.pat().steps[5].note == before.steps[5].note + 12);
   CHECK(t.pat().steps[0].note == before.steps[0].note);  // the cursor's step is untouched
   // Two held steps move together.
   t.down(step_pad_of(2));
@@ -1462,8 +1483,8 @@ TEST_CASE("hold a step + UP / DOWN edits the held step, not the cursor's") {
   t.tap(Button::Down);
   t.up(step_pad_of(2));
   t.up(step_pad_of(3));
-  CHECK(t.pat().steps[2].note == before.steps[2].note - 1);
-  CHECK(t.pat().steps[3].note == before.steps[3].note - 1);
+  CHECK(t.pat().steps[2].note == before.steps[2].note - 12);
+  CHECK(t.pat().steps[3].note == before.steps[3].note - 12);
   // Not held: the cursor's step, as before; and the held pads did not move the cursor.
   t.tap(Button::Up);
   CHECK(t.pat().steps[0].note == before.steps[0].note + 1);

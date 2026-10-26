@@ -3,17 +3,24 @@
 
 // The 303 screen (docs/DESIGN-303.md sections 2 to 5): the step view as the hero, the motion lane, the knob strip, the soft keys and
 // every pad and button gesture that does not need the card or MIDI. Also the pattern grid it shows while Pattern is held.
+//
+// It is one class in two files: main_screen.cpp (the step editing, the pages, the tools, the drawing) and main_screen_perf.cpp (the
+// performance gestures of M3b: the four assignable performance buttons, the KEYS ladders, the Master gestures, the scale lock).
 
 #include "rig.h"
 
 #include <o3sdk/app/screen.h>
+#include <o3sdk/ui/components.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/pages.h>
+#include <o3_303/perform.h>
 #include <o3_303/step_model.h>
 
 #include <cstdint>
 
 namespace o3_303 {
+
+inline constexpr std::uint64_t kHoldMs = 300;  // a press shorter than this is a tap; Pattern held this long: the 48 pads are the patterns
 
 class MainScreen final : public o3sdk::app::Screen {
  public:
@@ -39,7 +46,8 @@ class MainScreen final : public o3sdk::app::Screen {
   void toast(o3sdk::app::Context& ctx, const char* text) noexcept;
 
  private:
-  enum Perf : unsigned { kMute = 0, kAccAll, kSlideAll, kThrow, kPerfCount };
+  // What the encoder is latched to by a tap of Master (R7), whatever page the F keys are on; an F key press gives it back to the page.
+  enum class EncLatch : std::uint8_t { None, Tempo, Swing };
 
   static constexpr unsigned kRoles = static_cast<unsigned>(PadRole::None) + 1u;
 
@@ -53,12 +61,34 @@ class MainScreen final : public o3sdk::app::Screen {
   void modifier_tap(o3sdk::app::Context& ctx, PadRole role) noexcept;
   void modifier_with_steps(o3sdk::app::Context& ctx, PadRole role) noexcept;
   void tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
-  void perf_press(o3sdk::app::Context& ctx, Perf which, bool shift) noexcept;
-  void perf_release(o3sdk::app::Context& ctx, Perf which) noexcept;
+  void plock_turn(o3sdk::app::Context& ctx, int lane, int detents, bool coarse) noexcept;
+  void step_entry_turn(o3sdk::app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept;
+  void ratchet_step(o3sdk::app::Context& ctx, int direction) noexcept;
+  void rotate_layers(o3sdk::app::Context& ctx, int direction) noexcept;
+  void assign_lane(o3sdk::app::Context& ctx, const Entry& entry) noexcept;
+  int lane_of(const Entry& entry, const Pattern& p) const noexcept;
+  void sync_step_focus() noexcept;
+
+  // ---- performance (main_screen_perf.cpp)
+  void perf_press(o3sdk::app::Context& ctx, unsigned button, bool shift) noexcept;
+  void perf_release(o3sdk::app::Context& ctx, unsigned button) noexcept;
   void apply_perf(o3sdk::app::Context& ctx) noexcept;
+  void sync_perf_assignments(o3sdk::app::Context& ctx) noexcept;
+  void push_live_transpose() noexcept;
+  void master_press(o3sdk::app::Context& ctx, bool shift) noexcept;
+  void master_release(o3sdk::app::Context& ctx) noexcept;
+  void master_turn(o3sdk::app::Context& ctx, int detents) noexcept;
+  void nudge_end(o3sdk::app::Context& ctx) noexcept;
+  void latch_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
+  void ladder_press(o3sdk::app::Context& ctx, unsigned pad, bool shift) noexcept;
+  void ladder_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept;
+  bool scale_locked() const noexcept;                // a scale that leaves notes out is chosen (R8)
+  bool scale_locked_out(int note) const noexcept;    // ... and `note` is one of them
+  // An encoder move or a ladder tap is written as motion under the playhead (REC or the MOTION latch, while the pattern plays).
+  bool recording_motion() const noexcept { return playing_ && (rec_ || motion_latched_); }
+  void draw_state_chips(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& strip) noexcept;
   void choose_pattern(o3sdk::app::Context& ctx, unsigned index) noexcept;
   void copy_buttons(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
-  void plock_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
   void audition_on(o3sdk::app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept;
   void audition_off(o3sdk::app::Context& ctx) noexcept;
   void toggle_flag_on_held_or_cursor(o3sdk::app::Context& ctx, std::uint8_t flag) noexcept;
@@ -115,8 +145,19 @@ class MainScreen final : public o3sdk::app::Screen {
   std::uint64_t mod_down_ms_[kRoles] = {};  // when it went down: a tap is shorter than kHoldMs
   int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)
   int audition_note_ = -1;          // a step's note sounding for the hand
-  bool perf_held_[kPerfCount] = {};
-  bool perf_latched_[kPerfCount] = {};
+  // The four performance buttons (Note, Instr, Vol, Fx: bit b = button b) and the actions they do now (a bit per PerfAction, applied).
+  unsigned perf_held_ = 0;
+  unsigned perf_latched_ = 0;
+  std::uint8_t perf_applied_ = 0;
+  std::uint8_t perf_seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
+  EncLatch enc_latch_ = EncLatch::None;
+  // Master (R7): a tap latches the encoder, a hold and a turn nudges the tempo and gives it back at the release.
+  bool master_down_ = false;
+  bool master_used_ = false;
+  bool master_shift_ = false;      // Shift was down at the press: a tap latches SWING
+  std::uint64_t master_down_ms_ = 0;
+  int nudge_pct_ = 0;              // -3..+3
+  std::uint32_t nudge_base_ = 0;   // the tempo (milli-BPM) the nudge started from
   std::uint32_t tool_mask_ = 0;     // F keys pressed as tools (their release is not the pages')
   std::uint64_t shift_ms_ = 0;      // when Shift went down, and when the encoder last moved: the tools row waits for stillness
   std::uint64_t last_turn_ms_ = 0;

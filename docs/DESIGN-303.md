@@ -31,11 +31,17 @@ row 3    C    C#   D    D#   E    F    F#   G    G#    A     A#    B    (lower o
 |---|---|
 | REC (stopped) + key | writes the note on the cursor step and advances; with ACC or SLIDE held, the note has accent or slide; REST and TIE also advance |
 | hold a step + key | sets that step's note without moving the cursor |
-| hold a step + ACC / SLIDE / TIE / OCT | toggles that attribute on the step |
-| hold a step + encoder | locks the focused parameter on that step (a p-lock) |
+| hold a step + ACC / SLIDE / TIE / REST | toggles that attribute on the step |
+| hold a step + OCT+ / OCT- | the step's ratchet one hit up or down (x1 to x4) |
+| hold a step + up / down | the step's octave |
+| hold a step + encoder | locks the focused parameter on that step (a p-lock), on the lane that drives it; on the PERF page's RATCHET and COND the step's own ratchet and trig condition |
+| hold ACC (or SLIDE) + left / right | rotates that layer of the pattern alone, one step |
+| hold KEYS + a pad of rows 2 and 3 | the filter ladders: row 2 is 12 places of Cutoff, row 3 of Reso (Shift: Env Mod), through a 30 ms slew; the LEDs draw the position as a bar. A tap of KEYS toggles live play as before |
+| a scale chosen on the SEQ page | the keyboard pads out of it go dark and do nothing; lit means playable. The generator's default scale is not a choice: the keyboard is chromatic until the Scale key is turned, and "No scale" or "Chromatic" unlocks it |
 | hold ACC (or SLIDE, TIE…) alone | the step pads show which steps have it; tap steps to toggle (TR style) |
 | playing, REC off | the keyboard transposes the pattern live (the 303's track-mode transpose); KEYS switches to playing the voice live |
 | hold MOTION | steps with automation light up; Delete clears it |
+| hold MOTION + an F key | the motion lane shown under the step view now drives that key's parameter (Drive, the delay send, Acc Decay ...): the lanes are a per-pattern table, SOUND by default |
 
 ## 3. F1..F8 and the encoder
 
@@ -48,9 +54,13 @@ change it for a moment; hold two and turn to move both; Shift + turn for coarse.
 | MODS | Acc Decay | Filter Track | Slide time | Soft Attack* | Sub Osc* | Filter FM* | Sweep* | Muffler* |
 | FX | Drive* | Drive Tone* | Delay time (sync) | Delay FB | Delay send | Reverb send* | — | Master |
 | SEQ | Tempo | Swing | Length | Gate | Transpose | Scale | Density (generator) | Acc/Slide % |
+| PERF | Note's action | Instr's | Vol's | Fx's | FILL's variant | Freeze length | Ratchet (of the step) | Trig condition (of the step) |
 
 \* not in track3r-os's `modules/tb303` (Drive, Soft Attack and the sub-oscillator were left out there for CPU); the delay exists as
 `units/delay`.
+
+PERF is o3-303's own page until the kit's system Config exists (o3-sdk FRAMEWORK.md section 5) and until the RANDOM popup (M3b C3) takes Scale, Density and Acc / Slide % off the SEQ page, which frees F6..F8 there for FILL's variant, the ratchet and the condition. The encoder
+can also be latched on the tempo (tap Master) or the swing (Shift + tap Master), whatever page the F keys are on.
 
 With Shift held the soft-key row becomes the pattern tools: F1 RANDOM, F2 MUTATE, F3 REVERSE, F4 INVERT, F5 DOUBLE (length × 2,
 copied), F6 CLEAR, F7 REDO, F8 UNDO.
@@ -61,16 +71,17 @@ copied), F6 CLEAR, F7 REDO, F8 UNDO.
 |---|---|---|
 | Play | play / stop, at the press | tap tempo |
 | Rec | write mode; with Play, live recording of notes and encoder moves | — |
-| ← → | step cursor (across pages) | rotate the pattern |
-| ↑ ↓ | the step's note ±1 semitone | transpose the pattern |
-| Note / Instr / Vol / Fx | momentary performance effects: MUTE, ACC ALL, SLIDE ALL, DELAY THROW | latch them |
+| ← → | step cursor (across pages); with ACC or SLIDE held, rotate that layer | rotate the pattern |
+| ↑ ↓ | the cursor step's note ±1 semitone; with a step held, its octave | transpose the pattern |
+| Note / Instr / Vol / Fx | the four performance buttons, each one of MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW (the delay send to unity) or FREEZE (the beat freeze), assigned on the PERF page; momentary; the defaults are MUTE, ACC ALL, FILL, FREEZE | latch them |
 | Pattern | tap: the 303 screen (again: step view / piano roll); hold: the 48 pads are 48 patterns, a tap queues one, several taps make a chain (as the original firmware does) | — |
 | Copy / Insert / Delete | step or pattern: copy, insert, clear | paste / duplicate / clear the whole pattern |
 | Params | the next page of F keys | the previous page |
 | Song | the chain, with repeats and a transpose per entry | |
 | Performance | the HOOKS screen | the split mode (section 7) |
 | SampleLoad / Play / Edit / Rec | the HOOKS sub-pages | |
-| Master / File / Config | mixer and master FX / projects, WAV and MIDI export / MIDI, clock, pads | |
+| Master | tap: the encoder latches TEMPO (Shift: SWING); hold + turn: a tempo nudge of 1 % a detent, at most 3 %, back at the release (the mixer and master FX come later) | |
+| File / Config | projects, WAV and MIDI export / MIDI, clock, pads | |
 
 The printed legends are the original firmware's; the screen always shows what the keys do (and a printed overlay is an option).
 

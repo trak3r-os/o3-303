@@ -1,0 +1,38 @@
+# Tempo and swing get permanent places (docs/M3B-PLAN.md R7): a tap of Master latches TEMPO on the encoder whatever page the F keys are on, Shift +
+# a tap latches SWING; hold Master and turn for a tempo nudge of 1 % a detent, at most 3 %, that snaps back at the release.
+wait 300
+tap play
+wait 300
+tap master
+wait 100
+snap 01_tempo_latched
+turn 6
+wait 100
+snap 02_tempo_3_bpm_up
+# On the FX page the encoder still has the tempo.
+tap params
+turn -4
+wait 100
+snap 03_fx_page_tempo_latched
+press shift
+tap master
+release shift
+turn 5
+wait 100
+snap 04_swing_latched
+# An F key gives the encoder back to the page.
+tap f1
+wait 100
+snap 05_page_again
+# The nudge: hold Master, turn clockwise three detents: +3 %; the header's tempo is 3 % up while it is held.
+press master
+turn 3
+wait 200
+snap 06_nudge_up
+turn -5
+wait 200
+snap 07_nudge_down
+release master
+wait 200
+snap 08_nudge_released
+tap play

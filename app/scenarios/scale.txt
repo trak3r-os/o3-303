@@ -1,0 +1,43 @@
+# The scale-locked keyboard (docs/M3B-PLAN.md R8): with a scale chosen on the SEQ page (F6) the keyboard pads out of it are dark and do nothing; a
+# boot has none chosen (the generator's default scale is not a choice), so the keyboard is chromatic until the Scale key is turned. The pages
+# are SOUND, FX, SEQ, PERF: Params twice from SOUND is SEQ, twice more is SOUND again.
+wait 300
+snap 01_chromatic_boot
+# SEQ page: F6 is Scale; walk to the first entry (No scale) and up to Major (3).
+tap params
+tap params
+tap f6
+turn -40
+turn 3
+wait 100
+snap 02_major_chosen
+tap params
+tap params
+wait 100
+snap 03_c_major_keyboard
+# REC + keys: D (pad 38) and E (pad 40) are written on steps 1 and 2; the C# (37) and D# (39) pads, dark, do nothing and the cursor stays.
+tap rec
+pad 37
+pad 38
+pad 39
+pad 40
+wait 100
+snap 04_rec_in_scale_only
+tap rec
+# C minor pentatonic: Penta Min is entry 18.
+tap params
+tap params
+turn -40
+turn 18
+tap params
+tap params
+wait 100
+snap 05_penta_minor
+# No scale (0) unlocks it again.
+tap params
+tap params
+turn -40
+tap params
+tap params
+wait 100
+snap 06_no_scale

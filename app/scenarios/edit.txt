@@ -1,7 +1,8 @@
 # Editing steps in place (DESIGN-303 section 2). Starts on the factory line of A01.
 #   tap a step pad          the cursor goes there (the step sounds)
 #   hold a step + a key     that step's note, the cursor stays
-#   hold a step + ACC / SLIDE / TIE / REST / OCT+    that attribute toggles on it
+#   hold a step + ACC / SLIDE / TIE / REST    that attribute toggles on it
+#   hold a step + up / down                   its octave (M3b: OCT+ / OCT- on a held step are its ratchet, see step_edit.txt)
 #   hold ACC alone          the step pads show the accented steps; tap steps to toggle (TR style)
 #   Delete / Copy / Insert  the cursor's step
 # Choices made here: Delete turns the step into a rest (it does not shift the steps after it; Insert does); a pad of a step is selected when
@@ -23,7 +24,7 @@ paddown 4
 pad 20
 padup 4
 paddown 7
-pad 11
+tap up 150
 padup 7
 snap 03_flags_and_octave
 paddown 8

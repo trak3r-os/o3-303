@@ -7,7 +7,9 @@
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/pages.h>
 #include <o3_303/seq/bank.h>
+#include <o3_303/seq/sequencer.h>
 #include <o3_303/units/distortion/distortion.h>
+#include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/tb303/tb303.h>
 
 #include <cmath>
@@ -27,8 +29,12 @@ struct Rig {
   Tb303 voice;
   Distortion dist;
   units::Delay delay{l, r, kCap};
+  float fl[kCap] = {};
+  float fr[kCap] = {};
+  Freeze freeze{fl, fr, kCap};
   dsp::Engine engine;
   std::unique_ptr<seq::Bank> bank = std::make_unique<seq::Bank>();
+  std::unique_ptr<seq::Sequencer> sequencer = std::make_unique<seq::Sequencer>(*bank);
   Wiring wiring;
   Controls controls;
 
@@ -36,11 +42,13 @@ struct Rig {
     wiring.voice = engine.attach(voice);
     wiring.dist = engine.attach(dist);
     wiring.delay = engine.attach(delay);
+    wiring.freeze = engine.attach(freeze);
     (void)engine.set_source(0, wiring.voice);
     (void)engine.set_insert(0, 0, wiring.dist);
     (void)engine.set_send_effect(0, wiring.delay);
     bank->init();
     wiring.bank = bank.get();
+    wiring.seq = sequencer.get();
     controls.init(wiring);
   }
 
@@ -54,9 +62,10 @@ struct Rig {
 
 }  // namespace
 
-TEST_CASE("pages: the three pages and their keys (DESIGN-303 section 3)") {
+TEST_CASE("pages: the four pages and their keys (DESIGN-303 section 3; PERF is M3b's)") {
   Rig rig;
-  CHECK(kPageCount == 3);
+  CHECK(kPageCount == 4);
+  CHECK(std::strcmp(page_at(kPagePerf).name, "PERF") == 0);
   CHECK(std::strcmp(page_at(kPageSound).name, "SOUND") == 0);
   CHECK(std::strcmp(page_at(kPageFx).name, "FX") == 0);
   CHECK(std::strcmp(page_at(kPageSeq).name, "SEQ") == 0);
@@ -78,18 +87,167 @@ TEST_CASE("pages: the three pages and their keys (DESIGN-303 section 3)") {
   CHECK(std::strcmp(page_at(99).name, "SOUND") == 0);  // an index past the pages gives the first
 }
 
-TEST_CASE("pages: only the voice's own parameters are motion lanes") {
+TEST_CASE("pages: the entries a motion lane can drive are the voice's, the distortion's, the delay's, VOLUME and DLY SEND (C2)") {
   Rig rig;
-  unsigned lane = 99;
+  LaneRef ref{kLaneNone, 99};
+  // The SOUND page: the voice's ids 0..6 and VOLUME, the mixer's level.
   for (unsigned k = 0; k < 7; ++k) {
-    REQUIRE(rig.controls.lane(rig.entry(kPageSound, k), lane));
-    CHECK(lane == k);  // the lane is the parameter id
+    REQUIRE(rig.controls.lane_ref(rig.entry(kPageSound, k), ref));
+    CHECK(ref.target == kLaneVoice);
+    CHECK(ref.id == k);
   }
-  CHECK_FALSE(rig.controls.lane(rig.entry(kPageSound, 7), lane));  // VOLUME is the slot's level, not a lane
+  REQUIRE(rig.controls.lane_ref(rig.entry(kPageSound, 7), ref));
+  CHECK(ref.target == kLaneMixer);
+  CHECK(ref.id == kMixerLevel);
+  // The FX page: the distortion (Drive, Tone, Mix), the delay (time, feedback), the send; not DIST (a mode) and not the master.
+  REQUIRE(rig.controls.lane_ref(rig.entry(kPageFx, 0), ref));
+  CHECK(ref.target == kLaneDist);
+  CHECK(ref.id == Distortion::Drive);
+  REQUIRE(rig.controls.lane_ref(rig.entry(kPageFx, 3), ref));
+  CHECK(ref.target == kLaneDelay);
+  CHECK(ref.id == units::Delay::Feedback);
+  REQUIRE(rig.controls.lane_ref(rig.entry(kPageFx, 4), ref));
+  CHECK(ref.target == kLaneMixer);
+  CHECK(ref.id == kMixerSendA);
+  CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageFx, 6), ref));
+  CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageFx, 7), ref));
+  for (unsigned k = 0; k < kKeys; ++k) {  // the SEQ and PERF pages are no lane's target
+    CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageSeq, k), ref));
+    CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPagePerf, k), ref));
+  }
+  // lane_entry is the way back, and the default lanes are the SOUND page.
+  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
+    const Entry e = rig.controls.lane_entry(kDefaultLanes[lane]);
+    CHECK(e.item == rig.entry(kPageSound, lane).item);
+    CHECK(e.id == rig.entry(kPageSound, lane).id);
+  }
+  CHECK(rig.controls.lane_entry(LaneRef{kLaneMixer, kMixerPan}).item == Item::Blank);  // no page has the pan
+  CHECK(rig.controls.lane_entry(LaneRef{kLaneNone, 0}).item == Item::Blank);
+  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneVoice, Tb303::Cutoff}), "CUTOFF") == 0);
+  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneDist, Distortion::Drive}), "DRIVE") == 0);
+  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneMixer, kMixerSendA}), "SEND A") == 0);
+  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneNone, 0}), "") == 0);
+}
+
+TEST_CASE("pages: a motion point is scaled with the target's own descriptor: a unit's curve, the mixer's range, the dB of VOLUME") {
+  Rig rig;
+  // A unit's parameter: the point is the knob position through the descriptor's curve, whatever the lane number.
+  const Entry drive = rig.entry(kPageFx, 0);
+  const core::ParamDesc* dd = rig.controls.desc(rig.engine, drive);
+  REQUIRE(dd != nullptr);
+  CHECK(rig.controls.to_point(rig.engine, drive, dd->min) == 0);
+  CHECK(rig.controls.to_point(rig.engine, drive, dd->max) == 254);
+  CHECK(rig.controls.from_point(rig.engine, drive, 254) == doctest::Approx(dd->max));
+  const std::uint8_t mid = rig.controls.to_point(rig.engine, drive, 0.5f * (dd->min + dd->max));
+  CHECK(mid >= 126);
+  CHECK(mid <= 128);
+  const Entry cutoff = rig.entry(kPageSound, 0);  // a log knob: the middle of the range is not the middle of the knob
+  CHECK(rig.controls.from_point(rig.engine, cutoff, 127) < 1500.0f);
+  // The send: percent on the page, linear gain in the lane (0..1.5): 100 % is point 169.
+  const Entry send = rig.entry(kPageFx, 4);
+  CHECK(rig.controls.to_lane(send, 100.0f) == doctest::Approx(1.0f));
+  CHECK(rig.controls.from_lane(send, 1.5f) == doctest::Approx(150.0f));
+  CHECK(rig.controls.to_point(rig.engine, send, 0.0f) == 0);
+  CHECK(rig.controls.to_point(rig.engine, send, 100.0f) == mixer_value_to_point(kMixerSendA, 1.0f));
+  CHECK(rig.controls.from_point(rig.engine, send, 254) == doctest::Approx(150.0f));
+  // VOLUME: the dB the page shows, the linear gain the engine takes, the mixer's 0..1.5 range.
+  const Entry vol = rig.entry(kPageSound, 7);
+  CHECK(rig.controls.to_lane(vol, 0.0f) == doctest::Approx(1.0f));
+  CHECK(rig.controls.to_lane(vol, -60.0f) == 0.0f);
+  CHECK(rig.controls.to_lane(vol, 3.5f) <= 1.5f);
+  CHECK(rig.controls.from_lane(vol, 1.0f) == doctest::Approx(0.0f).epsilon(0.001));
+  CHECK(rig.controls.from_lane(vol, 0.0f) == -60.0f);
+  CHECK(rig.controls.from_lane(vol, 9.0f) == doctest::Approx(3.5f));
+  const std::uint8_t p0 = rig.controls.to_point(rig.engine, vol, 0.0f);  // 0 dB = unity = point 169 of 254
+  CHECK(p0 == mixer_value_to_point(kMixerLevel, 1.0f));
+  CHECK(rig.controls.from_point(rig.engine, vol, p0) == doctest::Approx(0.0f).epsilon(0.05));
+  // An entry no lane can drive has no point.
+  CHECK(rig.controls.to_point(rig.engine, rig.entry(kPageSeq, 0), 120.0f) == 0);
+}
+
+TEST_CASE("pages: the PERF page: the four assignments, FILL's variant, the freeze's length, and the step's ratchet and condition") {
+  Rig rig;
+  // F1..F4: Note, Instr, Vol, Fx with the defaults of C4.
+  const char* const want_label[4] = {"NOTE", "INSTR", "VOL", "FX"};
+  const char* const want_text[4] = {"MUTE", "ACC ALL", "FILL", "FREEZE"};
+  for (unsigned b = 0; b < 4; ++b) {
+    CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kPagePerf, b)), want_label[b]) == 0);
+    CHECK(rig.text(rig.entry(kPagePerf, b)) == want_text[b]);
+  }
+  Entry vol = rig.entry(kPagePerf, 2);
+  rig.controls.step(rig.engine, vol, -1, false);  // FILL -> OCT UP
+  CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::OctUp));
+  CHECK(rig.text(vol) == "OCT UP");
+  rig.controls.set(rig.engine, vol, 2.0f);
+  CHECK(rig.text(vol) == "SLD ALL");
+  rig.controls.set(rig.engine, vol, 99.0f);  // clamped to the last action
+  CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::Freeze));
+  // F5: what FILL plays, through the sequencer.
+  const Entry fill = rig.entry(kPagePerf, 4);
+  CHECK(rig.text(fill) == "MUTATE");
+  rig.controls.step(rig.engine, fill, 1, false);
+  CHECK(rig.sequencer->fill_variant() == seq::FillVariant::OctUp);
+  CHECK(rig.text(fill) == "OCT UP");
+  rig.controls.set(rig.engine, fill, 3.0f);
+  CHECK(rig.sequencer->fill_variant() == seq::FillVariant::AccRotate);
+  CHECK(rig.text(fill) == "ACC ROT");
+  rig.controls.set(rig.engine, fill, 7.0f);
+  CHECK(rig.sequencer->fill_variant() == seq::FillVariant::AccRotate);  // clamped
+  // F6: the beat freeze's Length, the unit's own parameter.
+  const Entry len = rig.entry(kPagePerf, 5);
+  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::Length) == 1.0f);
+  rig.controls.step(rig.engine, len, 1, false);
+  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::Length) == 2.0f);
+  CHECK(rig.controls.get(rig.engine, len) == 2.0f);
+  // F7 and F8: the ratchet and the condition of the step the screen is on (wiring.step_focus).
+  seq::Bank& bank = *rig.bank;
+  bank.init();
+  const Entry ratchet = rig.entry(kPagePerf, 6);
+  const Entry cond = rig.entry(kPagePerf, 7);
+  rig.wiring.step_focus = 3;
+  CHECK(rig.text(ratchet) == "x1");
+  CHECK(rig.text(cond) == "ALWAYS");
+  rig.controls.step(rig.engine, ratchet, 2, false);
+  CHECK(bank.get_ratchet(0, 3) == 2);
+  CHECK(bank.get_ratchet(0, 2) == 0);  // only that step
+  CHECK(rig.text(ratchet) == "x3");
+  rig.controls.step(rig.engine, ratchet, 9, false);  // clamped at x4
+  CHECK(bank.get_ratchet(0, 3) == 3);
+  rig.controls.step(rig.engine, ratchet, -9, false);
+  CHECK(bank.get_ratchet(0, 3) == 0);
+  rig.controls.step(rig.engine, cond, 1, false);  // the encoder's walk: always, 10 %, 20 % ...
+  CHECK(bank.get_cond(0, 3) == cond_probability(10));
+  CHECK(rig.text(cond) == "10%");
+  rig.controls.step(rig.engine, cond, 9, false);  // ... 90 %, then 1:2
+  CHECK(bank.get_cond(0, 3) == cond_ratio(1, 2));
+  CHECK(rig.text(cond) == "1:2");
+  rig.controls.step(rig.engine, cond, 99, false);  // clamped at NOT FIRST
+  CHECK(bank.get_cond(0, 3) == kCondNotFirst);
+  CHECK(rig.text(cond) == "!FIRST");
+  rig.controls.step(rig.engine, cond, -99, false);
+  CHECK(bank.get_cond(0, 3) == kCondAlways);
+  // Another step through step_at, relative to its own value; coarse moves five places.
+  rig.controls.step_at(rig.engine, cond, 6, 1, true);
+  CHECK(bank.get_cond(0, 6) == seq::cond_at(5));
+  rig.controls.step_at(rig.engine, ratchet, 6, 1, false);
+  CHECK(bank.get_ratchet(0, 6) == 1);
+  CHECK(bank.get_cond(0, 3) == kCondAlways);  // the focus step is untouched
+  // Every entry has a descriptor and a label that fits.
   for (unsigned k = 0; k < kKeys; ++k) {
-    CHECK_FALSE(rig.controls.lane(rig.entry(kPageFx, k), lane));
-    CHECK_FALSE(rig.controls.lane(rig.entry(kPageSeq, k), lane));
+    CHECK(rig.controls.desc(rig.engine, rig.entry(kPagePerf, k)) != nullptr);
   }
+}
+
+TEST_CASE("pages: choosing a scale locks the keyboard to it (the generator's default scale is not a choice)") {
+  Rig rig;
+  CHECK_FALSE(rig.wiring.scale_set);
+  const Entry scale = rig.entry(kPageSeq, 5);
+  rig.controls.set(rig.engine, scale, 3.0f);
+  CHECK(rig.wiring.scale_set);
+  // The other generator entries do not set it.
+  Rig other;
+  other.controls.set(other.engine, other.entry(kPageSeq, 6), 40.0f);
+  CHECK_FALSE(other.wiring.scale_set);
 }
 
 TEST_CASE("pages: the SOUND page goes through the engine to the voice") {

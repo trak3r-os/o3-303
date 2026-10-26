@@ -1,47 +1,65 @@
-# The beat freeze (docs/M3B-PLAN.md R6, units/freeze) on master insert 0: while it is on, the last 1/4, 1/8 or 1/16 of a bar of the master
-# loops, pitch kept, with 5 ms crossfades at entry, at the loop point and at exit; off, the master passes through bit for bit.
-# There is no gesture on the Fx performance button yet (the ui slice's FREEZE action, C4), so this scenario uses the app's provisional
-# keys: hold Song = freeze on, Shift + tap Song = the next Length (1/8 is the default; the cycle is 1/16, 1/4, 1/8). The screen shows
-# nothing of it yet: the evidence is the WAV (tests/freeze_app_test.cpp checks that it loops at the tempo; units/freeze/tests that it has no click).
+# The beat freeze (docs/M3B-PLAN.md R6, units/freeze) on master insert 0, driven by the real gesture (C4): the Fx performance button is FREEZE by
+# default (held = on, Shift + tap latches), and the PERF page's F6 picks the Length. While it is on, the last 1/4, 1/8 or 1/16 of a bar of the
+# master loops, pitch kept, with 5 ms crossfades at entry, at the loop point and at exit; off, the master passes through bit for bit.
+# The header's FREEZE chip lights while it is held; the evidence for the loop is the WAV (tests/freeze_app_test.cpp checks that it loops at the
+# tempo; units/freeze/tests that it has no click).
 wait 300
 record on
 tap play
 wait 2400
 snap 01_playing
-press song
+press fx
 wait 1700
 snap 02_frozen_eighth
-release song
+release fx
 wait 1300
-# 1/16 of a bar
+# 1/16 of a bar: the PERF page (Shift + Params is the page before SOUND), F6 FRZ LEN, down to the first entry and up two.
 press shift
-tap song
+tap params
 release shift
-press song
+tap f6
+turn -3
+turn 2
+snap 03_perf_page_sixteenth
+tap params
+press fx
 wait 1300
-release song
+release fx
 wait 1200
 # 1/4 of a bar, a whole beat
 press shift
-tap song
+tap params
 release shift
-press song
+turn -3
+tap params
+press fx
 wait 2200
-release song
+release fx
 wait 1200
-# a stutter by hand: short holds, the Length back to 1/8
+# a stutter by hand: short holds, the Length back to 1/8; the last one latched with Shift and let go again
 press shift
-tap song
+tap params
 release shift
-tap song 140
+turn 1
+tap params
+tap fx 140
 wait 260
-tap song 140
+tap fx 140
 wait 260
-tap song 90
+tap fx 90
 wait 90
-tap song 400
+tap fx 400
 wait 1000
-snap 03_released
+press shift
+tap fx
+release shift
+wait 700
+snap 04_latched
+press shift
+tap fx
+release shift
+wait 800
+snap 05_released
 tap play
 wait 600
 wav freeze

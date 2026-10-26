@@ -77,8 +77,8 @@ latched at entry (a tempo or Length change while frozen waits for the next entry
 entry (paced, at most 32 frames in a 64-frame block, through an exit if one comes first), so while frozen the ring holds the loop itself
 (the master is not recorded during a freeze); an exit asked for within 5 ms of the entry waits for the entry crossfade, and an entry asked
 for before the previous one's baking is over (a few frames after the shortest freeze) waits for it. Main loop (`app/src/rig.h`): `set_freeze(engine, rig, on)`, `freeze_on`, `set_freeze_length`,
-`freeze_length`, or `Engine::set_param(rig.wiring.freeze, Freeze::Active, 1)`. Until the FREEZE action exists, Song is a provisional key (hold
-= on, Shift + tap = the next Length; `app/src/o3_303_app.cpp`): the ui slice removes it. The cost is estimated at +0.6 % of a block off
+`freeze_length`, or `Engine::set_param(rig.wiring.freeze, Freeze::Active, 1)`. The Fx performance button's FREEZE
+action replaced the provisional Song key (ui-1, below). The cost is estimated at +0.6 % of a block off
 (recording), +2.3 % held, +4.2 % in the worst block (an entry, or an exit that overlaps the end of the baking; `src/freeze.cpp`); measure it
 on the unit.
 
@@ -97,12 +97,36 @@ a voice, distortion or delay parameter or a slot 0 mixer field, in the target's 
 block); a lock or motion point on the target wins while it holds. *Ops and Bank for the screens:* `set_ratchet` / `get_ratchet`, `set_cond` /
 `get_cond`, `step_cond` (the encoder's walk over 49 conditions), `rotate_layer(Layer)`, `find_lane`, each also on `Bank` where it edits
 (`rotate_layer`, `set_ratchet`, `set_cond`, undoable and joined per step). The ids of the lanes' coalescing keys: 0x08 ratchet, 0x09 condition.
-The scenario runs on host-only stand-in controls (`O3_303_TEST_HOOKS`: SampleLoad loads a demo line, SamplePlay held is FILL, Shift +
-SampleEdit the next variant) until the SEQ page has the controls; the ui slice replaces them. Estimated cost (a block of 64 frames is about 261,000
+The scenario ran on host-only stand-in controls (`O3_303_TEST_HOOKS`) until the screens had the real gestures; ui-1 removed them. Estimated cost (a block of 64 frames is about 261,000
 cycles): no slew running, a scan of the 32 slots, about 150 cycles (0.06 %); a ratchet hit or a condition is a few dozen cycles at the step;
 entering a fill copies the pattern (2,260 bytes, about 1,800 cycles) and rewrites up to 64 steps, once, about 5,000 cycles in all; a running
 slew is a lerp, a curve inverse and an event for each tick, about 200 cycles (3 slews x 4 ticks, or a dozen at one tick each, about 2,400
 cycles, 0.9 %; a full 32-slew morph, about 6,500, 2.5 %). Estimates, not measurements: measure on the unit (skill `rt-optimize`).
+
+**Made 2026-10-26 (ui-1: interaction and performance)** (`app/src/main_screen_perf.cpp`, `app/include/o3_303/perform.h`, `main_screen.cpp`, `pages.cpp`;
+tests `perform`, `perf_buttons`, `step_edit`, `ladders`, `tempo`, `scale_lock`, `lanes`; scenarios `perf_assign`, `step_edit`, `ladders`, `tempo`, `scale`,
+`lanes`, with `m3b_seq`, `freeze`, `perform` and `edit` rewritten for the real gestures). All main loop: the render side sees only what the sequencer's
+API already took (perf flags, slews, the live transpose) and the freeze's parameters. Decisions: *C4* the four buttons are `Wiring::perf` (a
+`PerfAction` each, `perform.h`), edited on a PERF page, the fourth of the Params cycle (SOUND, FX, SEQ, PERF; Shift + Params from SOUND reaches it as the
+previous page, which R2's SNAP takes from it): F1..F4 the buttons, F5 FILL's variant, F6 the freeze's Length, F7 RATCHET, F8 COND. The plan puts the
+variant, RATCHET and COND on SEQ, whose eight keys are all in use until C3's RANDOM popup takes Scale, Density and ACC/SLD: they are `Item`s
+with their whole behaviour already, so C3 moves them by editing three entries of `kPages`. OCT UP is the live transpose + 12 on top of the keyboard's; two
+buttons with one action: on while either is; a button given another action loses its latch. The Song key, `O3_303_TEST_HOOKS` and their scenarios
+are gone (the demo line is entered with REC, ACC / SLIDE held and the REST pad, the ratchets with hold a step + OCT+, the conditions with the encoder on COND). *R4, R5*
+hold a step + OCT+ / OCT- is the ratchet, hold a step + up / down the octave (a step that would leave 0..127 stays), the encoder on RATCHET and COND
+moves each held step from its own value (`Controls::step_at`, the condition through `seq::step_cond`; without a held step, the cursor's); a toast says
+"STEP n RATCHET x2" until the step view draws them (ui-2). *R3* hold ACC and / or SLIDE + left / right (`Bank::rotate_layer`), the release is no accent
+toggle. *R1* KEYS is tap or hold (300 ms, as the modifier pads): a tap toggles live play at the release; held, rows 2 and 3 are `slew(kLaneVoice, ..., 30 ms)` to
+`param_denorm(ladder_norm(col))`, written as motion when REC or the MOTION latch is on and the pattern plays. *R7* Master: a tap latches TEMPO (Shift: SWING;
+again, or an F key, gives the encoder back; a chip on the knob strip's tab line shows the latch with its value), a hold and a turn nudges 1 % a detent up to 3 % and gives the
+base tempo back at the release or when the screen is left. *R8* the lock follows a scale the player chose: the generator's default Penta Min is not a choice, so
+a boot is chromatic until the SEQ page's Scale is turned (`Wiring::scale_set`); with it, in-scale pads are dim (lit means playable, sharps too), the others dark and
+skipped, and a chip with the scale's name (as the nudge's, on the tab line) says so. *Finding 4* `plock_turn`, `record_motion` and the lane caption go through the pattern's `lanes` table
+(`Controls::lane_ref`, `lane_entry`, `to_point`, `from_point`): VOLUME and DLY SEND are lanes (the mixer's 0..1.5 gain), any unit key with a lane locks
+there; a key no lane drives moves the knob and says "NO LANE". Hold MOTION + an F key points the lane shown at that key's parameter (clears its points;
+one undo step; a parameter some lane already has is only shown). Existing scenarios: every picture now shows the PERF tab and FILL / FREEZE chips; `pages` shows
+VOLUME's lane and the SCL chip; `perform` and `edit` assign / use the new gestures and are otherwise byte for byte what they were. Needs the unit: the tap / hold
+feel of KEYS and Master, the ladder's 30 ms slew by ear, the freeze on the Fx button.
 
 **C1, one voice (made 2026-10-25):** nothing was left to remove: o3-303 never built a second voice (M3 wired one `tb303` on slot 0 and
 slots 1..7 have no source), so the cut frees no CPU or memory; the 39.8 % the unit measured is the one-voice figure. `tests/freeze_app_test.cpp`
@@ -121,6 +145,7 @@ keeps it that way (four units, only slot 0 sounds).
 | Shift + Params | the SNAP page (it was the previous page) |
 | Shift + F1 | the RANDOM popup (scale, density, acc / slide %, then generate) |
 | Note / Instr / Vol / Fx | the assigned performance actions (C4), Shift latches |
+| hold MOTION + an F key | the lane shown under the step view drives that key's parameter (finding 4, ui-1) |
 
 ## Slices
 

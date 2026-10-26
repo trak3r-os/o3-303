@@ -9,10 +9,8 @@
 //   PATTERN       the 303 screen (on it: a tap flips the step view and the piano roll; held: the 48 pads are the patterns)
 //   FILE          the GEN vault (on it: load the slot shown)
 //   CONFIG        the next theme
-//   SONG          provisional (M3b R6, until the Fx performance button's FREEZE action exists): hold = the beat freeze on, Shift + tap = its
-//                 next Length (1/4, 1/8, 1/16 of a bar). The ui slice removes it when the action lands.
 //
-// Everything else belongs to the screen that is up.
+// Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
 #include "main_screen.h"
 #include "rig.h"
@@ -57,37 +55,6 @@ constexpr std::uint32_t kDefaultTempoMilli = 125'000;  // Replicant's default
 constexpr std::uint64_t kTapResetMs = 2000;            // a longer gap between two taps starts a new measure
 constexpr unsigned kTaps = 4;
 
-#if defined(O3_303_TEST_HOOKS)
-// The M3b demo line for the simulator's scenario (app/scenarios/m3b_seq.txt): ratchets x2, x3, x4 (one accented), a slide into a ratcheted
-// step and a ratcheted slide step, a condition of each kind (1:2, 50 %, FILL, NOT FILL, FIRST, NOT FIRST), over a C minor line.
-void load_m3b_demo(o3_303::seq::Bank& bank, unsigned index) noexcept {
-  using namespace o3_303;
-  static constexpr std::uint8_t kNotes[16] = {36, 36, 39, 43, 36, 41, 43, 46, 36, 36, 39, 43, 48, 46, 43, 41};
-  Pattern p;
-  clear(p);
-  for (unsigned j = 0; j < 16; ++j) {
-    p.steps[j].note = kNotes[j];
-    p.steps[j].flags = 0;
-  }
-  p.steps[0].flags = kStepAccent;
-  p.steps[2].flags = with_ratchet(0, 1);                                                       // x2
-  p.steps[3].cond = cond_ratio(1, 2);                                                          // every other pass
-  p.steps[5].flags = kStepSlide;                                                               // glides into the ratcheted step 6
-  p.steps[6].flags = with_ratchet(0, 2);                                                       // x3
-  p.steps[7].cond = cond_probability(50);
-  p.steps[8].flags = kStepAccent;
-  p.steps[9].flags = kStepRest;
-  p.steps[10].flags = static_cast<std::uint8_t>(with_ratchet(0, 3) | kStepAccent);             // x4, accented
-  p.steps[11].cond = kCondFill;                                                                // only while FILL is held
-  p.steps[12].cond = kCondNotFill;                                                             // only while it is not
-  p.steps[13].flags = static_cast<std::uint8_t>(with_ratchet(0, 1) | kStepSlide);              // x2, its last hit held into step 14
-  p.steps[14].cond = kCondFirst;                                                               // the first pass only
-  p.steps[15].cond = kCondNotFirst;                                                            // every other pass
-  p.length = 16;
-  bank.replace(index, p);
-}
-#endif
-
 class O3_303App final : public app::App {
  public:
   const app::AppInfo& info() const noexcept override {
@@ -98,11 +65,11 @@ class O3_303App final : public app::App {
   void setup(app::Context& ctx) noexcept override {
     dsp::Engine& e = ctx.engine();
     tap_count_ = 0;
-    freeze_held_ = false;
     rig_.wiring = o3_303::Wiring{};
     rig_.bank = &o3_303::seq::project_bank();
     rig_.bank->init();
     rig_.seq = &sequencer_;
+    rig_.wiring.seq = &sequencer_;
 
     const dsp::UnitId voice = e.attach(voice_);
     const dsp::UnitId dist = e.attach(dist_);
@@ -163,51 +130,9 @@ class O3_303App final : public app::App {
       ctx.show(vault_);
       return true;
     }
-#if defined(O3_303_TEST_HOOKS)
-    // Host builds only (app/CMakeLists.txt): the scenarios have no control for the ratchet, the condition or FILL until the SEQ page has them.
-    //   SampleLoad          the M3b demo line replaces the selected pattern
-    //   SamplePlay          held: FILL
-    //   Shift + SampleEdit  the next FILL variant (MUTATE, OCT UP, RATCHET, ACC ROTATE)
-    if (in.press(Button::SampleLoad)) {
-      load_m3b_demo(*rig_.bank, rig_.bank->selected());
-      ctx.redraw();
-      return true;
-    }
-    if (in.press(Button::SamplePlay)) {
-      sequencer_.set_fill(true);
-      return true;
-    }
-    if (in.release(Button::SamplePlay)) {
-      sequencer_.set_fill(false);
-      return true;
-    }
-    if (in.press(Button::SampleEdit) && in.shift) {
-      sequencer_.set_fill_variant(static_cast<o3_303::seq::FillVariant>(
-          (static_cast<unsigned>(sequencer_.fill_variant()) + 1u) % o3_303::seq::kFillVariantCount));
-      return true;
-    }
-#endif
     if (in.press(Button::Config)) {
       ctx.set_theme(ui::next_theme(ctx.theme()));
       ctx.redraw();
-      return true;
-    }
-    // Provisional (M3b R6): the beat freeze while Song is held, Shift + Song for its next Length. See the header comment.
-    if (in.press(Button::Song)) {
-      if (in.shift) {
-        const o3_303::Freeze::LengthValue now = o3_303::freeze_length(e, rig_);
-        o3_303::set_freeze_length(e, rig_, static_cast<o3_303::Freeze::LengthValue>((now + 1u) % o3_303::Freeze::kLengthCount));
-      } else {
-        freeze_held_ = true;
-        o3_303::set_freeze(e, rig_, true);
-      }
-      return true;
-    }
-    if (in.release(Button::Song)) {
-      if (freeze_held_) {
-        freeze_held_ = false;
-        o3_303::set_freeze(e, rig_, false);
-      }
       return true;
     }
     return false;
@@ -258,7 +183,6 @@ class O3_303App final : public app::App {
   o3_303::VaultScreen vault_;
   std::uint64_t tap_ms_[kTaps] = {};
   unsigned tap_count_ = 0;
-  bool freeze_held_ = false;  // the provisional Song hold has the freeze on
 };
 
 }  // namespace

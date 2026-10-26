@@ -1,0 +1,55 @@
+# The four performance buttons (docs/M3B-PLAN.md C4): Note, Instr, Vol and Fx are MUTE, ACC ALL, FILL and FREEZE by default, and each takes one of
+# MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW, FREEZE on the PERF page (Shift + Params is the page before SOUND; F1..F4 are the buttons, the
+# encoder walks the actions). Held is momentary, Shift latches. The header's chips say what each button is now.
+wait 300
+press shift
+tap params
+release shift
+wait 100
+snap 01_perf_page_defaults
+# Note becomes OCT UP: the running pattern goes up an octave while it is held, on top of the keyboard's own transposition.
+tap f1
+turn 3
+wait 100
+snap 02_note_is_oct_up
+tap play
+wait 700
+press note
+wait 400
+snap 03_oct_up_held
+release note
+wait 400
+# Instr becomes THROW and Vol SLIDE ALL (two the defaults left); Shift + the button latches.
+tap f2
+turn -8
+turn 5
+tap f3
+turn -8
+turn 2
+wait 100
+snap 04_perf_page_reassigned
+press shift
+tap instr
+tap vol
+release shift
+wait 500
+snap 05_throw_and_slide_latched
+press shift
+tap instr
+tap vol
+release shift
+# FILL (back on Vol) with its variant OCT UP, held; Fx is FREEZE: held, the chip lights.
+tap f3
+turn -8
+turn 4
+tap f5
+turn 1
+press vol
+wait 700
+snap 06_fill_oct_up
+press fx
+wait 400
+snap 07_fill_and_freeze_held
+release fx
+release vol
+tap play

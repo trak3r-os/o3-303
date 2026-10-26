@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The M3b sequencer features as the app wires them (docs/M3B-PLAN.md; app/seq/tests/seq_m3b_test.cpp has the engine-level tests): the
-// lanes and slews reach the distortion, the delay and the mixer, and the host-only stand-in controls of app/src/o3_303_app.cpp
-// (O3_303_TEST_HOOKS) load the demo line, hold FILL and pick its variant. The checks read the sequencer's readback and the engine's values.
+// lanes and slews reach the distortion, the delay and the mixer, and FILL (the Vol button) plays the variant the PERF page chose. The checks
+// read the sequencer's readback and the engine's values.
 #include <doctest/doctest.h>
 
 #include <o3sdk/app/app.h>
@@ -47,6 +47,34 @@ struct Hands {
   }
 };
 
+// The M3b demo line: ratchets x2, x3, x4 (one accented), a slide into a ratcheted step and a ratcheted slide step, a condition of each kind
+// (1:2, 50 %, FILL, NOT FILL, FIRST, NOT FIRST), over a C minor line. (app/scenarios/m3b_seq.txt enters it with the real gestures.)
+void load_demo_line() {
+  static constexpr std::uint8_t kNotes[16] = {36, 36, 39, 43, 36, 41, 43, 46, 36, 36, 39, 43, 48, 46, 43, 41};
+  Pattern p;
+  clear(p);
+  for (unsigned j = 0; j < 16; ++j) {
+    p.steps[j].note = kNotes[j];
+    p.steps[j].flags = 0;
+  }
+  p.steps[0].flags = kStepAccent;
+  p.steps[2].flags = with_ratchet(0, 1);
+  p.steps[3].cond = cond_ratio(1, 2);
+  p.steps[5].flags = kStepSlide;
+  p.steps[6].flags = with_ratchet(0, 2);
+  p.steps[7].cond = cond_probability(50);
+  p.steps[8].flags = kStepAccent;
+  p.steps[9].flags = kStepRest;
+  p.steps[10].flags = static_cast<std::uint8_t>(with_ratchet(0, 3) | kStepAccent);
+  p.steps[11].cond = kCondFill;
+  p.steps[12].cond = kCondNotFill;
+  p.steps[13].flags = static_cast<std::uint8_t>(with_ratchet(0, 1) | kStepSlide);
+  p.steps[14].cond = kCondFirst;
+  p.steps[15].cond = kCondNotFirst;
+  p.length = 16;
+  seq::project_bank().replace(seq::project_bank().selected(), p);
+}
+
 }  // namespace
 
 TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: they are slew and lane targets") {
@@ -67,37 +95,52 @@ TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: 
   CHECK(e.param(kVoice, Tb303::Cutoff) == doctest::Approx(1000.0f));
 }
 
-TEST_CASE("host-only stand-ins: SampleLoad loads the demo line; SamplePlay held is FILL; Shift + SampleEdit picks the variant") {
+TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF page's F5; the demo line's FILL conditions follow it") {
   Hands hands;
   seq::Sequencer& s = app_sequencer();
-  hands.tap(Button::SampleLoad);
+  load_demo_line();
   const Pattern& p = seq::project_bank().pattern(seq::project_bank().selected());
   CHECK(seq::get_ratchet(p, 2) == 1);
-  CHECK(seq::get_ratchet(p, 6) == 2);
-  CHECK(seq::get_ratchet(p, 10) == 3);
-  CHECK(seq::get_cond(p, 3) == cond_ratio(1, 2));
-  CHECK(seq::get_cond(p, 7) == cond_probability(50));
   CHECK(seq::get_cond(p, 11) == kCondFill);
-  CHECK(seq::get_cond(p, 15) == kCondNotFirst);
 
+  // The variant: PERF is the page before SOUND; F5 is FILL's variant, MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
   hands.press(Button::Shift);
-  hands.tap(Button::SampleEdit);
+  hands.tap(Button::Params);
   hands.release(Button::Shift);
+  hands.tap(Button::F5);
+  hands.h->turn(1);
+  hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::OctUp);
-  hands.tap(Button::SampleEdit);  // without Shift: nothing
-  CHECK(s.fill_variant() == seq::FillVariant::OctUp);
+  hands.h->turn(2);
+  hands.h->run_ms(2);
+  CHECK(s.fill_variant() == seq::FillVariant::AccRotate);
+  hands.h->turn(-3);
+  hands.h->run_ms(2);
+  CHECK(s.fill_variant() == seq::FillVariant::Mutate);
+  hands.tap(Button::Params);  // back to SOUND
 
   hands.tap(Button::Play);
   hands.h->run_ms(300);
   CHECK_FALSE(s.playhead().fill);
-  hands.press(Button::SamplePlay);
+  hands.press(Button::Vol);
   CHECK(s.fill_held());
   hands.h->run_ms(400);  // a step is 120 ms at 125 BPM: the variant starts at the next one
   CHECK(s.playhead().fill);
-  hands.release(Button::SamplePlay);
+  hands.release(Button::Vol);
   CHECK_FALSE(s.fill_held());
   hands.h->run_ms(400);
   CHECK_FALSE(s.playhead().fill);
+  // Shift latches it; Shift again lets it go.
+  hands.press(Button::Shift);
+  hands.tap(Button::Vol);
+  hands.release(Button::Shift);
+  CHECK(s.fill_held());
+  hands.h->run_ms(400);
+  CHECK(s.playhead().fill);
+  hands.press(Button::Shift);
+  hands.tap(Button::Vol);
+  hands.release(Button::Shift);
+  CHECK_FALSE(s.fill_held());
   hands.tap(Button::Play);
 }
