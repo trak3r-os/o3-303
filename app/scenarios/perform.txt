@@ -1,6 +1,6 @@
 # Performance (DESIGN-303 section 4): Note / Instr / Vol / Fx are MUTE, ACC ALL, SLIDE ALL and DELAY THROW while held (Shift + the button
-# latches); the keyboard transposes the running pattern, KEYS plays the voice instead; Shift + Play taps the tempo; CONFIG changes theme.
-# Choices made here: CONFIG cycles the theme (amiga, black, white) for this round; MUTE is the sequencer's (no new notes), DELAY THROW opens
+# latches); the keyboard transposes the running pattern, KEYS plays the voice instead; Shift + Play taps the tempo; CONFIG opens the kit's system screen (DISPLAY changes the theme).
+# Choices made here: CONFIG, then the encoder in DISPLAY, cycles the theme (amiga, black, white) (the kit's system screen); MUTE is the sequencer's (no new notes), DELAY THROW opens
 # send A to unity for as long as it is held or latched.
 # Since M3b (docs/M3B-PLAN.md C4) the four buttons are assignable and Vol and Fx default to FILL and FREEZE; this scenario shows SLIDE ALL and
 # DELAY THROW, so it first gives them to Vol and Fx on the PERF page (five Params from SOUND; F3 and F4 are Vol and Fx; the
@@ -75,9 +75,15 @@ snap 08_tap_tempo
 tap play
 wait 200
 tap config
+turn 1
+tap config
 wait 100
 snap 09_theme_black
 tap config
+turn 1
+tap config
 wait 100
 snap 10_theme_white
+tap config
+turn 1
 tap config

@@ -1085,14 +1085,18 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   }
 }
 
-TEST_CASE("CONFIG changes the theme") {
+TEST_CASE("CONFIG opens the kit's system screen, and its DISPLAY section changes the theme") {
   Hands t;
   const ui::ThemeId a = t.h->runtime().context().theme();
   t.tap(Button::Config);
+  CHECK(t.h->runtime().system_open());  // (the runtime's: the app never sees the button; no update path in the simulator, so DISPLAY is first)
+  t.turn(1);
   CHECK(t.h->runtime().context().theme() != a);
-  t.tap(Button::Config);
-  t.tap(Button::Config);
+  t.turn(1);
+  t.turn(1);
   CHECK(t.h->runtime().context().theme() == a);
+  t.tap(Button::Config);
+  CHECK_FALSE(t.h->runtime().system_open());
 }
 
 TEST_CASE("REC + Play + a key writes the note under the playhead and sounds it") {
