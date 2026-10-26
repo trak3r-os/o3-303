@@ -31,6 +31,9 @@
 // the filter coefficients follow; Formant Mix, Comb Mix, Feedback and the delay are smoothed (5 ms) and ramped linearly across the period,
 // and the Mix is a linear ramp of 5 ms that lands exactly on its target. The wobble drives Vowel every 16 frames: the one-pole takes the
 // staircase out. A Note jump is a glide of the comb's pitch of a few ms, not a step of its delay line.
+// The smoothed pitch lands on its target once it is within 1e-3 semitone (a tenth of a cent); the other values run their one-pole to where float
+// stops it. When none moves any more the control period has nothing to do, and a settled unit renders a whole run in one piece (the cost
+// of each case is in the .cpp).
 //
 // Parameters (the id is the index in the table: append, never insert):
 //   0 Vowel          0..1 (shown as %), default 0 (A)
@@ -84,7 +87,14 @@ class Growl final : public o3sdk::dsp::Unit {
   void control() noexcept;
   void land() noexcept;
   void clear_state() noexcept;
+  void coefficients() noexcept;
+  void derive_comb() noexcept;
   void run(const o3sdk::dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept;
+  // What ramps in a control period: nothing (Steady), only the comb's delay (Glide: a Note change), or Formant Mix, Comb Mix, Feedback or the
+  // Mix too (Ramps). The first two keep the comb's gains and read position in registers: the same samples as the Ramps loop with its
+  // steps zero, to rounding. kFull: and the Mix is 1.
+  enum Mode : std::uint8_t { Steady, Glide, Ramps };
+  template <Mode kMode, bool kFull>
   void render(const o3sdk::dsp::ProcessArgs& args, std::uint32_t from, std::uint32_t to) noexcept;
 
   float fs_ = 44100.0f;
@@ -96,6 +106,7 @@ class Growl final : public o3sdk::dsp::Unit {
   // Parameters as the events set them.
   float vowel_target_ = 0.0f;
   float q_ = 5.0f;
+  float kq_ = 0.2f;        // 1 / q_
   float fmix_target_ = 1.0f;
   float tune_ = 0.0f;
   float fb_target_ = 0.6f;
@@ -112,17 +123,28 @@ class Growl final : public o3sdk::dsp::Unit {
 
   // Per frame: the value now and its step across the period.
   float fmix_ = 1.0f, fmix_inc_ = 0.0f;
-  float cmix_ = 0.5f, cmix_inc_ = 0.0f;
+  float cmix_ = 0.5f;
   float fb_ = 0.6f, fb_inc_ = 0.0f;
+  // The comb's output gains: wet = (1 - Comb Mix) y + Comb Mix (1 - |fb|) yc, ramped as the two products they are.
+  float c1_ = 0.5f, c1_inc_ = 0.0f;
+  float cn_ = 0.2f, cn_inc_ = 0.0f;
   float delay_ = 100.0f, delay_inc_ = 0.0f, delay_end_ = 100.0f;
   float mix_ = 0.0f, mix_inc_ = 0.0f, mix_end_ = 0.0f;
   std::uint32_t left_ = 0;  // frames left in the control period
+  Mode mode_ = Ramps;       // this period
   bool cleared_ = true;     // the state is zero (idle)
+
+  // What the coefficients and the comb's delay were last computed from: the work is redone only when its input moved.
+  float vowel_c_ = 0.0f;
+  float pitch_c_ = 36.0f;
+  bool coef_dirty_ = true;
+  bool moving_ = true;      // a target was set, or a smoothed value has not stopped: the period does the full work
+  std::uint32_t sweep_ = 0;  // control periods since the filter states were last checked
 
   // The formant bank.
   float a1_[kFormants] = {};
   float a2_[kFormants] = {};
-  float a3_[kFormants] = {};
+  float g2_[kFormants] = {};      // 2 g, g the prewarped integrator gain
   float weight_[kFormants] = {};  // level x kMakeup / Q: the band-pass output times this has the table level at its peak
   float ic1_[kFormants] = {};
   float ic2_[kFormants] = {};

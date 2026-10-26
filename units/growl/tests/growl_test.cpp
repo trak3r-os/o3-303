@@ -289,6 +289,42 @@ TEST_CASE("growl: the comb's delay is the period of the note, folded up an octav
   CHECK(Growl::comb_delay(std::nanf(""), fs) >= Growl::kMinDelay);
 }
 
+TEST_CASE("growl: the comb's delay is 2^x to the float's own accuracy over the whole pitch range") {
+  const float fs = static_cast<float>(kRate);
+  double worst = 0.0;
+  for (double semis = -48.0; semis <= 160.0; semis += 0.173) {
+    double d = static_cast<double>(fs) / 440.0 * std::exp2((69.0 - semis) / 12.0);
+    for (unsigned i = 0; i < 8u && d > static_cast<double>(Growl::kMaxDelay); ++i) {
+      d *= 0.5;
+    }
+    d = std::max(d, static_cast<double>(Growl::kMinDelay));
+    const double got = static_cast<double>(Growl::comb_delay(static_cast<float>(semis), fs));
+    worst = std::max(worst, std::fabs(got - d) / d);
+  }
+  CHECK(worst < 2.0e-6);  // the pitch is a float of up to 160 (an ulp of 1.5e-5 semitones, 1e-6 of a delay); the polynomial itself is 8e-8
+}
+
+TEST_CASE("growl: the loops of a settled Mix 100 % and of a Mix a hair under it give the same signal, whatever moves") {
+  const std::size_t n = 30000;
+  const Stereo in = mono(bass(n));
+  const auto make = [](float mix) {
+    return std::vector<Ev>{{0, Growl::Vowel, 0.4f},  {0, Growl::CombMix, 0.7f}, {0, Growl::Note, 40.0f}, {0, Growl::Mix, mix},
+                           {9000, Growl::Note, 52.0f}, {20000, Growl::FormantMix, 0.6f}};  // a glide, then a ramp of the mixes
+  };
+  Growl a;
+  a.prepare(static_cast<float>(kRate));
+  Growl b;
+  b.prepare(static_cast<float>(kRate));
+  const Stereo full = run(a, in, make(1.0f));
+  const Stereo near = run(b, in, make(0.9999f));
+  double worst = 0.0;
+  for (std::size_t i = 0; i < n; ++i) {
+    worst = std::max(worst, std::fabs(static_cast<double>(full.l[i]) - static_cast<double>(near.l[i])));
+  }
+  CHECK(worst < 2.0e-4);  // 1e-4 of |wet - dry|, which stays under 2, and the rounding of the two forms
+  CHECK(all_finite(full));
+}
+
 TEST_CASE("growl: the result does not depend on the block size") {
   const std::size_t n = 22050;
   const Stereo in = mono(bass(n));
