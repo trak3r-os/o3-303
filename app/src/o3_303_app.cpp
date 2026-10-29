@@ -8,7 +8,7 @@
 //   PLAY          play / stop at the press (Shift: tap tempo)
 //   PATTERN       the 303 screen (on it: a tap flips the step view and the piano roll; held: the 48 pads are the patterns)
 //   FILE          the GEN vault (on it: load the slot shown)
-//   CONFIG        the next theme
+//   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
