@@ -14,7 +14,7 @@ the app needs is made in o3sdk, under its own rules (`../o3-sdk/CLAUDE.md`; the 
 this arrangement), and this repository then builds against it. Read `../o3-sdk/docs/FRAMEWORK.md` before writing a unit or a screen.
 
 What lives here: `app/` (the app, `o3sdk_app(o3_303 ...)`, its scenarios in `app/scenarios/`), `units/` (this project's own units, the
-`tb303` voice first, each with its own CMakeLists.txt calling `o3sdk_unit()`), `tests/` (doctest, `o3sdk_test_suite()`), `docs/`.
+`acid_voice` voice first, each with its own CMakeLists.txt calling `o3sdk_unit()`), `tests/` (doctest, `o3sdk_test_suite()`), `docs/`.
 
 ## Hard rules
 
