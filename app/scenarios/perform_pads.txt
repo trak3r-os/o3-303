@@ -1,9 +1,10 @@
 # PERFORM (docs/UX-303.md 5.3, 6.3): the Perform button opens it and the 48 pads are live, one lamp over each pad on the screen. Row 1: the eleven
 # live actions (held while the pad is down; Shift latches; ALL OFF lets the latched ones go); row 2: snapshots 1..8 (a tap recalls and the encoder
 # becomes MORPH, Shift stores) then NEW, VARY, UNDO, REDO; row 3: the ladder of the latched sound knob (the wobble's rate while WOBBLE is on);
-# row 4: the keys (here first transposing the running pattern, then, after KEYS on the 303 screen, playing the voice). Perform again is
+# row 4: the keys (here first transposing the running pattern, TRNSP being on, then, after TRNSP off on the 303 screen, playing the voice). Perform again is
 # PERFORM SETUP, today's PERF page. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
-wait 300
+wait 148
+pad 22
 tap performance
 wait 100
 snap 01_perform
@@ -86,7 +87,7 @@ press shift
 wait 100
 snap 15_shift_row
 release shift
-# The 303 screen's KEYS pad (row 2, column 11) puts the keyboard on the voice: PERFORM's key row plays it.
+# The 303 screen's TRNSP pad (row 2, column 11), toggled off, puts the keyboard on the voice: PERFORM's key row plays it.
 # A latched action stays on when the screen changes, with its chip: ROLL and FREEZE latched here are chips on the 303 screen too.
 press shift
 pad 7

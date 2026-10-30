@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The pad filter ladders (docs/M3B-PLAN.md R1): hold KEYS and rows 2 and 3 of the pads are 12 places of Cutoff and Reso (Shift: Env Mod on row
-// 3); a tap jumps there through a 30 ms slew; the LEDs draw the position as a bar; a tap of KEYS still toggles live play.
+// The pad filter ladders (docs/UX-303.md 6.2): with FILT on, rows 3 and 4 of the pads are 12 places of Cutoff and Reso; a tap jumps there through a
+// 30 ms slew; the LEDs draw the position as a bar; FILT is a toggle, and the keyboard is back when it is off. Rec while the pattern plays writes a
+// ladder tap as motion.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -16,8 +17,8 @@ using namespace o3_303;
 
 namespace {
 
-const unsigned kKeysPad = role_pad(PadRole::Keys);
-const unsigned kMotionPad = role_pad(PadRole::Motion);
+const unsigned kFiltPad = role_pad(PadRole::Filt);
+const unsigned kTrnspPad = role_pad(PadRole::Trnsp);
 
 unsigned ladder_pad(unsigned row, unsigned col) { return app::pad_at(row, col); }
 
@@ -29,10 +30,10 @@ float expected(Hands& t, unsigned id, unsigned col) {
 
 }  // namespace
 
-TEST_CASE("hold KEYS: row 2 is the Cutoff ladder, row 3 the Reso ladder, and Shift makes row 3 Env Mod") {
+TEST_CASE("FILT on: row 3 is the Cutoff ladder and row 4 the Reso ladder; Shift changes nothing") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.down(kKeysPad);
+  t.pad(kFiltPad);
   const float reso0 = t.param(kVoice, AcidVoice::Reso);
   const float env0 = t.param(kVoice, AcidVoice::EnvMod);
   // The ends and the middle of the Cutoff ladder (a log knob: the positions are on the knob, not in Hz).
@@ -46,34 +47,26 @@ TEST_CASE("hold KEYS: row 2 is the Cutoff ladder, row 3 the Reso ladder, and Shi
   t.wait(100);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 0)));  // and the first its minimum
   CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(t.h->engine().param_desc(kVoice, AcidVoice::Cutoff)->min));
-  // Reso on row 3.
+  // Reso on row 4.
   t.pad(ladder_pad(3, 8), 10);
   t.wait(100);
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(expected(t, AcidVoice::Reso, 8)).epsilon(0.001));
   CHECK(t.param(kVoice, AcidVoice::EnvMod) == env0);
   CHECK(t.param(kVoice, AcidVoice::Reso) != reso0);
-  // Shift: row 3 is Env Mod, and Reso stays where it was.
-  const float reso1 = t.param(kVoice, AcidVoice::Reso);
+  // Shift: the Env Mod ladder is cut (UX-303 D20): row 4 is Reso either way.
   t.press(Button::Shift);
   t.pad(ladder_pad(3, 2), 10);
   t.release(Button::Shift);
   t.wait(100);
-  CHECK(t.param(kVoice, AcidVoice::EnvMod) == doctest::Approx(expected(t, AcidVoice::EnvMod, 2)).epsilon(0.001));
-  CHECK(t.param(kVoice, AcidVoice::Reso) == reso1);
-  // Shift only matters on row 3: row 2 is Cutoff either way.
-  t.press(Button::Shift);
-  t.pad(ladder_pad(2, 9), 10);
-  t.release(Button::Shift);
-  t.wait(100);
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 9)).epsilon(0.001));
-  t.up(kKeysPad);
+  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(expected(t, AcidVoice::Reso, 2)).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) == env0);
   CHECK(s.slewing() == 0);
 }
 
 TEST_CASE("a ladder tap is a 30 ms slew, not a jump, and the knob reads the goal at once") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.down(kKeysPad);
+  t.pad(kFiltPad);
   t.down(ladder_pad(2, 10));
   t.up(ladder_pad(2, 10));
   t.wait(5);
@@ -81,29 +74,28 @@ TEST_CASE("a ladder tap is a 30 ms slew, not a jump, and the knob reads the goal
   CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 10)).epsilon(0.001));  // what the strip shows
   t.wait(60);
   CHECK(s.slewing() == 0);
-  t.up(kKeysPad);
 }
 
-TEST_CASE("the ladder pads are no notes: nothing is written by REC and nothing sounds; the keyboard is back when KEYS is let go") {
+TEST_CASE("the ladder pads are no notes: nothing is written by REC and nothing sounds; the keyboard is back when FILT is off") {
   Hands t;
   const Pattern before = t.pat();
   t.tap(Button::Rec);
-  t.down(kKeysPad);
+  t.pad(kFiltPad);
   t.pad(ladder_pad(2, 3), 10);
   t.pad(ladder_pad(3, 7), 10);
-  t.up(kKeysPad);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == before.steps[i].note);
     CHECK(t.pat().steps[i].flags == before.steps[i].flags);
   }
-  // Released, the same pad is a key again: REC writes it on the cursor step.
+  // Off, the same pad is a key again: REC writes it on the cursor step.
+  t.pad(kFiltPad);
   t.pad(ladder_pad(3, 2), 10);
   CHECK(t.pat().steps[0].note == 38);  // D2
 }
 
-TEST_CASE("the LEDs draw the ladder position as a bar while KEYS is held, and the keyboard again after") {
+TEST_CASE("the LEDs draw the ladder position as a bar while FILT is on, and the keyboard again after") {
   Hands t;
-  t.down(kKeysPad);
+  t.pad(kFiltPad);
   t.pad(ladder_pad(2, 4), 10);
   t.pad(ladder_pad(3, 9), 10);
   t.wait(80);
@@ -111,65 +103,60 @@ TEST_CASE("the LEDs draw the ladder position as a bar while KEYS is held, and th
     CHECK(t.led(ladder_pad(2, col)) == (col < 4 ? app::kLedMid : (col == 4 ? app::kLedOn : app::kLedOff)));
     CHECK(t.led(ladder_pad(3, col)) == (col < 9 ? app::kLedMid : (col == 9 ? app::kLedOn : app::kLedOff)));
   }
-  // The step pads and the modifier block are not touched by the ladder.
-  CHECK(t.led(kKeysPad) == app::kLedOn);
-  // Shift: row 3 shows Env Mod where it stands (60 % by default: pad 7 of 12).
-  t.press(Button::Shift);
+  // The step pads and the modifier block are not touched by the ladder; FILT is lit.
+  CHECK(t.led(kFiltPad) == app::kLedOn);
+  t.pad(kFiltPad);
   t.wait(80);
-  const core::ParamDesc* d = t.h->engine().param_desc(kVoice, AcidVoice::EnvMod);
-  const unsigned env_col = ladder_col(core::param_norm(*d, t.param(kVoice, AcidVoice::EnvMod)));
-  CHECK(t.led(ladder_pad(3, env_col)) == app::kLedOn);
-  t.release(Button::Shift);
-  t.up(kKeysPad);
-  t.wait(80);
+  CHECK(t.led(kFiltPad) == app::kLedLow);
   // The keyboard's own LEDs: naturals dim, sharps off.
   CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);
   CHECK(t.led(key_pad(36 + 2)) == app::kLedDim);
   CHECK(t.led(key_pad(48 + 1)) == app::kLedOff);
 }
 
-TEST_CASE("a tap of KEYS still toggles live play; a hold, or a hold that played a ladder, does not") {
+TEST_CASE("TRNSP and FILT are toggles that take effect at the press and are independent of each other") {
   Hands t;
-  t.pad(kKeysPad, 40);
+  CHECK(t.led(kTrnspPad) == app::kLedLow);
+  CHECK(t.led(kFiltPad) == app::kLedLow);
+  t.down(kTrnspPad);
+  t.wait(10);
+  CHECK(t.led(kTrnspPad) == app::kLedOn);  // at the press, not at the release
+  t.up(kTrnspPad);
   t.wait(40);
-  CHECK(t.led(kKeysPad) == app::kLedMid);  // KEYS PLAY THE VOICE
-  t.pad(kKeysPad, 40);
+  CHECK(t.led(kTrnspPad) == app::kLedOn);  // a toggle: it stays
+  CHECK(t.led(kFiltPad) == app::kLedLow);
+  t.pad(kFiltPad);
   t.wait(40);
-  CHECK(t.led(kKeysPad) == app::kLedDim);  // back to transposing
-  // Held past the tap time with nothing played: not a tap.
-  t.down(kKeysPad);
+  CHECK(t.led(kFiltPad) == app::kLedOn);
+  CHECK(t.led(kTrnspPad) == app::kLedOn);
+  // Held a long time: still just a toggle (no hold role).
+  t.down(kTrnspPad);
   t.wait(400);
-  t.up(kKeysPad);
+  t.up(kTrnspPad);
   t.wait(40);
-  CHECK(t.led(kKeysPad) == app::kLedDim);
-  // Held a moment and a ladder tapped: the ladders' key, not a toggle.
-  t.down(kKeysPad);
-  t.pad(ladder_pad(2, 6), 10);
-  t.up(kKeysPad);
+  CHECK(t.led(kTrnspPad) == app::kLedLow);
+  t.pad(kFiltPad);
   t.wait(40);
-  CHECK(t.led(kKeysPad) == app::kLedDim);
+  CHECK(t.led(kFiltPad) == app::kLedLow);
 }
 
-TEST_CASE("a ladder tap while REC or the MOTION latch is on and the pattern plays is written as motion on the knob's lane") {
+TEST_CASE("a ladder tap while REC is on and the pattern plays is written as motion on the knob's lane") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 0));
+  t.pad(kFiltPad);
   // Not recording: nothing is written.
   t.tap(Button::Play);
   t.wait(300);
-  t.down(kKeysPad);
   t.pad(ladder_pad(2, 7), 10);
-  t.up(kKeysPad);
   t.wait(300);
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 0));
-  // The MOTION latch on: a tap of the MOTION pad turns it on.
-  t.pad(kMotionPad);
+  // REC on: each tap is written under the playhead.
+  t.tap(Button::Rec);
   t.wait(100);
-  t.down(kKeysPad);
   t.pad(ladder_pad(2, 3), 10);
   t.wait(50);
   t.pad(ladder_pad(3, 11), 10);  // Reso is lane 1
-  t.up(kKeysPad);
   t.wait(300);
   CHECK(seq::lane_has_motion(t.pat(), 0));
   CHECK(seq::lane_has_motion(t.pat(), 1));

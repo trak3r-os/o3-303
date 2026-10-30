@@ -115,7 +115,7 @@ TEST_CASE("PARAMS goes to the next page (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SN
   CHECK(t.h->engine().tempo() != tempo1);
 }
 
-TEST_CASE("hold a step + the encoder p-locks the focused parameter on that step; hold MOTION shows the steps with automation") {
+TEST_CASE("hold a step + the encoder p-locks the focused parameter on that step, on the lane that drives it") {
   Hands t;
   const float knob = t.param(kVoice, AcidVoice::Cutoff);
   t.down(step_pad_of(3));
@@ -140,23 +140,9 @@ TEST_CASE("hold a step + the encoder p-locks the focused parameter on that step;
   t.turn(-15);
   t.up(step_pad_of(9));
   CHECK(step_has_motion(t.pat(), 1, 9));
-
-  t.down(kMotionPad);
-  t.wait(20);
-  CHECK(t.led(step_pad_of(9)) == app::kLedMid);  // the focused lane is RESO now
-  CHECK(t.led(step_pad_of(3)) == app::kLedOff);  // the cutoff lock is not in this lane
-  t.up(kMotionPad);
-  t.wait(5);
-
-  // Delete with MOTION held clears the lane.
-  t.down(kMotionPad);
-  t.tap(Button::Delete);
-  t.up(kMotionPad);
-  CHECK_FALSE(step_has_motion(t.pat(), 1, 9));
-  CHECK(step_has_motion(t.pat(), 0, 3));
 }
 
-TEST_CASE("REC + Play + the encoder records motion under the playhead; a tap on MOTION latches the recording") {
+TEST_CASE("REC + Play + the encoder records motion under the playhead; without REC the encoder records nothing") {
   Hands t;
   t.tap(Button::Rec);
   t.tap(Button::Play);
@@ -169,10 +155,9 @@ TEST_CASE("REC + Play + the encoder records motion under the playhead; a tap on 
   t.tap(Button::Rec);
   CHECK(pattern_has_motion(t.pat(), 0));
 
-  // Without REC, the latch on MOTION does the same.
-  t.shift_tap(Button::Delete);  // clear the pattern: no motion either
+  // Without REC nothing is written (the MOTION latch is gone).
+  t.shift_tap(Button::F6);  // the tools' CLEAR: no motion either
   CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
-  t.pad(kMotionPad);
   t.tap(Button::Play);
   t.wait(200);
   for (unsigned i = 0; i < 8; ++i) {
@@ -180,63 +165,7 @@ TEST_CASE("REC + Play + the encoder records motion under the playhead; a tap on 
     t.wait(100);
   }
   t.tap(Button::Play);
-  CHECK(pattern_has_motion(t.pat(), 0));
-  CHECK(t.led(kMotionPad) == app::kLedMid);  // the latch shows on the pad
-}
-
-TEST_CASE("MOTION + Delete clears the shown lane and nothing else; MOTION + a step tap clears that step's locks of the lane") {
-  Hands t;
-  // Locks on the cutoff lane (steps 4 and 7) and on the reso lane (step 4).
-  t.down(step_pad_of(3));
-  t.turn(10);
-  t.tap(Button::F2);
-  t.turn(-10);
-  t.up(step_pad_of(3));
-  t.tap(Button::F1);
-  t.down(step_pad_of(6));
-  t.turn(10);
-  t.up(step_pad_of(6));
-  REQUIRE(step_has_motion(t.pat(), 0, 3));
-  REQUIRE(step_has_motion(t.pat(), 0, 6));
-  REQUIRE(step_has_motion(t.pat(), 1, 3));
-
-  // A tap on a step pad with MOTION held: that step's locks of the lane shown (cutoff) go, the rest stays, the cursor stays.
-  t.pad(step_pad_of(4));  // the cursor on step 5
-  const Pattern before = t.pat();
-  t.down(kMotionPad);
-  t.pad(step_pad_of(3));
-  t.up(kMotionPad);
-  CHECK_FALSE(step_has_motion(t.pat(), 0, 3));
-  CHECK(step_has_motion(t.pat(), 0, 6));
-  CHECK(step_has_motion(t.pat(), 1, 3));  // another lane of the same step
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == before.steps[i].note);
-    CHECK(t.pat().steps[i].flags == before.steps[i].flags);
-  }
-  t.tap(Button::Delete);  // the cursor is still on step 5 (the tap with MOTION held did not move it)
-  CHECK((t.pat().steps[4].flags & kStepRest) != 0);
-  CHECK(t.pat().steps[3].flags == before.steps[3].flags);
-
-  // MOTION + Delete: the whole lane, and the cursor's step is left as it is.
-  t.pad(step_pad_of(6));  // the cursor on step 7
-  const Pattern kept = t.pat();
-  t.down(kMotionPad);
-  t.tap(Button::Delete);
-  t.up(kMotionPad);
-  CHECK_FALSE(pattern_has_motion(t.pat(), 0));
-  CHECK(step_has_motion(t.pat(), 1, 3));  // the reso lane is not the one shown
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == kept.steps[i].note);
-    CHECK(t.pat().steps[i].flags == kept.steps[i].flags);  // no REST appeared on the cursor's step
-  }
-  // Shift + Delete with MOTION held: every lane.
-  t.down(kMotionPad);
-  t.press(Button::Shift);
-  t.tap(Button::Delete);
-  t.release(Button::Shift);
-  t.up(kMotionPad);
   CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
-  CHECK_FALSE(pattern_is_empty(t.pat()));  // and the notes are still there
 }
 
 TEST_CASE("a p-lock with an F key held gives the latch back at the release, like any hold-and-turn") {

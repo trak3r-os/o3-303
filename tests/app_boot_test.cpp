@@ -35,7 +35,7 @@ TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, a
     const std::uint8_t expect = info.kind == Cell::Rest ? app::kLedOff : (info.accent ? app::kLedLow : app::kLedDim);
     CHECK(t.led(step_pad_of(k)) == expect);
   }
-  // Keyboard LEDs: naturals dim, sharps off, the current step's note at full level. The keyboard is in the pattern's register: the
+  // Keyboard LEDs: naturals dim, sharps off, the note of the cursor's step at mid level (UX-303 6.2). The keyboard is in the pattern's register: the
   // bottom left pad is C2, which is the first note of the factory line, under the cursor.
   const StepInfo cursor_step = describe(p, 0);
   REQUIRE(cursor_step.kind == Cell::Note);
@@ -45,13 +45,13 @@ TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, a
   for (unsigned pad = 24; pad < 48; ++pad) {
     const int note = key_note(pad, 0);
     REQUIRE(note >= 0);
-    const std::uint8_t expect = pad == current_pad ? app::kLedOn : (is_natural(static_cast<unsigned>(note)) ? app::kLedDim : app::kLedOff);
+    const std::uint8_t expect = pad == current_pad ? app::kLedMid : (is_natural(static_cast<unsigned>(note)) ? app::kLedDim : app::kLedOff);
     CHECK(t.led(pad) == expect);
   }
-  CHECK(t.led(key_pad(36)) == app::kLedOn);  // C2
+  CHECK(t.led(key_pad(36)) == app::kLedMid);  // C2
   CHECK(t.led(key_pad(37)) == app::kLedOff); // C#2
   CHECK(t.led(key_pad(52)) == app::kLedDim); // E3
-  // Move the cursor to a step with another note: its key is the one at full level.
+  // Move the cursor to a step with another note: its key is the one at mid level.
   unsigned other = 1;
   while (other < 16 && (describe(p, other).kind != Cell::Note || describe(p, other).note == cursor_step.note || describe(p, other).note > 59)) {
     ++other;
@@ -59,7 +59,7 @@ TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, a
   REQUIRE(other < 16);
   t.pad(step_pad_of(other));
   t.wait(30);
-  CHECK(t.led(key_pad(describe(p, other).note)) == app::kLedOn);
+  CHECK(t.led(key_pad(describe(p, other).note)) == app::kLedMid);
   CHECK(t.led(key_pad(cursor_step.note)) == (is_natural(cursor_step.note) ? app::kLedDim : app::kLedOff));
 }
 
@@ -135,7 +135,7 @@ TEST_CASE("worst cases for the display list: a full 64-step line, every ramp, al
 
   // 48 patterns, all with something in them, and a chain of 16 while playing.
   for (unsigned i = 1; i < kPatternCount; ++i) {
-    t.shift_tap(Button::Insert);
+    t.duplicate_next();
   }
   t.select_pattern(0);
   t.tap(Button::Play);

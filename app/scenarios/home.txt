@@ -1,0 +1,65 @@
+# HOME's pad map (docs/UX-303.md 6.2): rows 1 and 2 are the steps and the modifier block (ACC SLIDE TIE REST / OCT- OCT+ TRNSP FILT), rows 3 and 4 the
+# keys; the PADS line under the step view says what the four rows are in each state, and the status line says KEYS or TRNSP and the octave.
+# Pads: ACC 8, SLIDE 9, TIE 10, REST 11, OCT- 20, OCT+ 21, TRNSP 22, FILT 23, the keys 24..47. The keyboard plays the voice by default (the WAV: a
+# key over the running line, then TRNSP on and a key transposing the line, then TRNSP off and the voice again).
+wait 300
+snap 01_plain
+# OCT+: the keyboard is an octave up (the status line says OCT 3-4, the PADS line KEYS C3-B4).
+pad 21
+wait 100
+snap 02_octave_up
+pad 20
+# TRNSP on: the pad is lit and the status line says TRNSP.
+pad 22
+wait 100
+snap 03_trnsp_on
+pad 22
+# Rec stopped: the keys write and advance (TIE and REST too).
+tap rec
+wait 100
+snap 04_rec_stopped
+# Rec playing: the keys write at the playhead.
+tap play
+wait 400
+snap 05_rec_playing
+tap play
+tap rec
+# FILT on: rows 3 and 4 are the CUTOFF and RESO ladders.
+pad 23
+wait 100
+snap 06_filt_on
+pad 23
+# A step held: its number, the encoder's owner on it, what the pads do.
+paddown 4
+wait 100
+snap 07_step_held
+padup 4
+# An attribute held: the step pads toggle that layer.
+paddown 8
+wait 100
+snap 08_acc_held
+padup 8
+# Pattern held: the 48 pads are the patterns.
+press pattern
+wait 400
+snap 09_pattern_held
+release pattern
+wait 100
+# The WAV: a key over the running line, TRNSP on and a key transposing the line (G: seven semitones), TRNSP off and the voice again.
+record on
+tap play
+wait 700
+pad 40 400
+wait 300
+pad 22
+pad 43
+wait 500
+snap 10_transposed
+pad 36
+wait 300
+pad 22
+pad 41 400
+wait 500
+tap play
+wait 300
+wav home

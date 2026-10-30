@@ -187,7 +187,7 @@ TEST_CASE("a tap on ACC, SLIDE, TIE or REST toggles it on the cursor step; with 
   CHECK((t.pat().steps[2].flags & kStepAccent) != (before.steps[2].flags & kStepAccent));
 }
 
-TEST_CASE("the arrows move the cursor across pages; Shift + arrows rotate and transpose") {
+TEST_CASE("the arrows move the cursor across pages; Shift + Left / Right rotate, Shift + Up / Down move the octave") {
   Hands t;
   const Pattern before = bank().pattern(0);
   t.tap(Button::Right);
@@ -211,14 +211,19 @@ TEST_CASE("the arrows move the cursor across pages; Shift + arrows rotate and tr
   }
   t.shift_tap(Button::Left);
   CHECK(t.pat().steps[3].note == now.steps[3].note);
-  t.shift_tap(Button::Up);  // the playback transpose of the pattern
+  // Shift + Up / Down: the cursor step's octave (the pattern's transpose is PATTERN SETUP's now).
+  const unsigned at = 3;
+  t.pad(step_pad_of(at));
+  const unsigned note = t.pat().steps[at].note;
   t.shift_tap(Button::Up);
-  CHECK(t.pat().transpose == 2);
+  CHECK(t.pat().steps[at].note == note + 12);
   t.shift_tap(Button::Down);
-  CHECK(t.pat().transpose == 1);
+  t.shift_tap(Button::Down);
+  CHECK(t.pat().steps[at].note == note - 12);
+  CHECK(t.pat().transpose == 0);
 }
 
-TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Shift + Insert duplicates and Shift + Delete clears the pattern") {
+TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Pattern + Insert duplicates; Shift + Insert goes to step 1; Shift + Delete is backspace") {
   Hands t;
   const Pattern before = bank().pattern(0);
   t.pad(step_pad_of(2));  // step 3
@@ -235,17 +240,58 @@ TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Shift + Insert dupl
   CHECK(t.pat().steps[9].note == pre.steps[8].note);
   CHECK(t.pat().steps[10].note == pre.steps[9].note);
 
-  t.pad(step_pad_of(0));
-  t.tap(Button::Delete);
+  t.shift_tap(Button::Insert);  // Shift + Insert (Home): the cursor goes to step 1, nothing is inserted
+  CHECK(t.selected() == 0);
+  CHECK((t.pat().steps[8].flags & kStepRest) != 0);  // (the rest at step 9 is still the one Insert made; no second one)
+  CHECK(t.pat().steps[9].note == pre.steps[8].note);
+  t.tap(Button::Delete);  // ... and Delete clears step 1
   CHECK(t.pat().steps[0].flags == kStepRest);
 
-  t.shift_tap(Button::Insert);  // a copy in the next slot, which is now selected
+  t.duplicate_next();  // a copy in the next slot, which is now selected
   CHECK(t.selected() == 1);
   CHECK_FALSE(pattern_is_empty(t.pat()));
   CHECK(t.pat().steps[4].note == bank().pattern(0).steps[4].note);
+
+  // Shift + Delete (Backspace): the cursor's step goes and the steps after it move one earlier.
+  t.pad(step_pad_of(4));
+  const Pattern pre_bs = t.pat();
   t.shift_tap(Button::Delete);
-  CHECK(pattern_is_empty(t.pat()));
+  for (unsigned i = 4; i < 15; ++i) {
+    CHECK(t.pat().steps[i].note == pre_bs.steps[i + 1].note);
+    CHECK(t.pat().steps[i].flags == pre_bs.steps[i + 1].flags);
+  }
+  CHECK((t.pat().steps[15].flags & kStepRest) != 0);
+  CHECK_FALSE(pattern_is_empty(t.pat()));  // the pattern is not cleared: that is the CLEAR tool's (Shift + F6)
   CHECK_FALSE(pattern_is_empty(bank().pattern(0)));
+}
+
+TEST_CASE("Delete clears the step whole: a rest with no ratchet, no condition and no locks; held steps too") {
+  Hands t;
+  // Step 4: a ratchet, a condition and a lock on it.
+  t.down(step_pad_of(3));
+  t.pad(kOctUpPad);  // hold a step + OCT+: the ratchet
+  t.turn(10);        // the latched knob (CUTOFF): a lock on the held step
+  t.up(step_pad_of(3));
+  REQUIRE(ratchet_of(t.pat().steps[3].flags) > 0u);
+  REQUIRE(step_has_motion(t.pat(), 0, 3));
+  bank().edit(t.selected(), [](Pattern& p) { p.steps[3].cond = kCondFill; });
+  t.pad(step_pad_of(3));  // the cursor on step 4
+  t.tap(Button::Delete);
+  const Step& st = t.pat().steps[3];
+  CHECK(st.flags == kStepRest);
+  CHECK(st.cond == kCondAlways);
+  CHECK_FALSE(step_has_motion(t.pat(), 0, 3));
+  // A held step is cleared instead of the cursor's (step 4, still the cursor).
+  const Pattern before = t.pat();
+  t.down(step_pad_of(6));
+  t.tap(Button::Delete);
+  t.up(step_pad_of(6));
+  CHECK(t.pat().steps[6].flags == kStepRest);
+  CHECK(t.pat().steps[3].note == before.steps[3].note);
+  // Each clear is one undo step.
+  const unsigned selected = t.selected();
+  CHECK(bank().undo() == static_cast<int>(selected));
+  CHECK((t.pat().steps[6].flags & kStepRest) == (before.steps[6].flags & kStepRest));
 }
 
 TEST_CASE("Play plays and stops at the press; Shift + Play taps the tempo") {
@@ -297,7 +343,7 @@ TEST_CASE("REC + Play + a key writes the note under the playhead and sounds it")
   CHECK(written == 1);
 }
 
-TEST_CASE("hold a step + UP / DOWN moves the held step's octave, not the cursor's; UP / DOWN alone are a semitone on the cursor step") {
+TEST_CASE("hold a step + UP / DOWN moves the held step a semitone (Shift: an octave), not the cursor's") {
   Hands t;
   const Pattern before = bank().pattern(0);
   t.down(step_pad_of(5));
@@ -305,12 +351,16 @@ TEST_CASE("hold a step + UP / DOWN moves the held step's octave, not the cursor'
   t.tap(Button::Up);
   t.tap(Button::Down);
   t.up(step_pad_of(5));
-  CHECK(t.pat().steps[5].note == before.steps[5].note + 12);
+  CHECK(t.pat().steps[5].note == before.steps[5].note + 1);
   CHECK(t.pat().steps[0].note == before.steps[0].note);  // the cursor's step is untouched
+  t.down(step_pad_of(5));
+  t.shift_tap(Button::Up);
+  t.up(step_pad_of(5));
+  CHECK(t.pat().steps[5].note == before.steps[5].note + 13);
   // Two held steps move together.
   t.down(step_pad_of(2));
   t.down(step_pad_of(3));
-  t.tap(Button::Down);
+  t.shift_tap(Button::Down);
   t.up(step_pad_of(2));
   t.up(step_pad_of(3));
   CHECK(t.pat().steps[2].note == before.steps[2].note - 12);

@@ -4,9 +4,9 @@
 # each of the four variants, chosen with the PERF page's F5. The probability steps draw from the sequencer's fixed seed, so every run
 # plays the same notes.
 wait 300
-# Clear the pattern (Shift + Delete) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
+# Clear the pattern (the CLEAR tool, Shift + F6) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
 press shift
-tap delete
+tap f6
 release shift
 tap rec
 paddown 8
@@ -24,7 +24,7 @@ pad 46
 paddown 8
 pad 36
 padup 8     # step 9: accent
-pad 21      # step 10: REST
+pad 11      # step 10: REST
 paddown 8
 pad 39
 padup 8     # step 11: accent
@@ -38,21 +38,21 @@ pad 41
 tap rec
 wait 200
 snap 01_line_entered
-# Ratchets: hold a step pad and tap OCT+ (pad 11): steps 3 and 14 x2, step 7 x3, step 11 x4.
+# Ratchets: hold a step pad and tap OCT+ (pad 21): steps 3 and 14 x2, step 7 x3, step 11 x4.
 paddown 2
-pad 11
+pad 21
 padup 2
 paddown 6
-pad 11
-pad 11
+pad 21
+pad 21
 padup 6
 paddown 14
-pad 11
-pad 11
-pad 11
+pad 21
+pad 21
+pad 21
 padup 14
 paddown 17
-pad 11
+pad 21
 padup 17
 wait 100
 snap 02_ratchets

@@ -450,7 +450,7 @@ TEST_CASE("WOBBLE on: row 3 is the wobble's rates (columns 1..11), the keys stay
   t.tap(Button::Play);
 }
 
-TEST_CASE("row 4: a key plays the voice; while the pattern runs and the keyboard transposes, it transposes (the bottom left C is none)") {
+TEST_CASE("row 4: a key plays the voice; while the pattern runs and TRNSP is on, it transposes (the bottom left C is none)") {
   Hands t;
   t.to_perform();
   t.h->record(true);
@@ -466,9 +466,19 @@ TEST_CASE("row 4: a key plays the voice; while the pattern runs and the keyboard
   CHECK(rms_from(t, mark) > 0.01);
   CHECK(lamp(t, pp(kRow4, 0)) == app::kLedDim);  // naturals dim, sharps off
   CHECK(lamp(t, pp(kRow4, 1)) == app::kLedOff);
-  // Playing: the default mode of the 303 screen's keyboard transposes.
+  // Playing, TRNSP off (the default): the keys play the voice, the pattern is not transposed, and no lamp shows a transposition.
   t.tap(Button::Play);
   t.wait(100);
+  const std::size_t mark1 = t.h->audio().size();
+  t.pad(pp(kRow4, 7), 100);
+  t.wait(200);
+  CHECK(seqr().live_transpose() == 0);
+  CHECK(rms_from(t, mark1) > 0.01);
+  CHECK(lamp(t, pp(kRow4, 0)) == app::kLedDim);
+  // TRNSP on the 303 screen puts the key row on the pattern: a key transposes it.
+  t.to_home();
+  t.pad(role_pad(PadRole::Trnsp), 40);
+  t.to_perform();
   t.pad(pp(kRow4, 7), 10);
   CHECK(seqr().live_transpose() == 7);
   t.wait(100);
@@ -487,9 +497,9 @@ TEST_CASE("row 4: a key plays the voice; while the pattern runs and the keyboard
   t.to_perform();
   t.pad(pp(kRow4, 0), 10);
   CHECK(seqr().live_transpose() == 0);
-  // KEYS on the 303 screen puts the keyboard on the voice: here too, and the pattern is not transposed.
+  // TRNSP off on the 303 screen puts the keyboard on the voice: here too, and the pattern is not transposed.
   t.to_home();
-  t.pad(role_pad(PadRole::Keys), 40);
+  t.pad(role_pad(PadRole::Trnsp), 40);
   t.to_perform();
   t.wait(40);
   const std::size_t mark2 = t.h->audio().size();
@@ -640,6 +650,8 @@ TEST_CASE("an F key held across the page change does not stay held: the next tur
 
 TEST_CASE("PERFORM plays and does not record: the keys write no notes, with REC armed, stopped or playing") {
   Hands t;
+  t.to_home();
+  t.pad(role_pad(PadRole::Trnsp), 40);  // TRNSP on: playing, the keys would transpose
   t.to_perform();
   t.tap(Button::Rec);  // REC armed (the 303 screen's mode)
   const Pattern before = t.pat();
@@ -652,7 +664,7 @@ TEST_CASE("PERFORM plays and does not record: the keys write no notes, with REC 
   t.wait(300);
   CHECK(same_pattern(t.pat(), before));
   t.to_home();  // the keyboard on the voice: still nothing written from PERFORM
-  t.pad(role_pad(PadRole::Keys), 40);
+  t.pad(role_pad(PadRole::Trnsp), 40);
   t.to_perform();
   t.pad(pp(kRow4, 5), 40);
   t.wait(300);

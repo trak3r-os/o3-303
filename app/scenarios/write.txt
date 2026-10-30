@@ -19,9 +19,9 @@ paddown 9
 pad 43 200
 padup 9
 pad 36 200
-pad 21
+pad 11
 pad 41 200
-pad 20
+pad 10
 paddown 8
 pad 46 200
 padup 8

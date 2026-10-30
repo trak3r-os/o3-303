@@ -1,8 +1,6 @@
 # Long patterns (DESIGN-303 sections 5 and 6): DOUBLE makes 32, then 64 steps; the step pads show a page of 16 and the screen follows the
 # cursor and the playhead; a tap on Pattern flips to the piano roll; hold a step + the encoder p-locks the focused parameter; REC + Play +
-# the encoder records motion; hold MOTION shows the steps with automation.
-# Choices made here: a tap on the MOTION pad latches motion recording (the encoder is recorded while playing even without REC); holding it
-# longer than a tap (300 ms) only shows the steps with automation and changes nothing.
+# the encoder records motion (Rec while playing; the MOTION latch is gone).
 wait 300
 press shift
 tap f5
@@ -33,17 +31,8 @@ paddown 13
 turn 25
 padup 13
 snap 06_plocks_on_reso
-paddown 23
-wait 400
-snap 07_motion_held
-padup 23
-wait 100
-snap 07b_held_longer_changes_nothing
-pad 23 60
-snap 07c_tap_latches_motion_recording
-pad 23 60
 tap pattern
-snap 08_piano_roll
+snap 07_piano_roll
 tap pattern
 tap rec
 tap play
@@ -55,8 +44,8 @@ turn 10
 wait 500
 turn -20
 wait 600
-snap 09_recording_motion
+snap 08_recording_motion
 wait 2500
-snap 10_page_follows_playhead
+snap 09_page_follows_playhead
 tap play
 tap rec

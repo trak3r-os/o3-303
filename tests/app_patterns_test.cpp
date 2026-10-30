@@ -30,8 +30,8 @@ TEST_CASE("hold Pattern: the 48 pads are the patterns; stopped, a tap selects, a
 TEST_CASE("playing, taps with Pattern held queue the next pattern and several taps chain; the screen follows what plays") {
   Hands t;
   // Two more patterns with something in them: copies of A01.
-  t.shift_tap(Button::Insert);  // A02
-  t.shift_tap(Button::Insert);  // A03
+  t.duplicate_next();  // A02
+  t.duplicate_next();  // A03
   REQUIRE(t.selected() == 2);
   t.select_pattern(0);
   t.tap(Button::Play);
@@ -65,7 +65,7 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   }
   t.tap(Button::Left);  // wraps to step 32: page 2
   t.wait(30);
-  t.shift_tap(Button::Delete);  // (clears everything: only to compare the pads of page 2 with the pattern)
+  t.shift_tap(Button::F6);  // CLEAR (clears everything: only to compare the pads of page 2 with the pattern)
   CHECK(pattern_is_empty(t.pat()));
   t.shift_tap(Button::F8);  // UNDO
   t.wait(30);
@@ -129,7 +129,7 @@ TEST_CASE("Shift + Insert on the last pattern refuses (nothing wraps round to ov
   const Pattern first = bank().pattern(0);
   t.select_pattern(kPatternCount - 1);
   REQUIRE(t.selected() == kPatternCount - 1);
-  t.shift_tap(Button::Insert);
+  t.duplicate_next();
   CHECK(t.selected() == kPatternCount - 1);
   CHECK_FALSE(pattern_is_empty(bank().pattern(0)));
   for (unsigned i = 0; i < 16; ++i) {
@@ -138,6 +138,6 @@ TEST_CASE("Shift + Insert on the last pattern refuses (nothing wraps round to ov
   }
   // One before the last still duplicates.
   t.select_pattern(kPatternCount - 2);
-  t.shift_tap(Button::Insert);
+  t.duplicate_next();
   CHECK(t.selected() == kPatternCount - 1);
 }

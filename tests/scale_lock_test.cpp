@@ -106,7 +106,8 @@ TEST_CASE("a skipped pad plays no sound and a hold-a-step key does not write the
   t.pad(key_pad(38), 10);  // D: in
   CHECK(t.pat().steps[4].note == 38);
   t.up(step_pad_of(4));
-  // A skipped pad does not transpose the running pattern either.
+  // A skipped pad does not transpose the running pattern either (TRNSP on).
+  t.toggle_trnsp();
   t.tap(Button::Play);
   t.wait(200);
   t.pad(key_pad(37), 10);  // C#: out

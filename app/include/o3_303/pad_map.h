@@ -35,13 +35,15 @@ constexpr int clamp_octave(int octave) noexcept {
   return octave < kMinOctave ? kMinOctave : (octave > kMaxOctave ? kMaxOctave : octave);
 }
 
-// What a pad is (DESIGN-303 section 2): rows 0 and 1 hold the 16 step pads of a page on columns 0..7 (row 0 the first eight steps, row 1
+// What a pad is on the home map (docs/UX-303.md 6.2): rows 0 and 1 hold the 16 step pads of a page on columns 0..7 (row 0 the first eight steps, row 1
 // the next eight) and the modifier block on columns 8..11, rows 2 and 3 the keyboard.
 //
 //   col      8      9      10     11
-//   row 0   ACC    SLIDE  OCT-   OCT+
-//   row 1   TIE    REST   KEYS   MOTION
-enum class PadRole : std::uint8_t { Step, Acc, Slide, OctDown, OctUp, Tie, Rest, Keys, Motion, Key, None };
+//   row 0   ACC    SLIDE  TIE    REST
+//   row 1   OCT-   OCT+   TRNSP  FILT
+//
+// TRNSP and FILT are the two mode pads (toggles): the keyboard transposes the pattern, and rows 2 and 3 are the CUTOFF and RESO ladders.
+enum class PadRole : std::uint8_t { Step, Acc, Slide, Tie, Rest, OctDown, OctUp, Trnsp, Filt, Key, None };
 
 constexpr PadRole pad_role(unsigned pad) noexcept {
   if (pad >= o3sdk::app::kPadCount) {
@@ -55,8 +57,8 @@ constexpr PadRole pad_role(unsigned pad) noexcept {
   if (col < 8u) {
     return PadRole::Step;
   }
-  constexpr PadRole kBlock[2][4] = {{PadRole::Acc, PadRole::Slide, PadRole::OctDown, PadRole::OctUp},
-                                    {PadRole::Tie, PadRole::Rest, PadRole::Keys, PadRole::Motion}};
+  constexpr PadRole kBlock[2][4] = {{PadRole::Acc, PadRole::Slide, PadRole::Tie, PadRole::Rest},
+                                    {PadRole::OctDown, PadRole::OctUp, PadRole::Trnsp, PadRole::Filt}};
   return kBlock[row][col - 8u];
 }
 
@@ -72,7 +74,7 @@ constexpr int pad_page_step(unsigned pad) noexcept {
   return pad_role(pad) == PadRole::Step ? static_cast<int>(o3sdk::app::pad_row(pad) * 8u + o3sdk::app::pad_col(pad)) : -1;
 }
 
-// The pad of a modifier role (Acc .. Motion), or past the panel for any other role.
+// The pad of a modifier role (Acc .. Filt), or past the panel for any other role.
 constexpr unsigned role_pad(PadRole role) noexcept {
   for (unsigned pad = 0; pad < 24u; ++pad) {
     if (pad_role(pad) == role && role != PadRole::Step) {

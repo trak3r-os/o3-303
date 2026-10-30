@@ -131,7 +131,8 @@ TEST_CASE("OCT UP is an octave on the running pattern while it is on, on top of 
   CHECK(s.live_transpose() == 12);
   t.release(Button::Instr);
   CHECK(s.live_transpose() == 0);
-  // Latched while the keyboard transposes: 7 + 12.
+  // Latched while the keyboard transposes (TRNSP on): 7 + 12.
+  t.toggle_trnsp();
   t.tap(Button::Play);
   t.wait(200);
   t.shift_tap(Button::Instr);

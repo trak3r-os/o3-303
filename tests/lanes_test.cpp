@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Motion lanes through the pattern's lane table (docs/M3B-PLAN.md C2 and the review's finding 4): a p-lock (hold a step + the encoder) and a
 // recorded move go to the lane that drives the focused parameter, scaled with that target's own descriptor or the mixer's range, not to "the
-// lane with the voice's parameter number"; hold MOTION + an F key points the lane the screen shows at that key's parameter.
+// lane with the voice's parameter number"; a parameter no lane drives claims one (UX-303 D2: the first lane with no motion, in the same undoable edit).
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -19,21 +19,19 @@ using namespace o3_303;
 
 namespace {
 
-const unsigned kMotionPad = role_pad(PadRole::Motion);
-
 float db_to_gain(float db) { return db <= -59.5f ? 0.0f : std::fmin(1.5f, std::pow(10.0f, db * 0.05f)); }
 
 // The point of step `s` (first quarter) of `lane`.
 std::uint8_t point_at(const Pattern& p, unsigned lane, unsigned s) { return p.motion[lane][s * kMotionPointsPerStep]; }
 
-// Points the lane shown (the focused SOUND key's lane) at the FX page's F1, DRIVE: the lane 3 (DECAY's) becomes the distortion's Drive.
-// Starts and ends on the SOUND page (the FX page's F1 stays the latched key there).
-void repoint_lane3_to_drive(Hands& t) {
-  t.tap(Button::F4);  // DECAY: the screen shows lane 3
+// Hold step `step` and turn the FX page's DRIVE (its F1) by `detents`: the distortion's Drive has no lane in a fresh pattern, so one is claimed.
+// Starts and ends on the SOUND page.
+void lock_drive(Hands& t, unsigned step, int detents) {
   t.to_page(kPageFx);
-  t.down(kMotionPad);
   t.tap(Button::F1);  // DRIVE
-  t.up(kMotionPad);
+  t.down(step_pad_of(step));
+  t.turn(detents);
+  t.up(step_pad_of(step));
   t.back_to_sound(kPageFx);
 }
 
@@ -83,76 +81,53 @@ TEST_CASE("hold a step + the encoder on VOLUME locks the mixer's level lane, sca
   CHECK(std::abs(static_cast<int>(point_at(t.pat(), 7, 4)) - unity) <= 1);  // the point's step is 0.006 gain: -3 dB + 3 dB is unity to a point
 }
 
-TEST_CASE("hold MOTION + an F key points the lane shown at that key's parameter, clears the lane's points, and is one undo step") {
+TEST_CASE("a lock on a parameter no lane drives claims the first lane with no motion, in one undo step with the lock") {
   Hands t;
-  // A p-lock on DECAY (lane 3) first: it is the lane's old content.
-  t.tap(Button::F4);
-  t.down(step_pad_of(2));
-  t.turn(5);
-  t.up(step_pad_of(2));
-  REQUIRE(point_at(t.pat(), 3, 2) != kNoLock);
-  bank().clear_history();
   const Pattern before = t.pat();
-
-  repoint_lane3_to_drive(t);
-  CHECK(t.pat().lanes[3].target == kLaneDist);
-  CHECK(t.pat().lanes[3].id == Distortion::Drive);
-  CHECK(point_at(t.pat(), 3, 2) == kNoLock);  // the points were another parameter's
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    if (lane != 3) {
-      CHECK(t.pat().lanes[lane].target == before.lanes[lane].target);
-      CHECK(t.pat().lanes[lane].id == before.lanes[lane].id);
-    }
+  bank().clear_history();
+  lock_drive(t, 2, 3);
+  CHECK(t.pat().lanes[0].target == kLaneDist);  // lane 0 (CUTOFF's) had no points: it is DRIVE's now
+  CHECK(t.pat().lanes[0].id == Distortion::Drive);
+  CHECK(point_at(t.pat(), 0, 2) != kNoLock);
+  for (unsigned lane = 1; lane < kMotionLanes; ++lane) {
+    CHECK(t.pat().lanes[lane].target == before.lanes[lane].target);
+    CHECK(t.pat().lanes[lane].id == before.lanes[lane].id);
+    CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }
   for (unsigned i = 0; i < 16; ++i) {  // the steps are untouched
     CHECK(t.pat().steps[i].note == before.steps[i].note);
   }
-  // One undo gives the lane and its points back; and the redo does it again.
+  // One undo takes the lock and the claim away together; the redo gives both back.
   CHECK(bank().undo() == static_cast<int>(t.selected()));
-  CHECK(t.pat().lanes[3].target == kLaneVoice);
-  CHECK(t.pat().lanes[3].id == AcidVoice::Decay);
-  CHECK(point_at(t.pat(), 3, 2) == point_at(before, 3, 2));
+  CHECK(t.pat().lanes[0].target == kLaneVoice);
+  CHECK(t.pat().lanes[0].id == AcidVoice::Cutoff);
+  CHECK(point_at(t.pat(), 0, 2) == kNoLock);
   CHECK(bank().redo() == static_cast<int>(t.selected()));
-  CHECK(t.pat().lanes[3].target == kLaneDist);
+  CHECK(t.pat().lanes[0].target == kLaneDist);
+  CHECK(point_at(t.pat(), 0, 2) != kNoLock);
 }
 
-TEST_CASE("after the lane points at DRIVE, a p-lock on DRIVE is scaled with the distortion's descriptor on that lane") {
+TEST_CASE("a lock on DRIVE is scaled with the distortion's descriptor on its claimed lane; the knob stays") {
   Hands t;
-  repoint_lane3_to_drive(t);
   const core::ParamDesc* d = t.h->engine().param_desc(kDist, Distortion::Drive);
   REQUIRE(d != nullptr);
   const float drive0 = t.param(kDist, Distortion::Drive);
-  t.to_page(kPageFx);
-  t.tap(Button::F1);  // DRIVE
-  t.down(step_pad_of(6));
-  t.turn(3);
-  t.up(step_pad_of(6));
-  t.back_to_sound(kPageFx);
-  CHECK(point_at(t.pat(), 3, 6) == seq::value_to_point(*d, core::param_step(*d, drive0, 3)));
-  CHECK(t.param(kDist, Distortion::Drive) == drive0);  // the knob stays: a p-lock is the step's
-  // The other lanes got nothing (not lane 0 = "the voice's id 0" for DRIVE's id 0).
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    if (lane != 3) {
-      CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
-    }
+  lock_drive(t, 6, 3);
+  CHECK(point_at(t.pat(), 0, 6) == seq::value_to_point(*d, core::param_step(*d, drive0, 3)));
+  CHECK(t.param(kDist, Distortion::Drive) == drive0);  // a p-lock is the step's
+  for (unsigned lane = 1; lane < kMotionLanes; ++lane) {
+    CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));  // not "the voice's id 0" for DRIVE's id 0
   }
+  // A second lock on the same parameter finds its lane and claims no other.
+  lock_drive(t, 8, -2);
+  CHECK(point_at(t.pat(), 0, 8) != kNoLock);
+  CHECK_FALSE(seq::lane_has_motion(t.pat(), 1));
 }
 
-TEST_CASE("a key no lane drives is not locked: hold a step + the encoder moves the knob, and writes no motion") {
+TEST_CASE("a key no lane can drive is not locked: hold a step + the encoder moves the knob, and writes no motion") {
   Hands t;
-  repoint_lane3_to_drive(t);  // DECAY lost its lane
-  t.tap(Button::F4);
-  const float decay0 = t.param(kVoice, AcidVoice::Decay);
-  t.down(step_pad_of(3));
-  t.turn(5);
-  t.up(step_pad_of(3));
-  CHECK(t.param(kVoice, AcidVoice::Decay) != decay0);
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
-  }
-  // The same on a key that is no lane target at all: the SEQ page's TEMPO.
   t.to_page(kPageSeq);
-  t.tap(Button::F1);
+  t.tap(Button::F1);  // TEMPO
   const std::uint32_t tempo0 = t.h->engine().tempo();
   t.down(step_pad_of(3));
   t.turn(5);
@@ -164,63 +139,59 @@ TEST_CASE("a key no lane drives is not locked: hold a step + the encoder moves t
   t.back_to_sound(kPageSeq);
 }
 
-TEST_CASE("MOTION + the F key of a parameter some lane already drives only shows that lane; of a key no lane can drive, nothing") {
+TEST_CASE("with all eight lanes in use a lock on a ninth parameter changes nothing") {
   Hands t;
+  for (unsigned k = 0; k < 8; ++k) {  // F1..F8 of the SOUND page: the eight default lanes
+    t.tap(app::fkey(k));
+    t.down(step_pad_of(k));
+    t.turn(3);
+    t.up(step_pad_of(k));
+  }
+  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
+    REQUIRE(seq::lane_has_motion(t.pat(), lane));
+  }
   const Pattern before = t.pat();
-  t.down(kMotionPad);
-  t.tap(Button::F3);  // ENV MOD: lane 2 already has it
-  t.up(kMotionPad);
+  lock_drive(t, 12, 3);
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
     CHECK(t.pat().lanes[lane].target == before.lanes[lane].target);
     CHECK(t.pat().lanes[lane].id == before.lanes[lane].id);
+    CHECK(point_at(t.pat(), lane, 12) == kNoLock);
   }
-  CHECK_FALSE(bank().can_undo());
-  // SEQ's TEMPO is no lane target.
-  t.to_page(kPageSeq);
-  t.down(kMotionPad);
-  t.tap(Button::F1);
-  t.up(kMotionPad);
-  t.back_to_sound(kPageSeq);
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    CHECK(t.pat().lanes[lane].target == before.lanes[lane].target);
-    CHECK(t.pat().lanes[lane].id == before.lanes[lane].id);
-  }
-  CHECK_FALSE(bank().can_undo());
-  // A plain tap of MOTION still latches the recording.
-  t.pad(kMotionPad);
-  t.wait(40);
-  CHECK(t.led(kMotionPad) == app::kLedMid);
 }
 
-TEST_CASE("a recorded move goes to the lane that drives the knob: DRIVE on lane 3, VOLUME on lane 7; a knob with no lane writes nothing") {
+TEST_CASE("a recorded move goes to the lane that drives the knob: DRIVE claims one, VOLUME is lane 7; with REC off nothing is written") {
   Hands t;
-  repoint_lane3_to_drive(t);
   const core::ParamDesc* d = t.h->engine().param_desc(kDist, Distortion::Drive);
   REQUIRE(d != nullptr);
   t.tap(Button::Play);
   t.wait(200);
-  t.pad(kMotionPad);  // the MOTION latch: moves of the encoder are written while the pattern plays
-  t.wait(40);
+  // Not recording: the encoder moves the knob and writes nothing.
   t.to_page(kPageFx);
   t.tap(Button::F1);  // DRIVE
+  t.turn(1);
+  t.wait(200);
+  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
+    CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
+  }
+  t.tap(Button::Rec);  // REC while playing: moves of the encoder are written
+  t.wait(40);
   t.turn(-5);
   t.wait(300);
   t.turn(2);
   t.wait(300);
   const float drive = t.param(kDist, Distortion::Drive);
-  CHECK(seq::lane_has_motion(t.pat(), 3));
+  CHECK(t.pat().lanes[0].target == kLaneDist);  // claimed: lane 0 had no motion
+  CHECK(seq::lane_has_motion(t.pat(), 0));
   // The last point written is the knob's value now, through the descriptor (the playing pattern may have wrapped: look for any point equal).
   bool found = false;
   for (unsigned i = 0; i < 16 * kMotionPointsPerStep; ++i) {
-    if (t.pat().motion[3][i] == seq::value_to_point(*d, drive)) {
+    if (t.pat().motion[0][i] == seq::value_to_point(*d, drive)) {
       found = true;
     }
   }
   CHECK(found);
-  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    if (lane != 3) {
-      CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
-    }
+  for (unsigned lane = 1; lane < kMotionLanes; ++lane) {
+    CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }
   // VOLUME (SOUND F8) is the mixer's level, lane 7.
   t.back_to_sound(kPageFx);
@@ -235,13 +206,10 @@ TEST_CASE("a recorded move goes to the lane that drives the knob: DRIVE on lane 
     }
   }
   CHECK(found);
-  // DECAY lost its lane: turning it while recording writes nothing (it used to write lane 3).
-  const Pattern mid = t.pat();
+  // DECAY still has lane 3: turning it while recording writes there.
   t.tap(Button::F4);
   t.turn(5);
   t.wait(300);
-  for (unsigned i = 0; i < 16 * kMotionPointsPerStep; ++i) {
-    CHECK(t.pat().motion[3][i] == mid.motion[3][i]);
-  }
+  CHECK(seq::lane_has_motion(t.pat(), 3));
   t.tap(Button::Play);
 }

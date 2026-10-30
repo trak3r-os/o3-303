@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Step editing of M3b (docs/M3B-PLAN.md R3, R4, R5): hold a step + OCT+ / OCT- is its ratchet, hold a step + up / down its octave (up / down
-// alone stay a semitone on the cursor step), hold a step + the encoder on the PERF page's RATCHET and COND entries edits them (the condition
+// Step editing of M3b (docs/M3B-PLAN.md R3, R4, R5): hold a step + OCT+ / OCT- is its ratchet (until the PLAYS row), hold a step + Shift + up / down its
+// octave (up / down alone are a semitone, on the held step or the cursor's), hold a step + the encoder on the PERF page's RATCHET and COND entries edits them (the condition
 // through seq::step_cond), hold ACC (or SLIDE) + left / right rotates that layer alone. Every edit goes through the Bank, so it is undoable.
 #include <doctest/doctest.h>
 
@@ -121,16 +121,18 @@ TEST_CASE("a ratchet edit is undoable, and a run of presses on one step is one u
   CHECK(seq::get_ratchet(t.pat(), 5) == 3);
 }
 
-TEST_CASE("hold a step + UP / DOWN moves its octave (the note is kept inside 0..127); UP / DOWN alone are a semitone on the cursor step") {
+TEST_CASE("hold a step + Shift + UP / DOWN moves its octave (the note is kept inside 0..127); UP / DOWN are a semitone, on the held step or the cursor's") {
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
   t.down(step_pad_of(3));
-  t.tap(Button::Up);
+  t.shift_tap(Button::Up);
   CHECK(t.pat().steps[3].note == before.steps[3].note + 12);
-  t.tap(Button::Down);
-  t.tap(Button::Down);
+  t.shift_tap(Button::Down);
+  t.shift_tap(Button::Down);
   CHECK(t.pat().steps[3].note == before.steps[3].note - 12);
+  t.tap(Button::Up);  // without Shift: a semitone on the held step
+  CHECK(t.pat().steps[3].note == before.steps[3].note - 11);
   t.up(step_pad_of(3));
   CHECK(t.pat().steps[0].note == before.steps[0].note);
   // The edge: a step that would leave 0..127 stays where it is.
@@ -139,15 +141,15 @@ TEST_CASE("hold a step + UP / DOWN moves its octave (the note is kept inside 0..
   edge.steps[8].note = 5;
   bank().replace(t.selected(), edge);
   t.down(step_pad_of(6));
-  t.tap(Button::Up);
+  t.shift_tap(Button::Up);
   CHECK(t.pat().steps[6].note == 120);  // 132 is out
-  t.tap(Button::Down);
+  t.shift_tap(Button::Down);
   CHECK(t.pat().steps[6].note == 108);
   t.up(step_pad_of(6));
   t.down(step_pad_of(8));
-  t.tap(Button::Down);
+  t.shift_tap(Button::Down);
   CHECK(t.pat().steps[8].note == 5);  // -7 is out
-  t.tap(Button::Up);
+  t.shift_tap(Button::Up);
   CHECK(t.pat().steps[8].note == 17);
   t.up(step_pad_of(8));
   // Alone: the cursor step (step 0), one semitone.

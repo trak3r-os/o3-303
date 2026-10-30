@@ -1,23 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The performance gestures of the 303 screen (docs/M3B-PLAN.md R1, R7, R8), the second half of MainScreen:
+// The Master gestures of the 303 screen (docs/M3B-PLAN.md R7), the second half of MainScreen:
 //
-//   hold KEYS + a pad         rows 2 and 3 are the Cutoff and Reso ladders (Shift: Env Mod), through a 30 ms slew; the LEDs are the bar (R1)
 //   tap Master                the encoder latches TEMPO (Shift: SWING), whatever page the F keys are on (R7)
 //   hold Master + turn        a tempo nudge of 1 % a detent, at most 3 %, back at the release (R7)
-//   a scale chosen            the keyboard pads out of it are dark and do nothing (R8)
 //
-// The four assignable buttons (Note / Instr / Vol / Fx: held = momentary, Shift + tap latches, C4) are LiveActions' (live_actions.h), shared with
-// PERFORM. The pure parts (the ladder positions, the nudge, the scale) are in o3_303/perform.h and tested alone; what is here puts them on the
-// engine, the sequencer and the pads.
+// and the chips of what is latched or locked. The four assignable buttons (Note / Instr / Vol / Fx: held = momentary, Shift + tap latches, C4) are
+// LiveActions' (live_actions.h), shared with PERFORM; the keyboard, the FILT ladders and the scale lock are the home map's (home_map.h). The pure parts
+// (the nudge, the scale) are in o3_303/perform.h and tested alone; what is here puts them on the engine and the screen.
 
 #include "main_screen.h"
 
 #include <o3sdk/app/context.h>
-#include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
-#include <o3_303/units/acid_voice/acid_voice.h>
 
 namespace o3_303 {
 
@@ -42,25 +38,6 @@ void cat(char* out, unsigned cap, const char* s) noexcept {
 }
 
 }  // namespace
-
-// A pad of the bottom row while WOBBLE is on: its rate, live, until the action lets go.
-void MainScreen::wobble_pad(app::Context& ctx, unsigned pad) noexcept {
-  const int rate = wobble_pad_rate(pad);
-  if (rate >= 0) {
-    rig_->seq->wobble_rate_override(rate);
-  }
-  ctx.redraw();
-}
-
-// The picker's LEDs: the bottom row's eleven rates dim, the rate the wobble runs at now (the override, else the pattern's lane, else the
-// setting; -1 until the render has started it) at full level.
-void MainScreen::wobble_leds(app::PadLeds& leds) const noexcept {
-  const int now = rig_->seq->wobble_rate_now();
-  for (unsigned col = 0; col < app::kPadCols; ++col) {
-    const unsigned pad = app::pad_at(app::kPadRows - 1u, col);
-    leds.set(pad, wobble_pad_rate(pad) < 0 ? app::kLedOff : (wobble_pad_rate(pad) == now ? app::kLedOn : app::kLedDim));
-  }
-}
 
 // ---- Master: the tempo (R7) --------------------------------------------------------------------------------------------------------
 
@@ -119,64 +96,6 @@ void MainScreen::latch_turn(app::Context& ctx, int detents, bool coarse) noexcep
   ctx.redraw();
 }
 
-// ---- The KEYS ladders (R1) ---------------------------------------------------------------------------------------------------------
-
-// Row 2 is Cutoff, row 3 Reso (Env Mod with Shift): 12 places on the knob, the first pad its minimum and the last its maximum. A tap
-// jumps there through a 30 ms slew (so a jump does not click and a p-lock or a motion point on the step wins over it).
-void MainScreen::ladder_press(app::Context& ctx, unsigned pad, bool shift) noexcept {
-  const unsigned row = app::pad_row(pad);
-  const unsigned col = app::pad_col(pad);
-  if (row < 2u) {
-    return;
-  }
-  const std::uint8_t id = row == 2u ? static_cast<std::uint8_t>(AcidVoice::Cutoff) : static_cast<std::uint8_t>(shift ? AcidVoice::EnvMod : AcidVoice::Reso);
-  const core::ParamDesc* d = ctx.engine().param_desc(rig_->wiring.voice, id);
-  if (d == nullptr) {
-    return;
-  }
-  const float value = core::param_denorm(*d, ladder_norm(col));
-  (void)rig_->seq->slew(kLaneVoice, id, value, kLadderSlewMs);
-  if (recording_motion()) {  // REC or the MOTION latch while the pattern plays: the jump is written under the playhead like a turn
-    const seq::Playhead ph = rig_->seq->playhead();
-    const int lane = seq::find_lane(rig_->bank->pattern(ph.playing && ph.pattern >= 0 ? static_cast<unsigned>(ph.pattern) : sel()), kLaneVoice, id);
-    if (lane >= 0) {
-      (void)rig_->seq->record_motion(static_cast<unsigned>(lane), value);
-    }
-  }
-  const int shown = seq::find_lane(pat(), kLaneVoice, id);
-  if (shown >= 0) {
-    lane_ = static_cast<unsigned>(shown);  // the motion lane under the step view follows the parameter the hand is on
-  }
-  ctx.redraw();
-}
-
-// KEYS held: rows 2 and 3 draw where Cutoff and Reso (Env Mod with Shift) stand, a bar from the first pad to the position, the position
-// itself at full level.
-void MainScreen::ladder_leds(app::Context& ctx, app::PadLeds& leds) noexcept {
-  const bool shift = ctx.panel().shift();
-  for (unsigned row = 2; row < app::kPadRows; ++row) {
-    const std::uint16_t id = row == 2u ? static_cast<std::uint16_t>(AcidVoice::Cutoff) : static_cast<std::uint16_t>(shift ? AcidVoice::EnvMod : AcidVoice::Reso);
-    const core::ParamDesc* d = ctx.engine().param_desc(rig_->wiring.voice, id);
-    const unsigned pos = d != nullptr ? ladder_col(core::param_norm(*d, ctx.engine().param(rig_->wiring.voice, id))) : 0u;
-    for (unsigned col = 0; col < kLadderSteps; ++col) {
-      leds.set(app::pad_at(row, col), col < pos ? app::kLedMid : (col == pos ? app::kLedOn : app::kLedOff));
-    }
-  }
-}
-
-// ---- The scale lock (R8) -----------------------------------------------------------------------------------------------------------
-
-// With a scale chosen on the SEQ page the keyboard keeps to it: the other pads are dark and do nothing. Until the player chooses one
-// (the generator's default scale is not a choice) the keyboard is chromatic as it always was; "No scale" and "Chromatic" have every note.
-bool MainScreen::scale_locked() const noexcept {
-  const Wiring& w = rig_->wiring;
-  return w.scale_set && w.gen.scale < o3sdk::core::kScaleCount && o3sdk::core::kScaleDef[w.gen.scale] != 0xFFFu;
-}
-
-bool MainScreen::scale_locked_out(int note) const noexcept {
-  return scale_locked() && !in_scale(note, rig_->wiring.gen.scale, rig_->wiring.gen.root);
-}
-
 // ---- What is latched or locked ------------------------------------------------------------------------------------------------------
 
 // What is latched or locked and has no place of its own on the screen yet, as small chips on the right of the knob strip's tab line (the
@@ -216,7 +135,7 @@ void MainScreen::draw_state_chips(app::Context& ctx, ui::Renderer& r, const ui::
     c.fill = Color::Accent;
     c.ink = Color::AccentText;
   }
-  if (scale_locked()) {
+  if (home_.scale_locked()) {
     const Wiring& w = rig_->wiring;
     Chip& c = chips[count++];
     c.text[0] = '\0';

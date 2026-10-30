@@ -50,7 +50,7 @@ void LiveActions::init(Rig& rig) noexcept {
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     seen_[b] = rig.wiring.perf[b];
   }
-  keys_live_ = false;
+  trnsp_ = false;
   live_trn_ = 0;
   was_playing_ = false;
   seed_ = 0x303u;

@@ -478,3 +478,51 @@ TEST_CASE("M3b edits: ratchet and condition turns join per step, a layer rotatio
   CHECK_FALSE(bank->rotate_layer(1, Layer::Note, 16));
   CHECK_FALSE(bank->can_undo());  // (the undone edits are redo steps now)
 }
+
+TEST_CASE("restore puts a pattern in without an edit: no history entry, the version moves, the motion flag follows") {
+  auto bank = make_bank();
+  CHECK(bank->set_note(2, 0, 50));  // an edit of the old project: one undo step
+  REQUIRE(bank->can_undo());
+  const std::uint32_t v0 = bank->version(5);
+  CHECK_FALSE(bank->has_motion(5));
+
+  Pattern p;
+  clear(p);
+  p.length = 32;
+  p.steps[9].note = 61;
+  p.motion[3][17] = 100;  // a lock
+  CHECK(bank->restore(5, p));
+  CHECK(same(bank->pattern(5), p));
+  CHECK(bank->version(5) == v0 + 2u);  // a write window: odd inside, even again
+  CHECK((bank->version(5) & 1u) == 0u);
+  CHECK(bank->has_motion(5));
+  CHECK(bank->version(6) == 0u);  // the others are untouched
+
+  // The render side reads it as any write.
+  Pattern copy;
+  std::uint32_t v = 0;
+  bool motion = false;
+  CHECK(bank->snapshot(5, copy, &v, &motion));
+  CHECK(same(copy, p));
+  CHECK(motion);
+
+  // Not an edit: the history is as it was (one step, of the old edit), and clear_history() then forgets it.
+  CHECK(bank->undo() == 2);
+  CHECK_FALSE(bank->can_undo());
+  CHECK(same(bank->pattern(5), p));
+  CHECK(bank->set_note(2, 0, 50));
+  bank->clear_history();
+  CHECK_FALSE(bank->can_undo());
+  CHECK_FALSE(bank->can_redo());
+
+  // Out of range: refused, nothing changed. Restoring from the bank's own pattern is a no-op.
+  CHECK_FALSE(bank->restore(kPatternCount, p));
+  CHECK(bank->restore(5, bank->pattern(5)));
+  CHECK(same(bank->pattern(5), p));
+  // A restore does not touch the clipboards or the selection.
+  bank->select(9);
+  bank->copy_pattern(5);
+  CHECK(bank->restore(5, p));
+  CHECK(bank->has_pattern_clip());
+  CHECK(bank->selected() == 9);
+}

@@ -2,7 +2,7 @@
 #   tap a step pad          the cursor goes there (the step sounds)
 #   hold a step + a key     that step's note, the cursor stays
 #   hold a step + ACC / SLIDE / TIE / REST    that attribute toggles on it
-#   hold a step + up / down                   its octave (M3b: OCT+ / OCT- on a held step are its ratchet, see step_edit.txt)
+#   hold a step + up / down                   its note a semitone; Shift + up / down its octave (OCT+ / OCT- on a held step are its ratchet, see step_edit.txt)
 #   hold ACC alone          the step pads show the accented steps; tap steps to toggle (TR style)
 #   Delete / Copy / Insert  the cursor's step
 # Choices made here: Delete turns the step into a rest (it does not shift the steps after it; Insert does); a pad of a step is selected when
@@ -21,10 +21,12 @@ paddown 6
 pad 9
 padup 6
 paddown 4
-pad 20
+pad 10
 padup 4
 paddown 7
-tap up 150
+press shift
+tap up 148
+release shift
 padup 7
 snap 03_flags_and_octave
 paddown 8
@@ -36,12 +38,12 @@ pad 12
 padup 8
 wait 100
 snap 05_acc_toggled
-paddown 21
+paddown 11
 wait 100
 snap 06_rest_held_alone
 pad 14
 pad 15
-padup 21
+padup 11
 pad 0
 tap delete
 snap 07_step1_deleted
@@ -67,4 +69,8 @@ snap 11_rotated
 press shift
 tap up
 release shift
-snap 12_transposed
+snap 12_octave_up
+press shift
+tap insert
+release shift
+snap 13_cursor_at_step_1

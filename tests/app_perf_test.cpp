@@ -134,7 +134,7 @@ double pitch_hz(const std::vector<std::int16_t>& lr, std::size_t from, std::size
   return static_cast<double>(best_k) * bin_hz;
 }
 
-TEST_CASE("playing, the keyboard transposes the pattern (the bottom left C is none); KEYS makes it play the voice instead") {
+TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the bottom left C is none); off, it plays the voice instead") {
   Hands t;
   seq::Sequencer& sequencer = app_sequencer();
   // A steady tone: B01 with sixteen C2, every step sliding (SLIDE ALL latched), so the pitch is the transposition's.
@@ -164,6 +164,9 @@ TEST_CASE("playing, the keyboard transposes the pattern (the bottom left C is no
   for (unsigned i = 0; i < kPagePerf - kPageFx; ++i) {
     t.tap(Button::Params);
   }
+  CHECK(t.led(kTrnspPad) == app::kLedLow);  // the keyboard plays the voice by default
+  t.pad(kTrnspPad);                         // TRNSP: the keys transpose the running pattern
+  CHECK(t.led(kTrnspPad) == app::kLedOn);
   t.h->record(true);
   t.tap(Button::Play);
   t.wait(1500);
@@ -201,14 +204,14 @@ TEST_CASE("playing, the keyboard transposes the pattern (the bottom left C is no
   CHECK(back / base > 0.95);
   CHECK(back / base < 1.05);
 
-  t.pad(kKeysPad);  // KEYS: the keyboard plays the voice, the transposition is left alone (a tap: it toggles at the release)
+  t.pad(kTrnspPad);  // TRNSP off: the keyboard plays the voice, the transposition is left alone
   t.pad(key_pad(48));
   t.wait(30);
   CHECK(sequencer.live_transpose() == 0);
-  CHECK(t.led(kKeysPad) == app::kLedMid);
-  t.pad(kKeysPad);
+  CHECK(t.led(kTrnspPad) == app::kLedLow);
+  t.pad(kTrnspPad);
   t.wait(40);
-  CHECK(t.led(kKeysPad) == app::kLedDim);
+  CHECK(t.led(kTrnspPad) == app::kLedOn);
 
   // The transposition ends with the run, also when another screen is up.
   t.pad(key_pad(47));

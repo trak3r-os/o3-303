@@ -4,8 +4,8 @@
 // The live actions (docs/UX-303.md 5.3, docs/M3B-PLAN.md C4 and R2, docs/M3C-PLAN.md R and W), one state for the two screens that run them: the
 // 303 screen (its four colour buttons, until slice H3) and PERFORM (its 48 pads and the same four buttons). It holds what is held and latched,
 // puts it on the sequencer, the delay send, the live transpose, the beat freeze (through FreezeOwner) and the wobble, and runs the snapshots (recall,
-// store, the morph's slews). The keyboard's live transposition and its mode (transpose or play the voice) live here too: PERFORM's key row and the
-// 303 screen's keyboard are one keyboard. Main loop only; the app owns one and `Rig::live` points at it.
+// store, the morph's slews). The keyboard's live transposition and its mode (TRNSP: transpose the pattern, else play the voice) live here too:
+// PERFORM's key row and the home map's keyboard are one keyboard. Main loop only; the app owns one and `Rig::live` points at it.
 //
 //   held        a colour button or an action's pad is down: the action is on until it is let go (a screen's leave() lets every one go)
 //   latched     Shift + the button or the pad: on until it is tapped again or ALL OFF; a latched action stays on when the screen changes (D4)
@@ -58,10 +58,10 @@ class LiveActions {
   // The wobble's rate (a seq::WobbleRate) until the action lets go (PERFORM's row 3); the 303 screen sets it through the sequencer itself.
   void wobble_rate(o3sdk::app::Context& ctx, int rate) noexcept;
 
-  // ---- The keyboard. `keys_live`: the keys play the voice (else, while the pattern runs, they transpose it: the 303's track mode). The live
-  // transposition is in semitones (-48..48 with OCT UP on top of it), set by a key and ended with the run.
-  bool keys_live() const noexcept { return keys_live_; }
-  void set_keys_live(bool on) noexcept { keys_live_ = on; }
+  // ---- The keyboard. TRNSP (UX-303 6.2): the keys transpose the running pattern, the 303's track mode; off (the default) they play the voice, stopped
+  // or playing. The live transposition is in semitones (-48..48 with OCT UP on top of it), set by a key and ended with the run.
+  bool trnsp() const noexcept { return trnsp_; }
+  void set_trnsp(bool on) noexcept { trnsp_ = on; }
   int live_transpose() const noexcept { return live_trn_; }
   void set_live_transpose(int semitones) noexcept;
 
@@ -93,7 +93,7 @@ class LiveActions {
   std::uint16_t applied_ = 0;
   FreezeOwner freeze_owner_;  // which of FREEZE, ROLL, STOP and REV has the beat freeze now (M3c R)
   std::uint8_t seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
-  bool keys_live_ = false;
+  bool trnsp_ = false;
   int live_trn_ = 0;
   bool was_playing_ = false;
   std::uint32_t seed_ = 0x303u;

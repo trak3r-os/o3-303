@@ -126,6 +126,11 @@ class Bank {
   bool unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step) noexcept;
   // Replaces the pattern with `src` (a preset from the generator, a pasted pattern).
   bool replace(unsigned index, const Pattern& src) noexcept;
+  // Puts `src` in pattern `index` as it is (a project loaded from the card): NOT an edit, nothing is recorded in the history, the version moves
+  // like any write (the render side takes it within a block). The history may now hold states of other patterns: call clear_history() after
+  // the last restore. The clipboards stay. false: `index` is out of range, nothing changed. Main loop; the caller makes sure the sequencer is not
+  // playing (Engine::stop() is only queued, and a request under an external clock): a block that plays meanwhile reads the seqlock like any edit.
+  bool restore(unsigned index, const Pattern& src) noexcept;
 
   // ---- Clipboards (not undoable) ------------------------------------------------------------------------------------------
   void copy_step(unsigned index, unsigned step) noexcept;

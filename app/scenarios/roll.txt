@@ -1,6 +1,6 @@
 # The piano roll, the motion lane and the off states (docs/M3B-PLAN.md S3): the white keys are dim so they do not outshine the notes; the motion lane
-# draws a faint curve of what it plays (the knob's level where a step has no lock) and ticks at its lowest and highest lock; a state that went off
-# is an outline ("MOTION REC OFF" in a filled box read as on), as are the KEYS / TRNSP chip that is not the mode and the performance chips at rest.
+# draws a faint curve of what it plays (the knob's level where a step has no lock) and ticks at its lowest and highest lock; the status
+# line shows REC while Rec is on.
 wait 300
 tap pattern 40
 wait 100
@@ -24,10 +24,10 @@ turn -40
 padup 17
 wait 100
 snap 02_motion_curve_and_ticks
-# The MOTION latch (pad 23) on and off: the off toast is an outline.
-pad 23
+# REC on and off: the status line shows REC while it is on.
+tap rec
 wait 100
-snap 03_motion_rec_on
-pad 23
+snap 03_rec_on
+tap rec
 wait 100
-snap 04_motion_rec_off_outline
+snap 04_rec_off

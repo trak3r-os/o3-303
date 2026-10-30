@@ -88,8 +88,7 @@ void MainScreen::random_press(app::Context& ctx, unsigned key) noexcept {
 void MainScreen::random_generate(app::Context& ctx) noexcept {
   (void)rig_->bank->random_fill(sel(), rig_->wiring.gen, next_seed(ctx));
   toast(ctx, "RANDOM LINE");
-  clamp_cursor();
-  view_page_ = cursor_ / 16;
+  home_.refocus();
 }
 
 void MainScreen::draw_random(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {

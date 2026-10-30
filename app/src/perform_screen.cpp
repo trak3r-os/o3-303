@@ -308,7 +308,7 @@ void PerformScreen::key_press(app::Context& ctx, unsigned pad) noexcept {
   if (note < 0 || home_->scale_locked_out(note)) {  // not a key, or out of the scale the keyboard is locked to: dark, nothing
     return;
   }
-  if (playing_ && !live_->keys_live()) {
+  if (playing_ && live_->trnsp()) {
     int t = note - kLowestNote;
     t = t < -36 ? -36 : (t > 36 ? 36 : t);
     live_->set_live_transpose(t);
@@ -429,7 +429,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   const dsp::Engine& e = ctx.engine();
   const SnapBank& snaps = rig_->wiring.snaps;
   const bool wobble = live_->wobble_on();
-  const bool transposing = playing_ && !live_->keys_live();
+  const bool transposing = playing_ && live_->trnsp();
   // Row 3's knob: the latched sound knob and where it stands.
   const Entry& knob = rig_->sound_keys.focused();
   const core::ParamDesc* kd = controls_->desc(e, knob);
@@ -556,12 +556,13 @@ void PerformScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const n
 
 void PerformScreen::fill_status(app::Context& ctx, frame::StatusView& status) const noexcept {
   enc_text(ctx, status.enc, sizeof status.enc);
-  status.trnsp = !live_->keys_live();
+  status.trnsp = live_->trnsp();
   status.octave = home_->octave();
   status.rec = home_->rec();
   status.actions = live_->on();
   status.toast = toast_;
   status.toast_off = toast_off_;
+  status.save_failed = rig_->project.failed;
 }
 
 // ROW 1 ACTIONS (SHIFT = LATCH) . ROW 2 SNAPSHOTS (SHIFT = STORE) . ROW 3 LADDER CUTOFF . ROW 4 KEYS  (WOBBLE on: ROW 3 WOBBLE RATE)

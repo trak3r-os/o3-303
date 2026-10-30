@@ -24,27 +24,13 @@ using ui::Color;
 using ui::Face;
 using ui::Rect;
 
-constexpr std::uint64_t kToastMs = 1400;
 constexpr std::uint64_t kToolsDelayMs = 600;  // Shift held and the encoder still this long: the tools row
 constexpr int kInfoH = 34;
-constexpr int kHeroY = 38;
-constexpr int kHeroH = 272;
-
-constexpr unsigned role_index(PadRole r) noexcept { return static_cast<unsigned>(r); }
+constexpr int kHeroY = frame::kStatusH + kInfoH + 4;  // under the status line and the info strip
+constexpr int kHeroH = 236;                           // the motion lane and the PADS line are under it, over the knob strip
 
 constexpr const char* kToolNames[app::kFKeyCount] = {"RANDOM", "MUTATE", "REVERSE", "INVERT", "DOUBLE", "CLEAR", "REDO", "UNDO"};
 constexpr const char* kToolHints[app::kFKeyCount] = {"new line", "tweak 25%", "backwards", "flip pitch", "length x2", "all rests", "step forward", "step back"};
-
-std::uint8_t note_flags(std::uint8_t step_flags) noexcept {
-  std::uint8_t f = 0;
-  if ((step_flags & kStepAccent) != 0u) {
-    f = static_cast<std::uint8_t>(f | dsp::kNoteAccent);
-  }
-  if ((step_flags & kStepSlide) != 0u) {
-    f = static_cast<std::uint8_t>(f | dsp::kNoteSlide);
-  }
-  return f;
-}
 
 // `s` cut to `max` characters into `out` (cap > max).
 void cut(const char* s, unsigned max, char* out, unsigned cap) noexcept {
@@ -68,18 +54,6 @@ void append(char* out, unsigned cap, const char* s) noexcept {
   }
 }
 
-int wrap(int v, int n) noexcept { return n > 0 ? ((v % n) + n) % n : 0; }
-
-// The off form of a chip: the same size drawn as an outline, so a state that is not on never reads as a filled box (S3).
-void outline_chip(ui::Renderer& r, ui::FieldRow& row, int baseline, Face face, const char* s, Color ink) noexcept {
-  const ui::Metrics& m = r.theme().metrics;
-  const int cap_h = r.theme().geometry(face).cap_h;
-  r.frame(Rect{row.x(), baseline - cap_h - 2 * m.border, r.text_width(s, face) + 2 * m.gap, cap_h + 4 * m.border}, ink);
-  row.skip(m.gap);
-  row.put(face, s, ink);
-  row.skip(m.gap);
-}
-
 }  // namespace
 
 // ---- Setup and screen hooks -------------------------------------------------------------------------------------------------
@@ -89,34 +63,14 @@ void MainScreen::init(Rig& rig) noexcept {
   rig_ = &rig;
   controls_ = &rig.controls;
   live_ = rig.live;
+  home_.init(rig);
   keys_ = PageKeys{};
   keys_.set_page(kPageSound);
-  rec_ = false;
   roll_ = false;
-  motion_latched_ = false;
-  playing_ = false;
-  octave_ = 0;
-  cursor_ = 0;
-  view_page_ = 0;
-  last_play_page_ = -1;
-  lane_ = 0;
   win_pattern_ = -1;
   win_lo_ = 0;
   win_hi_ = 0;
   win_roll_ = false;
-  for (unsigned k = 0; k < kPageSteps; ++k) {
-    held_step_[k] = -1;
-    step_used_[k] = false;
-  }
-  for (unsigned i = 0; i < kRoles; ++i) {
-    mod_down_[i] = false;
-    mod_used_[i] = false;
-    mod_down_ms_[i] = 0;
-  }
-  for (auto& n : key_note_) {
-    n = -1;
-  }
-  audition_note_ = -1;
   enc_latch_ = EncLatch::None;
   master_down_ = false;
   master_used_ = false;
@@ -127,51 +81,24 @@ void MainScreen::init(Rig& rig) noexcept {
   tool_mask_ = 0;
   shift_ms_ = 0;
   last_turn_ms_ = 0;
-  pattern_down_ = false;
-  overlay_ = false;
-  chain_started_ = false;
-  pattern_down_ms_ = 0;
-  copy_is_pattern_ = false;
-  toast_[0] = '\0';
-  toast_until_ms_ = 0;
-  toast_off_ = false;
   random_open_ = false;
   random_focus_ = 0;
-  lock_active_ = false;
-  lock_step_ = 0;
-  lock_norm_ = 0.0f;
-  lock_text_[0] = '\0';
 }
 
 const char* MainScreen::title() const noexcept {
-  if (overlay_) {
+  if (home_.overlay()) {
     return "PATTERNS";
   }
   return roll_ ? "ROLL" : "STEPS";
 }
 
 void MainScreen::enter(app::Context& ctx) noexcept {
-  for (auto& s : held_step_) {
-    s = -1;
-  }
-  for (bool& d : mod_down_) {
-    d = false;
-  }
+  home_.enter(ctx);
   master_down_ = false;
-  pattern_down_ = false;
-  overlay_ = false;
-  clamp_cursor();
-  view_page_ = cursor_ / 16;
-  ctx.redraw();
 }
 
 void MainScreen::leave(app::Context& ctx) noexcept {
-  for (unsigned i = 0; i < app::kPadCount; ++i) {
-    if (key_note_[i] >= 0) {
-      key_release(ctx, i);
-    }
-  }
-  audition_off(ctx);
+  home_.leave(ctx);
   keys_.release_all();
   live_->snap_finish(ctx, true);
   random_open_ = false;
@@ -179,591 +106,28 @@ void MainScreen::leave(app::Context& ctx) noexcept {
   master_down_ = false;
   live_->leave(ctx);  // the actions held end with the screen (their releases would reach another one)
   tool_mask_ = 0;
-  pattern_down_ = false;
-  overlay_ = false;
-}
-
-void MainScreen::mark_held_used() noexcept {
-  for (unsigned k = 0; k < kPageSteps; ++k) {
-    if (held_step_[k] >= 0) {
-      step_used_[k] = true;
-    }
-  }
-}
-
-bool MainScreen::any_step_held() const noexcept {
-  for (int s : held_step_) {
-    if (s >= 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-std::uint32_t MainScreen::held_mask() const noexcept {
-  std::uint32_t m = 0;
-  for (unsigned k = 0; k < kPageSteps; ++k) {
-    if (held_step_[k] >= 0) {
-      m |= 1u << k;
-    }
-  }
-  return m;
-}
-
-// The step flag of the TR-style modifier held now (ACC, SLIDE, TIE or REST), 0 when none.
-std::uint8_t MainScreen::modifier_flag_down() const noexcept {
-  if (mod_down_[role_index(PadRole::Acc)]) {
-    return kStepAccent;
-  }
-  if (mod_down_[role_index(PadRole::Slide)]) {
-    return kStepSlide;
-  }
-  if (mod_down_[role_index(PadRole::Tie)]) {
-    return kStepTie;
-  }
-  if (mod_down_[role_index(PadRole::Rest)]) {
-    return kStepRest;
-  }
-  return 0;
 }
 
 // A seed that differs from press to press and from boot to boot: the sequence of the last one and the time of this press.
 std::uint32_t MainScreen::next_seed(app::Context& ctx) noexcept { return live_->next_seed(ctx); }
 
-void MainScreen::clamp_cursor() noexcept {
-  const int len = static_cast<int>(length());
-  if (cursor_ >= len) {
-    cursor_ = len - 1;
-  }
-  if (cursor_ < 0) {
-    cursor_ = 0;
-  }
-  const int last_page = (len - 1) / 16;  // the length may have shrunk under the page being shown
-  if (view_page_ > last_page) {
-    view_page_ = last_page;
-  }
-  if (view_page_ < 0) {
-    view_page_ = 0;
-  }
-}
-
-void MainScreen::move_cursor(app::Context& ctx, int to) noexcept {
-  cursor_ = to;
-  clamp_cursor();
-  view_page_ = cursor_ / 16;
-  ctx.redraw();
-}
-
-void MainScreen::toast(app::Context& ctx, const char* text, bool off) noexcept {
-  cut(text, sizeof toast_ - 1u, toast_, sizeof toast_);
-  toast_off_ = off;
-  toast_until_ms_ = ctx.uptime_ms() + kToastMs;
-  ctx.redraw();
-}
-
 void MainScreen::update(app::Context& ctx) noexcept {
-  playing_ = ctx.engine().playing();
-  const seq::Playhead ph = rig_->seq->playhead();
-  if (playing_ && ph.playing) {
-    // The screen follows the pattern being played, and its page.
-    if (ph.pattern >= 0 && static_cast<unsigned>(ph.pattern) != sel()) {
-      rig_->bank->select(static_cast<unsigned>(ph.pattern));
-      clamp_cursor();
-    }
-    if (ph.step >= 0 && ph.step / 16 != last_play_page_) {
-      last_play_page_ = ph.step / 16;
-      view_page_ = last_play_page_;
-    }
-  } else {
-    last_play_page_ = -1;
-  }
-  if (pattern_down_ && !overlay_ && ctx.uptime_ms() - pattern_down_ms_ >= kHoldMs) {
-    overlay_ = true;
-    chain_started_ = false;
-    ctx.redraw();
-  }
-  if (lock_active_ && !any_step_held()) {
-    lock_active_ = false;
-  }
-  if (toast_[0] != '\0' && ctx.uptime_ms() >= toast_until_ms_) {
-    toast_[0] = '\0';
-  }
+  home_.update(ctx);
+  home_.knob_latched(keys_.focused());  // the lane the drawer shows follows the knob the encoder owns (and the pattern under it)
   // (LiveActions::update, from the app's own, ends the keyboard's transposition with the run and stores a morph's blend.)
-  sync_step_focus();
 }
 
 // ---- Input ------------------------------------------------------------------------------------------------------------------
 
 void MainScreen::input(app::Context& ctx, const Input& in) noexcept {
-  playing_ = ctx.engine().playing();
   if (in.kind == core::InputKind::Pad) {
-    pad_input(ctx, in);
+    (void)home_.input(ctx, in);
   } else if (in.kind == core::InputKind::Encoder) {
     turn_input(ctx, in);
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
-  sync_step_focus();
-}
-
-// The step the RATCHET and COND entries show and edit: the first held step, else the cursor's.
-void MainScreen::sync_step_focus() noexcept {
-  int s = cursor_;
-  for (int h : held_step_) {
-    if (h >= 0) {
-      s = h;
-      break;
-    }
-  }
-  rig_->wiring.step_focus = static_cast<unsigned>(s < 0 ? 0 : s);
-}
-
-void MainScreen::audition_on(app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept {
-  audition_off(ctx);
-  const std::uint8_t f = note_flags(step_flags);
-  (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), (f & dsp::kNoteAccent) != 0u ? 127 : 100, f);
-  audition_note_ = static_cast<int>(note);
-}
-
-void MainScreen::audition_off(app::Context& ctx) noexcept {
-  if (audition_note_ >= 0) {
-    (void)ctx.engine().note_off(rig_->wiring.voice, static_cast<std::uint8_t>(audition_note_));
-    audition_note_ = -1;
-  }
-}
-
-void MainScreen::toggle_flag_on_held_or_cursor(app::Context& ctx, std::uint8_t flag) noexcept {
-  if (any_step_held()) {
-    mark_held_used();
-    for (int s : held_step_) {
-      if (s >= 0) {
-        (void)rig_->bank->toggle_flag(sel(), static_cast<unsigned>(s), flag);
-      }
-    }
-  } else {
-    (void)rig_->bank->toggle_flag(sel(), static_cast<unsigned>(cursor_), flag);
-  }
-  ctx.redraw();
-}
-
-void MainScreen::step_press(app::Context& ctx, unsigned k) noexcept {
-  const int s = view_page_ * 16 + static_cast<int>(k);
-  if (static_cast<unsigned>(s) >= length()) {
-    return;
-  }
-  held_step_[k] = s;
-  step_used_[k] = false;
-  // A modifier held alone: the step pads are its TR-style switches.
-  const std::uint8_t flag = modifier_flag_down();
-  if (flag != 0u) {
-    step_used_[k] = true;
-    (void)rig_->bank->toggle_flag(sel(), static_cast<unsigned>(s), flag);
-    const PadRole role = flag == kStepAccent ? PadRole::Acc : (flag == kStepSlide ? PadRole::Slide : (flag == kStepTie ? PadRole::Tie : PadRole::Rest));
-    mod_used_[role_index(role)] = true;
-    ctx.redraw();
-    return;
-  }
-  if (mod_down_[role_index(PadRole::Motion)]) {
-    // MOTION held: the step pads show the steps with automation; a tap on one clears that step's locks of the lane shown (the cursor
-    // stays, nothing sounds). Delete with MOTION held clears the whole lane.
-    mod_used_[role_index(PadRole::Motion)] = true;
-    step_used_[k] = true;
-    if (step_has_motion(pat(), lane_, static_cast<unsigned>(s))) {
-      (void)rig_->bank->clear_plock(sel(), lane_, static_cast<unsigned>(s));
-      toast(ctx, "STEP MOTION CLEARED");
-    }
-    ctx.redraw();
-    return;
-  }
-  // The cursor goes to the step when the pad is let go without having been used (a tap): hold + key or modifier leaves it where it is.
-  if (!playing_) {
-    const Step& st = pat().steps[s];
-    if ((st.flags & kStepRest) == 0u && (st.flags & kStepTie) == 0u) {
-      int n = static_cast<int>(st.note) + pat().transpose;
-      n = n < 0 ? 0 : (n > 127 ? 127 : n);
-      audition_on(ctx, static_cast<unsigned>(n), st.flags);
-    }
-  }
-}
-
-void MainScreen::modifier_with_steps(app::Context& ctx, PadRole role) noexcept {
-  std::uint8_t flag = 0;
-  switch (role) {
-    case PadRole::Acc:
-      flag = kStepAccent;
-      break;
-    case PadRole::Slide:
-      flag = kStepSlide;
-      break;
-    case PadRole::Tie:
-      flag = kStepTie;
-      break;
-    case PadRole::Rest:
-      flag = kStepRest;
-      break;
-    default:
-      return;
-  }
-  toggle_flag_on_held_or_cursor(ctx, flag);
-}
-
-// A modifier pad pressed and released with nothing else done: ACC and SLIDE toggle on the cursor step; TIE and REST do the same,
-// except that with REC armed and the transport stopped they are entries (written on the cursor, which advances).
-void MainScreen::modifier_tap(app::Context& ctx, PadRole role) noexcept {
-  std::uint8_t flag = 0;
-  switch (role) {
-    case PadRole::Acc:
-      flag = kStepAccent;
-      break;
-    case PadRole::Slide:
-      flag = kStepSlide;
-      break;
-    case PadRole::Tie:
-      flag = kStepTie;
-      break;
-    case PadRole::Rest:
-      flag = kStepRest;
-      break;
-    default:
-      return;
-  }
-  if ((flag == kStepTie || flag == kStepRest) && rec_ && !playing_) {
-    const unsigned next = rig_->bank->write_advance(sel(), static_cast<unsigned>(cursor_), pat().steps[cursor_].note, flag);
-    move_cursor(ctx, static_cast<int>(next));
-    return;
-  }
-  (void)rig_->bank->toggle_flag(sel(), static_cast<unsigned>(cursor_), flag);
-  ctx.redraw();
-}
-
-void MainScreen::key_press(app::Context& ctx, unsigned pad) noexcept {
-  const int note = key_note(pad, octave_);
-  if (note < 0 || scale_locked_out(note)) {  // not a key, or out of the scale the keyboard is locked to (R8): the pad is dark and does nothing
-    return;
-  }
-  std::uint8_t flags = 0;
-  if (mod_down_[role_index(PadRole::Acc)]) {
-    flags = static_cast<std::uint8_t>(flags | kStepAccent);
-    mod_used_[role_index(PadRole::Acc)] = true;
-  }
-  if (mod_down_[role_index(PadRole::Slide)]) {
-    flags = static_cast<std::uint8_t>(flags | kStepSlide);
-    mod_used_[role_index(PadRole::Slide)] = true;
-  }
-  const unsigned un = static_cast<unsigned>(note);
-  bool sound = true;
-  if (any_step_held()) {
-    // hold a step + a key: that step's note, the cursor stays.
-    mark_held_used();
-    for (int s : held_step_) {
-      if (s >= 0) {
-        (void)rig_->bank->set_note(sel(), static_cast<unsigned>(s), un);
-        if ((pat().steps[s].flags & (kStepRest | kStepTie)) != 0u) {
-          (void)rig_->bank->set_flag(sel(), static_cast<unsigned>(s), kStepRest, false);
-          (void)rig_->bank->set_flag(sel(), static_cast<unsigned>(s), kStepTie, false);
-        }
-      }
-    }
-  } else if (rec_ && !playing_) {
-    const unsigned next = rig_->bank->write_advance(sel(), static_cast<unsigned>(cursor_), un, flags);
-    move_cursor(ctx, static_cast<int>(next));
-  } else if (rec_ && playing_) {
-    const seq::Playhead ph = rig_->seq->playhead();
-    if (ph.playing && ph.step >= 0 && ph.pattern >= 0) {
-      (void)rig_->bank->write_advance(static_cast<unsigned>(ph.pattern), static_cast<unsigned>(ph.step), un, flags);
-    }
-  } else if (playing_ && !live_->keys_live()) {
-    // The keyboard transposes the running pattern: the bottom left C is no transposition.
-    int t = note - kLowestNote;
-    t = t < -36 ? -36 : (t > 36 ? 36 : t);
-    live_->set_live_transpose(t);
-    sound = false;
-  }
-  if (sound) {
-    key_note_[pad] = note;
-    const std::uint8_t nf = note_flags(flags);
-    (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), (nf & dsp::kNoteAccent) != 0u ? 127 : 100, nf);
-  }
-  ctx.redraw();
-}
-
-void MainScreen::key_release(app::Context& ctx, unsigned pad) noexcept {
-  if (key_note_[pad] >= 0) {
-    (void)ctx.engine().note_off(rig_->wiring.voice, static_cast<std::uint8_t>(key_note_[pad]));
-    key_note_[pad] = -1;
-  }
-}
-
-void MainScreen::choose_pattern(app::Context& ctx, unsigned index) noexcept {
-  if (index >= kPatternCount) {
-    return;
-  }
-  if (!chain_started_) {
-    chain_started_ = true;
-    (void)rig_->seq->clear_queue();
-    if (!playing_) {
-      rig_->bank->select(index);  // stopped: the first tap selects at once, further taps chain behind it
-      clamp_cursor();
-      view_page_ = cursor_ / 16;
-      return;
-    }
-  }
-  (void)rig_->seq->queue(index);  // the chain is the sequencer's: it shows in chain() within a block
-  ctx.redraw();
-}
-
-void MainScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
-  const unsigned pad = in.pad();
-  const PadRole role = pad_role(pad);
-  const unsigned ri = role_index(role);
-  const bool down = in.pad_press();
-
-  if (!down) {
-    switch (role) {
-      case PadRole::Step: {
-        const int k = pad_page_step(pad);
-        if (k >= 0) {
-          if (held_step_[k] >= 0 && !step_used_[k] && !overlay_) {
-            move_cursor(ctx, held_step_[k]);  // a tap: the step is selected
-          }
-          held_step_[k] = -1;
-        }
-        if (!any_step_held()) {
-          audition_off(ctx);
-        }
-        break;
-      }
-      case PadRole::Key:
-        key_release(ctx, pad);
-        break;
-      case PadRole::Acc:
-      case PadRole::Slide:
-      case PadRole::Tie:
-      case PadRole::Rest:
-        if (mod_down_[ri]) {
-          mod_down_[ri] = false;
-          // A tap does the modifier's own job; held longer it was only a look at the steps that have it.
-          if (!mod_used_[ri] && !overlay_ && ctx.uptime_ms() - mod_down_ms_[ri] < kHoldMs) {
-            modifier_tap(ctx, role);
-          }
-          mod_used_[ri] = false;
-        }
-        break;
-      case PadRole::Motion:
-        if (mod_down_[ri]) {
-          mod_down_[ri] = false;
-          if (!mod_used_[ri] && !overlay_ && ctx.uptime_ms() - mod_down_ms_[ri] < kHoldMs) {
-            motion_latched_ = !motion_latched_;
-            toast(ctx, motion_latched_ ? "MOTION REC ON" : "MOTION REC OFF", !motion_latched_);
-          }
-          mod_used_[ri] = false;
-        }
-        break;
-      case PadRole::Keys:
-        if (mod_down_[ri]) {
-          mod_down_[ri] = false;
-          // A tap still switches the keyboard between transposing and playing; held (and used for the ladders) it was the ladders' key.
-          if (!mod_used_[ri] && !overlay_ && ctx.uptime_ms() - mod_down_ms_[ri] < kHoldMs) {
-            live_->set_keys_live(!live_->keys_live());
-            toast(ctx, live_->keys_live() ? "KEYS PLAY THE VOICE" : "KEYS TRANSPOSE");
-          }
-          mod_used_[ri] = false;
-        }
-        break;
-      default:
-        break;
-    }
-    ctx.redraw();
-    return;
-  }
-
-  if (overlay_ || pattern_down_) {  // Pattern held: the 48 pads are the patterns
-    overlay_ = true;
-    choose_pattern(ctx, pad);
-    ctx.redraw();
-    return;
-  }
-
-  switch (role) {
-    case PadRole::Step: {
-      const int k = pad_page_step(pad);
-      if (k >= 0) {
-        step_press(ctx, static_cast<unsigned>(k));
-      }
-      break;
-    }
-    case PadRole::Acc:
-    case PadRole::Slide:
-    case PadRole::Tie:
-    case PadRole::Rest:
-      mod_down_[ri] = true;
-      mod_used_[ri] = false;
-      mod_down_ms_[ri] = ctx.uptime_ms();
-      if (any_step_held()) {  // hold a step + ACC / SLIDE / TIE / REST: that attribute toggles on it
-        modifier_with_steps(ctx, role);
-        mod_used_[ri] = true;
-      }
-      break;
-    case PadRole::OctDown:
-    case PadRole::OctUp: {
-      const int d = role == PadRole::OctUp ? 1 : -1;
-      if (any_step_held()) {  // hold a step + OCT+ / OCT-: the step's ratchet up or down (R4; its octave is hold a step + up / down)
-        mark_held_used();
-        ratchet_step(ctx, d);
-      } else {
-        octave_ = clamp_octave(octave_ + d);
-      }
-      break;
-    }
-    case PadRole::Keys:
-    case PadRole::Motion:  // a tap does the pad's own job (KEYS: transposing or playing; MOTION: the recording latch), a hold is a modifier
-      mod_down_[ri] = true;
-      mod_used_[ri] = false;
-      mod_down_ms_[ri] = ctx.uptime_ms();
-      break;
-    case PadRole::Key:
-      if (mod_down_[role_index(PadRole::Keys)]) {  // KEYS held: rows 2 and 3 are the filter ladders (R1)
-        mod_used_[role_index(PadRole::Keys)] = true;
-        ladder_press(ctx, pad, in.shift);
-      } else if (wobble_on() && app::pad_row(pad) == app::kPadRows - 1u) {  // WOBBLE on: the bottom row picks the wobble's rate (M3c W); column 11 has none
-        wobble_pad(ctx, pad);
-      } else {
-        key_press(ctx, pad);
-      }
-      break;
-    case PadRole::None:
-      break;
-  }
-  ctx.redraw();
-}
-
-// The lane of `p` that drives what `entry` shows (pattern.h's lanes table), -1 when the entry is not a lane target or no lane points at it.
-int MainScreen::lane_of(const Entry& entry, const Pattern& p) const noexcept {
-  LaneRef ref{kLaneNone, 0};
-  if (!controls_->lane_ref(entry, ref)) {
-    return -1;
-  }
-  return seq::find_lane(p, ref.target, ref.id);
-}
-
-// Hold a step + the encoder on an entry a lane drives: a p-lock on that lane, scaled with the target's own descriptor (a unit's
-// parameter) or range (the mixer) rather than "the voice's parameter number `lane`".
-void MainScreen::plock_turn(app::Context& ctx, int lane, int detents, bool coarse) noexcept {
-  const Entry& entry = keys_.focused();
-  const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
-  if (d == nullptr || lane < 0 || static_cast<unsigned>(lane) >= kMotionLanes) {
-    return;
-  }
-  const unsigned ln = static_cast<unsigned>(lane);
-  lane_ = ln;
-  mark_held_used();
-  const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
-  for (unsigned k = 0; k < kPageSteps; ++k) {
-    if (held_step_[k] < 0) {
-      continue;
-    }
-    const unsigned s = static_cast<unsigned>(held_step_[k]);
-    const std::uint8_t cur = pat().motion[ln][s * kMotionPointsPerStep];
-    const float v = cur == kNoLock ? controls_->get(ctx.engine(), entry) : controls_->from_point(ctx.engine(), entry, cur);
-    const std::uint8_t pt = controls_->to_point(ctx.engine(), entry, core::param_step(*d, v, n));
-    (void)rig_->bank->set_plock(sel(), ln, s, pt);
-    lock_active_ = true;
-    lock_step_ = static_cast<int>(s);
-    lock_norm_ = static_cast<float>(pt) / 254.0f;
-    (void)core::param_format(*d, controls_->from_point(ctx.engine(), entry, pt), lock_text_, sizeof lock_text_);
-    char unit[8];
-    cut(d->unit_text, 3, unit, sizeof unit);
-    append(lock_text_, sizeof lock_text_, unit);
-  }
-  ctx.redraw();
-}
-
-// Hold a step + the encoder on the RATCHET or COND entry (R4, R5): every held step moves by the detents from where it stands (a ratchet
-// along x1 .. x4, a condition along the encoder's walk, seq::step_cond); one undo step for a run of turns on a step (the Bank joins them).
-void MainScreen::step_entry_turn(app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept {
-  mark_held_used();
-  for (int s : held_step_) {
-    if (s >= 0) {
-      controls_->step_at(ctx.engine(), entry, static_cast<unsigned>(s), detents, coarse);
-    }
-  }
-  const unsigned first = rig_->wiring.step_focus;
-  char text[24] = "STEP ";
-  char num[4];
-  view::fmt_uint(first + 1u, num);
-  append(text, sizeof text, num);
-  append(text, sizeof text, entry.item == Item::Ratchet ? " RATCHET " : " COND ");
-  char value[16];
-  (void)controls_->format(ctx.engine(), entry, value, sizeof value);
-  append(text, sizeof text, value);
-  toast(ctx, text);
-}
-
-// Hold a step + OCT+ / OCT-: the ratchet of every held step one up or down (x1 .. x4).
-void MainScreen::ratchet_step(app::Context& ctx, int direction) noexcept {
-  const Entry entry{Item::Ratchet, 0, nullptr};
-  for (int s : held_step_) {
-    if (s >= 0) {
-      controls_->step_at(ctx.engine(), entry, static_cast<unsigned>(s), direction, false);
-    }
-  }
-  sync_step_focus();
-  char text[24] = "STEP ";
-  char num[4];
-  view::fmt_uint(rig_->wiring.step_focus + 1u, num);
-  append(text, sizeof text, num);
-  append(text, sizeof text, " RATCHET ");
-  char value[16];
-  (void)controls_->format(ctx.engine(), entry, value, sizeof value);
-  append(text, sizeof text, value);
-  toast(ctx, text);
-}
-
-// Hold ACC (or SLIDE) + left / right: that layer of the pattern alone moves one step (R3); the notes and everything else stay.
-void MainScreen::rotate_layers(app::Context& ctx, int direction) noexcept {
-  const bool acc = mod_down_[role_index(PadRole::Acc)];
-  const bool slide = mod_down_[role_index(PadRole::Slide)];
-  if (acc) {
-    (void)rig_->bank->rotate_layer(sel(), seq::Layer::Accent, direction);
-    mod_used_[role_index(PadRole::Acc)] = true;  // the release is no toggle of the cursor step's accent
-  }
-  if (slide) {
-    (void)rig_->bank->rotate_layer(sel(), seq::Layer::Slide, direction);
-    mod_used_[role_index(PadRole::Slide)] = true;
-  }
-  const char* what = acc && slide ? "ACCENTS AND SLIDES" : (acc ? "ACCENTS" : "SLIDES");
-  char text[40];
-  cut(what, 20, text, sizeof text);
-  append(text, sizeof text, direction > 0 ? " ROTATED RIGHT" : " ROTATED LEFT");
-  toast(ctx, text);
-}
-
-// Hold MOTION + tap an F key: the lane the screen shows (lane_) is pointed at that key's parameter, the way to put the delay send, the
-// drive or any other lane target on a motion lane (C2). The lane's points are cleared (they were another parameter's); the whole change is
-// one undoable edit. A parameter some lane already drives is only shown.
-void MainScreen::assign_lane(app::Context& ctx, const Entry& entry) noexcept {
-  LaneRef ref{kLaneNone, 0};
-  if (!controls_->lane_ref(entry, ref)) {
-    toast(ctx, "NO MOTION LANE FOR THAT KEY");
-    return;
-  }
-  char text[40];
-  const int have = seq::find_lane(pat(), ref.target, ref.id);
-  const unsigned lane = have >= 0 ? static_cast<unsigned>(have) : (lane_ < kMotionLanes ? lane_ : 0u);
-  if (have < 0) {
-    (void)rig_->bank->edit(sel(), [&](Pattern& p) {
-      p.lanes[lane] = ref;
-      seq::clear_lane_motion(p, lane);
-    });
-  }
-  lane_ = lane;
-  char num[4];
-  view::fmt_uint(lane + 1u, num);
-  cut("LANE ", 5, text, sizeof text);
-  append(text, sizeof text, num);
-  append(text, sizeof text, have >= 0 ? ": " : " = ");
-  append(text, sizeof text, controls_->lane_name(ctx.engine(), ref));
-  toast(ctx, text);
+  home_.sync_step_focus();
 }
 
 void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
@@ -776,22 +140,9 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   const Entry& focused = keys_.focused();
-  if (any_step_held() && Controls::is_step_entry(focused)) {  // hold a step + the encoder on RATCHET or COND
+  if (home_.turn(ctx, in.delta(), in.shift, focused)) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
     keys_.mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
-    step_entry_turn(ctx, focused, in.delta(), in.shift);
     return;
-  }
-  if (any_step_held()) {  // hold a step + encoder: a p-lock of the focused parameter, on the lane that drives it
-    const int lane = lane_of(focused, pat());
-    if (lane >= 0) {
-      keys_.mark_turned();
-      plock_turn(ctx, lane, in.delta(), in.shift);
-      return;
-    }
-    LaneRef ref{kLaneNone, 0};
-    if (controls_->lane_ref(focused, ref)) {
-      toast(ctx, "NO LANE: HOLD MOTION + THIS KEY");  // the knob moves, the step is not locked
-    }
   }
   if (enc_latch_ != EncLatch::None && keys_.held() == 0u) {  // Master's tap latched TEMPO or SWING on the encoder
     latch_turn(ctx, in.delta(), in.shift);
@@ -809,20 +160,9 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   const std::uint32_t affected = keys_.held() != 0u ? keys_.held() : (1u << keys_.focus());
   const Page& pg = keys_.page();
   (void)keys_.input(ctx, in, *controls_);
-  if (playing_ && (rec_ || motion_latched_)) {
-    // Recording: an encoder move on an entry a lane drives is written as motion under the playhead, on the lane of the playing pattern.
-    const seq::Playhead ph = rig_->seq->playhead();
-    const Pattern& playing = rig_->bank->pattern(ph.playing && ph.pattern >= 0 ? static_cast<unsigned>(ph.pattern) : sel());
-    for (unsigned k = 0; k < kKeys; ++k) {
-      if ((affected >> k & 1u) == 0u) {
-        continue;
-      }
-      const int lane = lane_of(pg.entry[k], playing);
-      if (lane >= 0) {
-        lane_ = static_cast<unsigned>(lane);
-        (void)rig_->seq->record_motion(static_cast<unsigned>(lane),
-                                       controls_->to_lane(pg.entry[k], controls_->get(ctx.engine(), pg.entry[k])));
-      }
+  for (unsigned k = 0; k < kKeys; ++k) {  // Rec while the pattern plays: the move is written as motion under the playhead (the home map's)
+    if ((affected >> k & 1u) != 0u) {
+      home_.turned(ctx, pg.entry[k]);
     }
   }
 }
@@ -869,82 +209,7 @@ void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
       break;
     }
   }
-  clamp_cursor();
-  view_page_ = cursor_ / 16;
-}
-
-void MainScreen::copy_buttons(app::Context& ctx, Button which, bool shift) noexcept {
-  seq::Bank& bank = *rig_->bank;
-  switch (which) {
-    case Button::Copy:
-      if (pattern_down_) {
-        bank.copy_pattern(sel());
-        copy_is_pattern_ = true;
-        toast(ctx, "PATTERN COPIED");
-      } else if (shift) {
-        if (copy_is_pattern_) {
-          toast(ctx, bank.paste_pattern(sel()) ? "PATTERN PASTED" : "NOTHING COPIED");
-        } else {
-          toast(ctx, bank.paste_step(sel(), static_cast<unsigned>(cursor_)) ? "STEP PASTED" : "NOTHING COPIED");
-        }
-      } else {
-        bank.copy_step(sel(), static_cast<unsigned>(cursor_));
-        copy_is_pattern_ = false;
-        toast(ctx, "STEP COPIED");
-      }
-      break;
-    case Button::Insert:
-      if (shift) {
-        if (sel() + 1u >= kPatternCount) {  // the last pattern has no slot after it: nothing wraps round to overwrite A01
-          toast(ctx, "NO SLOT AFTER THE LAST PATTERN");
-          break;
-        }
-        const unsigned next = sel() + 1u;
-        (void)bank.replace(next, pat());
-        char name[4];
-        char text[24] = "DUPLICATED TO ";
-        pattern_name(next, name, sizeof name);
-        append(text, sizeof text, name);
-        if (playing_) {
-          (void)rig_->seq->queue(next);
-        } else {
-          bank.select(next);
-        }
-        toast(ctx, text);
-      } else {
-        (void)bank.insert_step(sel(), static_cast<unsigned>(cursor_));
-      }
-      break;
-    default: {  // Delete
-      if (mod_down_[role_index(PadRole::Motion)]) {
-        mod_used_[role_index(PadRole::Motion)] = true;
-        if (shift) {
-          (void)bank.clear_motion(sel());
-          toast(ctx, "ALL MOTION CLEARED");
-        } else {
-          (void)bank.clear_lane_motion(sel(), lane_);
-          toast(ctx, "MOTION CLEARED");
-        }
-      } else if (shift) {
-        (void)bank.clear_pattern(sel());
-        toast(ctx, "PATTERN CLEARED");
-      } else if (any_step_held()) {
-        mark_held_used();
-        for (int s : held_step_) {
-          if (s >= 0) {
-            (void)bank.set_flag(sel(), static_cast<unsigned>(s), kStepRest, true);
-            (void)bank.clear_step_motion(sel(), static_cast<unsigned>(s));
-          }
-        }
-      } else {
-        (void)bank.set_flag(sel(), static_cast<unsigned>(cursor_), kStepRest, true);
-        (void)bank.clear_step_motion(sel(), static_cast<unsigned>(cursor_));
-      }
-      break;
-    }
-  }
-  clamp_cursor();
-  ctx.redraw();
+  home_.refocus();
 }
 
 void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
@@ -971,10 +236,6 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
         }
         return;
       }
-      if (mod_down_[role_index(PadRole::Motion)]) {  // MOTION held + an F key: the lane shown now drives that key's parameter
-        mod_used_[role_index(PadRole::Motion)] = true;
-        assign_lane(ctx, keys_.page().entry[k]);
-      }
       (void)keys_.input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
       if ((tool_mask_ >> k & 1u) != 0u) {
@@ -986,30 +247,16 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
 
+  if (in.which() == Button::Pattern && in.type == Input::Type::Release && home_.pattern_tap()) {
+    roll_ = !roll_;  // a tap on the screen's own button: the step view and the piano roll
+  }
+  if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons, Pattern
+    return;
+  }
+
   if (in.type == Input::Type::Release) {
-    switch (in.which()) {
-      case Button::Note:
-      case Button::Instr:
-      case Button::Vol:
-      case Button::Fx:
-        live_->button_release(ctx, static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note));
-        break;
-      case Button::Master:
-        master_release(ctx);
-        break;
-      case Button::Pattern:
-        if (pattern_down_) {
-          if (!overlay_) {
-            roll_ = !roll_;  // a tap on the screen's own button: the step view and the piano roll
-          }
-          pattern_down_ = false;
-          overlay_ = false;
-          chain_started_ = false;
-          ctx.redraw();
-        }
-        break;
-      default:
-        break;
+    if (in.which() == Button::Master) {
+      master_release(ctx);
     }
     return;
   }
@@ -1031,66 +278,8 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       }
       ctx.redraw();
       break;
-    case Button::Rec:
-      rec_ = !rec_;
-      ctx.redraw();
-      break;
-    case Button::Left:
-    case Button::Right: {
-      const int d = in.which() == Button::Right ? 1 : -1;
-      if (mod_down_[role_index(PadRole::Acc)] || mod_down_[role_index(PadRole::Slide)]) {  // hold ACC / SLIDE + left / right (R3)
-        rotate_layers(ctx, d);
-      } else if (in.shift) {
-        (void)rig_->bank->rotate(sel(), d);
-        toast(ctx, d > 0 ? "ROTATED RIGHT" : "ROTATED LEFT");
-      } else {
-        move_cursor(ctx, wrap(cursor_ + d, static_cast<int>(length())));
-      }
-      break;
-    }
-    case Button::Up:
-    case Button::Down: {
-      const int d = in.which() == Button::Up ? 1 : -1;
-      if (in.shift) {
-        (void)rig_->bank->set_transpose(sel(), pat().transpose + d);
-      } else if (any_step_held()) {  // hold a step + UP / DOWN: that step's octave (R4; up / down alone are a semitone on the cursor step)
-        mark_held_used();
-        for (int s : held_step_) {
-          if (s >= 0) {
-            const int n = static_cast<int>(pat().steps[s].note) + 12 * d;
-            if (n >= 0 && n <= 127) {
-              (void)rig_->bank->set_note(sel(), static_cast<unsigned>(s), static_cast<unsigned>(n));
-            }
-          }
-        }
-      } else {
-        const int n = static_cast<int>(pat().steps[cursor_].note) + d;
-        if (n >= 0 && n <= 127) {
-          (void)rig_->bank->set_note(sel(), static_cast<unsigned>(cursor_), static_cast<unsigned>(n));
-        }
-      }
-      ctx.redraw();
-      break;
-    }
-    case Button::Note:
-    case Button::Instr:
-    case Button::Vol:
-    case Button::Fx:  // the four assignable performance buttons (C4)
-      live_->button_press(ctx, static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note), in.shift);
-      break;
     case Button::Master:
       master_press(ctx, in.shift);
-      break;
-    case Button::Copy:
-    case Button::Insert:
-    case Button::Delete:
-      copy_buttons(ctx, in.which(), in.shift);
-      break;
-    case Button::Pattern:
-      pattern_down_ = true;
-      overlay_ = false;
-      chain_started_ = false;
-      pattern_down_ms_ = ctx.uptime_ms();
       break;
     case Button::Shift:
       shift_ms_ = ctx.uptime_ms();
@@ -1129,125 +318,32 @@ void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
   // No labels: the knob strip's boxes carry the F-number and the name (S2), so the key row is the keys alone and there is no second label row.
 }
 
-void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
-  clamp_cursor();
-  const seq::Playhead ph = rig_->seq->playhead();
-  const bool blink = app::PadLeds::blink(ctx.now(), 500);
-
-  if (overlay_) {
-    const seq::ChainView chain = rig_->seq->chain();
-    for (unsigned i = 0; i < kPatternCount; ++i) {
-      std::uint8_t level = pattern_is_empty(rig_->bank->pattern(i)) ? app::kLedOff : app::kLedDim;
-      if (i == sel()) {
-        level = app::kLedMid;
-      }
-      for (unsigned c = 0; c < chain.length; ++c) {
-        if (chain.pattern[c] == i) {
-          level = static_cast<int>(c) == chain.next_entry && blink ? app::kLedOn : app::kLedLow;
-        }
-      }
-      if (ph.playing && ph.pattern == static_cast<int>(i)) {
-        level = app::kLedOn;
-      }
-      leds.set(i, level);
-    }
-    return;
-  }
-
-  const Pattern& p = pat();
-  const unsigned len = length();
-  const std::uint8_t flag = modifier_flag_down();
-  const bool motion_view = mod_down_[role_index(PadRole::Motion)];
-  const bool playing_here = ph.playing && ph.pattern == static_cast<int>(sel());
-  for (unsigned k = 0; k < kPageSteps; ++k) {
-    const unsigned s = static_cast<unsigned>(view_page_) * 16u + k;
-    if (s >= len) {
-      continue;
-    }
-    const StepInfo info = describe(p, s);
-    std::uint8_t level = app::kLedOff;
-    if (flag != 0u) {  // a modifier held alone: the steps that have it
-      level = (p.steps[s].flags & flag) != 0u ? app::kLedMid : app::kLedOff;
-    } else if (motion_view) {  // MOTION held: the steps with automation
-      level = step_has_motion(p, lane_, s) ? app::kLedMid : app::kLedOff;
-    } else if (info.kind == Cell::Note) {
-      level = info.accent ? app::kLedLow : app::kLedDim;
-    } else if (info.kind == Cell::Tie) {
-      level = app::kLedDim;
-    }
-    if (playing_here && ph.step == static_cast<int>(s)) {
-      level = app::kLedOn;
-    }
-    if (static_cast<int>(s) == cursor_ && flag == 0u && !motion_view) {
-      if (playing_here && ph.step == static_cast<int>(s)) {
-        level = blink ? app::kLedOn : app::kLedMid;  // the playhead stays visible on the cursor's step
-      } else {
-        level = blink ? app::kLedOn : (info.kind != Cell::Rest ? app::kLedDim : app::kLedOff);
-      }
-    }
-    if (held_step_[k] >= 0) {
-      level = app::kLedOn;
-    }
-    leds.set(step_pad(k), level);
-  }
-
-  // The modifier block: what the cursor's step has, brighter while held.
-  const Step& cs = p.steps[cursor_ < static_cast<int>(len) ? cursor_ : 0];
-  const auto mod_level = [&](PadRole role, bool lit) -> std::uint8_t {
-    return mod_down_[role_index(role)] ? app::kLedOn : (lit ? app::kLedMid : app::kLedDim);
-  };
-  leds.set(role_pad(PadRole::Acc), mod_level(PadRole::Acc, (cs.flags & kStepAccent) != 0u));
-  leds.set(role_pad(PadRole::Slide), mod_level(PadRole::Slide, (cs.flags & kStepSlide) != 0u));
-  leds.set(role_pad(PadRole::Tie), mod_level(PadRole::Tie, (cs.flags & kStepTie) != 0u));
-  leds.set(role_pad(PadRole::Rest), mod_level(PadRole::Rest, (cs.flags & kStepRest) != 0u));
-  leds.set(role_pad(PadRole::OctDown), octave_ < 0 ? app::kLedMid : app::kLedDim);
-  leds.set(role_pad(PadRole::OctUp), octave_ > 0 ? app::kLedMid : app::kLedDim);
-  leds.set(role_pad(PadRole::Keys), mod_down_[role_index(PadRole::Keys)] ? app::kLedOn : (live_->keys_live() ? app::kLedMid : app::kLedDim));
-  leds.set(role_pad(PadRole::Motion), mod_down_[role_index(PadRole::Motion)] ? app::kLedOn : (motion_latched_ ? app::kLedMid : app::kLedDim));
-
-  if (mod_down_[role_index(PadRole::Keys)]) {  // KEYS held: rows 2 and 3 are the filter ladders, drawn as bars
-    ladder_leds(ctx, leds);
-    return;
-  }
-
-  // The keyboard: naturals dim, sharps off, the current note of the pattern at full level; out of the scale it is locked to, dark.
-  int current = -1;
-  const int ref = playing_here ? ph.step : cursor_;
-  if (ref >= 0 && static_cast<unsigned>(ref) < len) {
-    const StepInfo info = describe(p, static_cast<unsigned>(ref));
-    if (info.kind != Cell::Rest) {
-      current = info.note;
-    }
-  }
-  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
-    const int n = key_note(pad, octave_);
-    if (n < 0) {
-      continue;
-    }
-    if (scale_locked_out(n)) {
-      leds.set(pad, app::kLedOff);
-      continue;
-    }
-    // The piano drawn with one colour: naturals dim, sharps off. With a scale chosen, lit means playable: every pad of the scale is dim.
-    std::uint8_t level = is_natural(static_cast<unsigned>(n)) || scale_locked() ? app::kLedDim : app::kLedOff;
-    if (playing_ && !live_->keys_live() && !rec_ && n == kLowestNote + live_->live_transpose()) {
-      level = app::kLedMid;  // the key the running pattern is transposed by
-    }
-    if (n == current) {
-      level = app::kLedOn;
-    }
-    if (ctx.panel().pad_held(pad)) {
-      level = app::kLedOn;
-    }
-    leds.set(pad, level);
-  }
-  if (wobble_on()) {  // the bottom row is the wobble's rate picker (M3c W): drawn over the keyboard
-    wobble_leds(leds);
-  }
-}
+void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_.leds(ctx, leds); }
 
 // ---- Drawing ----------------------------------------------------------------------------------------------------------------
 
+// What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): the F key latched (or held), a latch of Master, the popup's setting, the morph.
+void MainScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
+  out[0] = '\0';
+  if (master_down_) {
+    append(out, cap, "TEMPO NUDGE");
+  } else if (enc_latch_ != EncLatch::None) {
+    append(out, cap, enc_latch_ == EncLatch::Tempo ? "TEMPO" : "SWING");
+  } else if (random_open_) {
+    char fk[4] = {'F', static_cast<char>('1' + random_focus_), ' ', '\0'};
+    append(out, cap, fk);
+    append(out, cap, controls_->label(ctx.engine(), random_entry(random_focus_)));
+  } else if (on_snap_page()) {
+    append(out, cap, "MORPH");
+  } else {
+    char fk[4] = {'F', static_cast<char>('1' + keys_.focus()), ' ', '\0'};
+    append(out, cap, fk);
+    append(out, cap, controls_->label(ctx.engine(), keys_.focused()));
+  }
+}
+
+// The info strip under the status line: the pattern's name, its LEN / SW / GATE / TR, the pattern queued next, and the STEP box (the held or cursor
+// step whole) on the right. The keyboard's mode, Rec, the actions that are on and the toast are the status line's.
 void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   const Rect strip{area.x, area.y, area.w, kInfoH};
   ui::strip(r, strip, ui::Edge::Bottom);
@@ -1261,56 +357,26 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
 
   const int baseline = strip.y + 23;
   ui::FieldRow row(r, 68, baseline);
-  if (toast_[0] != '\0') {
-    if (toast_off_) {
-      outline_chip(r, row, baseline, Face::Data, toast_, Color::ChromeText);
-    } else {
-      row.chip(Face::Data, toast_, Color::Sel, Color::SelText);
-    }
-    row.skip(12);
-  } else {
-    char v[8];
-    view::fmt_uint(length(), v);
-    row.field("LEN", Face::Data, v, Color::ChromeDim, Color::ChromeText);
-    char sw[8];
-    unsigned n = view::fmt_uint(p.swing, sw);
-    sw[n++] = '%';
-    sw[n] = '\0';
-    row.field("SW", Face::Data, sw, Color::ChromeDim, Color::ChromeText);
-    char g[8];
-    n = view::fmt_uint(p.gate, g);
-    g[n++] = '%';
-    g[n] = '\0';
-    row.field("GATE", Face::Data, g, Color::ChromeDim, Color::ChromeText);
-    // The pattern's playback transpose (the SEQ page's TRANSP and Shift + UP / DOWN).
-    char tr[8];
-    n = 0;
-    tr[n++] = p.transpose < 0 ? '-' : '+';
-    n += view::fmt_uint(static_cast<unsigned>(p.transpose < 0 ? -p.transpose : p.transpose), tr + n);
-    tr[n] = '\0';
-    row.field("TR", Face::Data, tr, Color::ChromeDim, Color::ChromeText);
-  }
-  if (rec_) {
-    row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
-    row.skip(6);
-  }
-  if (live_->keys_live()) {  // the mode that is on is a filled chip, the other an outline
-    row.chip(Face::Label, "KEYS", Color::ChromeText, Color::Chrome);
-    row.skip(4);
-    outline_chip(r, row, baseline, Face::Label, "TRNSP", Color::ChromeDim);
-  } else {
-    outline_chip(r, row, baseline, Face::Label, "KEYS", Color::ChromeDim);
-    row.skip(4);
-    char t[12] = "TRNSP";
-    const int live_trn = live_->live_transpose();
-    if (live_trn != 0) {
-      char num[8];
-      view::fmt_uint(static_cast<unsigned>(live_trn < 0 ? -live_trn : live_trn), num);
-      append(t, sizeof t, live_trn < 0 ? " -" : " +");
-      append(t, sizeof t, num);
-    }
-    row.chip(Face::Label, t, Color::ChromeText, Color::Chrome);
-  }
+  char v[8];
+  view::fmt_uint(length(), v);
+  row.field("LEN", Face::Data, v, Color::ChromeDim, Color::ChromeText);
+  char sw[8];
+  unsigned n = view::fmt_uint(p.swing, sw);
+  sw[n++] = '%';
+  sw[n] = '\0';
+  row.field("SW", Face::Data, sw, Color::ChromeDim, Color::ChromeText);
+  char g[8];
+  n = view::fmt_uint(p.gate, g);
+  g[n++] = '%';
+  g[n] = '\0';
+  row.field("GATE", Face::Data, g, Color::ChromeDim, Color::ChromeText);
+  // The pattern's playback transpose (the SEQ page's TRANSP).
+  char tr[8];
+  n = 0;
+  tr[n++] = p.transpose < 0 ? '-' : '+';
+  n += view::fmt_uint(static_cast<unsigned>(p.transpose < 0 ? -p.transpose : p.transpose), tr + n);
+  tr[n] = '\0';
+  row.field("TR", Face::Data, tr, Color::ChromeDim, Color::ChromeText);
   row.skip(6);
   if (ph.playing && ph.queued >= 0) {
     char next[16] = "NEXT ";
@@ -1320,38 +386,10 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     row.chip(Face::Label, next, Color::ChromeDim, Color::Chrome);
   }
 
-  // The performance chips, right aligned: the action each of the four buttons does now (the PERF page assigns them), lit while the button
-  // is down, filled in Sel when latched (by the button or by its action's pad on PERFORM). Before them, a Sel chip for each action latched on a
-  // PERFORM pad that no button carries, as many as fit between the fields on the left and these chips, then a "+N" for the rest (frame.h): a
-  // latched action stays on when the screen changes and is never lost without a word.
-  const char* chip[kPerfButtons];
-  std::uint16_t extra = live_->pads_latched();
-  int total = 0;
-  for (unsigned i = 0; i < kPerfButtons; ++i) {
-    const unsigned a = rig_->wiring.perf[i];
-    chip[i] = a < kPerfActionCount ? kPerfActionChips[a] : "";
-    total += r.text_width(chip[i], Face::Label) + 2 * theme.metrics.gap + 6;
-    if (a < kPerfActionCount) {
-      extra = static_cast<std::uint16_t>(extra & ~perf_bit(static_cast<PerfAction>(a)));
-    }
-  }
-  const int perf_x = ui::kScreenW - 6 - total;
-  const int extra_w = frame::action_chips_width(r, extra, perf_x - (row.x() + 8));
-  (void)frame::draw_action_chips(r, perf_x - extra_w, perf_x, baseline, extra);
-  ui::FieldRow perf(r, perf_x, baseline);
-  for (unsigned i = 0; i < kPerfButtons; ++i) {
-    const unsigned a = rig_->wiring.perf[i];
-    const bool pad_latched = a < kPerfActionCount && (live_->pads_latched() & perf_bit(static_cast<PerfAction>(a))) != 0u;
-    if ((live_->buttons_latched() >> i & 1u) != 0u || pad_latched) {
-      perf.chip(Face::Label, chip[i], Color::Sel, Color::SelText);
-    } else if ((live_->buttons_held() >> i & 1u) != 0u) {
-      perf.chip(Face::Label, chip[i], Color::Accent, Color::AccentText);
-    } else {  // off: an outline of the same size
-      outline_chip(r, perf, baseline, Face::Label, chip[i], Color::ChromeDim);
-    }
-    perf.skip(6);
-  }
-  (void)ctx;
+  // The STEP box, right aligned: "STEP 5: D#2 ACC SLD x2 CUTOFF 420Hz".
+  char box[64];
+  (void)home_.step_box(ctx, box, sizeof box);
+  r.text(strip.x + strip.w - 8 - r.text_width(box, Face::Data), ui::caps_y(theme, Face::Data, strip.y, strip.h), box, Color::ChromeText, Face::Data);
 }
 
 // The page tabs in the corner (the page the F keys are on, and the others one PARAMS away), a hint after them, and the state chips.
@@ -1405,15 +443,15 @@ void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area
     }
     kn.focus = enc_latch_ == EncLatch::None && k == keys_.focus();
     kn.held = (keys_.held() >> k & 1u) != 0u;
-    if (lock_active_ && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
+    if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];
-      view::fmt_uint(static_cast<unsigned>(lock_step_ + 1), num);
+      view::fmt_uint(static_cast<unsigned>(home_.lock_step() + 1), num);
       cut("LOCK ", 5, label, sizeof label);
       append(label, sizeof label, num);
       kn.label = label;
-      cut(lock_text_, sizeof kn.value - 1u, kn.value, sizeof kn.value);
+      cut(home_.lock_text(), sizeof kn.value - 1u, kn.value, sizeof kn.value);
       kn.unit = "";
-      kn.norm = lock_norm_;
+      kn.norm = home_.lock_norm();
       kn.locked = true;
     }
   }
@@ -1439,14 +477,13 @@ void MainScreen::draw_tools(app::Context& ctx, ui::Renderer& r, const Rect& area
     r.text(box.x + 4, box.y + 22, kToolHints[k], Color::TextDim, Face::Micro);
   }
 }
-
 void MainScreen::draw_grid(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   (void)ctx;
   const ui::Theme& theme = r.theme();
   const seq::Playhead ph = rig_->seq->playhead();
   const seq::ChainView chain = rig_->seq->chain();
   r.text(area.x + 10, area.y + 4, "PATTERNS", Color::Text, Face::Label);
-  r.text(area.x + 100, area.y + 4, playing_ ? "TAP QUEUES THE NEXT PATTERN, SEVERAL TAPS MAKE A CHAIN" : "TAP SELECTS, MORE TAPS CHAIN BEHIND IT",
+  r.text(area.x + 100, area.y + 4, home_.playing() ? "TAP QUEUES THE NEXT PATTERN, SEVERAL TAPS MAKE A CHAIN" : "TAP SELECTS, MORE TAPS CHAIN BEHIND IT",
          Color::TextDim, Face::Label);
   const int x0 = area.x + 10;
   const int y0 = area.y + 28;
@@ -1553,15 +590,20 @@ void MainScreen::draw_grid(app::Context& ctx, ui::Renderer& r, const Rect& area)
 
 void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   const Pattern& p = pat();
-  const seq::Playhead ph = rig_->seq->playhead();
-  const unsigned len = length();
-  clamp_cursor();
+  home_.clamp_cursor();
 
-  draw_info(ctx, r, area);
+  // From the top: the status line, the info strip, the step view, the motion lane, the PADS line, the knob strip.
+  frame::StatusView status;
+  home_.status(status);
+  status.save_failed = rig_->project.failed;
+  enc_text(ctx, status.enc, sizeof status.enc);
+  frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
+  draw_info(ctx, r, Rect{area.x, area.y + frame::kStatusH, area.w, kInfoH});
   const Rect strip_area{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};
+  const Rect pads_area{area.x, strip_area.y - frame::kPadsLineH, area.w, frame::kPadsLineH};
 
-  if (overlay_) {
-    draw_grid(ctx, r, Rect{area.x, area.y + kHeroY, area.w, strip_area.y - (area.y + kHeroY) - 2});
+  if (home_.overlay()) {
+    draw_grid(ctx, r, Rect{area.x, area.y + kHeroY, area.w, pads_area.y - (area.y + kHeroY) - 2});
   } else {
     // The pitch window: the notes of the pattern, remembered while they are entered; the roll shows at least two octaves.
     int lo = 36;
@@ -1586,27 +628,9 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
       whi = mid + 12;
     }
 
-    view::Marks m;
-    m.page = view_page_;
-    m.cursor = cursor_;
-    m.playhead = ph.playing && ph.pattern == static_cast<int>(sel()) ? ph.step : -1;
-    m.playpoint = ph.point;
-    m.held = held_mask();
-    m.roll = roll_;
-    const std::uint8_t flag = modifier_flag_down();
-    const bool motion_view = mod_down_[role_index(PadRole::Motion)];
-    for (unsigned k = 0; k < kPageSteps; ++k) {
-      const unsigned s = static_cast<unsigned>(view_page_) * 16u + k;
-      if (s >= len) {
-        break;
-      }
-      if ((flag != 0u && (p.steps[s].flags & flag) != 0u) || (motion_view && step_has_motion(p, lane_, s))) {
-        m.emphasis |= 1u << k;
-      }
-    }
+    view::Marks m = home_.drawer(roll_);
     const Rect hero{area.x, area.y + kHeroY, area.w, kHeroH};
     m.window = roll_ ? fit_window(wlo, whi, view::lane_height(hero.h, roll_)) : range_window(wlo, whi, view::lane_height(hero.h, roll_));
-    m.focus = Controls::is_step_entry(keys_.focused()) ? static_cast<int>(rig_->wiring.step_focus) : -1;  // the step RATCHET / COND edit
     view::draw_steps(r, hero, p, m);
     if (pattern_is_empty(p)) {
       const char* a = "EMPTY PATTERN";
@@ -1617,23 +641,19 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
       r.text(cx - r.text_width(b, Face::Label) / 2, cy + 26, b, Color::Empty, Face::Label);
     }
 
-    // The motion lane of the focused entry when a lane drives it (the pattern's lanes table, C2); else the last lane shown.
-    const int focus_lane = lane_of(keys_.focused(), p);
-    const bool on_lane = focus_lane >= 0;
-    if (on_lane) {
-      lane_ = static_cast<unsigned>(focus_lane);
-    }
-    if (lane_ >= kMotionLanes) {
-      lane_ = 0;
-    }
-    const LaneRef lane_ref = p.lanes[lane_];
+    // The motion lane of the knob the encoder owns when a lane drives it (the pattern's lanes table, C2); else the last lane shown.
+    const unsigned lane = home_.lane();
+    const LaneRef lane_ref = p.lanes[lane];
     const Entry lane_entry = controls_->lane_entry(lane_ref);
     const core::ParamDesc* d = controls_->desc(ctx.engine(), lane_entry);
     const float knob = d != nullptr ? core::param_norm(*d, controls_->get(ctx.engine(), lane_entry)) : 0.0f;
-    view::draw_motion(r, Rect{area.x, hero.y + hero.h + 4, area.w, view::kMotionH}, p, m, lane_,
-                      controls_->lane_name(ctx.engine(), lane_ref), knob, on_lane);
+    view::draw_motion(r, Rect{area.x, hero.y + hero.h + 4, area.w, view::kMotionH}, p, m, lane, controls_->lane_name(ctx.engine(), lane_ref), knob,
+                      home_.on_lane());
   }
 
+  char line[128];
+  home_.pads_line(ctx, line, sizeof line);
+  frame::draw_pads_line(r, pads_area, line);
   if (tools_visible(ctx)) {
     draw_tools(ctx, r, strip_area);
   } else if (random_open_) {

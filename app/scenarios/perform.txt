@@ -1,11 +1,11 @@
 # Performance (DESIGN-303 section 4): Note / Instr / Vol / Fx are MUTE, ACC ALL, SLIDE ALL and DELAY THROW while held (Shift + the button
-# latches); the keyboard transposes the running pattern, KEYS plays the voice instead; Shift + Play taps the tempo; CONFIG opens the kit's system screen (DISPLAY changes the theme).
+# latches); with TRNSP on the keyboard transposes the running pattern, with it off (the default) it plays the voice; Shift + Play taps the tempo; CONFIG opens the kit's system screen (DISPLAY changes the theme).
 # Choices made here: CONFIG, then the encoder in DISPLAY, cycles the theme (amiga, black, white) (the kit's system screen); MUTE is the sequencer's (no new notes), DELAY THROW opens
 # send A to unity for as long as it is held or latched.
 # Since M3b (docs/M3B-PLAN.md C4) the four buttons are assignable and Vol and Fx default to FILL and FREEZE; this scenario shows SLIDE ALL and
 # DELAY THROW, so it first gives them to Vol and Fx on the PERF page (five Params from SOUND; F3 and F4 are Vol and Fx; the
 # encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE) and comes back to SOUND with F1 latched, as it began; the wait makes
-# the 300 ms the scenario always started with, so that its pictures are the ones of before.
+# the 300 ms the scenario always started with, so that its pictures are the ones of before; the TRNSP pad (22) is turned on inside that wait.
 tap params 5
 tap params 5
 tap params 5
@@ -20,7 +20,8 @@ turn 5
 tap params 5
 tap params 5
 tap f1 5
-wait 259
+pad 22
+wait 107
 tap play
 wait 700
 press note

@@ -333,6 +333,16 @@ bool Bank::replace(unsigned index, const Pattern& src) noexcept {
   return edit(index, [&](Pattern& p) { p = src; });
 }
 
+bool Bank::restore(unsigned index, const Pattern& src) noexcept {
+  if (index >= kPatternCount) {
+    return false;
+  }
+  begin_write(index);
+  copy_words(&patterns_[index], &src, sizeof(Pattern));
+  end_write(index);
+  return true;
+}
+
 // ---- Clipboards ---------------------------------------------------------------------------------------------------------------
 
 void Bank::copy_step(unsigned index, unsigned step) noexcept {

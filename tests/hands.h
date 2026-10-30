@@ -74,6 +74,16 @@ struct Hands {
     h->run_ms(hold);
     release(b);
   }
+  // Holds Pattern and taps a pad (stopped: selects that pattern).
+  void select_pattern(unsigned index) {
+    press(Button::Pattern);
+    wait(350);
+    pad(index);
+    release(Button::Pattern);
+    wait(5);
+  }
+  // The TRNSP pad (a toggle): the keyboard transposes the running pattern, else it plays the voice.
+  void toggle_trnsp() { pad(o3_303::role_pad(PadRole::Trnsp), 10); }
   void shift_tap(Button b) {
     press(Button::Shift);
     tap(b);

@@ -1,0 +1,31 @@
+# The project service (docs/UX-303.md 8.4 to 8.6, docs/UX-PLAN.md F2): the jam is autosaved, SAVE writes the project, and after a reboot the project is back.
+#
+#   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/project.txt --card <card> --out <dir>
+#
+# With a card (start from an empty directory) the card ends up with Apps/o3_303/UNTITLED/live.o3a and project.o3a and Apps/o3_303/last.txt, the pictures
+# 02 and 04 show the same cutoff and resonance, and 03 is the SAVED strip. The commands are the same without a card (the scenarios test runs it so):
+# nothing is written, no file call is made, and after the reboot the knobs are the factory line's again. No `expect file`, so that both runs pass; the
+# service's own test (tests/project_service_test.cpp) holds the card to it.
+#
+# The knobs are SOUND's: F1 CUTOFF and F2 RESO latch, the encoder turns the latched one.
+wait 300
+snap 01_boot
+tap f1 5
+turn -9
+tap f2 5
+turn 7
+wait 300
+snap 02_edited
+# AUTOSAVE (10 s after the last change): quiet, no strip. The picture 02b is taken after it: the screen is the same.
+wait 12000
+snap 02b_autosaved
+# SAVE: Shift + File anywhere.
+press shift
+tap file 40
+release shift
+wait 300
+snap 03_saved
+# The unit restarted on the same card: the project is back.
+reboot
+wait 1500
+snap 04_after_reboot

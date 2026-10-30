@@ -17,6 +17,20 @@ namespace o3_303 {
 
 class LiveActions;
 
+// What the project service tells the screens (project_service.h; the service writes it from the main loop, the screens only read): the name, whether a
+// save is under way, whether the last one failed and why, and a one-off message. A screen shows `failed` as "SAVE FAILED" on its status line (frame.h) and
+// `fail` after it; it toasts `notice` when `notice_seq` has moved since it last looked.
+struct ProjectInfo {
+  static constexpr unsigned kNameChars = 16;  // with the NUL (a valid_name is at most 15)
+  char name[kNameChars] = "UNTITLED";
+  bool autosave = false;  // the session has a project on the card: autosave is on (off: no card at boot, or a project that was not loaded)
+  bool saving = false;    // an autosave or a SAVE is being encoded or written (the quiet strip: no kit message; a screen may show a dot)
+  bool failed = false;    // the last save failed and none has worked since (UX-303 D23)
+  char fail[32] = "";     // why, the kit's words: "CARD IS FULL", "NO CARD"
+  const char* notice = "";  // a message for the player, once: "SAVED", "NO CARD", "PROJECT DAMAGED" (static text)
+  std::uint32_t notice_seq = 0;
+};
+
 struct Rig {
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;
@@ -26,6 +40,7 @@ struct Rig {
   // The SOUND page's latch (which of the eight sound knobs the encoder drives), shared by the screens that show the sound knobs: PERFORM now,
   // INSTRUMENT VOICE and HOME later (UX-303 D3). Main loop only.
   PageKeys sound_keys;
+  ProjectInfo project;  // the project service's state (project_service.h)
 };
 
 // What a vault load takes from a preset.

@@ -1,10 +1,11 @@
-# The pad filter ladders (docs/M3B-PLAN.md R1): hold KEYS (pad 22) and rows 2 and 3 of the pads are 12 places of Cutoff and Reso (Shift: Env
-# Mod on row 3); a tap jumps there through a 30 ms slew; the LEDs draw where the knob stands as a bar. A tap of KEYS still toggles live play.
-# Row 2 starts at pad 24, row 3 at pad 36.
+# The pad filter ladders (docs/UX-303.md 6.2): with FILT on (pad 23, a toggle at the press) rows 3 and 4 of the pads are 12 places of Cutoff and Reso; a
+# tap jumps there through a 30 ms slew; the LEDs draw where the knob stands as a bar; FILT off gives the keyboard back. Row 3 starts at pad 24, row 4 at
+# pad 36.
 wait 300
-paddown 22
-wait 100
-snap 01_keys_held_default
+paddown 23
+padup 23
+wait 99
+snap 01_filt_on_default
 # Cutoff to the sixth place (pad 29), Reso to the ninth (pad 44).
 pad 29
 pad 44
@@ -15,21 +16,22 @@ pad 24
 pad 47
 wait 100
 snap 03_cutoff_min_reso_max
-# Shift + row 3 is Env Mod: the third place.
+# Shift changes nothing (the Env Mod ladder is cut): row 4 is Reso either way, here its last place again.
 press shift
-pad 38
+pad 47
 wait 100
-snap 04_shift_env_mod
+snap 04_shift_is_nothing
 release shift
-padup 22
-wait 100
-snap 05_keys_released
-# The ladder while the pattern plays and the MOTION latch (pad 23) is on: each jump is written as motion under the playhead; the lane under the
-# step view shows the cutoff.
+paddown 23
+padup 23
+wait 99
+snap 05_filt_off
+# The ladder while the pattern plays and Rec is on: each jump is written as motion under the playhead; the lane under the step view shows the cutoff.
 tap play
-wait 600
-pad 23
-paddown 22
+wait 599
+tap rec 150
+paddown 23
+padup 23
 pad 26
 wait 480
 pad 33
@@ -38,12 +40,14 @@ pad 29
 wait 480
 pad 31
 wait 480
-padup 22
-wait 100
+paddown 23
+padup 23
+wait 99
 snap 06_motion_recorded
 tap play
-# A tap of KEYS toggles live play (and the info strip says so), a hold with a ladder tap does not.
+# TRNSP (pad 22) is a toggle too, and independent of FILT.
 pad 22
 wait 100
-snap 07_keys_tap_live
+snap 07_trnsp_on
 pad 22
+tap rec

@@ -108,6 +108,14 @@ struct Hands {
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }
   unsigned selected() const { return bank().selected(); }
   const Pattern& pat() const { return bank().pattern(bank().selected()); }
+  // Holds Pattern and taps Insert: the selected pattern is copied into the next slot, which is selected (queued while playing).
+  void duplicate_next() {
+    press(Button::Pattern);
+    wait(350);
+    tap(Button::Insert);
+    release(Button::Pattern);
+    wait(5);
+  }
   // Holds Pattern and taps a pad (stopped: selects that pattern).
   void select_pattern(unsigned index) {
     press(Button::Pattern);
@@ -139,7 +147,7 @@ const unsigned kOctDownPad = role_pad(PadRole::OctDown);
 const unsigned kOctUpPad = role_pad(PadRole::OctUp);
 const unsigned kTiePad = role_pad(PadRole::Tie);
 const unsigned kRestPad = role_pad(PadRole::Rest);
-const unsigned kKeysPad = role_pad(PadRole::Keys);
-const unsigned kMotionPad = role_pad(PadRole::Motion);
+const unsigned kTrnspPad = role_pad(PadRole::Trnsp);
+const unsigned kFiltPad = role_pad(PadRole::Filt);
 
 }  // namespace

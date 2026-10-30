@@ -1,30 +1,26 @@
-# Motion lanes through the pattern's lane table (docs/M3B-PLAN.md C2 and the review's finding 4): a lane drives the parameter its LaneRef says, so
-# any key of the FX page can have one. Hold MOTION (pad 23) + an F key points the lane the screen shows (the last SOUND key's) at that key's
-# parameter; a p-lock (hold a step + the encoder) and a recorded move then go to that lane, scaled with the target's own descriptor.
+# Motion lanes through the pattern's lane table (docs/M3B-PLAN.md C2, UX-303 D2): a lane drives the parameter its LaneRef says, so any key of the FX page
+# can have one; the first lock on a parameter no lane drives claims the first lane with no motion, in the same undoable edit. A p-lock (hold a step +
+# the encoder) and a recorded move go to that lane, scaled with the target's own descriptor.
 wait 300
 # SOUND: F4 DECAY shows lane 4 (DECAY) under the step view.
 tap f4
 wait 100
 snap 01_decay_lane
-# FX page, hold MOTION and tap F1 DRIVE: the lane that showed DECAY now drives the distortion's Drive.
+# FX page, F1 DRIVE: no lane drives it. Hold step 3 and turn it: the lock claims a lane (the first with no motion, lane 1: the cutoff's, which had no
+# locks) and the strip shows it as LOCK 3, scaled to the distortion's own range.
 tap params
-paddown 23
 tap f1
-wait 100
-snap 02_lane_repointed_to_drive
-padup 23
-# Hold step 3 and turn DRIVE: a lock on that lane, scaled to the distortion's own range (the strip shows it as LOCK 3).
 paddown 2
 turn -12
 wait 100
-snap 03_drive_plock
+snap 02_drive_lock_claims_a_lane
 padup 2
 paddown 6
 turn -30
 wait 100
 padup 6
 wait 100
-snap 04_drive_locks
+snap 03_drive_locks
 # VOLUME (SOUND F8) is the mixer's level, lane 8: a lock there is in the mixer's own 0..1.5 range.
 tap params
 tap params
@@ -36,16 +32,16 @@ tap f8
 paddown 4
 turn 8
 wait 100
-snap 05_volume_plock
+snap 04_volume_plock
 padup 4
-# The old lane is gone: DECAY has no lane now, so hold a step + the encoder on it moves the knob and says so.
+# DECAY keeps its lane: hold a step + the encoder locks it there.
 tap f4
 paddown 13
 turn 5
 wait 100
-snap 06_decay_has_no_lane
+snap 05_decay_lock
 padup 13
-# Undo (Shift + F8) brings back the lane's old target.
+# Undo (Shift + F8) takes the last lock back, then the others, then the claim of the lane with the DRIVE lock that made it.
 press shift
 tap f8
 release shift
@@ -59,4 +55,4 @@ press shift
 tap f8
 release shift
 wait 100
-snap 07_undone
+snap 06_undone

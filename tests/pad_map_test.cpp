@@ -54,7 +54,7 @@ TEST_CASE("pad map: clamp_octave") {
   CHECK(clamp_octave(-100) == kMinOctave);
 }
 
-TEST_CASE("pad map: the step pads, the modifier block and the keys (DESIGN-303 section 2)") {
+TEST_CASE("pad map: the step pads, the modifier block and the keys (UX-303 6.2)") {
   // Rows 0 and 1: eight step pads then four modifiers; rows 2 and 3: keys.
   CHECK(pad_role(pad_at(0, 0)) == PadRole::Step);
   CHECK(pad_role(pad_at(0, 7)) == PadRole::Step);
@@ -62,12 +62,12 @@ TEST_CASE("pad map: the step pads, the modifier block and the keys (DESIGN-303 s
   CHECK(pad_role(pad_at(1, 7)) == PadRole::Step);
   CHECK(pad_role(pad_at(0, 8)) == PadRole::Acc);
   CHECK(pad_role(pad_at(0, 9)) == PadRole::Slide);
-  CHECK(pad_role(pad_at(0, 10)) == PadRole::OctDown);
-  CHECK(pad_role(pad_at(0, 11)) == PadRole::OctUp);
-  CHECK(pad_role(pad_at(1, 8)) == PadRole::Tie);
-  CHECK(pad_role(pad_at(1, 9)) == PadRole::Rest);
-  CHECK(pad_role(pad_at(1, 10)) == PadRole::Keys);
-  CHECK(pad_role(pad_at(1, 11)) == PadRole::Motion);
+  CHECK(pad_role(pad_at(0, 10)) == PadRole::Tie);
+  CHECK(pad_role(pad_at(0, 11)) == PadRole::Rest);
+  CHECK(pad_role(pad_at(1, 8)) == PadRole::OctDown);
+  CHECK(pad_role(pad_at(1, 9)) == PadRole::OctUp);
+  CHECK(pad_role(pad_at(1, 10)) == PadRole::Trnsp);
+  CHECK(pad_role(pad_at(1, 11)) == PadRole::Filt);
   for (unsigned pad = 24; pad < o3sdk::app::kPadCount; ++pad) {
     CHECK(pad_role(pad) == PadRole::Key);
   }
@@ -93,12 +93,12 @@ TEST_CASE("pad map: a page of 16 steps is the 16 step pads, in reading order") {
 TEST_CASE("pad map: role_pad finds each modifier, and refuses the others") {
   CHECK(role_pad(PadRole::Acc) == 8);
   CHECK(role_pad(PadRole::Slide) == 9);
-  CHECK(role_pad(PadRole::OctDown) == 10);
-  CHECK(role_pad(PadRole::OctUp) == 11);
-  CHECK(role_pad(PadRole::Tie) == 20);
-  CHECK(role_pad(PadRole::Rest) == 21);
-  CHECK(role_pad(PadRole::Keys) == 22);
-  CHECK(role_pad(PadRole::Motion) == 23);
+  CHECK(role_pad(PadRole::Tie) == 10);
+  CHECK(role_pad(PadRole::Rest) == 11);
+  CHECK(role_pad(PadRole::OctDown) == 20);
+  CHECK(role_pad(PadRole::OctUp) == 21);
+  CHECK(role_pad(PadRole::Trnsp) == 22);
+  CHECK(role_pad(PadRole::Filt) == 23);
   CHECK(role_pad(PadRole::Step) == o3sdk::app::kPadCount);
   CHECK(role_pad(PadRole::Key) == o3sdk::app::kPadCount);
 }

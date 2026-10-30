@@ -2,19 +2,21 @@
 # The step view does not draw ratchets and conditions yet (the step-view round does); the evidence here is the info strip's line (STEP n RATCHET xn,
 # STEP n COND ...), the PERF page's strip and the note and accent rows moving. Step pads: steps 1..8 are pads 0..7, steps 9..16 pads 12..19.
 wait 300
-# Hold step 4 and tap OCT+ (pad 11) twice: its ratchet is x3. OCT- (pad 10) takes one back. The keyboard's octave does not move.
+# Hold step 4 and tap OCT+ (pad 21) twice: its ratchet is x3. OCT- (pad 20) takes one back. The keyboard's octave does not move.
 paddown 3
-pad 11
-pad 11
+pad 21
+pad 21
 wait 100
 snap 01_ratchet_x3
-pad 10
+pad 20
 wait 100
 snap 02_ratchet_x2
 padup 3
-# Hold step 6 and tap the up arrow: that step's note moves an octave (up / down alone are one semitone on the cursor step).
+# Hold step 6 and tap the up arrow with Shift: that step's note moves an octave (up / down alone are one semitone).
 paddown 5
-tap up
+press shift
+tap up 58
+release shift
 wait 100
 snap 03_step_octave_up
 padup 5

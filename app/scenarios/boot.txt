@@ -1,7 +1,7 @@
 # O3-303 booting: the 303 screen with the vault's first factory line (bank A, slot 0) in pattern A01, a key on each keyboard row sounding
-# the voice, the keyboard an octave up (OCT+ pad), then Play: the playhead runs, the WAV is the voice and its sequencer.
+# the voice, the keyboard an octave up (OCT+ pad, row 2), then Play: the playhead runs, the WAV is the voice and its sequencer.
 # The tempo, the PLAY / STOP badge and (on the unit) the CPU % are the kit's header strip at the top; the strip under it is the 303's own
-# (pattern, LEN, SW, GATE, REC, KEYS / TRNSP, NEXT, and the four performance chips), so nothing is shown twice.
+# (pattern, LEN, SW, GATE, NEXT and the STEP box) and the status line over it (the encoder, KEYS / TRNSP, the octave, REC, the actions that are on), so nothing is shown twice.
 wait 300
 snap 01_boot
 record on
@@ -14,7 +14,7 @@ paddown 24
 wait 250
 padup 24
 wait 150
-pad 11
+pad 21
 paddown 36
 wait 250
 snap 03_octave_up

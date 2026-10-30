@@ -8,7 +8,7 @@
 //   PLAY          play / stop at the press (Shift: tap tempo)
 //   PATTERN       the 303 screen (on it: a tap flips the step view and the piano roll; held: the 48 pads are the patterns)
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
-//   FILE          the GEN vault (on it: load the slot shown)
+//   FILE          the GEN vault (on it: load the slot shown); Shift + FILE: SAVE the project (project_service.h)
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
@@ -16,6 +16,7 @@
 #include "live_actions.h"
 #include "main_screen.h"
 #include "perform_screen.h"
+#include "project_service.h"
 #include "rig.h"
 #include "vault_screen.h"
 
@@ -125,6 +126,7 @@ class O3_303App final : public app::App {
     main_.init(rig_);
     perform_.init(rig_, main_);
     vault_.init(rig_, main_);
+    project_.init(rig_, e);  // last: it records the session as setup leaves it, so that a project loaded from the card knows if the player has edited
     ctx.show(main_);
   }
 
@@ -153,6 +155,12 @@ class O3_303App final : public app::App {
       }
       return true;
     }
+    // SAVE everywhere but on the vault, where Shift + File still loads the shifted slot (until F3's FILE screen takes the key over).
+    if (in.press(Button::File) && in.shift && ctx.screen() != &vault_) {  // (UX-303 8.5): live.o3a and project.o3a, "SAVED"
+      project_.save();
+      ctx.redraw();
+      return true;
+    }
     if (in.press(Button::File) && ctx.screen() == &main_) {
       ctx.show(vault_);
       return true;
@@ -163,6 +171,7 @@ class O3_303App final : public app::App {
   void update(app::Context& ctx) noexcept override {
     sequencer_.update();
     live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
+    project_.update(ctx);  // the project on the card: the boot load, autosave, SAVE (after the actions, so a morph's last value is the one it sees)
     // The 303 screen's bookkeeping (the follow of the playing pattern) goes on while another screen is up; when it is the current screen the
     // runtime calls its update() itself.
     if (ctx.screen() != nullptr && ctx.screen() != &main_) {
@@ -171,6 +180,7 @@ class O3_303App final : public app::App {
   }
 
   o3_303::seq::Sequencer& sequencer() noexcept { return sequencer_; }
+  o3_303::ProjectService& project() noexcept { return project_; }
 
  private:
   // Shift + Play: the tempo from the gaps between the last taps (the last four), 20..300 BPM.
@@ -207,6 +217,7 @@ class O3_303App final : public app::App {
   o3_303::MainScreen main_;
   o3_303::PerformScreen perform_;
   o3_303::VaultScreen vault_;
+  o3_303::ProjectService project_;
   std::uint64_t tap_ms_[kTaps] = {};
   unsigned tap_count_ = 0;
 };
@@ -221,5 +232,7 @@ o3sdk::app::App& o3sdk_app() noexcept {
 namespace o3_303 {
 
 seq::Sequencer& app_sequencer() noexcept { return static_cast<O3_303App&>(o3sdk_app()).sequencer(); }
+
+ProjectService& app_project() noexcept { return static_cast<O3_303App&>(o3sdk_app()).project(); }
 
 }  // namespace o3_303

@@ -8,6 +8,8 @@
 #include <o3sdk/sim/harness.h>
 #include <o3sdk/sim/scenario.h>
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -49,7 +51,7 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "pages", "tools", "patterns", "perform", "perform_pads", "vault", "long"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "pages", "tools", "patterns", "perform", "perform_pads", "project", "vault", "long"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -65,7 +67,8 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
   std::sort(files.begin(), files.end());
   REQUIRE(files.size() >= 9);
 
-  const fs::path out = fs::temp_directory_path() / "o3_303_scenarios_test";
+  // A directory of this run's own (the process id): ctest runs from several engineers at once must not remove each other's pictures.
+  const fs::path out = fs::temp_directory_path() / ("o3_303_scenarios_test_" + std::to_string(static_cast<long>(getpid())));
   for (const fs::path& file : files) {
     INFO(file.filename().string());
     auto h = std::make_unique<sim::Harness>(o3sdk_app());

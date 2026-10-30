@@ -173,7 +173,7 @@ TEST_CASE("headroom: vault presets (FUZZ ones included) at the default levels st
 
 TEST_CASE("the screen keeps following the playing pattern while the vault is up") {
   Hands t;
-  t.shift_tap(Button::Insert);  // A02, a copy of A01
+  t.duplicate_next();  // A02, a copy of A01
   t.select_pattern(0);
   t.tap(Button::Play);
   t.wait(300);

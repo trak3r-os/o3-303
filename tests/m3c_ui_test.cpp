@@ -77,7 +77,7 @@ TEST_CASE("the wiring: the first four unit ids are as they were, the growl is th
   CHECK(diff / static_cast<double>(a.size()) > 20.0);
 }
 
-TEST_CASE("WOBBLE: held it runs at the page's settings, a bottom-row pad picks the rate and shows it, the release gives the pattern's back") {
+TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; latched with Shift it stays until the next Shift + tap; HOME's pads stay keys") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
   t.assign_perf(Button::Fx, PerfAction::Wobble);
@@ -86,46 +86,27 @@ TEST_CASE("WOBBLE: held it runs at the page's settings, a bottom-row pad picks t
 
   t.press(Button::Fx);
   t.wait(30);
-  CHECK(s.wobble().on);  // no pad: its set rate for the hold
+  CHECK(s.wobble().on);  // its set rate for the hold (the rate picker is PERFORM's row 3, perform_screen_test.cpp)
   CHECK(s.wobble().rate == seq::kWobble1_8);
   CHECK(s.wobble().target.target == o3_303::kLaneVoice);
   CHECK(s.wobble().target.id == o3_303::AcidVoice::Cutoff);
   CHECK(s.wobble_rate_now() == seq::kWobble1_8);
-  CHECK(t.led(bottom(seq::kWobble1_8)) == app::kLedOn);
-  CHECK(t.led(bottom(0)) == app::kLedDim);
-  CHECK(t.led(bottom(10)) == app::kLedDim);
-  CHECK(t.led(bottom(11)) == app::kLedOff);  // the eleven rates only
-
-  t.down(bottom(2));  // 1/4
+  CHECK(t.led(bottom(2)) == app::kLedDim);  // the keyboard's: no picker over it
+  t.pad(bottom(2));                          // a key here: no rate is picked
   t.wait(30);
-  CHECK(s.wobble().override_rate == seq::kWobble1_4);
-  CHECK(s.wobble_rate_now() == seq::kWobble1_4);
-  t.wait(100);  // the LEDs are drawn with the next frame, after the block that took the rate
-  CHECK(t.led(bottom(2)) == app::kLedOn);
-  CHECK(t.led(bottom(seq::kWobble1_8)) == app::kLedDim);
-  t.up(bottom(2));
-  t.wait(30);
-  CHECK(s.wobble().override_rate == seq::kWobble1_4);  // the pad's release keeps it: the action holds the rate
-  t.pad(bottom(8));                                    // 1/32
-  t.wait(30);
-  CHECK(s.wobble_rate_now() == seq::kWobble1_32);
-  t.pad(bottom(11));  // no rate there: nothing changes
-  t.wait(30);
-  CHECK(s.wobble_rate_now() == seq::kWobble1_32);
+  CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
+  CHECK(s.wobble_rate_now() == seq::kWobble1_8);
 
   t.release(Button::Fx);
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
-  CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
   CHECK(s.wobble_rate_now() == -1);
-  CHECK(t.led(bottom(8)) != app::kLedOn);  // the keyboard again
 
-  // Latched with Shift: the picker stays up after the release, and the next Shift + tap ends it.
+  // Latched with Shift: it stays after the release, and the next Shift + tap ends it.
   t.shift_tap(Button::Fx);
-  t.pad(bottom(6));  // 1/16
   t.wait(30);
   CHECK(s.wobble().on);
-  CHECK(s.wobble_rate_now() == seq::kWobble1_16);
+  CHECK(s.wobble_rate_now() == seq::kWobble1_8);
   t.shift_tap(Button::Fx);
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
