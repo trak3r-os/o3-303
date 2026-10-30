@@ -8,7 +8,7 @@
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/growl/growl.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
 
@@ -35,7 +35,7 @@ using core::ParamUnit;
 constexpr double kPi = 3.14159265358979323846;
 
 const ParamDesc* const kVoiceParams = [] {
-  static Tb303 voice;
+  static AcidVoice voice;
   return voice.info().params;
 }();
 const ParamDesc* const kGrowlParams = [] {
@@ -102,7 +102,7 @@ class MixSpy final : public dsp::Clocked {
 
 struct Rig {
   dsp::Engine engine;
-  Probe voice{dsp::UnitKind::Instrument, kVoiceParams, Tb303::kParamCount};
+  Probe voice{dsp::UnitKind::Instrument, kVoiceParams, AcidVoice::kParamCount};
   Probe dist{dsp::UnitKind::Effect, kDistParams, 3};
   Probe delay{dsp::UnitKind::Effect, kDelayParams, 3};
   Probe growl{dsp::UnitKind::Effect, kGrowlParams, Growl::kParamCount};

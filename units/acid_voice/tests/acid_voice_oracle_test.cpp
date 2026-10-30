@@ -22,8 +22,8 @@
 
 #include <cstdio>
 
-using namespace tb303_test;
-using o3_303::Tb303;
+using namespace acid_voice_test;
+using o3_303::AcidVoice;
 
 namespace {
 
@@ -76,7 +76,7 @@ std::vector<Ev> sweep_events() {
   const std::uint32_t total = 3 * 44100;
   for (std::uint32_t at = 0; at < total; at += 64) {
     const double f = static_cast<double>(at) / total;
-    ev.push_back(param(at, Tb303::Cutoff, static_cast<float>(80.0 * std::pow(3000.0 / 80.0, f))));
+    ev.push_back(param(at, AcidVoice::Cutoff, static_cast<float>(80.0 * std::pow(3000.0 / 80.0, f))));
   }
   const auto notes = steps_to_events({{36, false, true}, {43, false, true}, {36}, {48}, {36, true}, {39}, {36}, {41, false, false, true}}, 100.0, 0, 0.9);
   ev.insert(ev.end(), notes.begin(), notes.end());
@@ -91,7 +91,7 @@ std::uint32_t line_length(const std::vector<Step>& s, double bpm) {
 // The same script with the resonance changed by one ulp (what the original cannot hold constant against).
 std::vector<Ev> nudged(std::vector<Ev> script) {
   for (Ev& e : script) {
-    if (e.kind == Ev::Param && e.id == Tb303::Reso) {
+    if (e.kind == Ev::Param && e.id == AcidVoice::Reso) {
       e.value = std::nextafter(e.value, e.value >= 1.0f ? 0.0f : 2.0f);  // at 1 the way up is clamped away: go down
     }
   }
@@ -106,12 +106,12 @@ struct Result {
 };
 
 Result run_case(const char* name, const std::vector<Ev>& script, std::uint32_t total) {
-  Tb303 unit;
+  AcidVoice unit;
   const auto ref = render_ref(script, total);
   const auto got = render_unit(unit, script, total);
   const auto alt = render_ref(nudged(script), total);
   Result r{compare(ref, got), spectral(ref, got, kRate), compare(ref, alt), spectral(ref, alt, kRate)};
-  std::printf("[oracle tb303] %-30s rms %.3f | port: sample %6.1f dB, band %.3f/%.3f dB (mean/p95), level %.3f dB | original vs itself: sample %6.1f dB, band %.3f/%.3f, level %.3f\n",
+  std::printf("[oracle acid_voice] %-30s rms %.3f | port: sample %6.1f dB, band %.3f/%.3f dB (mean/p95), level %.3f dB | original vs itself: sample %6.1f dB, band %.3f/%.3f, level %.3f\n",
               name, r.sample.ref_rms, -r.sample.snr_db, r.spec.band_mean_db, r.spec.band_p95_db, r.spec.level_mean_db, -r.floor_sample.snr_db,
               r.floor_spec.band_mean_db, r.floor_spec.band_p95_db, r.floor_spec.level_mean_db);
   CHECK_MESSAGE(r.sample.ref_rms > 0.01, name << ": the reference must be audible");
@@ -128,11 +128,11 @@ Result run_case(const char* name, const std::vector<Ev>& script, std::uint32_t t
 
 }  // namespace
 
-TEST_CASE("tb303 oracle: note lines through both voices, each wave") {
+TEST_CASE("acid_voice oracle: note lines through both voices, each wave") {
   const double bpm = 125.0;
   for (int wave = 0; wave < 2; ++wave) {
     const char* w = wave == 0 ? "saw" : "sqr";
-    const std::vector<Ev> wv = {param(0, Tb303::Wave, static_cast<float>(wave))};
+    const std::vector<Ev> wv = {param(0, AcidVoice::Wave, static_cast<float>(wave))};
     struct L {
       const char* name;
       std::vector<Step> steps;
@@ -145,33 +145,33 @@ TEST_CASE("tb303 oracle: note lines through both voices, each wave") {
   }
 }
 
-TEST_CASE("tb303 oracle: a cutoff sweep over held notes, each wave") {
+TEST_CASE("acid_voice oracle: a cutoff sweep over held notes, each wave") {
   for (int wave = 0; wave < 2; ++wave) {
     char name[64];
     std::snprintf(name, sizeof(name), "%s, cutoff sweep 80 Hz..3 kHz", wave == 0 ? "saw" : "sqr");
-    (void)run_case(name, with_defaults({param(0, Tb303::Wave, static_cast<float>(wave))}, sweep_events()), 3 * 44100 + 10000);
+    (void)run_case(name, with_defaults({param(0, AcidVoice::Wave, static_cast<float>(wave))}, sweep_events()), 3 * 44100 + 10000);
   }
 }
 
-TEST_CASE("tb303 oracle: other settings (resonance, decay, env mod, tune, cutoff)") {
+TEST_CASE("acid_voice oracle: other settings (resonance, decay, env mod, tune, cutoff)") {
   const double bpm = 125.0;
   struct S {
     const char* name;
     std::vector<Ev> extra;
   } sets[] = {
-      {"reso 0.3", {param(0, Tb303::Reso, 0.3f)}},
-      {"reso 0.95", {param(0, Tb303::Reso, 0.95f)}},
-      {"decay 200 ms, env mod 1.0", {param(0, Tb303::Decay, 200.0f), param(0, Tb303::EnvMod, 1.0f)}},
-      {"decay 2500 ms, cutoff 90 Hz", {param(0, Tb303::Decay, 2500.0f), param(0, Tb303::Cutoff, 90.0f)}},
-      {"tune +7 st, accent 1.0", {param(0, Tb303::Tune, 7.0f), param(0, Tb303::Accent, 1.0f)}},
-      {"cutoff 4500 Hz, env mod 0", {param(0, Tb303::Cutoff, 4500.0f), param(0, Tb303::EnvMod, 0.0f)}},
+      {"reso 0.3", {param(0, AcidVoice::Reso, 0.3f)}},
+      {"reso 0.95", {param(0, AcidVoice::Reso, 0.95f)}},
+      {"decay 200 ms, env mod 1.0", {param(0, AcidVoice::Decay, 200.0f), param(0, AcidVoice::EnvMod, 1.0f)}},
+      {"decay 2500 ms, cutoff 90 Hz", {param(0, AcidVoice::Decay, 2500.0f), param(0, AcidVoice::Cutoff, 90.0f)}},
+      {"tune +7 st, accent 1.0", {param(0, AcidVoice::Tune, 7.0f), param(0, AcidVoice::Accent, 1.0f)}},
+      {"cutoff 4500 Hz, env mod 0", {param(0, AcidVoice::Cutoff, 4500.0f), param(0, AcidVoice::EnvMod, 0.0f)}},
       // The corner: the ladder at full feedback with the cutoff and the accent at the top (g reaches its ceiling of 0.95).
-      {"reso 1, cutoff 4500, accent 1", {param(0, Tb303::Reso, 1.0f), param(0, Tb303::Cutoff, 4500.0f), param(0, Tb303::Accent, 1.0f)}},
-      {"reso 1, cutoff 4500, accent 1, SQR", {param(0, Tb303::Reso, 1.0f), param(0, Tb303::Cutoff, 4500.0f), param(0, Tb303::Accent, 1.0f), param(0, Tb303::Wave, 1.0f)}},
-      {"reso 1, cutoff 4500, accent 1, env mod 1", {param(0, Tb303::Reso, 1.0f), param(0, Tb303::Cutoff, 4500.0f), param(0, Tb303::Accent, 1.0f), param(0, Tb303::EnvMod, 1.0f)}},
-      {"reso 1, cutoff 1500, accent 1, decay 200", {param(0, Tb303::Reso, 1.0f), param(0, Tb303::Cutoff, 1500.0f), param(0, Tb303::Accent, 1.0f), param(0, Tb303::Decay, 200.0f)}},
-      {"reso 0.95, cutoff 4500, accent 1, tune -12", {param(0, Tb303::Reso, 0.95f), param(0, Tb303::Cutoff, 4500.0f), param(0, Tb303::Accent, 1.0f), param(0, Tb303::Tune, -12.0f)}},
-      {"reso 1, cutoff 90, accent 1, env mod 1, decay 2500", {param(0, Tb303::Reso, 1.0f), param(0, Tb303::Cutoff, 90.0f), param(0, Tb303::Accent, 1.0f), param(0, Tb303::EnvMod, 1.0f), param(0, Tb303::Decay, 2500.0f)}},
+      {"reso 1, cutoff 4500, accent 1", {param(0, AcidVoice::Reso, 1.0f), param(0, AcidVoice::Cutoff, 4500.0f), param(0, AcidVoice::Accent, 1.0f)}},
+      {"reso 1, cutoff 4500, accent 1, SQR", {param(0, AcidVoice::Reso, 1.0f), param(0, AcidVoice::Cutoff, 4500.0f), param(0, AcidVoice::Accent, 1.0f), param(0, AcidVoice::Wave, 1.0f)}},
+      {"reso 1, cutoff 4500, accent 1, env mod 1", {param(0, AcidVoice::Reso, 1.0f), param(0, AcidVoice::Cutoff, 4500.0f), param(0, AcidVoice::Accent, 1.0f), param(0, AcidVoice::EnvMod, 1.0f)}},
+      {"reso 1, cutoff 1500, accent 1, decay 200", {param(0, AcidVoice::Reso, 1.0f), param(0, AcidVoice::Cutoff, 1500.0f), param(0, AcidVoice::Accent, 1.0f), param(0, AcidVoice::Decay, 200.0f)}},
+      {"reso 0.95, cutoff 4500, accent 1, tune -12", {param(0, AcidVoice::Reso, 0.95f), param(0, AcidVoice::Cutoff, 4500.0f), param(0, AcidVoice::Accent, 1.0f), param(0, AcidVoice::Tune, -12.0f)}},
+      {"reso 1, cutoff 90, accent 1, env mod 1, decay 2500", {param(0, AcidVoice::Reso, 1.0f), param(0, AcidVoice::Cutoff, 90.0f), param(0, AcidVoice::Accent, 1.0f), param(0, AcidVoice::EnvMod, 1.0f), param(0, AcidVoice::Decay, 2500.0f)}},
   };
   for (const S& s : sets) {
     const auto line = slide_line();

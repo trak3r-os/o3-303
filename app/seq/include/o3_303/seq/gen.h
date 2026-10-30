@@ -63,7 +63,7 @@ char bank_letter(unsigned bank) noexcept;        // 'A'..'H'
 
 // The patch as the values of the units' parameters, each in the NATIVE units of its descriptor, so the app applies them with set_param
 // and no scaling (docs/M3-PLAN.md, "Contracts"). Master volume is not part of a preset.
-inline constexpr unsigned kVoiceValues = 7;  // tb303 ids 0..6: Cutoff Hz, Reso 0..1, Env Mod 0..1, Decay ms, Accent 0..1, Wave (0 SAW, 1 SQR), Tune st
+inline constexpr unsigned kVoiceValues = 7;  // acid_voice ids 0..6: Cutoff Hz, Reso 0..1, Env Mod 0..1, Decay ms, Accent 0..1, Wave (0 SAW, 1 SQR), Tune st
 inline constexpr unsigned kDistValues = 5;   // distortion ids 0..4: Active (0 OFF, 1 ON), Type (0..4), Drive 0..1, Tone 0..1, Mix 0..1
 
 struct ParamValues {

@@ -8,7 +8,7 @@ endif()
 # `o3_303_sim` on the host and, with -DO3SDK_PLATFORM=mk66, the image `o3_303.elf` / `.hex` / `.ptf` with its ctests.
 file(GLOB O3_303_APP_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 o3sdk_app(o3_303 SOURCES ${O3_303_APP_SOURCES}
-  DEPENDS unit_delay unit_tb303 unit_distortion unit_freeze unit_growl o3_303_seq
+  DEPENDS unit_delay unit_acid_voice unit_distortion unit_freeze unit_growl o3_303_seq
   # The boot logo of the image (o3-sdk docs/FRAMEWORK.md, "The boot logo"): the groovebox drawing, converted at build time; a grey picture, drawn white.
   LOGO ../logo/logo.png)
 # <o3_303/pad_map.h>: the pure parts of the app, which the tests include.

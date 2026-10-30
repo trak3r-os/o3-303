@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace tb303_test {
+namespace acid_voice_test {
 
 struct Spectral {
   double band_mean_db;  // mean |dB difference| of the octave-band energies over the frames and bands that count
@@ -131,4 +131,4 @@ inline Spectral spectral(const std::vector<float>& ref, const std::vector<float>
   return s;
 }
 
-}  // namespace tb303_test
+}  // namespace acid_voice_test

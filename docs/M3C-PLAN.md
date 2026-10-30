@@ -32,7 +32,7 @@ through the console) before it is relied on. OTT ships off by default until then
 ## The signal chain after M3c
 
 ```
-slot 0: tb303 ─ distortion ─ growl ─ crush ─ level/pan (gate, pump) ─┬──────────▶ master ─ freeze (+ roll, stop, rev) ─ ott ─ level ─ out
+slot 0: acid_voice ─ distortion ─ growl ─ crush ─ level/pan (gate, pump) ─┬──────────▶ master ─ freeze (+ roll, stop, rev) ─ ott ─ level ─ out
                                                                       └─ send A ─ delay ─┘
 ```
 

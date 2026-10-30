@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// TB303 against dsp::Engine (as o3sdk's tests/units_test.cpp does for the kit's units): the parameter table, events at their frames,
+// ACID against dsp::Engine (as o3sdk's tests/units_test.cpp does for the kit's units): the parameter table, events at their frames,
 // accent and slide, the note stack, the volume, silence after the release, and no NaN or denormals at the extremes.
 #include <doctest/doctest.h>
 
 #include "support/need.h"
 #include "support/rng.h"
-#include "tb303_rig.h"
+#include "acid_voice_rig.h"
 
 #include <cfenv>
 #include <cstring>
 
-using namespace tb303_test;
-using o3_303::Tb303;
+using namespace acid_voice_test;
+using o3_303::AcidVoice;
 
 namespace {
 
@@ -30,24 +30,24 @@ bool all_finite_normal(const std::vector<float>& v) {
 
 }  // namespace
 
-TEST_CASE("tb303: the parameter table is valid, in the contract's order, with Replicant's defaults") {
-  Tb303 v;
+TEST_CASE("acid_voice: the parameter table is valid, in the contract's order, with Replicant's defaults") {
+  AcidVoice v;
   const auto& info = v.info();
   CHECK(info.kind == o3sdk::dsp::UnitKind::Instrument);
-  REQUIRE(info.param_count == Tb303::kParamCount);
+  REQUIRE(info.param_count == AcidVoice::kParamCount);
   for (unsigned p = 0; p < info.param_count; ++p) {
     INFO(info.params[p].name);
     CHECK(o3sdk::core::param_desc_valid(info.params[p]));
   }
-  CHECK(Tb303::Cutoff == 0);
-  CHECK(Tb303::Reso == 1);
-  CHECK(Tb303::EnvMod == 2);
-  CHECK(Tb303::Decay == 3);
-  CHECK(Tb303::Accent == 4);
-  CHECK(Tb303::Wave == 5);
-  CHECK(Tb303::Tune == 6);
-  CHECK(Tb303::Volume == 7);
-  CHECK(Tb303::kParamCount == 8);
+  CHECK(AcidVoice::Cutoff == 0);
+  CHECK(AcidVoice::Reso == 1);
+  CHECK(AcidVoice::EnvMod == 2);
+  CHECK(AcidVoice::Decay == 3);
+  CHECK(AcidVoice::Accent == 4);
+  CHECK(AcidVoice::Wave == 5);
+  CHECK(AcidVoice::Tune == 6);
+  CHECK(AcidVoice::Volume == 7);
+  CHECK(AcidVoice::kParamCount == 8);
   const float defaults[] = {350.0f, 0.65f, 0.6f, 750.0f, 0.7f, 0.0f, 0.0f, -3.0f};
   const float lo[] = {25.0f, 0.0f, 0.0f, 200.0f, 0.0f, 0.0f, -12.0f, -60.0f};
   const float hi[] = {4500.0f, 1.0f, 1.0f, 2500.0f, 1.0f, 1.0f, 12.0f, 6.0f};
@@ -58,18 +58,18 @@ TEST_CASE("tb303: the parameter table is valid, in the contract's order, with Re
   }
   // Text as the screen shows it.
   char text[16];
-  (void)o3sdk::core::param_format(info.params[Tb303::Cutoff], 350.0f, text, sizeof(text));
+  (void)o3sdk::core::param_format(info.params[AcidVoice::Cutoff], 350.0f, text, sizeof(text));
   CHECK(std::strcmp(text, "350") == 0);
-  (void)o3sdk::core::param_format(info.params[Tb303::Reso], 0.65f, text, sizeof(text));
+  (void)o3sdk::core::param_format(info.params[AcidVoice::Reso], 0.65f, text, sizeof(text));
   CHECK(std::strcmp(text, "65") == 0);
-  (void)o3sdk::core::param_format(info.params[Tb303::Wave], 1.0f, text, sizeof(text));
+  (void)o3sdk::core::param_format(info.params[AcidVoice::Wave], 1.0f, text, sizeof(text));
   CHECK(std::strcmp(text, "SQR") == 0);
-  (void)o3sdk::core::param_format(info.params[Tb303::Tune], -3.5f, text, sizeof(text));
+  (void)o3sdk::core::param_format(info.params[AcidVoice::Tune], -3.5f, text, sizeof(text));
   CHECK(std::strcmp(text, "-3.5") == 0);
 }
 
-TEST_CASE("tb303: the cutoff curve is Replicant's skew (25 + 4475 p^(1/0.35)) to within 3.5 % of the position") {
-  const auto& d = Tb303().info().params[Tb303::Cutoff];
+TEST_CASE("acid_voice: the cutoff curve is Replicant's skew (25 + 4475 p^(1/0.35)) to within 3.5 % of the position") {
+  const auto& d = AcidVoice().info().params[AcidVoice::Cutoff];
   double worst = 0.0;
   for (int i = 0; i <= 200; ++i) {
     const double p = i / 200.0;
@@ -88,11 +88,11 @@ TEST_CASE("tb303: the cutoff curve is Replicant's skew (25 + 4475 p^(1/0.35)) to
   CHECK(o3sdk::core::param_norm(d, 350.0f) == doctest::Approx(0.395f).epsilon(0.05));
 }
 
-TEST_CASE("tb303: a note sounds from its frame, bounded and finite, both waves; the release ends in exact silence") {
+TEST_CASE("acid_voice: a note sounds from its frame, bounded and finite, both waves; the release ends in exact silence") {
   for (int wave = 0; wave < 2; ++wave) {
     INFO("wave " << wave);
     Rig r;
-    r.set(Tb303::Wave, static_cast<float>(wave));
+    r.set(AcidVoice::Wave, static_cast<float>(wave));
     r.script.on(100, 36);
     r.script.off(ms(400), 36);
     const auto out = r.render(ms(2500));
@@ -108,16 +108,16 @@ TEST_CASE("tb303: a note sounds from its frame, bounded and finite, both waves; 
   }
 }
 
-TEST_CASE("tb303: events land at their frame, whatever the block size") {
+TEST_CASE("acid_voice: events land at their frame, whatever the block size") {
   Rig a;
   a.script.on(333, 40);
   a.script.off(ms(300), 40);
-  a.script.param(ms(150), Tb303::Cutoff, 1500.0f);
+  a.script.param(ms(150), AcidVoice::Cutoff, 1500.0f);
   const auto big = a.render(ms(600), 64);
   Rig b;
   b.script.on(333, 40);
   b.script.off(ms(300), 40);
-  b.script.param(ms(150), Tb303::Cutoff, 1500.0f);
+  b.script.param(ms(150), AcidVoice::Cutoff, 1500.0f);
   const auto small = b.render(ms(600), 7);
   REQUIRE(big.size() == small.size());
   double worst = 0.0;
@@ -131,7 +131,7 @@ TEST_CASE("tb303: events land at their frame, whatever the block size") {
   CHECK(big[333 + 20] != 0.0f);
 }
 
-TEST_CASE("tb303: an accented note is louder and brighter") {
+TEST_CASE("acid_voice: an accented note is louder and brighter") {
   float level[2];
   double hf[2];
   for (int acc = 0; acc < 2; ++acc) {
@@ -146,12 +146,12 @@ TEST_CASE("tb303: an accented note is louder and brighter") {
   CHECK(hf[1] > hf[0] * 1.3);
 }
 
-TEST_CASE("tb303: a slide glides the pitch in about 60 ms and does not retrigger the envelopes") {
+TEST_CASE("acid_voice: a slide glides the pitch in about 60 ms and does not retrigger the envelopes") {
   // Resonance 0, no env mod: the output is a low-passed saw, so its zero crossings follow the pitch.
   auto make = [](Rig& r) {
-    r.set(Tb303::Reso, 0.0f);
-    r.set(Tb303::EnvMod, 0.0f);
-    r.set(Tb303::Cutoff, 900.0f);
+    r.set(AcidVoice::Reso, 0.0f);
+    r.set(AcidVoice::EnvMod, 0.0f);
+    r.set(AcidVoice::Cutoff, 900.0f);
   };
   Rig slide;
   make(slide);
@@ -170,8 +170,8 @@ TEST_CASE("tb303: a slide glides the pitch in about 60 ms and does not retrigger
   // A retriggered note (the old one released first) starts the filter envelope again; the slide does not.
   Rig retrig;
   make(retrig);
-  retrig.set(Tb303::EnvMod, 1.0f);
-  slide.set(Tb303::EnvMod, 1.0f);
+  retrig.set(AcidVoice::EnvMod, 1.0f);
+  slide.set(AcidVoice::EnvMod, 1.0f);
   retrig.script.on(0, 36);
   retrig.script.off(ms(500) - 1, 36);
   retrig.script.on(ms(500), 48);
@@ -179,7 +179,7 @@ TEST_CASE("tb303: a slide glides the pitch in about 60 ms and does not retrigger
   const auto t = retrig.render(ms(1400));
   Rig slide2;
   make(slide2);
-  slide2.set(Tb303::EnvMod, 1.0f);
+  slide2.set(AcidVoice::EnvMod, 1.0f);
   slide2.script.on(0, 36);
   slide2.script.on(ms(500), 48, o3sdk::dsp::kNoteSlide);
   slide2.script.off(ms(500), 36);
@@ -188,7 +188,7 @@ TEST_CASE("tb303: a slide glides the pitch in about 60 ms and does not retrigger
   CHECK(bright(t, ms(500) + ms(20), ms(500) + ms(60)) > bright(u, ms(500) + ms(20), ms(500) + ms(60)) * 1.5);
 }
 
-TEST_CASE("tb303: the note stack: an old note's NoteOff after a slide's NoteOn keeps the gate; a stranger's NoteOff changes nothing") {
+TEST_CASE("acid_voice: the note stack: an old note's NoteOff after a slide's NoteOn keeps the gate; a stranger's NoteOff changes nothing") {
   Rig r;
   r.script.on(0, 36);
   r.script.on(ms(200), 43, o3sdk::dsp::kNoteSlide);
@@ -202,7 +202,7 @@ TEST_CASE("tb303: the note stack: an old note's NoteOff after a slide's NoteOn k
   CHECK(r.voice.sounding() == false);
 }
 
-TEST_CASE("tb303: a slide onto the same note keeps the envelopes and the later NoteOff releases it") {
+TEST_CASE("acid_voice: a slide onto the same note keeps the envelopes and the later NoteOff releases it") {
   // The sequencer sends a slide onto the same note as a NoteOn with kNoteSlide and no NoteOff.
   Rig single;
   single.script.on(0, 36);
@@ -232,7 +232,7 @@ TEST_CASE("tb303: a slide onto the same note keeps the envelopes and the later N
   CHECK(rms(c, ms(900) + ms(300), ms(900) + ms(400)) < 1e-3);
 }
 
-TEST_CASE("tb303: AllNotesOff releases; a NoteOn with the slide flag and nothing sounding is an ordinary note") {
+TEST_CASE("acid_voice: AllNotesOff releases; a NoteOn with the slide flag and nothing sounding is an ordinary note") {
   Rig r;
   r.script.on(0, 36);
   r.script.all_off(ms(300));
@@ -245,15 +245,15 @@ TEST_CASE("tb303: AllNotesOff releases; a NoteOn with the slide flag and nothing
   CHECK(crossings_hz(out, ms(920), ms(1050)) > 70.0);
 }
 
-TEST_CASE("tb303: tune, wave and volume") {
+TEST_CASE("acid_voice: tune, wave and volume") {
   // Tune +12 st doubles the pitch.
   auto pitch = [](float tune, float wave) {
     Rig r;
-    r.set(Tb303::Reso, 0.0f);
-    r.set(Tb303::EnvMod, 0.0f);
-    r.set(Tb303::Cutoff, 500.0f);
-    r.set(Tb303::Tune, tune);
-    r.set(Tb303::Wave, wave);
+    r.set(AcidVoice::Reso, 0.0f);
+    r.set(AcidVoice::EnvMod, 0.0f);
+    r.set(AcidVoice::Cutoff, 500.0f);
+    r.set(AcidVoice::Tune, tune);
+    r.set(AcidVoice::Wave, wave);
     r.script.on(0, 36);
     const auto o = r.render(ms(500));
     return crossings_hz(o, ms(100), ms(450));
@@ -267,7 +267,7 @@ TEST_CASE("tb303: tune, wave and volume") {
   // from the first sample (the engine delivers the stored value at start(), no glide from the default).
   auto level = [](float db) {
     Rig r;
-    r.set(Tb303::Volume, db);
+    r.set(AcidVoice::Volume, db);
     r.script.on(0, 36);
     const auto o = r.render(ms(300));
     return std::make_pair(rms(o, 0, 64), rms(o, ms(100), ms(250)));
@@ -280,16 +280,16 @@ TEST_CASE("tb303: tune, wave and volume") {
   CHECK(level(-60.0f).first == 0.0);
 }
 
-TEST_CASE("tb303: a volume or accent jump in mid-note does not click") {
+TEST_CASE("acid_voice: a volume or accent jump in mid-note does not click") {
   Rig r;
-  r.set(Tb303::Reso, 0.0f);
-  r.set(Tb303::EnvMod, 0.0f);
-  r.set(Tb303::Cutoff, 900.0f);
-  r.set(Tb303::Volume, 0.0f);
-  r.set(Tb303::Accent, 0.0f);
+  r.set(AcidVoice::Reso, 0.0f);
+  r.set(AcidVoice::EnvMod, 0.0f);
+  r.set(AcidVoice::Cutoff, 900.0f);
+  r.set(AcidVoice::Volume, 0.0f);
+  r.set(AcidVoice::Accent, 0.0f);
   r.script.on(0, 36, o3sdk::dsp::kNoteAccent);
-  r.script.param(ms(100), Tb303::Volume, -40.0f);
-  r.script.param(ms(100), Tb303::Accent, 1.0f);  // the amplifier lift jumps from 1 to 1.45 at full accent envelope: smoothed
+  r.script.param(ms(100), AcidVoice::Volume, -40.0f);
+  r.script.param(ms(100), AcidVoice::Accent, 1.0f);  // the amplifier lift jumps from 1 to 1.45 at full accent envelope: smoothed
   const auto o = r.render(ms(200));
   double before = 0.0, after = 0.0;
   for (std::size_t i = ms(60); i < ms(100); ++i) {
@@ -301,20 +301,20 @@ TEST_CASE("tb303: a volume or accent jump in mid-note does not click") {
   CHECK(after < before * 1.1);  // the largest step after the jump is no larger than before it (the gain only went down)
 }
 
-TEST_CASE("tb303: extreme settings and random notes: finite, bounded, no denormals") {
+TEST_CASE("acid_voice: extreme settings and random notes: finite, bounded, no denormals") {
   o3sdk::test::Rng rng(0x303);
   for (int wave = 0; wave < 2; ++wave) {
     for (int trial = 0; trial < 6; ++trial) {
       INFO("wave " << wave << " trial " << trial);
       Rig r;
-      r.set(Tb303::Wave, static_cast<float>(wave));
-      r.set(Tb303::Reso, trial % 2 == 0 ? 1.0f : 0.0f);
-      r.set(Tb303::EnvMod, trial < 3 ? 1.0f : 0.0f);
-      r.set(Tb303::Accent, 1.0f);
-      r.set(Tb303::Cutoff, trial % 3 == 0 ? 25.0f : (trial % 3 == 1 ? 4500.0f : 800.0f));
-      r.set(Tb303::Decay, trial % 2 == 0 ? 200.0f : 2500.0f);
-      r.set(Tb303::Tune, trial % 2 == 0 ? 12.0f : -12.0f);
-      r.set(Tb303::Volume, trial == 5 ? 6.0f : -3.0f);
+      r.set(AcidVoice::Wave, static_cast<float>(wave));
+      r.set(AcidVoice::Reso, trial % 2 == 0 ? 1.0f : 0.0f);
+      r.set(AcidVoice::EnvMod, trial < 3 ? 1.0f : 0.0f);
+      r.set(AcidVoice::Accent, 1.0f);
+      r.set(AcidVoice::Cutoff, trial % 3 == 0 ? 25.0f : (trial % 3 == 1 ? 4500.0f : 800.0f));
+      r.set(AcidVoice::Decay, trial % 2 == 0 ? 200.0f : 2500.0f);
+      r.set(AcidVoice::Tune, trial % 2 == 0 ? 12.0f : -12.0f);
+      r.set(AcidVoice::Volume, trial == 5 ? 6.0f : -3.0f);
       std::uint32_t at = 0;
       int held = -1;
       for (int n = 0; n < 40; ++n) {
@@ -345,9 +345,9 @@ TEST_CASE("tb303: extreme settings and random notes: finite, bounded, no denorma
   }
 }
 
-TEST_CASE("tb303: other sample rates and a prepare() in the middle of a life") {
+TEST_CASE("acid_voice: other sample rates and a prepare() in the middle of a life") {
   for (float rate : {22050.0f, 48000.0f, 96000.0f}) {
-    Tb303 v;
+    AcidVoice v;
     v.prepare(rate);
     o3sdk::dsp::Transport tr;
     tr.frames = 64;
@@ -374,7 +374,7 @@ TEST_CASE("tb303: other sample rates and a prepare() in the middle of a life") {
   }
 }
 
-TEST_CASE("tb303: a release tail raises no underflow (no subnormal intermediates), both waves, accented and plain") {
+TEST_CASE("acid_voice: a release tail raises no underflow (no subnormal intermediates), both waves, accented and plain") {
   // The host's SSE flags say whether any operation produced a subnormal result (FE_UNDERFLOW); nothing in o3-sdk sets flush-to-zero on
   // the M4F, so a subnormal there costs what it costs. The envelopes are flushed at 1e-9, the filter and the oscillator keep running on a
   // signal that is never tiny, and the output is exactly zero once the amplifier is flushed.
@@ -382,7 +382,7 @@ TEST_CASE("tb303: a release tail raises no underflow (no subnormal intermediates
     for (int acc = 0; acc < 2; ++acc) {
       INFO("wave " << wave << " accent " << acc);
       Rig r;
-      r.set(Tb303::Wave, static_cast<float>(wave));
+      r.set(AcidVoice::Wave, static_cast<float>(wave));
       r.script.on(100, 36, acc != 0 ? o3sdk::dsp::kNoteAccent : 0);
       r.script.off(ms(300), 36);
       r.engine.start();

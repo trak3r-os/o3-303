@@ -8,7 +8,7 @@
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/rng.h>
 #include <o3_303/seq/sequencer.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/dsp/engine.h>
 
 #include <algorithm>
@@ -29,9 +29,9 @@ using core::ParamCurve;
 using core::ParamDesc;
 using core::ParamUnit;
 
-// The voice's real descriptors (units/tb303: Cutoff is a Table curve, Decay a log, Wave a choice, ...): what the motion lanes map onto.
+// The voice's real descriptors (units/acid_voice: Cutoff is a Table curve, Decay a log, Wave a choice, ...): what the motion lanes map onto.
 const ParamDesc* const kVoiceParams = [] {
-  static Tb303 voice;
+  static AcidVoice voice;
   return voice.info().params;
 }();
 

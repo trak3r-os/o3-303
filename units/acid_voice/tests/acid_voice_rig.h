@@ -6,7 +6,7 @@
 
 #include <o3sdk/dsp/engine.h>
 
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 #include <cstdint>
@@ -14,10 +14,10 @@
 #include <cstdlib>
 #include <vector>
 
-namespace tb303_test {
+namespace acid_voice_test {
 
 namespace dsp = o3sdk::dsp;
-using o3_303::Tb303;
+using o3_303::AcidVoice;
 
 class Script final : public dsp::Clocked {
  public:
@@ -53,7 +53,7 @@ class Script final : public dsp::Clocked {
 // One voice in slot 0 of an engine, with its script. Parameters set before start() are delivered as the engine does at start().
 struct Rig {
   dsp::Engine engine;
-  Tb303 voice;
+  AcidVoice voice;
   Script script;
   dsp::UnitId id;
 
@@ -158,4 +158,4 @@ inline bool write_wav(const char* name, const std::vector<float>& l, const std::
   return true;
 }
 
-}  // namespace tb303_test
+}  // namespace acid_voice_test

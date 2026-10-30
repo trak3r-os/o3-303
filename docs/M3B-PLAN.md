@@ -21,7 +21,7 @@ Ranked additions (R), screen critiques (S), changes to the design (C), and what 
 | R8 | **Scale-locked keyboard:** with a scale set, out-of-scale keyboard pads go dark and are skipped | ui | nothing |
 | R9 | **Ducking from line in:** an envelope follower on the input ducks slot 0 and the delay return (depth, release) | dsp, ui | o3-sdk M2c (audio in) |
 | R10 | **External audio through the 303 filter and distortion** (the Devil Fish's audio in), the accent envelope keyed by the sequencer | dsp, ui | o3-sdk M2c (audio in) |
-| R+ | **Age:** a small per-note drift of pitch and cutoff, a MODS parameter | dsp | W4 (tb303 id 16, after the reserved 8..15) |
+| R+ | **Age:** a small per-note drift of pitch and cutoff, a MODS parameter | dsp | W4 (acid_voice id 16, after the reserved 8..15) |
 | S1 | **Step view:** draw the pattern's real pitch range ±3 semitones; octave lines bright; note names only on non-C notes; beat columns 1/5/9/13 on a visibly different background; the playhead column is the one saturated thing | ui | nothing |
 | S2 | **Knob strip:** a small F1..F8 inside each box and no second label row; larger values readable standing; the value as a background fill of the box, not a 2 px line; labels dim and values bright everywhere (the header's LEN / SW / GATE row too) | ui | nothing |
 | S3 | **Piano roll and vault:** dim the white keys (they outshine the notes); off states drawn as outlines ("MOTION REC OFF" in a filled box reads as on); the motion lane gets a faint curve and min / max ticks; the vault's help becomes a one-line footer; keep the preset card's density | ui | nothing |
@@ -43,8 +43,8 @@ R9 and R10 wait for o3-sdk M2c; R+ goes with W4. Everything else is this round.
   `kStepRatchetMask`); `cond` is the trig condition: 0 always; 1..99 a probability in percent; `0x80 | (a - 1) << 3 | (b - 1)` for
   A:B with 1 <= a <= b <= 8; `0xC0` FILL, `0xC1` NOT FILL, `0xC2` FIRST, `0xC3` NOT FIRST; other values are reserved and play as
   always.
-- `Pattern` gains `LaneRef lanes[kMotionLanes]`, `LaneRef {target, id}`: target 0 none, 1 the voice (tb303 id), 2 the distortion,
-  3 the delay, 4 slot 0's mixer (id = `dsp::MixField`). The default lanes are the SOUND page: tb303 ids 0..6 and the mixer's Level.
+- `Pattern` gains `LaneRef lanes[kMotionLanes]`, `LaneRef {target, id}`: target 0 none, 1 the voice (acid_voice id), 2 the distortion,
+  3 the delay, 4 slot 0's mixer (id = `dsp::MixField`). The default lanes are the SOUND page: acid_voice ids 0..6 and the mixer's Level.
   A motion point stays 0..254 of the target's range (the mixer's ranges are fixed in `pattern.h`).
 - `Pattern` is 4-byte aligned and a multiple of 4 bytes (the Bank copies words); about 2,260 bytes.
 
@@ -146,7 +146,7 @@ ChromeText always. *S3* dim white keys in the roll, off states as outlines (`out
 faint curve and its min / max ticks, the vault's help one footer line. Every scenario's peak list is under 900 words (the vault 1,395). Needs the unit: the look of the
 translucent fills and the Display face values on the panel, the morph by ear (13 glides at once), the cost of a morph on a busy block.
 
-**C1, one voice (made 2026-10-25):** nothing was left to remove: o3-303 never built a second voice (M3 wired one `tb303` on slot 0 and
+**C1, one voice (made 2026-10-25):** nothing was left to remove: o3-303 never built a second voice (M3 wired one `acid_voice` on slot 0 and
 slots 1..7 have no source), so the cut frees no CPU or memory; the 39.8 % the unit measured is the one-voice figure. `tests/freeze_app_test.cpp`
 keeps it that way (four units, only slot 0 sounds).
 

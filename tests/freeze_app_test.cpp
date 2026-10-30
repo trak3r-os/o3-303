@@ -141,7 +141,7 @@ TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the f
   dsp::Engine& e = t.h->engine();
   CHECK(e.unit_count() == 5u);
   NEED(e.unit_info(kVoice) != nullptr);
-  CHECK(std::string(e.unit_info(kVoice)->name) == "TB303");
+  CHECK(std::string(e.unit_info(kVoice)->name) == "ACID");
   CHECK(std::string(e.unit_info(kDist)->name) == "DISTORTION");
   CHECK(std::string(e.unit_info(kDelay)->name) == "DELAY");
   CHECK(std::string(e.unit_info(kFreeze)->name) == "FREEZE");

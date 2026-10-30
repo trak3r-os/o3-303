@@ -7,14 +7,14 @@
 #include "hands.h"
 
 #include <o3_303/units/distortion/distortion.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 using namespace hands;
 using namespace o3_303;
 
 namespace {
 
-float cutoff(Hands& t) { return t.param(kVoice, Tb303::Cutoff); }
+float cutoff(Hands& t) { return t.param(kVoice, AcidVoice::Cutoff); }
 
 }  // namespace
 

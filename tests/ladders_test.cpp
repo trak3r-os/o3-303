@@ -9,7 +9,7 @@
 #include <o3sdk/core/param.h>
 #include <o3_303/app_access.h>
 #include <o3_303/seq/ops.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 using namespace hands;
 using namespace o3_303;
@@ -33,39 +33,39 @@ TEST_CASE("hold KEYS: row 2 is the Cutoff ladder, row 3 the Reso ladder, and Shi
   Hands t;
   seq::Sequencer& s = app_sequencer();
   t.down(kKeysPad);
-  const float reso0 = t.param(kVoice, Tb303::Reso);
-  const float env0 = t.param(kVoice, Tb303::EnvMod);
+  const float reso0 = t.param(kVoice, AcidVoice::Reso);
+  const float env0 = t.param(kVoice, AcidVoice::EnvMod);
   // The ends and the middle of the Cutoff ladder (a log knob: the positions are on the knob, not in Hz).
   for (unsigned col : {0u, 5u, 11u}) {
     t.pad(ladder_pad(2, col), 10);
     t.wait(100);
-    CHECK(t.param(kVoice, Tb303::Cutoff) == doctest::Approx(expected(t, Tb303::Cutoff, col)).epsilon(0.001));
+    CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, col)).epsilon(0.001));
   }
-  CHECK(t.param(kVoice, Tb303::Cutoff) == doctest::Approx(4500.0f));  // the last pad is the knob's maximum
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(4500.0f));  // the last pad is the knob's maximum
   t.pad(ladder_pad(2, 0), 10);
   t.wait(100);
-  CHECK(t.param(kVoice, Tb303::Cutoff) == doctest::Approx(expected(t, Tb303::Cutoff, 0)));  // and the first its minimum
-  CHECK(t.param(kVoice, Tb303::Cutoff) == doctest::Approx(t.h->engine().param_desc(kVoice, Tb303::Cutoff)->min));
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 0)));  // and the first its minimum
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(t.h->engine().param_desc(kVoice, AcidVoice::Cutoff)->min));
   // Reso on row 3.
   t.pad(ladder_pad(3, 8), 10);
   t.wait(100);
-  CHECK(t.param(kVoice, Tb303::Reso) == doctest::Approx(expected(t, Tb303::Reso, 8)).epsilon(0.001));
-  CHECK(t.param(kVoice, Tb303::EnvMod) == env0);
-  CHECK(t.param(kVoice, Tb303::Reso) != reso0);
+  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(expected(t, AcidVoice::Reso, 8)).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) == env0);
+  CHECK(t.param(kVoice, AcidVoice::Reso) != reso0);
   // Shift: row 3 is Env Mod, and Reso stays where it was.
-  const float reso1 = t.param(kVoice, Tb303::Reso);
+  const float reso1 = t.param(kVoice, AcidVoice::Reso);
   t.press(Button::Shift);
   t.pad(ladder_pad(3, 2), 10);
   t.release(Button::Shift);
   t.wait(100);
-  CHECK(t.param(kVoice, Tb303::EnvMod) == doctest::Approx(expected(t, Tb303::EnvMod, 2)).epsilon(0.001));
-  CHECK(t.param(kVoice, Tb303::Reso) == reso1);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) == doctest::Approx(expected(t, AcidVoice::EnvMod, 2)).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::Reso) == reso1);
   // Shift only matters on row 3: row 2 is Cutoff either way.
   t.press(Button::Shift);
   t.pad(ladder_pad(2, 9), 10);
   t.release(Button::Shift);
   t.wait(100);
-  CHECK(t.param(kVoice, Tb303::Cutoff) == doctest::Approx(expected(t, Tb303::Cutoff, 9)).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 9)).epsilon(0.001));
   t.up(kKeysPad);
   CHECK(s.slewing() == 0);
 }
@@ -78,7 +78,7 @@ TEST_CASE("a ladder tap is a 30 ms slew, not a jump, and the knob reads the goal
   t.up(ladder_pad(2, 10));
   t.wait(5);
   CHECK(s.slewing() >= 1);  // the slew is running: 30 ms are about 20 blocks
-  CHECK(t.param(kVoice, Tb303::Cutoff) == doctest::Approx(expected(t, Tb303::Cutoff, 10)).epsilon(0.001));  // what the strip shows
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 10)).epsilon(0.001));  // what the strip shows
   t.wait(60);
   CHECK(s.slewing() == 0);
   t.up(kKeysPad);
@@ -116,8 +116,8 @@ TEST_CASE("the LEDs draw the ladder position as a bar while KEYS is held, and th
   // Shift: row 3 shows Env Mod where it stands (60 % by default: pad 7 of 12).
   t.press(Button::Shift);
   t.wait(80);
-  const core::ParamDesc* d = t.h->engine().param_desc(kVoice, Tb303::EnvMod);
-  const unsigned env_col = ladder_col(core::param_norm(*d, t.param(kVoice, Tb303::EnvMod)));
+  const core::ParamDesc* d = t.h->engine().param_desc(kVoice, AcidVoice::EnvMod);
+  const unsigned env_col = ladder_col(core::param_norm(*d, t.param(kVoice, AcidVoice::EnvMod)));
   CHECK(t.led(ladder_pad(3, env_col)) == app::kLedOn);
   t.release(Button::Shift);
   t.up(kKeysPad);
@@ -175,13 +175,13 @@ TEST_CASE("a ladder tap while REC or the MOTION latch is on and the pattern play
   CHECK(seq::lane_has_motion(t.pat(), 1));
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 2));
   // The point is the knob position of the ladder pad, through the descriptor's curve.
-  const core::ParamDesc* d = t.h->engine().param_desc(kVoice, Tb303::Cutoff);
+  const core::ParamDesc* d = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
   bool found = false;
   for (unsigned i = 0; i < 16 * kMotionPointsPerStep && !found; ++i) {
     const std::uint8_t pt = t.pat().motion[0][i];
     if (pt != kNoLock) {
       found = true;
-      CHECK(seq::point_to_value(*d, pt) == doctest::Approx(expected(t, Tb303::Cutoff, 3)).epsilon(0.02));
+      CHECK(seq::point_to_value(*d, pt) == doctest::Approx(expected(t, AcidVoice::Cutoff, 3)).epsilon(0.02));
     }
   }
   CHECK(found);

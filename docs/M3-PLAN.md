@@ -38,7 +38,7 @@ it, so a new project has no pattern that sounds (integrator's decision, 2026-10-
 (Replicant's: slide = held into the next step, which glides; rest = gate closed). M3b adds `Step::cond`, the ratchet bits of `flags` and
 `Pattern::lanes` (`docs/M3B-PLAN.md`, "Contracts").
 
-**The voice unit `tb303`** (`units/tb303`, class `o3_303::Tb303`, `UnitKind` instrument, monophonic). Parameter ids are table
+**The voice unit `acid_voice`** (`units/acid_voice`, class `o3_303::AcidVoice`, `UnitKind` instrument, monophonic). Parameter ids are table
 indices: append, never insert.
 
 | id | Name | Range | Default | Notes |
@@ -77,7 +77,7 @@ deliberate deviation, the integrator's decision of 2026-10-25: a real tanh satur
 the trim, FUZZ against the pinned original with that one line changed (generated at configure time; the build stops if the line
 changes upstream).
 
-**The engine's topology** (set by the app): slot 0 = `tb303`, its insert 0 = `distortion`; send A = o3sdk's `delay`; send B
+**The engine's topology** (set by the app): slot 0 = `acid_voice`, its insert 0 = `distortion`; send A = o3sdk's `delay`; send B
 reserved for the reverb (W5). The sequencer is a `dsp::Clocked` hook on the engine. The SOUND page's Volume is slot 0's level, after
 the distortion as in Replicant (-60..+3.5 dB, the engine's 1.5 cap; default -6 dB for headroom with the delay return, the ui
 review's finding), so the distortion sees the voice at Replicant's
@@ -107,7 +107,7 @@ acc/slide %), since the kit's `ParamPage` is one unit a page. Promoting it to th
 
 | Slice | Owns | Build dirs |
 |---|---|---|
-| dsp | `units/tb303/`, `units/distortion/` (sources, headers, CMake, and their tests in `units/<unit>/tests/` with `o3sdk_test_suite`) | `build-m3-dsp-host`, `build-m3-dsp-mk66` |
+| dsp | `units/acid_voice/`, `units/distortion/` (sources, headers, CMake, and their tests in `units/<unit>/tests/` with `o3sdk_test_suite`) | `build-m3-dsp-host`, `build-m3-dsp-mk66` |
 | seq | `app/seq/` (library, headers under `app/seq/include/o3_303/seq/`, tests in `app/seq/tests/`) | `build-m3-seq-host`, `build-m3-seq-mk66` |
 | ui | `app/src/`, `app/CMakeLists.txt`, `app/scenarios/`, `app/include/o3_303/` except `pattern.h`, `tests/` | `build-m3-ui-host`, `build-m3-ui-mk66` |
 | integrator | `docs/`, the root `CMakeLists.txt`, `units/CMakeLists.txt`, `pattern.h`, `THIRD_PARTY.md`, `third_party/`, o3sdk | `build-host`, `build-mk66` |
@@ -117,7 +117,7 @@ acc/slide %), since the kit's `ParamPage` is one unit a page. Promoting it to th
 `PresetBank`) are read, or compiled against a minimal shim of the few JUCE names they use, inside the slice's own test directory.
 A ported file says where it comes from (file and commit) and keeps the MIT notice in its header.
 
-Until the dsp slice lands, the ui slice may wire the framework's `synth` as a stand-in voice; it switches to `tb303` and
+Until the dsp slice lands, the ui slice may wire the framework's `synth` as a stand-in voice; it switches to `acid_voice` and
 `distortion` once they build (it reads their headers; the ids above are the contract). Until the seq slice lands, the ui slice
 draws and edits `Pattern` objects of its own; it switches to `o3_303_seq` when that builds.
 

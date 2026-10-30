@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// TB303: the monophonic acid voice of o3-303 (docs/DESIGN-303.md, docs/M3-PLAN.md "Contracts"). An instrument unit: notes in, a
+// ACID: the monophonic acid voice of o3-303 (docs/DESIGN-303.md, docs/M3-PLAN.md "Contracts"). An instrument unit: notes in, a
 // mono signal out (written to both channels).
 //
 // Origin. A port of the DSP of Replicant 303 by DanimanX, commit d5369be028399f5a403067b58da2936caa070c0e (third_party/replicant303/):
@@ -15,7 +15,7 @@
 //   merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 //   furnished to do so, subject to the following conditions: the above copyright notice and this permission notice shall be
 //   included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND
-//   (the full text is in third_party/replicant303/LICENSE and in src/tb303.cpp).
+//   (the full text is in third_party/replicant303/LICENSE and in src/acid_voice.cpp).
 //
 // What is the same as the original: the oscillator shapes, the cutoff law base x 2^(envmod x env x 5.2 + accent x 2.2), the filter
 // maths (feedback gain 17.2 x reso, input drive 1 + 0.4 x reso, the two sub-steps), the three envelopes and
@@ -50,14 +50,14 @@
 
 namespace o3_303 {
 
-class Tb303 final : public o3sdk::dsp::Unit {
+class AcidVoice final : public o3sdk::dsp::Unit {
  public:
   enum Param : std::uint16_t { Cutoff, Reso, EnvMod, Decay, Accent, Wave, Tune, Volume, kParamCount };
 
   static constexpr unsigned kControlPeriod = 16;  // samples between two recomputations of the filter coefficient (a power of two)
   static constexpr unsigned kHeld = 8;           // notes the stack remembers (the oldest is dropped past that)
 
-  Tb303() noexcept = default;
+  AcidVoice() noexcept = default;
 
   const o3sdk::dsp::UnitInfo& info() const noexcept override;
   void prepare(float sample_rate) noexcept override;

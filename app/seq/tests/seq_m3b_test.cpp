@@ -7,7 +7,7 @@
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
 
@@ -35,10 +35,10 @@ using core::ParamUnit;
 
 // The voice's real descriptors (Cutoff is a Table curve ...).
 const ParamDesc* const kVoiceParams = [] {
-  static Tb303 voice;
+  static AcidVoice voice;
   return voice.info().params;
 }();
-constexpr std::uint16_t kVoiceParamCount = Tb303::kParamCount;
+constexpr std::uint16_t kVoiceParamCount = AcidVoice::kParamCount;
 
 const char* const kTypeNames[] = {"A", "B", "C"};
 const ParamDesc kDistParams[3] = {
@@ -1095,14 +1095,14 @@ float along(const ParamDesc& d, float from, float to, std::uint32_t frames, std:
 TEST_CASE("a slew moves a parameter to its goal in the given time: events every 16 frames along the knob's curve, the goal at the exact frame") {
   Rig rig;
   rig.start();
-  const ParamDesc& cutoff = kVoiceParams[Tb303::Cutoff];
-  const float from = rig.engine.param(rig.vid, Tb303::Cutoff);
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Cutoff, 3000.0f, 30.0f));
-  CHECK(rig.engine.param(rig.vid, Tb303::Cutoff) == doctest::Approx(core::param_clamp(cutoff, 3000.0f)));  // stored at once
+  const ParamDesc& cutoff = kVoiceParams[AcidVoice::Cutoff];
+  const float from = rig.engine.param(rig.vid, AcidVoice::Cutoff);
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Cutoff, 3000.0f, 30.0f));
+  CHECK(rig.engine.param(rig.vid, AcidVoice::Cutoff) == doctest::Approx(core::param_clamp(cutoff, 3000.0f)));  // stored at once
   rig.run(2000);
   const float goal = core::param_clamp(cutoff, 3000.0f);
   const std::uint32_t total = 1323;  // 30 ms at 44.1 kHz
-  const auto ev = only_params(rig.voice.log, Tb303::Cutoff);
+  const auto ev = only_params(rig.voice.log, AcidVoice::Cutoff);
   REQUIRE(ev.size() >= 4);
   // The jump the stored value queued at frame 0 never sounds: the slew's own event follows it at the same frame, at the start value.
   CHECK(ev[0].frame == 0);
@@ -1121,31 +1121,31 @@ TEST_CASE("a slew moves a parameter to its goal in the given time: events every 
   CHECK(ev.back().value == goal);
   CHECK(rig.seq.slewing() == 0);
   // And nothing more afterwards.
-  const std::size_t n = only_params(rig.voice.log, Tb303::Cutoff).size();
+  const std::size_t n = only_params(rig.voice.log, AcidVoice::Cutoff).size();
   rig.run(1000);
-  CHECK(only_params(rig.voice.log, Tb303::Cutoff).size() == n);
+  CHECK(only_params(rig.voice.log, AcidVoice::Cutoff).size() == n);
 }
 
 TEST_CASE("a slew started while stopped runs; a second slew on the same target goes on from where the first has got to") {
   Rig rig;
   rig.start();
-  const ParamDesc& cutoff = kVoiceParams[Tb303::Cutoff];
+  const ParamDesc& cutoff = kVoiceParams[AcidVoice::Cutoff];
   CHECK_FALSE(rig.engine.playing());
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Cutoff, 3000.0f, 100.0f));
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Cutoff, 3000.0f, 100.0f));
   rig.run(1024);  // 16 blocks: 23 ms into the 100 ms
   CHECK(rig.seq.slewing() == 1);
-  const auto before = only_params(rig.voice.log, Tb303::Cutoff);
+  const auto before = only_params(rig.voice.log, AcidVoice::Cutoff);
   const float at_retarget = before.back().value;
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Cutoff, 500.0f, 50.0f));
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Cutoff, 500.0f, 50.0f));
   rig.run(64);
-  const auto after = only_params(rig.voice.log, Tb303::Cutoff);
+  const auto after = only_params(rig.voice.log, AcidVoice::Cutoff);
   // Frame 0 of the next block: the main loop's stored goal (500), then the new slew's first event, on the old trajectory.
   REQUIRE(after.size() >= before.size() + 2);
   const Rec& first = after[before.size() + 1];
   CHECK(first.frame == 1024);
   CHECK(first.value == doctest::Approx(at_retarget).epsilon(0.02));  // continuous: no jump to the old goal or the start
   rig.run(4000);
-  const auto fin = only_params(rig.voice.log, Tb303::Cutoff);
+  const auto fin = only_params(rig.voice.log, AcidVoice::Cutoff);
   CHECK(fin.back().value == doctest::Approx(500.0f));
   CHECK(fin.back().frame == 1024 + 2205);  // 50 ms from the block where the second slew started
   CHECK(rig.seq.slewing() == 0);
@@ -1155,22 +1155,22 @@ TEST_CASE("a slew started while stopped runs; a second slew on the same target g
 TEST_CASE("slew_stop ends it where it is; a slew of no time, or of an enum, is a plain write") {
   Rig rig;
   rig.start();
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Reso, 0.9f, 200.0f));
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Reso, 0.9f, 200.0f));
   rig.run(512);
-  CHECK(rig.seq.slew_stop(kLaneVoice, Tb303::Reso));
+  CHECK(rig.seq.slew_stop(kLaneVoice, AcidVoice::Reso));
   rig.run(64);
-  const std::size_t n = only_params(rig.voice.log, Tb303::Reso).size();
+  const std::size_t n = only_params(rig.voice.log, AcidVoice::Reso).size();
   rig.run(20000);
-  CHECK(only_params(rig.voice.log, Tb303::Reso).size() == n);
+  CHECK(only_params(rig.voice.log, AcidVoice::Reso).size() == n);
   CHECK(rig.seq.slewing() == 0);
 
   const std::uint64_t t0 = rig.now();
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Decay, 0.5f, 0.0f));  // no time: at once
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Decay, 0.5f, 0.0f));  // no time: at once
   CHECK(rig.seq.slew(kLaneDist, 2, 2.0f, 50.0f));             // an enum does not glide
   rig.run(64);
-  const auto d = only_params(rig.voice.log, Tb303::Decay);
+  const auto d = only_params(rig.voice.log, AcidVoice::Decay);
   REQUIRE(!d.empty());
-  CHECK(d.back().value == doctest::Approx(core::param_clamp(kVoiceParams[Tb303::Decay], 0.5f)));
+  CHECK(d.back().value == doctest::Approx(core::param_clamp(kVoiceParams[AcidVoice::Decay], 0.5f)));
   CHECK(rig.seq.slewing() == 0);
   const auto e = only_params(rig.dist.log, 2);
   REQUIRE(e.size() >= 1);
@@ -1228,9 +1228,9 @@ TEST_CASE("a slew is suppressed while a lock holds its target, and goes on along
   set_plock(p, 0, 2, 200);  // cutoff locked on step 2 (and that is all: step 3 has no point, so the lock ends at its start)
   rig.bank->replace(0, p);
   rig.start();
-  const ParamDesc& cutoff = kVoiceParams[Tb303::Cutoff];
-  const float from = rig.engine.param(rig.vid, Tb303::Cutoff);
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Cutoff, 3000.0f, 1000.0f));
+  const ParamDesc& cutoff = kVoiceParams[AcidVoice::Cutoff];
+  const float from = rig.engine.param(rig.vid, AcidVoice::Cutoff);
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Cutoff, 3000.0f, 1000.0f));
   rig.seq.update();  // the screen hands over the knob: the goal
   rig.engine.play();
   rig.run(frame_of(5 * kStep, kTempo));
@@ -1240,7 +1240,7 @@ TEST_CASE("a slew is suppressed while a lock holds its target, and goes on along
   unsigned during = 0;
   float restored = -1.0f;
   float lock_value = -1.0f;
-  for (const Rec& e : only_params(rig.voice.log, Tb303::Cutoff)) {
+  for (const Rec& e : only_params(rig.voice.log, AcidVoice::Cutoff)) {
     if (e.frame == lock_on) {
       lock_value = e.value;  // the last event of that frame is the lock's (it comes with the step)
     }
@@ -1257,7 +1257,7 @@ TEST_CASE("a slew is suppressed while a lock holds its target, and goes on along
   CHECK(restored < goal);
   CHECK(restored == doctest::Approx(along(cutoff, from, goal, static_cast<std::uint32_t>(lock_off), total)).epsilon(1e-3));
   rig.run(frame_of(12 * kStep, kTempo) - rig.now());
-  const auto ev = only_params(rig.voice.log, Tb303::Cutoff);
+  const auto ev = only_params(rig.voice.log, AcidVoice::Cutoff);
   CHECK(ev.back().frame == total);
   CHECK(ev.back().value == goal);
 }
@@ -1268,9 +1268,9 @@ TEST_CASE("a motion point on the slewed target also overrides the slew for its q
   set_motion_point(p, 0, 1, 1, 100);  // one point: step 1, quarter 1
   rig.bank->replace(0, p);
   rig.start();
-  const ParamDesc& cutoff = kVoiceParams[Tb303::Cutoff];
-  const float from = rig.engine.param(rig.vid, Tb303::Cutoff);
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Cutoff, 3000.0f, 1000.0f));
+  const ParamDesc& cutoff = kVoiceParams[AcidVoice::Cutoff];
+  const float from = rig.engine.param(rig.vid, AcidVoice::Cutoff);
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Cutoff, 3000.0f, 1000.0f));
   rig.seq.update();
   rig.engine.play();
   rig.run(frame_of(2 * kStep, kTempo));
@@ -1279,7 +1279,7 @@ TEST_CASE("a motion point on the slewed target also overrides the slew for its q
   unsigned during = 0;
   float lock_value = -1.0f;
   float resumed = -1.0f;
-  for (const Rec& e : only_params(rig.voice.log, Tb303::Cutoff)) {
+  for (const Rec& e : only_params(rig.voice.log, AcidVoice::Cutoff)) {
     if (e.frame == on) {
       lock_value = e.value;
     }
@@ -1412,10 +1412,10 @@ TEST_CASE("a full command ring: the value is set at once and the slew is refused
   rig.start();
   unsigned refused = 0;
   for (unsigned i = 0; i < 80; ++i) {
-    refused += rig.seq.slew(kLaneVoice, Tb303::Reso, 0.1f + 0.01f * static_cast<float>(i), 100.0f) ? 0u : 1u;
+    refused += rig.seq.slew(kLaneVoice, AcidVoice::Reso, 0.1f + 0.01f * static_cast<float>(i), 100.0f) ? 0u : 1u;
   }
   CHECK(refused >= 80 - 64 - 1);
-  CHECK(rig.engine.param(rig.vid, Tb303::Reso) == doctest::Approx(0.1f + 0.01f * 79.0f).epsilon(0.01));
+  CHECK(rig.engine.param(rig.vid, AcidVoice::Reso) == doctest::Approx(0.1f + 0.01f * 79.0f).epsilon(0.01));
 }
 
 // ==== C2: lanes drive their own targets ========================================================================================
@@ -1573,10 +1573,10 @@ TEST_CASE("a lane re-pointed under a running lock gives the old target its knob 
   CHECK(rig.bank->edit(0, [](Pattern& q) { q.lanes[0] = LaneRef{kLaneDist, 0}; }));
   rig.run(frame_of(3 * kStep, kTempo) - rig.now());
   // The next motion point (step 1, quarter 1) sees the new table: the voice's cutoff is released ...
-  const auto v = only_params(rig.voice.log, Tb303::Cutoff);
+  const auto v = only_params(rig.voice.log, AcidVoice::Cutoff);
   REQUIRE(v.size() >= 2);
   CHECK(v.back().frame == frame_of(kStep + 60, kTempo));
-  CHECK(v.back().value == doctest::Approx(kVoiceParams[Tb303::Cutoff].def));
+  CHECK(v.back().value == doctest::Approx(kVoiceParams[AcidVoice::Cutoff].def));
   // ... and the distortion gets the lock's point there, then step 2's, and its own knob back when the lock ends at step 3.
   std::vector<Rec> d;
   for (const Rec& e : only_params(rig.dist.log, 0)) {
@@ -1616,7 +1616,7 @@ TEST_CASE("record_motion writes the point for the lane's own target") {
 TEST_CASE("setup() forgets what a previous run left: slews, the pass counter, the fill") {
   Rig rig;
   rig.start();
-  CHECK(rig.seq.slew(kLaneVoice, Tb303::Reso, 0.9f, 500.0f));
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::Reso, 0.9f, 500.0f));
   rig.run(256);
   CHECK(rig.seq.slewing() == 1);
   rig.seq.set_fill(true);

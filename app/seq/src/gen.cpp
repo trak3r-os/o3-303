@@ -552,7 +552,7 @@ char bank_letter(unsigned bank) noexcept { return kBankLetters[bank < kBanks ? b
 
 ParamValues to_values(const Patch& patch) noexcept {
   ParamValues v{};
-  // Each value in its parameter's own units (the descriptors of units/tb303 and units/distortion): the app applies them as they are.
+  // Each value in its parameter's own units (the descriptors of units/acid_voice and units/distortion): the app applies them as they are.
   v.voice[0] = patch.cutoff;                        // Hz
   v.voice[1] = patch.resonance;                     // 0..1
   v.voice[2] = patch.env_mod;                       // 0..1

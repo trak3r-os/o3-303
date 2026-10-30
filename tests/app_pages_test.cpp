@@ -1,0 +1,257 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// The parameter pages end to end: F keys and the encoder, PARAMS and the pages it walks, p-locks and motion lanes.
+// (Split from the former o3_303_app_test.cpp; the hands are in app_hands.h.)
+#include "app_hands.h"
+
+#include <o3_303/step_model.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/distortion/distortion.h>
+#include <o3_303/units/growl/growl.h>
+
+TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two held move together, Shift is coarse") {
+  Hands t;
+  const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
+  const float reso0 = t.param(kVoice, AcidVoice::Reso);
+  t.turn(5);  // F1 (cutoff) is latched at the start
+  const float cutoff1 = t.param(kVoice, AcidVoice::Cutoff);
+  CHECK(cutoff1 > cutoff0);
+  t.tap(Button::F2);
+  t.turn(-10);
+  CHECK(t.param(kVoice, AcidVoice::Reso) < reso0);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == cutoff1);
+
+  const float decay0 = t.param(kVoice, AcidVoice::Decay);
+  t.press(Button::F4);
+  t.turn(10);
+  t.release(Button::F4);
+  CHECK(t.param(kVoice, AcidVoice::Decay) > decay0);
+  const float reso1 = t.param(kVoice, AcidVoice::Reso);
+  t.turn(3);  // back on F2, the latched key
+  CHECK(t.param(kVoice, AcidVoice::Reso) > reso1);
+
+  const float env0 = t.param(kVoice, AcidVoice::EnvMod);
+  const float acc0 = t.param(kVoice, AcidVoice::Accent);
+  t.press(Button::F3);
+  t.press(Button::F5);
+  t.turn(10);
+  t.release(Button::F3);
+  t.release(Button::F5);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) > env0);
+  CHECK(t.param(kVoice, AcidVoice::Accent) > acc0);
+
+  const float tune0 = t.param(kVoice, AcidVoice::Tune);
+  t.tap(Button::F7);
+  t.turn(1);
+  const float fine = t.param(kVoice, AcidVoice::Tune) - tune0;
+  t.press(Button::Shift);
+  t.turn(1);
+  t.release(Button::Shift);
+  const float coarse = t.param(kVoice, AcidVoice::Tune) - tune0 - fine;
+  CHECK(coarse > fine * 5.0f);
+
+  t.tap(Button::F6);
+  t.turn(1);
+  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(1.0f));
+}
+
+TEST_CASE("PARAMS goes to the next page (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back; the pages reach the whole engine") {
+  Hands t;
+  const float drive0 = t.param(kDist, Distortion::Drive);
+  t.tap(Button::Params);  // FX
+  t.tap(Button::F1);
+  t.turn(10);
+  CHECK(t.param(kDist, Distortion::Drive) > drive0);
+  t.tap(Button::F7);  // the distortion model
+  t.turn(1);
+  CHECK(t.param(kDist, Distortion::Type) == doctest::Approx(1.0f));
+  t.tap(Button::F6);  // the reverb send is not there yet: the key does nothing
+  t.turn(5);
+  t.tap(Button::F5);
+  t.turn(-10);
+  t.tap(Button::F8);
+  t.turn(-20);
+  CHECK(t.h->engine().master_level() < 1.0f);
+
+  t.tap(Button::Params);  // GROWL: F1 is the vowel (the growl's Mix is 0, so it is still a bypass)
+  t.tap(Button::F1);
+  t.turn(10);
+  CHECK(t.param(kGrowl, Growl::Vowel) > 0.0f);  // the growl is the fifth unit, after the freeze
+  t.tap(Button::Params);  // WOBBLE: F1 is the rate
+  t.tap(Button::F1);
+  t.turn(1);
+  CHECK(t.pat().length != 0);
+  t.tap(Button::Params);  // SEQ
+  const std::uint32_t tempo0 = t.h->engine().tempo();
+  t.tap(Button::F1);
+  t.turn(10);
+  CHECK(t.h->engine().tempo() > tempo0);
+  t.tap(Button::F2);
+  t.turn(10);
+  t.tap(Button::F4);
+  t.turn(10);
+  CHECK(t.pat().swing == 10 * 1);
+  t.tap(Button::F3);
+  t.turn(1);
+  CHECK(t.pat().length == 32);
+
+  t.tap(Button::Params);  // PERF: its F3 is Vol's action; the encoder would change that, which this test does not do
+  t.tap(Button::Params);  // SNAP: no key is latched there
+  t.tap(Button::Params);  // wraps to SOUND; F3 was the latched key on SEQ, so it is on SOUND too (ENV MOD)
+  const float env0 = t.param(kVoice, AcidVoice::EnvMod);
+  t.turn(3);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) != env0);
+  t.shift_tap(Button::Params);  // the SNAP page
+  CHECK(t.h->runtime().context().screen() != nullptr);
+  t.shift_tap(Button::Params);  // and back to the page it came from, SOUND
+  const float env1 = t.param(kVoice, AcidVoice::EnvMod);
+  t.turn(3);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) != env1);  // ENV MOD is still the latched key
+  for (unsigned i = 0; i < kPageSeq; ++i) {
+    t.tap(Button::Params);  // SEQ
+  }
+  const std::uint32_t tempo1 = t.h->engine().tempo();
+  t.tap(Button::F1);
+  t.turn(2);
+  CHECK(t.h->engine().tempo() != tempo1);
+}
+
+TEST_CASE("hold a step + the encoder p-locks the focused parameter on that step; hold MOTION shows the steps with automation") {
+  Hands t;
+  const float knob = t.param(kVoice, AcidVoice::Cutoff);
+  t.down(step_pad_of(3));
+  t.turn(10);
+  t.turn(10);
+  t.up(step_pad_of(3));
+  const Pattern& p = t.pat();
+  REQUIRE(step_has_motion(p, 0, 3));
+  const std::uint8_t first = p.motion[0][3 * kMotionPointsPerStep];
+  for (unsigned q = 1; q < kMotionPointsPerStep; ++q) {
+    CHECK(p.motion[0][3 * kMotionPointsPerStep + q] == first);  // all four points of the step
+  }
+  const core::ParamDesc* desc = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
+  REQUIRE(desc != nullptr);
+  CHECK(first > seq::value_to_point(*desc, knob));                     // turned up from the knob's value
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(knob));      // the knob itself did not move
+  CHECK_FALSE(step_has_motion(p, 0, 4));
+  CHECK_FALSE(step_has_motion(p, 1, 3));
+
+  t.tap(Button::F2);  // another lane, on another step
+  t.down(step_pad_of(9));
+  t.turn(-15);
+  t.up(step_pad_of(9));
+  CHECK(step_has_motion(t.pat(), 1, 9));
+
+  t.down(kMotionPad);
+  t.wait(20);
+  CHECK(t.led(step_pad_of(9)) == app::kLedMid);  // the focused lane is RESO now
+  CHECK(t.led(step_pad_of(3)) == app::kLedOff);  // the cutoff lock is not in this lane
+  t.up(kMotionPad);
+  t.wait(5);
+
+  // Delete with MOTION held clears the lane.
+  t.down(kMotionPad);
+  t.tap(Button::Delete);
+  t.up(kMotionPad);
+  CHECK_FALSE(step_has_motion(t.pat(), 1, 9));
+  CHECK(step_has_motion(t.pat(), 0, 3));
+}
+
+TEST_CASE("REC + Play + the encoder records motion under the playhead; a tap on MOTION latches the recording") {
+  Hands t;
+  t.tap(Button::Rec);
+  t.tap(Button::Play);
+  t.wait(200);
+  for (unsigned i = 0; i < 12; ++i) {
+    t.turn(4);
+    t.wait(100);
+  }
+  t.tap(Button::Play);
+  t.tap(Button::Rec);
+  CHECK(pattern_has_motion(t.pat(), 0));
+
+  // Without REC, the latch on MOTION does the same.
+  t.shift_tap(Button::Delete);  // clear the pattern: no motion either
+  CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
+  t.pad(kMotionPad);
+  t.tap(Button::Play);
+  t.wait(200);
+  for (unsigned i = 0; i < 8; ++i) {
+    t.turn(4);
+    t.wait(100);
+  }
+  t.tap(Button::Play);
+  CHECK(pattern_has_motion(t.pat(), 0));
+  CHECK(t.led(kMotionPad) == app::kLedMid);  // the latch shows on the pad
+}
+
+TEST_CASE("MOTION + Delete clears the shown lane and nothing else; MOTION + a step tap clears that step's locks of the lane") {
+  Hands t;
+  // Locks on the cutoff lane (steps 4 and 7) and on the reso lane (step 4).
+  t.down(step_pad_of(3));
+  t.turn(10);
+  t.tap(Button::F2);
+  t.turn(-10);
+  t.up(step_pad_of(3));
+  t.tap(Button::F1);
+  t.down(step_pad_of(6));
+  t.turn(10);
+  t.up(step_pad_of(6));
+  REQUIRE(step_has_motion(t.pat(), 0, 3));
+  REQUIRE(step_has_motion(t.pat(), 0, 6));
+  REQUIRE(step_has_motion(t.pat(), 1, 3));
+
+  // A tap on a step pad with MOTION held: that step's locks of the lane shown (cutoff) go, the rest stays, the cursor stays.
+  t.pad(step_pad_of(4));  // the cursor on step 5
+  const Pattern before = t.pat();
+  t.down(kMotionPad);
+  t.pad(step_pad_of(3));
+  t.up(kMotionPad);
+  CHECK_FALSE(step_has_motion(t.pat(), 0, 3));
+  CHECK(step_has_motion(t.pat(), 0, 6));
+  CHECK(step_has_motion(t.pat(), 1, 3));  // another lane of the same step
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == before.steps[i].note);
+    CHECK(t.pat().steps[i].flags == before.steps[i].flags);
+  }
+  t.tap(Button::Delete);  // the cursor is still on step 5 (the tap with MOTION held did not move it)
+  CHECK((t.pat().steps[4].flags & kStepRest) != 0);
+  CHECK(t.pat().steps[3].flags == before.steps[3].flags);
+
+  // MOTION + Delete: the whole lane, and the cursor's step is left as it is.
+  t.pad(step_pad_of(6));  // the cursor on step 7
+  const Pattern kept = t.pat();
+  t.down(kMotionPad);
+  t.tap(Button::Delete);
+  t.up(kMotionPad);
+  CHECK_FALSE(pattern_has_motion(t.pat(), 0));
+  CHECK(step_has_motion(t.pat(), 1, 3));  // the reso lane is not the one shown
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == kept.steps[i].note);
+    CHECK(t.pat().steps[i].flags == kept.steps[i].flags);  // no REST appeared on the cursor's step
+  }
+  // Shift + Delete with MOTION held: every lane.
+  t.down(kMotionPad);
+  t.press(Button::Shift);
+  t.tap(Button::Delete);
+  t.release(Button::Shift);
+  t.up(kMotionPad);
+  CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
+  CHECK_FALSE(pattern_is_empty(t.pat()));  // and the notes are still there
+}
+
+TEST_CASE("a p-lock with an F key held gives the latch back at the release, like any hold-and-turn") {
+  Hands t;
+  t.tap(Button::F1);  // the cutoff is latched
+  t.down(step_pad_of(3));
+  t.press(Button::F3);  // hold ENV MOD
+  t.turn(5);            // p-lock on its lane
+  t.release(Button::F3);
+  t.up(step_pad_of(3));
+  CHECK(step_has_motion(t.pat(), 2, 3));
+  CHECK_FALSE(step_has_motion(t.pat(), 0, 3));
+  const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
+  const float env = t.param(kVoice, AcidVoice::EnvMod);
+  t.turn(5);  // nothing held: the latched key, the cutoff
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) > cutoff);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) == doctest::Approx(env));
+}

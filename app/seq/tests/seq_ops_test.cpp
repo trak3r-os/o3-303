@@ -5,7 +5,7 @@
 #include <o3sdk/core/scales.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/rng.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cstring>
 #include <initializer_list>
@@ -630,9 +630,9 @@ TEST_CASE("mutate changes about the asked share of the steps, in the scale") {
   }
 }
 
-TEST_CASE("a motion point on a Table-curve parameter (tb303's Cutoff) follows the table and round-trips") {
-  o3_303::Tb303 voice;
-  const o3sdk::core::ParamDesc& cutoff = voice.info().params[o3_303::Tb303::Cutoff];
+TEST_CASE("a motion point on a Table-curve parameter (acid_voice's Cutoff) follows the table and round-trips") {
+  o3_303::AcidVoice voice;
+  const o3sdk::core::ParamDesc& cutoff = voice.info().params[o3_303::AcidVoice::Cutoff];
   REQUIRE(cutoff.curve == o3sdk::core::ParamCurve::Table);
   CHECK(point_to_value(cutoff, 0) == doctest::Approx(25.0f));
   CHECK(point_to_value(cutoff, kMaxPoint) == doctest::Approx(4500.0f));

@@ -47,7 +47,7 @@ cmake --build build-mk66 -j4
 ## Layout
 
 `app/` the app, its screens and its scenarios · `app/seq/` the sequencer, the pattern operations and the preset generator ·
-`units/` its DSP units (`tb303`, the voice; `distortion`) · `tests/` host tests · `third_party/replicant303/` the pinned Replicant 303
+`units/` its DSP units (`acid_voice`, the voice; `distortion`) · `tests/` host tests · `third_party/replicant303/` the pinned Replicant 303
 sources (MIT) the ports are tested against · `docs/` the design and the plans · `.claude/` the agent harness, from o3-sdk. Start with
 `CLAUDE.md`.
 

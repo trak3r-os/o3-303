@@ -11,7 +11,7 @@
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 #include <cstdint>
@@ -89,7 +89,7 @@ TEST_CASE("WOBBLE: held it runs at the page's settings, a bottom-row pad picks t
   CHECK(s.wobble().on);  // no pad: its set rate for the hold
   CHECK(s.wobble().rate == seq::kWobble1_8);
   CHECK(s.wobble().target.target == o3_303::kLaneVoice);
-  CHECK(s.wobble().target.id == o3_303::Tb303::Cutoff);
+  CHECK(s.wobble().target.id == o3_303::AcidVoice::Cutoff);
   CHECK(s.wobble_rate_now() == seq::kWobble1_8);
   CHECK(t.led(bottom(seq::kWobble1_8)) == app::kLedOn);
   CHECK(t.led(bottom(0)) == app::kLedDim);

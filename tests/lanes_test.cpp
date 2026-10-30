@@ -9,7 +9,7 @@
 #include <o3sdk/core/param.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/units/distortion/distortion.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 #include <cstdlib>
@@ -110,7 +110,7 @@ TEST_CASE("hold MOTION + an F key points the lane shown at that key's parameter,
   // One undo gives the lane and its points back; and the redo does it again.
   CHECK(bank().undo() == static_cast<int>(t.selected()));
   CHECK(t.pat().lanes[3].target == kLaneVoice);
-  CHECK(t.pat().lanes[3].id == Tb303::Decay);
+  CHECK(t.pat().lanes[3].id == AcidVoice::Decay);
   CHECK(point_at(t.pat(), 3, 2) == point_at(before, 3, 2));
   CHECK(bank().redo() == static_cast<int>(t.selected()));
   CHECK(t.pat().lanes[3].target == kLaneDist);
@@ -142,11 +142,11 @@ TEST_CASE("a key no lane drives is not locked: hold a step + the encoder moves t
   Hands t;
   repoint_lane3_to_drive(t);  // DECAY lost its lane
   t.tap(Button::F4);
-  const float decay0 = t.param(kVoice, Tb303::Decay);
+  const float decay0 = t.param(kVoice, AcidVoice::Decay);
   t.down(step_pad_of(3));
   t.turn(5);
   t.up(step_pad_of(3));
-  CHECK(t.param(kVoice, Tb303::Decay) != decay0);
+  CHECK(t.param(kVoice, AcidVoice::Decay) != decay0);
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
     CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }

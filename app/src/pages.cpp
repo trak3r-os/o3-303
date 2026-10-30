@@ -8,7 +8,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 
@@ -22,7 +22,7 @@ using core::ParamUnit;
 
 // ---- The pages --------------------------------------------------------------------------------------------------------------
 
-constexpr Entry voice(Tb303::Param id) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}; }
+constexpr Entry voice(AcidVoice::Param id) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}; }
 constexpr Entry dist(Distortion::Param id, const char* label = nullptr) noexcept {
   return Entry{Item::Dist, static_cast<std::uint16_t>(id), label};
 }
@@ -38,8 +38,8 @@ constexpr Entry snap(unsigned slot, const char* label) noexcept { return Entry{I
 
 constexpr Page kPages[kPageCount] = {
     {"SOUND",
-     {voice(Tb303::Cutoff), voice(Tb303::Reso), voice(Tb303::EnvMod), voice(Tb303::Decay), voice(Tb303::Accent), voice(Tb303::Wave),
-      voice(Tb303::Tune), app_item(Item::Level, "VOLUME")}},
+     {voice(AcidVoice::Cutoff), voice(AcidVoice::Reso), voice(AcidVoice::EnvMod), voice(AcidVoice::Decay), voice(AcidVoice::Accent), voice(AcidVoice::Wave),
+      voice(AcidVoice::Tune), app_item(Item::Level, "VOLUME")}},
     // The design's F6 (the reverb send, W5) and F7 are free this round: F6 is the distortion's Mix, F7 its Active and Type as one key
     // (OFF, GRIT .. FOLD). The reverb send takes F6 when it exists.
     {"FX",
@@ -74,7 +74,7 @@ constexpr Entry kRandomEntries3[kRandomEntries] = {app_item(Item::Scale), app_it
 // What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
 // delay's four, the level and the send.
 constexpr Entry kSnapTargets[kSnapTargetCount] = {
-    voice(Tb303::Cutoff), voice(Tb303::Reso), voice(Tb303::EnvMod), voice(Tb303::Decay), voice(Tb303::Accent), voice(Tb303::Wave), voice(Tb303::Tune),
+    voice(AcidVoice::Cutoff), voice(AcidVoice::Reso), voice(AcidVoice::EnvMod), voice(AcidVoice::Decay), voice(AcidVoice::Accent), voice(AcidVoice::Wave), voice(AcidVoice::Tune),
     dist(Distortion::Active), dist(Distortion::Type), dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix),
     delay(units::Delay::Time, nullptr), delay(units::Delay::Feedback, nullptr), delay(units::Delay::Tone, nullptr), delay(units::Delay::Mode, nullptr),
     app_item(Item::Level, "VOLUME"), app_item(Item::SendA)};
@@ -626,7 +626,7 @@ bool Controls::snap_discrete(const dsp::Engine& e, unsigned index) const noexcep
 
 LaneRef Controls::wobble_target() const noexcept {
   return w_->wobble.target == kWobbleVowel ? LaneRef{kLaneGrowl, static_cast<std::uint8_t>(Growl::Vowel)}
-                                           : LaneRef{kLaneVoice, static_cast<std::uint8_t>(Tb303::Cutoff)};
+                                           : LaneRef{kLaneVoice, static_cast<std::uint8_t>(AcidVoice::Cutoff)};
 }
 
 void Controls::apply_wobble(bool on) const noexcept {

@@ -38,14 +38,14 @@
 #include <o3sdk/dsp/event.h>
 #include <o3sdk/dsp/unit.h>
 
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <vector>
 
-namespace tb303_test {
+namespace acid_voice_test {
 
 constexpr double kRate = 44100.0;
 
@@ -109,7 +109,7 @@ inline std::vector<Ev> steps_to_events(const std::vector<Step>& steps, double bp
 
 // The defaults of Replicant's SOUND page, as events at sample 0.
 inline std::vector<Ev> defaults() {
-  using P = o3_303::Tb303;
+  using P = o3_303::AcidVoice;
   return {param(0, P::Cutoff, 350.0f), param(0, P::Reso, 0.65f),  param(0, P::EnvMod, 0.6f), param(0, P::Decay, 750.0f),
           param(0, P::Accent, 0.7f),   param(0, P::Wave, 0.0f),   param(0, P::Tune, 0.0f),   param(0, P::Volume, -3.0f)};
 }
@@ -128,7 +128,7 @@ class RefVoice {
   }
 
   void param(std::uint16_t id, float v) {
-    using P = o3_303::Tb303;
+    using P = o3_303::AcidVoice;
     switch (id) {
       case P::Cutoff: filter_.setCutoff(v); break;
       case P::Reso: filter_.setResonance(v); break;
@@ -220,7 +220,7 @@ inline std::vector<float> render_ref(const std::vector<Ev>& script, std::uint32_
 
 // Renders the script through the unit, in blocks of `block` frames, events at their frames (as the engine delivers them). The parameter
 // events at sample 0 are delivered first in a process() of zero frames, as Engine::start() delivers the stored values.
-inline std::vector<float> render_unit(o3_303::Tb303& unit, const std::vector<Ev>& script, std::uint32_t total, std::uint32_t block = 64) {
+inline std::vector<float> render_unit(o3_303::AcidVoice& unit, const std::vector<Ev>& script, std::uint32_t total, std::uint32_t block = 64) {
   using namespace o3sdk;
   unit.prepare(static_cast<float>(kRate));
   dsp::Transport tr;
@@ -285,4 +285,4 @@ inline Agreement compare(const std::vector<float>& ref, const std::vector<float>
   return a;
 }
 
-}  // namespace tb303_test
+}  // namespace acid_voice_test

@@ -156,7 +156,7 @@ constexpr std::uint8_t with_ratchet(std::uint8_t flags, unsigned ratchet) noexce
 // the descriptor's curve (the units' parameters) or the fixed range below (the mixer).
 
 inline constexpr std::uint8_t kLaneNone = 0;   // the lane is unused (its points are ignored)
-inline constexpr std::uint8_t kLaneVoice = 1;  // the voice: id = the tb303 parameter id
+inline constexpr std::uint8_t kLaneVoice = 1;  // the voice: id = the acid_voice parameter id
 inline constexpr std::uint8_t kLaneDist = 2;   // the distortion insert: id = its parameter id
 inline constexpr std::uint8_t kLaneDelay = 3;  // the delay: id = its parameter id
 inline constexpr std::uint8_t kLaneMixer = 4;  // slot 0's mixer: id = o3sdk::dsp::MixField (the mixer ids below)

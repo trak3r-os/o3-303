@@ -12,7 +12,7 @@
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/freeze/freeze.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 #include <cstdint>
@@ -35,7 +35,7 @@ unsigned all_off_pad() { return pp(kRow1, 11); }
 seq::Sequencer& seqr() { return app_sequencer(); }
 float freeze_active(Hands& t) { return t.param(kFreeze, Freeze::Active); }
 float freeze_mode(Hands& t) { return t.param(kFreeze, Freeze::Mode); }
-float cutoff(Hands& t) { return t.param(kVoice, Tb303::Cutoff); }
+float cutoff(Hands& t) { return t.param(kVoice, AcidVoice::Cutoff); }
 
 // The pad's LED as the last frame drew it: the LEDs follow the screen by a frame.
 std::uint8_t lamp(Hands& t, unsigned pad) {
@@ -353,7 +353,7 @@ TEST_CASE("the Shift row: F8 is UNDO and F7 REDO, the other keys do nothing (no 
 TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 makes it RESO; the LEDs are a bar to where it stands") {
   Hands t;
   t.to_perform();
-  const core::ParamDesc* dc = t.h->engine().param_desc(kVoice, Tb303::Cutoff);
+  const core::ParamDesc* dc = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
   REQUIRE(dc != nullptr);
   t.pad(pp(kRow3, 11), 10);
   t.wait(100);
@@ -375,23 +375,23 @@ TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 mak
   CHECK(cutoff(t) == doctest::Approx(core::param_denorm(*dc, ladder_norm(7))).epsilon(0.001));
   // F2: RESO.
   t.tap(Button::F2);
-  const core::ParamDesc* dr = t.h->engine().param_desc(kVoice, Tb303::Reso);
+  const core::ParamDesc* dr = t.h->engine().param_desc(kVoice, AcidVoice::Reso);
   REQUIRE(dr != nullptr);
   t.pad(pp(kRow3, 9), 10);
   t.wait(100);
-  CHECK(t.param(kVoice, Tb303::Reso) == doctest::Approx(core::param_denorm(*dr, ladder_norm(9))).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(core::param_denorm(*dr, ladder_norm(9))).epsilon(0.001));
   CHECK(cutoff(t) == doctest::Approx(core::param_denorm(*dc, ladder_norm(7))).epsilon(0.001));  // the cutoff stayed
   CHECK(lamp(t, pp(kRow3, 9)) == app::kLedOn);
   // A switch (F6, the wave) is set at once to the pad's place.
   t.tap(Button::F6);
-  const core::ParamDesc* dw = t.h->engine().param_desc(kVoice, Tb303::Wave);
+  const core::ParamDesc* dw = t.h->engine().param_desc(kVoice, AcidVoice::Wave);
   REQUIRE(dw != nullptr);
   t.pad(pp(kRow3, 11), 10);
   t.wait(20);
-  CHECK(t.param(kVoice, Tb303::Wave) == doctest::Approx(dw->max));
+  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->max));
   t.pad(pp(kRow3, 0), 10);
   t.wait(20);
-  CHECK(t.param(kVoice, Tb303::Wave) == doctest::Approx(dw->min));
+  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->min));
 }
 
 TEST_CASE("row 3 while the pattern plays and Rec is on: a ladder jump is written as motion on the knob's lane") {
@@ -506,22 +506,22 @@ TEST_CASE("the encoder is the latched sound knob; PERFORM's latch is its own unt
   Hands t;
   t.to_perform();
   const float c = cutoff(t);
-  const float r = t.param(kVoice, Tb303::Reso);
+  const float r = t.param(kVoice, AcidVoice::Reso);
   t.turn(3);
   CHECK(cutoff(t) > c);
-  CHECK(t.param(kVoice, Tb303::Reso) == r);
+  CHECK(t.param(kVoice, AcidVoice::Reso) == r);
   t.tap(Button::F2);
   t.turn(-3);
-  CHECK(t.param(kVoice, Tb303::Reso) < r);
+  CHECK(t.param(kVoice, AcidVoice::Reso) < r);
   // Hold F3 + turn: ENV MOD moves while held, then the latched RESO comes back.
-  const float e = t.param(kVoice, Tb303::EnvMod);
+  const float e = t.param(kVoice, AcidVoice::EnvMod);
   t.press(Button::F3);
   t.turn(2);
   t.release(Button::F3);
-  CHECK(t.param(kVoice, Tb303::EnvMod) > e);
-  const float r2 = t.param(kVoice, Tb303::Reso);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) > e);
+  const float r2 = t.param(kVoice, AcidVoice::Reso);
   t.turn(1);
-  CHECK(t.param(kVoice, Tb303::Reso) > r2);
+  CHECK(t.param(kVoice, AcidVoice::Reso) > r2);
 }
 
 TEST_CASE("the keys of PageKeys run over a table of their own (set_table) and over the global one by default") {
@@ -614,28 +614,28 @@ TEST_CASE("Shift + a colour button lets go of an action latched on a PERFORM pad
 TEST_CASE("an F key held across the page change does not stay held: the next turn moves the latched knob") {
   Hands t;
   t.to_perform();
-  const float e = t.param(kVoice, Tb303::EnvMod);
+  const float e = t.param(kVoice, AcidVoice::EnvMod);
   t.press(Button::F3);
   t.turn(1);  // ENV MOD moves while held
-  CHECK(t.param(kVoice, Tb303::EnvMod) > e);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) > e);
   t.to_perform();  // SETUP, with F3 still down
   t.release(Button::F3);
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
-  const float e2 = t.param(kVoice, Tb303::EnvMod);
+  const float e2 = t.param(kVoice, AcidVoice::EnvMod);
   const float c = cutoff(t);
   t.turn(1);
   CHECK(cutoff(t) > c);  // the latched CUTOFF came back
-  CHECK(t.param(kVoice, Tb303::EnvMod) == e2);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) == e2);
   // The same on the way in from another screen.
   t.press(Button::F3);
   t.turn(1);
   t.to_home();
   t.to_perform();
   t.release(Button::F3);
-  const float e3 = t.param(kVoice, Tb303::EnvMod);
+  const float e3 = t.param(kVoice, AcidVoice::EnvMod);
   t.turn(1);
-  CHECK(t.param(kVoice, Tb303::EnvMod) == e3);
+  CHECK(t.param(kVoice, AcidVoice::EnvMod) == e3);
 }
 
 TEST_CASE("PERFORM plays and does not record: the keys write no notes, with REC armed, stopped or playing") {

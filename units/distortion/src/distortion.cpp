@@ -72,14 +72,14 @@ constexpr float kLog2Twenty = 4.32192809f;  // tone cutoff = 800 x 20^tone
 constexpr float kScale[Distortion::kModelCount] = {0.85f, 0.90f, 0.85f, 0.80f, 0.80f};
 
 // The trim table (Distortion::trim): the gain of each model at Drive 0, 0.05 .. 1, and the same in dB above each row. Measured offline on
-// the 303 line of units/tb303/tests/tb303_chain_test.cpp (the voice at Replicant's defaults, Volume 0 dB, SAW and SQR) through the unit at
+// the 303 line of units/acid_voice/tests/acid_voice_chain_test.cpp (the voice at Replicant's defaults, Volume 0 dB, SAW and SQR) through the unit at
 // Tone 0.6 and Mix 1; the level of a model is the mean in dB of the RMS of the two. GRIT, the reference: 0 dB up to the default Drive;
 // above it the gain that holds its wet peak (the larger of the two waves) at its value at 0.5, which falls to -2.7 dB by Drive 0.85
 // (its RMS rises by only 1 to 2 dB there, its peak by 2.5 dB). The others: the gain that makes their level GRIT's, trimmed as it is, at
 // the same Drive, faded in over Drive 0 .. 0.25 (at 0 it is M3's trim; GRIT's 450 Hz high-pass makes it far quieter than the others
 // at low Drive, where they are near-transparent). At Drive 0.5 TUBE, HARD and FOLD are M3's trims and so the default sound is
 // unchanged; FUZZ is re-measured after its negative half was bounded (tanh_pade_floor). Measure again when a model, the voice or the
-// line changes: the "distortion levels" cases of tb303_chain_test.cpp check this table against GRIT's level and peaks, on the line and
+// line changes: the "distortion levels" cases of acid_voice_chain_test.cpp check this table against GRIT's level and peaks, on the line and
 // on two other voice settings.
 constexpr float kTrimTable[Distortion::kModelCount][Distortion::kTrimKnots] = {
     // GRIT, dB: +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 -0.6 -1.0 -1.5 -1.9 -2.2 -2.4 -2.7 -2.7 -2.7 -2.7

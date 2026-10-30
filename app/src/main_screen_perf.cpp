@@ -17,7 +17,7 @@
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 namespace o3_303 {
 
@@ -129,7 +129,7 @@ void MainScreen::ladder_press(app::Context& ctx, unsigned pad, bool shift) noexc
   if (row < 2u) {
     return;
   }
-  const std::uint8_t id = row == 2u ? static_cast<std::uint8_t>(Tb303::Cutoff) : static_cast<std::uint8_t>(shift ? Tb303::EnvMod : Tb303::Reso);
+  const std::uint8_t id = row == 2u ? static_cast<std::uint8_t>(AcidVoice::Cutoff) : static_cast<std::uint8_t>(shift ? AcidVoice::EnvMod : AcidVoice::Reso);
   const core::ParamDesc* d = ctx.engine().param_desc(rig_->wiring.voice, id);
   if (d == nullptr) {
     return;
@@ -155,7 +155,7 @@ void MainScreen::ladder_press(app::Context& ctx, unsigned pad, bool shift) noexc
 void MainScreen::ladder_leds(app::Context& ctx, app::PadLeds& leds) noexcept {
   const bool shift = ctx.panel().shift();
   for (unsigned row = 2; row < app::kPadRows; ++row) {
-    const std::uint16_t id = row == 2u ? static_cast<std::uint16_t>(Tb303::Cutoff) : static_cast<std::uint16_t>(shift ? Tb303::EnvMod : Tb303::Reso);
+    const std::uint16_t id = row == 2u ? static_cast<std::uint16_t>(AcidVoice::Cutoff) : static_cast<std::uint16_t>(shift ? AcidVoice::EnvMod : AcidVoice::Reso);
     const core::ParamDesc* d = ctx.engine().param_desc(rig_->wiring.voice, id);
     const unsigned pos = d != nullptr ? ladder_col(core::param_norm(*d, ctx.engine().param(rig_->wiring.voice, id))) : 0u;
     for (unsigned col = 0; col < kLadderSteps; ++col) {

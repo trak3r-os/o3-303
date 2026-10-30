@@ -6,7 +6,7 @@
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/gen.h>
 #include <o3_303/units/distortion/distortion.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cstring>
 #include <memory>
@@ -50,7 +50,7 @@ TEST_CASE("slot 0 of a bank is the factory line, with Replicant's default voice"
 
   // The defaults of the patch are the units' defaults (Replicant's).
   const gen::ParamValues v = gen::to_values(p.patch);
-  Tb303 voice;
+  AcidVoice voice;
   Distortion dist;
   const core::ParamDesc* vd = voice.info().params;
   const core::ParamDesc* dd = dist.info().params;
@@ -147,7 +147,7 @@ TEST_CASE("a generated pattern is a playable Pattern of length 8 or 16: rests wh
 }
 
 TEST_CASE("to_values gives each parameter in its unit's own units, inside the unit's own range, for the whole vault") {
-  Tb303 voice;
+  AcidVoice voice;
   Distortion dist;
   const core::ParamDesc* vd = voice.info().params;
   const core::ParamDesc* dd = dist.info().params;

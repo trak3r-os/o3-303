@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The voice and the distortion together in a dsp::Engine, as the app wires them (docs/M3-PLAN.md): slot 0 = TB303, insert 0 = DISTORTION,
+// The voice and the distortion together in a dsp::Engine, as the app wires them (docs/M3-PLAN.md): slot 0 = ACID, insert 0 = DISTORTION,
 // then the slot's level (the SOUND page's Volume, after the distortion as in Replicant). A short acid line is rendered; if the
-// environment variable O3_303_WAV_DIR names a directory, the line is written there as tb303_line.wav (16-bit stereo, 44.1 kHz) for
+// environment variable O3_303_WAV_DIR names a directory, the line is written there as acid_voice_line.wav (16-bit stereo, 44.1 kHz) for
 // listening and for looking at its spectrum.
 #include <doctest/doctest.h>
 
 #include "metrics.h"
 #include "ref_engine.h"
 #include "support/need.h"
-#include "tb303_rig.h"
+#include "acid_voice_rig.h"
 
 #include <o3_303/units/distortion/distortion.h>
 
@@ -16,9 +16,9 @@
 #include <cfenv>
 #include <cstdio>
 
-using namespace tb303_test;
+using namespace acid_voice_test;
 using o3_303::Distortion;
-using o3_303::Tb303;
+using o3_303::AcidVoice;
 
 namespace {
 
@@ -77,7 +77,7 @@ std::array<double, kBands> band_shares(const std::vector<float>& x) {
 
 struct Chain {
   o3sdk::dsp::Engine engine;
-  Tb303 voice;
+  AcidVoice voice;
   Distortion dist;
   Script script;  // the voice's notes
   Script fx;      // the distortion's parameter changes
@@ -89,7 +89,7 @@ struct Chain {
     (void)engine.set_insert(0, 0, d);
     (void)engine.add_hook(script);
     (void)engine.add_hook(fx);
-    (void)engine.set_param(v, Tb303::Volume, 0.0f);       // the app holds the voice at 0 dB ...
+    (void)engine.set_param(v, AcidVoice::Volume, 0.0f);       // the app holds the voice at 0 dB ...
     (void)engine.set_mix(0, o3sdk::dsp::MixField::Level, 0.708f);  // ... and the SOUND page's Volume (-3 dB) is the slot's level
   }
   void render(std::uint32_t total, std::vector<float>& l, std::vector<float>& r) {
@@ -107,7 +107,7 @@ struct Chain {
 
 }  // namespace
 
-TEST_CASE("tb303 chain: a 303 line through the voice, the distortion and the level; WAV and spectrum") {
+TEST_CASE("acid_voice chain: a 303 line through the voice, the distortion and the level; WAV and spectrum") {
   Chain c;
   write_line(c.script);
   std::vector<float> l, r;
@@ -141,12 +141,12 @@ TEST_CASE("tb303 chain: a 303 line through the voice, the distortion and the lev
   std::printf("\n");
   CHECK((share[0] + share[1] + share[2] + share[3]) > 0.05);  // the bass and low mids
   CHECK((share[6] + share[7]) < 0.05);                         // above 3.8 kHz
-  const bool wrote = write_wav("tb303_line.wav", l, r);
+  const bool wrote = write_wav("acid_voice_line.wav", l, r);
   const bool wanted = std::getenv("O3_303_WAV_DIR") != nullptr;
   CHECK((wrote || !wanted));
 }
 
-TEST_CASE("tb303 chain: every distortion type, switched on and off during the line, stays finite and under the clip") {
+TEST_CASE("acid_voice chain: every distortion type, switched on and off during the line, stays finite and under the clip") {
   for (int m = 0; m < 5; ++m) {
     INFO("model " << m);
     Chain c;
@@ -166,7 +166,7 @@ TEST_CASE("tb303 chain: every distortion type, switched on and off during the li
   }
 }
 
-TEST_CASE("tb303 chain: the voice alone (distortion off) is bass and mids, and has the DC the blocker takes out") {
+TEST_CASE("acid_voice chain: the voice alone (distortion off) is bass and mids, and has the DC the blocker takes out") {
   Chain c;
   write_line(c.script);
   (void)c.engine.set_param(c.d, Distortion::Active, 0.0f);
@@ -179,12 +179,12 @@ TEST_CASE("tb303 chain: the voice alone (distortion off) is bass and mids, and h
   }
   std::printf("\n");
   CHECK((share[0] + share[1] + share[2] + share[3] + share[4]) > 0.8);  // below 1.9 kHz
-  (void)write_wav("tb303_line_dry.wav", l, r);
+  (void)write_wav("acid_voice_line_dry.wav", l, r);
 
   // The same line with the blocker's job undone: the voice alone has an offset (its saw is bent), so a plain unit would not be silent of DC.
   Rig rig;
   write_line(rig.script);
-  rig.set(Tb303::Volume, 0.0f);
+  rig.set(AcidVoice::Volume, 0.0f);
   const auto raw = rig.render(32 * kStep);
   double mean = 0.0;
   for (float s : raw) {
@@ -195,7 +195,7 @@ TEST_CASE("tb303 chain: the voice alone (distortion off) is bass and mids, and h
   CHECK(mean > 0.005);
 }
 
-TEST_CASE("tb303 chain: a release tail through every distortion type raises no underflow") {
+TEST_CASE("acid_voice chain: a release tail through every distortion type raises no underflow") {
   for (int m = 0; m < 5; ++m) {
     INFO("model " << m);
     Chain c;
@@ -238,14 +238,14 @@ std::vector<float> voice_line(bool square, const Setting& set = Setting{}) {
     steps.push_back({l.note, l.accent, l.slide, l.rest});
   }
   auto ev = defaults();
-  ev.push_back(param(0, Tb303::Volume, set.volume_db));
-  ev.push_back(param(0, Tb303::Reso, set.reso));
-  ev.push_back(param(0, Tb303::EnvMod, set.env_mod));
-  ev.push_back(param(0, Tb303::Accent, set.accent));
-  ev.push_back(param(0, Tb303::Wave, square ? 1.0f : 0.0f));
+  ev.push_back(param(0, AcidVoice::Volume, set.volume_db));
+  ev.push_back(param(0, AcidVoice::Reso, set.reso));
+  ev.push_back(param(0, AcidVoice::EnvMod, set.env_mod));
+  ev.push_back(param(0, AcidVoice::Accent, set.accent));
+  ev.push_back(param(0, AcidVoice::Wave, square ? 1.0f : 0.0f));
   const auto notes = steps_to_events(steps, 125.0);
   ev.insert(ev.end(), notes.begin(), notes.end());
-  Tb303 u;
+  AcidVoice u;
   return render_unit(u, ev, 32 * kStep + kSampleRate * 3 / 2);
 }
 

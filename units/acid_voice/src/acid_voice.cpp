@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// TB303: the acid voice of o3-303. A port of the DSP of Replicant 303 by DanimanX, commit d5369be028399f5a403067b58da2936caa070c0e
+// ACID: the acid voice of o3-303. A port of the DSP of Replicant 303 by DanimanX, commit d5369be028399f5a403067b58da2936caa070c0e
 // (third_party/replicant303/DSP/): Oscillator303.cpp, DiodeLadderFilter.cpp, Envelope303.h, Common303.h, and the way SynthEngine.cpp
 // combines them (handleNoteOn / handleNoteOff / renderSamples). Replicant 303 is distributed under the MIT License:
 //
@@ -37,7 +37,7 @@
 //   * on an event: pitch (exp2_fast), envelope coefficients (std::exp, as the original), the note stack, the tune and resonance values.
 // Real-time: no allocation, no double, no libm in the sample loop; bounded loops.
 
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <o3sdk/core/fast_math.h>
 
@@ -65,7 +65,7 @@ constexpr ParamKnot kCutoffKnots[] = {
 constexpr std::uint8_t kSmooth = o3sdk::core::kParamSmooth;
 
 // name, unit text, names, knots, min, max, default, detents, coarse, list count, display, curve, flags, page
-constexpr o3sdk::core::ParamDesc kParams[Tb303::kParamCount] = {
+constexpr o3sdk::core::ParamDesc kParams[AcidVoice::kParamCount] = {
     {"CUTOFF", "Hz", nullptr, kCutoffKnots, 25.0f, 4500.0f, 350.0f, 250, 5, 17, ParamUnit::Hz, ParamCurve::Table, 0, 0},
     {"RESO", "%", nullptr, nullptr, 0.0f, 1.0f, 0.65f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, 0, 0},
     {"ENV MOD", "%", nullptr, nullptr, 0.0f, 1.0f, 0.6f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, 0, 0},
@@ -76,7 +76,7 @@ constexpr o3sdk::core::ParamDesc kParams[Tb303::kParamCount] = {
     {"VOLUME", "dB", nullptr, nullptr, -60.0f, 6.0f, -3.0f, 132, 4, 0, ParamUnit::Fixed1, ParamCurve::Linear, kSmooth, 0},
 };
 
-constexpr dsp::UnitInfo kInfo{"TB303", dsp::UnitKind::Instrument, kParams, Tb303::kParamCount, nullptr, 0};
+constexpr dsp::UnitInfo kInfo{"ACID", dsp::UnitKind::Instrument, kParams, AcidVoice::kParamCount, nullptr, 0};
 
 // ---- constants of the original ----------------------------------------------------------------------------------------------
 constexpr float kPi = 3.14159265f;
@@ -130,8 +130,8 @@ inline float tan_fit(float w) noexcept {
 
 // c^kControlPeriod (kControlPeriod is a power of two): the envelope's factor over one control period.
 inline float power_n(float c) noexcept {
-  static_assert((Tb303::kControlPeriod & (Tb303::kControlPeriod - 1u)) == 0u, "kControlPeriod is a power of two");
-  for (unsigned n = Tb303::kControlPeriod; n > 1u; n >>= 1) {
+  static_assert((AcidVoice::kControlPeriod & (AcidVoice::kControlPeriod - 1u)) == 0u, "kControlPeriod is a power of two");
+  for (unsigned n = AcidVoice::kControlPeriod; n > 1u; n >>= 1) {
     c *= c;
   }
   return c;
@@ -178,26 +178,26 @@ inline float osc_sample(float& phase, float& hp, float inc, float hp_coeff) noex
 
 }  // namespace
 
-const dsp::UnitInfo& Tb303::info() const noexcept { return kInfo; }
+const dsp::UnitInfo& AcidVoice::info() const noexcept { return kInfo; }
 
 // ---- parameters ---------------------------------------------------------------------------------------------------------------
 
 // The cutoff law changed: the filter coefficient follows from the next sample (the original reads the parameters every sample).
-void Tb303::retune_filter() noexcept {
+void AcidVoice::retune_filter() noexcept {
   fresh_ = true;
   ctl_ = 0;
 }
 
-bool Tb303::sounding() const noexcept { return gate_ || vca_ > kAudible; }
+bool AcidVoice::sounding() const noexcept { return gate_ || vca_ > kAudible; }
 
-void Tb303::jump(Smoothed& s, float v) noexcept {
+void AcidVoice::jump(Smoothed& s, float v) noexcept {
   s.target = v;
   s.lp.jump(v);
   s.moving = false;
 }
 
 // One control period of a smoother. Returns the value to use now; settles (exactly) on the target when closer than `eps`.
-float Tb303::step(Smoothed& s, float eps) noexcept {
+float AcidVoice::step(Smoothed& s, float eps) noexcept {
   const float v = s.lp.next(s.target);
   const float d = v - s.target;
   if ((d < 0.0f ? -d : d) <= eps) {
@@ -208,7 +208,7 @@ float Tb303::step(Smoothed& s, float eps) noexcept {
   return v;
 }
 
-void Tb303::set(std::uint16_t id, float v) noexcept {
+void AcidVoice::set(std::uint16_t id, float v) noexcept {
   switch (id) {
     case Cutoff:
       cutoff_l2_ = o3sdk::core::log2_fast(clamp_param(v, kMinCutoff, kMaxCutoff));
@@ -254,14 +254,14 @@ void Tb303::set(std::uint16_t id, float v) noexcept {
 }
 
 // Takes the smoothed parameters at their targets: at prepare, and when the engine delivers the stored values (a process() of zero frames).
-void Tb303::snap() noexcept {
+void AcidVoice::snap() noexcept {
   jump(accent_, accent_.target);
   jump(volume_, volume_.target);
   accent_boost_ = kAccentLift * accent_.target;
   gain_ = volume_.target;
 }
 
-void Tb303::prepare(float sample_rate) noexcept {
+void AcidVoice::prepare(float sample_rate) noexcept {
   fs_ = sample_rate < 1000.0f ? 1000.0f : sample_rate;
   inv_fs_ = 1.0f / fs_;
   pi_over_fs_ = kPi * inv_fs_;
@@ -321,7 +321,7 @@ inline float midi_to_hz(std::uint8_t note) noexcept {
 }
 }  // namespace
 
-void Tb303::note_on(std::uint8_t note, bool accent, bool slide) noexcept {
+void AcidVoice::note_on(std::uint8_t note, bool accent, bool slide) noexcept {
   // SynthEngine::handleNoteOn: legato when a note is held (or, by the slide flag, while the voice still sounds).
   const bool legato = held_count_ != 0u || (slide && sounding());
   target_hz_ = midi_to_hz(note);
@@ -366,7 +366,7 @@ void Tb303::note_on(std::uint8_t note, bool accent, bool slide) noexcept {
   ctl_ = 0;  // the filter follows the new envelopes from the first sample
 }
 
-void Tb303::note_off(std::uint8_t note) noexcept {
+void AcidVoice::note_off(std::uint8_t note) noexcept {
   // SynthEngine::handleNoteOff: the first matching note leaves the stack; the gate closes when none is left, else the pitch slides
   // back to the one held last.
   for (unsigned i = 0; i < held_count_; ++i) {
@@ -385,12 +385,12 @@ void Tb303::note_off(std::uint8_t note) noexcept {
   }
 }
 
-void Tb303::all_notes_off() noexcept {
+void AcidVoice::all_notes_off() noexcept {
   held_count_ = 0;
   gate_ = false;
 }
 
-void Tb303::apply(const dsp::Event& e) noexcept {
+void AcidVoice::apply(const dsp::Event& e) noexcept {
   switch (e.kind) {
     case dsp::EventKind::NoteOn:
       note_on(e.note, (e.flags & dsp::kNoteAccent) != 0u, (e.flags & dsp::kNoteSlide) != 0u);
@@ -410,13 +410,13 @@ void Tb303::apply(const dsp::Event& e) noexcept {
 // ---- control rate -------------------------------------------------------------------------------------------------------------
 
 // g = tan(pi fc / fs) for fc = 2^x Hz, with the original's ceiling of 0.95 (x is clamped to where it is reached).
-float Tb303::ladder_g(float x) const noexcept {
+float AcidVoice::ladder_g(float x) const noexcept {
   x = x > x_max_ ? x_max_ : x;
   const float g = tan_fit(o3sdk::core::exp2_fast(x) * pi_over_fs_);
   return g > kGMax ? kGMax : g;
 }
 
-void Tb303::control() noexcept {
+void AcidVoice::control() noexcept {
   if (vcf_ < kTiny) {
     vcf_ = 0.0f;
   }
@@ -450,7 +450,7 @@ void Tb303::control() noexcept {
 // ---- audio --------------------------------------------------------------------------------------------------------------------
 
 template <bool Square>
-void Tb303::run(float* out, std::uint32_t n) noexcept {
+void AcidVoice::run(float* out, std::uint32_t n) noexcept {
   // The state is copied into locals for the loop (register pressure, rt-optimize) and written back after it.
   float phase = phase_;
   float sqr_hp = sqr_hp_;
@@ -531,7 +531,7 @@ void Tb303::run(float* out, std::uint32_t n) noexcept {
   sub_g_ = sg;
 }
 
-void Tb303::render(float* out, std::uint32_t from, std::uint32_t to) noexcept {
+void AcidVoice::render(float* out, std::uint32_t from, std::uint32_t to) noexcept {
   while (from < to) {
     if (ctl_ == 0u) {
       control();
@@ -548,7 +548,7 @@ void Tb303::render(float* out, std::uint32_t from, std::uint32_t to) noexcept {
   }
 }
 
-void Tb303::process(const dsp::ProcessArgs& args) noexcept {
+void AcidVoice::process(const dsp::ProcessArgs& args) noexcept {
   dsp::for_each_run(
       args, [&](std::uint32_t from, std::uint32_t to) { render(args.out_l, from, to); },
       [&](const dsp::Event& e) { apply(e); });

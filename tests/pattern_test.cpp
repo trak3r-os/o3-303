@@ -211,7 +211,7 @@ TEST_CASE("lanes: the default table is the SOUND page, and a fresh pattern has i
   static_assert(sizeof(Pattern) == 2260 && offsetof(Pattern, motion) == 196 && offsetof(Pattern, lanes) == 2244);
 
   const Pattern p = fresh();
-  for (unsigned i = 0; i < 7; ++i) {  // Cutoff, Reso, Env Mod, Decay, Accent, Wave, Tune: the tb303 ids 0..6
+  for (unsigned i = 0; i < 7; ++i) {  // Cutoff, Reso, Env Mod, Decay, Accent, Wave, Tune: the acid_voice ids 0..6
     CHECK(p.lanes[i].target == kLaneVoice);
     CHECK(p.lanes[i].id == i);
   }

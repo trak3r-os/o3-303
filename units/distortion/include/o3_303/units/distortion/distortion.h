@@ -66,7 +66,7 @@ class Distortion final : public o3sdk::dsp::Unit {
 
   // The output trim of each model: a gain on its wet signal (before the tone low-pass and the Mix) that follows Drive. It is make-up and
   // trim, not a limiter, so Drive keeps its character. trim() interpolates, in the gain, a table of kTrimKnots values (Drive 0, 0.05 ..
-  // 1; src/distortion.cpp, with how it was measured). It is fitted on one line, the reference 303 line of tests/tb303_chain_test.cpp
+  // 1; src/distortion.cpp, with how it was measured). It is fitted on one line, the reference 303 line of tests/acid_voice_chain_test.cpp
   // played SAW and SQR: the level of a model is the mean in dB of the two, and the trim makes it GRIT's at the same Drive, to a tenth of
   // a dB from Drive 0.3 up (Replicant's untrimmed models spread over 12 dB at the default Drive and 16 dB at full Drive). Each wave alone
   // is further off, since relative to GRIT a square runs 2 to 3 dB hotter than a saw through TUBE, HARD, FUZZ and FOLD: up to 2.6 dB at

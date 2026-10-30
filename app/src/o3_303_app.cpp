@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// O3-303: the TB-303 app of docs/DESIGN-303.md. The engine: the one tb303 voice on slot 0 with the distortion as its insert, o3sdk's delay
+// O3-303: the TB-303 app of docs/DESIGN-303.md. The engine: the one acid_voice voice on slot 0 with the distortion as its insert, o3sdk's delay
 // on send A, the beat freeze on master insert 0 (off), the growl on slot 0's insert 1 (Mix 0: a bit-exact bypass), the sequencer (o3_303_seq) as a clocked hook. The screens are in main_screen.cpp
 // (the 303 screen, with the pattern grid it shows while Pattern is held) and vault_screen.cpp (File: GEN and the vault). This file wires
 // them and owns the global keys:
@@ -32,7 +32,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cstdint>
 
@@ -110,7 +110,7 @@ class O3_303App final : public app::App {
     rig_.controls.init(rig_.wiring);
 
     // The voice's own volume stays at 0 dB; SOUND's VOLUME is slot 0's level, after the distortion.
-    (void)e.set_param(voice, o3_303::Tb303::Volume, 0.0f);
+    (void)e.set_param(voice, o3_303::AcidVoice::Volume, 0.0f);
     rig_.controls.apply_level(e);
     rig_.controls.apply_send(e);
     (void)e.set_tempo(kDefaultTempoMilli);
@@ -196,7 +196,7 @@ class O3_303App final : public app::App {
     (void)ctx.engine().set_tempo(static_cast<std::uint32_t>(mbpm));
   }
 
-  o3_303::Tb303 voice_;
+  o3_303::AcidVoice voice_;
   o3_303::Distortion dist_;
   units::Delay delay_{g_delay_l, g_delay_r, kDelayCapacity};
   o3_303::Freeze freeze_{g_freeze_l.v, g_freeze_r.v, kFreezeCapacity};

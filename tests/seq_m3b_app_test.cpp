@@ -13,7 +13,7 @@
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/units/distortion/distortion.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <memory>
 
@@ -91,9 +91,9 @@ TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: 
   CHECK(e.mix(0, dsp::MixField::SendA) == doctest::Approx(0.5f));
   CHECK(s.slewing() == 0);
   // The voice is still the default lanes' target.
-  CHECK(s.slew(kLaneVoice, Tb303::Cutoff, 1000.0f, 30.0f));
+  CHECK(s.slew(kLaneVoice, AcidVoice::Cutoff, 1000.0f, 30.0f));
   hands.h->run_ms(100);
-  CHECK(e.param(kVoice, Tb303::Cutoff) == doctest::Approx(1000.0f));
+  CHECK(e.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(1000.0f));
 }
 
 TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF page's F5; the demo line's FILL conditions follow it") {

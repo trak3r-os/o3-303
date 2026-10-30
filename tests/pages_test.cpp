@@ -11,7 +11,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
-#include <o3_303/units/tb303/tb303.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 #include <cstring>
@@ -27,7 +27,7 @@ struct Rig {
   static constexpr std::uint32_t kCap = 4096;
   float l[kCap] = {};
   float r[kCap] = {};
-  Tb303 voice;
+  AcidVoice voice;
   Distortion dist;
   units::Delay delay{l, r, kCap};
   float fl[kCap] = {};
@@ -135,7 +135,7 @@ TEST_CASE("pages: the entries a motion lane can drive are the voice's, the disto
   }
   CHECK(rig.controls.lane_entry(LaneRef{kLaneMixer, kMixerPan}).item == Item::Blank);  // no page has the pan
   CHECK(rig.controls.lane_entry(LaneRef{kLaneNone, 0}).item == Item::Blank);
-  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneVoice, Tb303::Cutoff}), "CUTOFF") == 0);
+  CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneVoice, AcidVoice::Cutoff}), "CUTOFF") == 0);
   CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneDist, Distortion::Drive}), "DRIVE") == 0);
   CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneMixer, kMixerSendA}), "SEND A") == 0);
   CHECK(std::strcmp(rig.controls.lane_name(rig.engine, LaneRef{kLaneNone, 0}), "") == 0);
@@ -270,7 +270,7 @@ TEST_CASE("pages: the SOUND page goes through the engine to the voice") {
   CHECK(before == doctest::Approx(350.0f));
   rig.controls.step(rig.engine, cutoff, 5, false);
   CHECK(rig.controls.get(rig.engine, cutoff) > before);
-  CHECK(rig.engine.param(rig.wiring.voice, Tb303::Cutoff) == rig.controls.get(rig.engine, cutoff));
+  CHECK(rig.engine.param(rig.wiring.voice, AcidVoice::Cutoff) == rig.controls.get(rig.engine, cutoff));
   rig.controls.set(rig.engine, cutoff, 1.0e9f);  // clamped by the descriptor
   CHECK(rig.controls.get(rig.engine, cutoff) == doctest::Approx(4500.0f));
   const Entry wave = rig.entry(kPageSound, 5);
@@ -296,7 +296,7 @@ TEST_CASE("pages: VOLUME is slot 0's level in dB, silent at the bottom, capped a
   CHECK(rig.engine.mix(0, dsp::MixField::Level) <= 1.5f);
   CHECK(rig.engine.mix(0, dsp::MixField::Level) > 1.49f);
   // The voice's own volume is untouched by the page.
-  CHECK(rig.engine.param(rig.wiring.voice, Tb303::Volume) == doctest::Approx(-3.0f));
+  CHECK(rig.engine.param(rig.wiring.voice, AcidVoice::Volume) == doctest::Approx(-3.0f));
 }
 
 TEST_CASE("pages: the FX page: the distortion, the delay, the send and the master") {
