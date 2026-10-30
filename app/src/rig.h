@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// What the screens share: the sequencer and its bank, the units' ids, the pages' controls. The app owns one and hands every screen a
+// What the screens share: the sequencer and its bank, the units' ids, the pages' controls, the live actions and the SOUND latch. The app owns one and hands every screen a
 // pointer; nothing in it is touched by the render context (the sequencer's own atomics and rings are the way across).
 
 #include <o3sdk/dsp/engine.h>
@@ -15,11 +15,17 @@
 
 namespace o3_303 {
 
+class LiveActions;
+
 struct Rig {
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;
   Wiring wiring;
   Controls controls;
+  LiveActions* live = nullptr;  // the live actions, the snapshots and the keyboard's transposition, shared by the 303 screen and PERFORM
+  // The SOUND page's latch (which of the eight sound knobs the encoder drives), shared by the screens that show the sound knobs: PERFORM now,
+  // INSTRUMENT VOICE and HOME later (UX-303 D3). Main loop only.
+  PageKeys sound_keys;
 };
 
 // What a vault load takes from a preset.

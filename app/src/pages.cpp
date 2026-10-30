@@ -656,8 +656,20 @@ void Controls::apply_level(dsp::Engine& e) const noexcept {
 
 // ---- PageKeys ---------------------------------------------------------------------------------------------------------------
 
+void PageKeys::set_table(const Page* table, unsigned count) noexcept {
+  table_ = count != 0u ? table : nullptr;
+  count_ = count;
+  page_ = 0;
+  snap_from_ = 0;
+  latched_ = 0;
+  before_hold_ = 0;
+  held_ = 0;
+  last_held_ = 0;
+  turned_ = false;
+}
+
 void PageKeys::set_page(unsigned index) noexcept {
-  if (index >= kPageCount) {
+  if (index >= page_count()) {
     return;
   }
   page_ = index;

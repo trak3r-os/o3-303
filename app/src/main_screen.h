@@ -5,10 +5,11 @@
 // every pad and button gesture that does not need the card or MIDI. Also the pattern grid it shows while Pattern is held.
 //
 // It is one class in three files: main_screen.cpp (the step editing, the pages, the tools, the drawing), main_screen_perf.cpp (the
-// performance gestures of M3b: the four assignable performance buttons, the KEYS ladders, the Master gestures, the scale lock) and
-// main_screen_snap.cpp (the SNAP page and its morph, the RANDOM popup).
+// performance gestures of M3b: the KEYS ladders, the Master gestures, the scale lock) and main_screen_snap.cpp (the SNAP page, the RANDOM
+// popup). What the four assignable performance buttons do and the snapshots themselves are LiveActions' (live_actions.h), shared with PERFORM.
 
 #include "knob_strip.h"
+#include "live_actions.h"
 #include "rig.h"
 
 #include <o3sdk/app/screen.h>
@@ -41,8 +42,16 @@ class MainScreen final : public o3sdk::app::Screen {
   bool pattern_overlay() const noexcept { return overlay_; }
   int cursor() const noexcept { return cursor_; }
   bool rec() const noexcept { return rec_; }
-  bool keys_live() const noexcept { return keys_live_; }
+  bool keys_live() const noexcept { return live_->keys_live(); }
   int octave() const noexcept { return octave_; }
+  // What PERFORM's key row and encoder ask of the 303 screen's keyboard (one keyboard, one octave, one scale lock, one Rec).
+  void toggle_rec(o3sdk::app::Context& ctx) noexcept {
+    rec_ = !rec_;
+    ctx.redraw();
+  }
+  bool scale_locked_out(int note) const noexcept;  // the keyboard is locked to a scale (R8) and `note` is not in it
+  // An encoder move or a ladder tap is written as motion under the playhead (REC or the MOTION latch, while the pattern plays).
+  bool recording_motion() const noexcept { return playing_ && (rec_ || motion_latched_); }
   unsigned page_index() const noexcept { return keys_.page_index(); }
   // A line in the info strip for a moment (what a tool or a load just did).
   // `off`: the line says something went off ("MOTION REC OFF"): drawn as an outline, not a filled chip.
@@ -72,15 +81,10 @@ class MainScreen final : public o3sdk::app::Screen {
   int lane_of(const Entry& entry, const Pattern& p) const noexcept;
   void sync_step_focus() noexcept;
 
-  // ---- performance (main_screen_perf.cpp)
-  void perf_press(o3sdk::app::Context& ctx, unsigned button, bool shift) noexcept;
-  void perf_release(o3sdk::app::Context& ctx, unsigned button) noexcept;
-  void apply_perf(o3sdk::app::Context& ctx) noexcept;
+  // ---- performance (main_screen_perf.cpp; the four buttons' actions are LiveActions')
   void wobble_pad(o3sdk::app::Context& ctx, unsigned pad) noexcept;
   void wobble_leds(o3sdk::app::PadLeds& leds) const noexcept;
-  bool wobble_on() const noexcept { return (perf_applied_ & perf_bit(PerfAction::Wobble)) != 0u; }
-  void sync_perf_assignments(o3sdk::app::Context& ctx) noexcept;
-  void push_live_transpose() noexcept;
+  bool wobble_on() const noexcept { return live_->wobble_on(); }
   void master_press(o3sdk::app::Context& ctx, bool shift) noexcept;
   void master_release(o3sdk::app::Context& ctx) noexcept;
   void master_turn(o3sdk::app::Context& ctx, int detents) noexcept;
@@ -88,21 +92,16 @@ class MainScreen final : public o3sdk::app::Screen {
   void latch_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
   void ladder_press(o3sdk::app::Context& ctx, unsigned pad, bool shift) noexcept;
   void ladder_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept;
-  // ---- snapshots and the RANDOM popup (main_screen_snap.cpp)
+  // ---- the SNAP page and the RANDOM popup (main_screen_snap.cpp; the snapshots themselves are LiveActions')
   bool on_snap_page() const noexcept { return keys_.page_index() == kPageSnap; }
   void snap_press(o3sdk::app::Context& ctx, unsigned slot, bool shift) noexcept;
   void snap_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
-  void snap_apply(o3sdk::app::Context& ctx, float ms) noexcept;     // the morph's blend on the sequencer's slews (nothing stored yet)
-  void snap_finish(o3sdk::app::Context& ctx, bool at_once) noexcept;  // the blend stored in the engine, once the slews are over (or now)
   void random_toggle(o3sdk::app::Context& ctx) noexcept;
   void random_press(o3sdk::app::Context& ctx, unsigned key) noexcept;
   void random_generate(o3sdk::app::Context& ctx) noexcept;
   void draw_snap(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_random(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   bool scale_locked() const noexcept;                // a scale that leaves notes out is chosen (R8)
-  bool scale_locked_out(int note) const noexcept;    // ... and `note` is one of them
-  // An encoder move or a ladder tap is written as motion under the playhead (REC or the MOTION latch, while the pattern plays).
-  bool recording_motion() const noexcept { return playing_ && (rec_ || motion_latched_); }
   void draw_state_chips(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& strip) noexcept;
   void choose_pattern(o3sdk::app::Context& ctx, unsigned index) noexcept;
   void copy_buttons(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
@@ -133,11 +132,11 @@ class MainScreen final : public o3sdk::app::Screen {
 
   Rig* rig_ = nullptr;
   Controls* controls_ = nullptr;
+  LiveActions* live_ = nullptr;
   PageKeys keys_;
 
   // Modes.
   bool rec_ = false;
-  bool keys_live_ = false;       // the keyboard plays the voice while the pattern runs (else it transposes)
   bool roll_ = false;
   bool motion_latched_ = false;  // encoder moves are recorded while playing, without REC
   bool playing_ = false;
@@ -145,10 +144,7 @@ class MainScreen final : public o3sdk::app::Screen {
   int cursor_ = 0;
   int view_page_ = 0;
   int last_play_page_ = -1;
-  bool was_playing_ = false;
   unsigned lane_ = 0;            // the motion lane shown: the last SOUND-page key the encoder drove
-  std::uint32_t seed_ = 0x303u;
-  int live_trn_ = 0;
 
   // The pitch window keeps what it has shown for the pattern, so it does not jump while notes are entered.
   int win_pattern_ = -1;
@@ -164,12 +160,6 @@ class MainScreen final : public o3sdk::app::Screen {
   std::uint64_t mod_down_ms_[kRoles] = {};  // when it went down: a tap is shorter than kHoldMs
   int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)
   int audition_note_ = -1;          // a step's note sounding for the hand
-  // The four performance buttons (Note, Instr, Vol, Fx: bit b = button b) and the actions they do now (a bit per PerfAction, applied).
-  unsigned perf_held_ = 0;
-  unsigned perf_latched_ = 0;
-  std::uint16_t perf_applied_ = 0;
-  FreezeOwner freeze_owner_;  // which of FREEZE, ROLL, STOP and REV has the beat freeze now (M3c R)
-  std::uint8_t perf_seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
   EncLatch enc_latch_ = EncLatch::None;
   // Master (R7): a tap latches the encoder, a hold and a turn nudges the tempo and gives it back at the release.
   bool master_down_ = false;
@@ -192,9 +182,6 @@ class MainScreen final : public o3sdk::app::Screen {
   // The RANDOM popup (Shift + F1, C3): while it is open the knob strip is its three settings, a key to generate and a key to close.
   bool random_open_ = false;
   unsigned random_focus_ = 0;      // the setting the encoder drives, 0..kRandomEntries-1
-  // The morph's slews are running (R2): at `snap_deadline_ms_` the blend is stored in the engine (sequencer.h, slew(): store = false).
-  bool snap_pending_ = false;
-  std::uint64_t snap_deadline_ms_ = 0;
 
   // Feedback.
   bool toast_off_ = false;

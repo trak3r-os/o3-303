@@ -3,12 +3,11 @@
 // The second-hand gestures of the 303 screen that are not performance buttons, the third part of MainScreen:
 //
 //   SNAP page (R2)    eight snapshots of SOUND + the distortion + the delay + the level and the send on its F keys. A tap recalls, Shift + a key
-//                     stores, the encoder morphs from the previous snapshot to the one recalled last. RAM only.
+//                     stores, the encoder morphs from the previous snapshot to the one recalled last. RAM only. The snapshots are LiveActions'.
 //   RANDOM popup (C3) Shift + F1 opens it: Scale, Density and Acc / Slide % on F1..F3, F8 makes a new line, F7 (or Shift + F1) closes it.
 //
-// The morph is the sequencer's slew with store = false (sequencer.h): about eighteen targets glide in one event each, and the blend is stored
-// in the engine once the slews are over, because the hook puts back the stored value when a lock ends. The pure part (the snapshots, the
-// position, the blend) is SnapBank (o3_303/snapshot.h), tested alone.
+// The morph is the sequencer's slew with store = false (live_actions.cpp, sequencer.h). The pure part (the snapshots, the position, the blend)
+// is SnapBank (o3_303/snapshot.h), tested alone.
 
 #include "main_screen.h"
 
@@ -24,10 +23,6 @@ namespace {
 using namespace o3sdk;
 using ui::Color;
 using ui::Rect;
-
-constexpr float kRecallSlewMs = 30.0f;  // a recall jumps with a short glide (the pad ladders' time), so it does not click
-constexpr float kMorphSlewMs = 50.0f;   // an encoder detent of the morph: a few blocks of glide, so a turn is smooth
-constexpr std::uint64_t kSnapSettleMs = 40;  // after the slews' time: the blocks the hook needs to reach the goal
 
 // `s` cut to `max` characters into `out` (cap > max); `s` appended to the text in `out`.
 void cut(const char* s, unsigned max, char* out, unsigned cap) noexcept {
@@ -55,90 +50,18 @@ void append(char* out, unsigned cap, const char* s) noexcept {
 
 // ---- Snapshots (R2) ---------------------------------------------------------------------------------------------------------------
 
+// The SNAP page's keys: LiveActions does the snapshot (PERFORM's row 2 does the same), this shows what it said.
 void MainScreen::snap_press(app::Context& ctx, unsigned slot, bool shift) noexcept {
-  SnapBank& snaps = rig_->wiring.snaps;
-  char text[24] = "SNAP ";
-  char num[4];
-  view::fmt_uint(slot + 1u, num);
-  append(text, sizeof text, num);
-  float now[kSnapValues];
-  if (shift) {
-    snap_finish(ctx, true);  // what is stored is what the morph was heading for, in the engine
-    controls_->snap_capture(ctx.engine(), now);
-    snaps.store(slot, now);
-    append(text, sizeof text, " STORED");
-    toast(ctx, text);
-    return;
-  }
-  if (!snaps.used(slot)) {
-    append(text, sizeof text, " IS EMPTY");
-    toast(ctx, text, true);
-    return;
-  }
-  snap_finish(ctx, true);
-  controls_->snap_capture(ctx.engine(), now);
-  (void)snaps.recall(slot, now);
-  snap_apply(ctx, kRecallSlewMs);
-  append(text, sizeof text, " RECALLED");
-  toast(ctx, text);
+  LiveActions::Message msg;
+  live_->snap_press(ctx, slot, shift, msg);
+  toast(ctx, msg.text, msg.off);
 }
 
 void MainScreen::snap_turn(app::Context& ctx, int detents, bool coarse) noexcept {
-  SnapBank& snaps = rig_->wiring.snaps;
-  if (!snaps.morphing()) {
-    toast(ctx, "RECALL A SNAPSHOT FIRST", true);
+  LiveActions::Message msg;
+  if (!live_->snap_turn(ctx, detents, coarse, msg)) {
+    toast(ctx, msg.text, msg.off);
     return;
-  }
-  (void)snaps.turn(detents, coarse);
-  snap_apply(ctx, kMorphSlewMs);
-  ctx.redraw();
-}
-
-// The blend at the morph's position on the sequencer's slews: a gliding target (a voice, distortion or delay parameter, the level, the send)
-// is `slew(..., store = false)`; a discrete one (a wave, the distortion's model, the delay's mode) is written when the blend changes it.
-void MainScreen::snap_apply(app::Context& ctx, float ms) noexcept {
-  dsp::Engine& e = ctx.engine();
-  const SnapBank& snaps = rig_->wiring.snaps;
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    const Entry& en = snap_target(i);
-    LaneRef ref{kLaneNone, 0};
-    if (!controls_->lane_ref(en, ref)) {
-      continue;
-    }
-    const bool discrete = controls_->snap_discrete(e, i);
-    const float v = snaps.value(i, discrete);
-    if (discrete) {
-      if (controls_->get(e, en) != v) {
-        (void)rig_->seq->slew_stop(ref.target, ref.id);
-        controls_->set(e, en, v);
-      }
-    } else {
-      (void)rig_->seq->slew(ref.target, ref.id, controls_->to_lane(en, v), ms, false);
-    }
-  }
-  snap_pending_ = true;
-  snap_deadline_ms_ = ctx.uptime_ms() + static_cast<std::uint32_t>(ms) + kSnapSettleMs;  // (a float to 64 bits would pull in soft doubles)
-}
-
-// The morph's blend is stored in the engine (what the pages show, what the next lock gives back): once the slews are over, or at once (the
-// slews are stopped where they are and the targets set to where they were going).
-void MainScreen::snap_finish(app::Context& ctx, bool at_once) noexcept {
-  if (!snap_pending_) {
-    return;
-  }
-  snap_pending_ = false;
-  dsp::Engine& e = ctx.engine();
-  const SnapBank& snaps = rig_->wiring.snaps;
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    const Entry& en = snap_target(i);
-    LaneRef ref{kLaneNone, 0};
-    if (!controls_->lane_ref(en, ref) || controls_->snap_discrete(e, i)) {
-      continue;
-    }
-    if (at_once) {
-      (void)rig_->seq->slew_stop(ref.target, ref.id);
-    }
-    controls_->set(e, en, snaps.value(i, false));
   }
   ctx.redraw();
 }

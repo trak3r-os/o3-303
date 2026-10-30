@@ -100,6 +100,9 @@ struct Hands {
       tap(Button::Params);
     }
   }
+  // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.
+  void to_perform() { tap(Button::Performance); }
+  void to_home() { tap(Button::Pattern); }
   // The RANDOM popup (Shift + F1), and the key that sets its three settings up.
   void random_popup() { shift_tap(Button::F1); }
   // A performance button's action (the PERF page's F1..F4), from the SOUND page.

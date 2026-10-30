@@ -193,8 +193,12 @@ class Controls {
 // (a held step pad takes it for a p-lock first), `input()` takes F keys and turns.
 class PageKeys {
  public:
+  // The pages this one runs over: a table of `count` pages that lives as long as the keys (constexpr data of a screen). The default is the
+  // global table (page_at, kPageCount), which the SOUND latch and the older screens use; a screen with pages of its own sets its table and
+  // starts on page 0 with key 0 latched.
+  void set_table(const Page* table, unsigned count) noexcept;
   void set_page(unsigned index) noexcept;
-  void next_page() noexcept { set_page((page_ + 1u) % kPageCount); }
+  void next_page() noexcept { set_page((page_ + 1u) % page_count()); }
   // Shift + PARAMS: the SNAP page, and from it back to the page it was reached from.
   void toggle_snap() noexcept {
     if (page_ == kPageSnap) {
@@ -205,7 +209,8 @@ class PageKeys {
     }
   }
   unsigned page_index() const noexcept { return page_; }
-  const Page& page() const noexcept { return page_at(page_); }
+  unsigned page_count() const noexcept { return table_ != nullptr ? count_ : kPageCount; }
+  const Page& page() const noexcept { return table_ != nullptr ? table_[page_] : page_at(page_); }
 
   // The encoder moved while an F key was held without going through turn() (a p-lock on the held key's parameter): at the release the
   // latched key comes back, as after any hold-and-turn.
@@ -227,6 +232,8 @@ class PageKeys {
   void release_all() noexcept;
 
  private:
+  const Page* table_ = nullptr;  // null: the global table
+  unsigned count_ = 0;
   unsigned page_ = 0;
   unsigned snap_from_ = 0;
   unsigned latched_ = 0;

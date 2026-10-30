@@ -3,7 +3,8 @@
 
 // The pure parts of the performance gestures (docs/M3B-PLAN.md C4, R1, R7, R8): what the four performance buttons can be assigned to
 // and which actions are on for a state of the buttons, the filter ladders' positions, the tempo nudge, the scale lock of the keyboard
-// and the text of a trig condition. No engine, no screen: tests/perform_test.cpp checks them, main_screen_perf.cpp applies them.
+// and the text of a trig condition; and, for the PERFORM screen (P1), the pad map and which actions are on for buttons and pads. No engine, no
+// screen: tests/perform_test.cpp checks them, live_actions.cpp, main_screen_perf.cpp and perform_screen.cpp apply them.
 
 #include <o3sdk/app/panel.h>
 #include <o3sdk/core/scales.h>
@@ -57,6 +58,18 @@ constexpr std::uint16_t perf_actions_on(const std::uint8_t (&assign)[kPerfButton
     }
   }
   return static_cast<std::uint16_t>(on);
+}
+
+// ---- P1: the live actions of the PERFORM screen (docs/UX-303.md 5.3, 6.3) ---------------------------------------------------------------
+//
+// The same eleven actions are also on 48 pads. A pad is held or latched per action (a bit per PerfAction); the four colour buttons stay
+// held or latched per button (above). An action is on while a button that carries it or its own pad is held or latched.
+
+inline constexpr std::uint16_t kAllActionsMask = static_cast<std::uint16_t>((1u << kPerfActionCount) - 1u);
+
+constexpr std::uint16_t live_actions_on(const std::uint8_t (&assign)[kPerfButtons], unsigned button_held, unsigned button_latched,
+                                        std::uint16_t pad_held, std::uint16_t pad_latched) noexcept {
+  return static_cast<std::uint16_t>((perf_actions_on(assign, button_held, button_latched) | pad_held | pad_latched) & kAllActionsMask);
 }
 
 // ---- M3c W: the wobble pad ------------------------------------------------------------------------------------------------------------
@@ -135,6 +148,68 @@ constexpr unsigned ladder_col(float norm) noexcept {
     return kLadderSteps - 1u;
   }
   return static_cast<unsigned>(norm * static_cast<float>(kLadderSteps - 1u) + 0.5f);
+}
+
+// ---- P1: the PERFORM pad map ----------------------------------------------------------------------------------------------------------
+//
+//   col      1     2     3     4     5     6     7     8     9     10    11    12
+//   row 1   MUTE  ACC   SLD   OCT+  FILL  THRW  FRZ   ROLL  STOP  REV   WOB   ALL OFF        actions (the order of the mockup, not the enum's)
+//   row 2    1     2     3     4     5     6     7     8    NEW   VARY  UNDO  REDO            snapshots 1..8, then the pattern variations
+//   row 3   the ladder: 12 places of the latched sound knob (while WOBBLE is on: the wobble's rate, columns 1..11)
+//   row 4   the keys: one octave, C..B
+
+enum class PerformRole : std::uint8_t { Action, AllOff, Snapshot, New, Vary, Undo, Redo, Ladder, Key, None };
+
+struct PerformPad {
+  PerformRole role = PerformRole::None;
+  std::uint8_t index = 0;  // Action: a PerfAction; Snapshot: the slot 0..7; Ladder and Key: the column 0..11
+};
+
+// Row 1, column by column, columns 1..11 (column 12 is ALL OFF).
+inline constexpr PerfAction kPerformActionOrder[kPerfActionCount] = {
+    PerfAction::Mute, PerfAction::AccAll,  PerfAction::SlideAll, PerfAction::OctUp, PerfAction::Fill,   PerfAction::Throw,
+    PerfAction::Freeze, PerfAction::Roll,  PerfAction::Stop,     PerfAction::Reverse, PerfAction::Wobble};
+
+constexpr PerformPad perform_pad(unsigned pad) noexcept {
+  if (pad >= o3sdk::app::kPadCount) {
+    return PerformPad{};
+  }
+  const unsigned row = o3sdk::app::pad_row(pad);
+  const unsigned col = o3sdk::app::pad_col(pad);
+  switch (row) {
+    case 0:
+      return col < kPerfActionCount ? PerformPad{PerformRole::Action, static_cast<std::uint8_t>(kPerformActionOrder[col])}
+                                    : PerformPad{PerformRole::AllOff, 0};
+    case 1:
+      if (col < 8u) {
+        return PerformPad{PerformRole::Snapshot, static_cast<std::uint8_t>(col)};
+      }
+      return PerformPad{col == 8u ? PerformRole::New : (col == 9u ? PerformRole::Vary : (col == 10u ? PerformRole::Undo : PerformRole::Redo)), 0};
+    case 2:
+      return PerformPad{PerformRole::Ladder, static_cast<std::uint8_t>(col)};
+    default:
+      return PerformPad{PerformRole::Key, static_cast<std::uint8_t>(col)};
+  }
+}
+
+// The pad of an action on row 1 (past the panel for a value that is no action).
+constexpr unsigned perform_action_pad(PerfAction a) noexcept {
+  for (unsigned col = 0; col < kPerfActionCount; ++col) {
+    if (kPerformActionOrder[col] == a) {
+      return col;
+    }
+  }
+  return o3sdk::app::kPadCount;
+}
+
+// While WOBBLE is on, row 3 is the rate picker (not the bottom row of the 303 screen): the rate (a seq::WobbleRate) `pad` picks, -1 for any other
+// pad and for column 12.
+constexpr int perform_wobble_rate(unsigned pad) noexcept {
+  if (pad >= o3sdk::app::kPadCount || o3sdk::app::pad_row(pad) != 2u) {
+    return -1;
+  }
+  const unsigned col = o3sdk::app::pad_col(pad);
+  return col < seq::kWobbleRateCount ? static_cast<int>(col) : -1;
 }
 
 // ---- R7: the tempo nudge ------------------------------------------------------------------------------------------------------------

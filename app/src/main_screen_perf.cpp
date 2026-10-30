@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The performance gestures of the 303 screen (docs/M3B-PLAN.md C4, R1, R7, R8), the second half of MainScreen:
+// The performance gestures of the 303 screen (docs/M3B-PLAN.md R1, R7, R8), the second half of MainScreen:
 //
-//   Note / Instr / Vol / Fx   four assignable buttons (the PERF page), held = momentary, Shift + tap latches (C4)
 //   hold KEYS + a pad         rows 2 and 3 are the Cutoff and Reso ladders (Shift: Env Mod), through a 30 ms slew; the LEDs are the bar (R1)
 //   tap Master                the encoder latches TEMPO (Shift: SWING), whatever page the F keys are on (R7)
 //   hold Master + turn        a tempo nudge of 1 % a detent, at most 3 %, back at the release (R7)
 //   a scale chosen            the keyboard pads out of it are dark and do nothing (R8)
 //
-// The pure parts (which actions are on, the ladder positions, the nudge, the scale) are in o3_303/perform.h and tested alone; what is
-// here puts them on the engine, the sequencer and the pads.
+// The four assignable buttons (Note / Instr / Vol / Fx: held = momentary, Shift + tap latches, C4) are LiveActions' (live_actions.h), shared with
+// PERFORM. The pure parts (the ladder positions, the nudge, the scale) are in o3_303/perform.h and tested alone; what is here puts them on the
+// engine, the sequencer and the pads.
 
 #include "main_screen.h"
 
@@ -27,9 +27,6 @@ using namespace o3sdk;
 using ui::Color;
 using ui::Face;
 
-constexpr int kLiveTransposeMax = 48;  // the sequencer's limit
-constexpr int kOctave = 12;
-
 // `s` appended to the text in `out` (cap bytes with the terminator).
 void cat(char* out, unsigned cap, const char* s) noexcept {
   unsigned n = 0;
@@ -45,66 +42,6 @@ void cat(char* out, unsigned cap, const char* s) noexcept {
 }
 
 }  // namespace
-
-// ---- The four performance buttons (C4) ------------------------------------------------------------------------------------------
-
-void MainScreen::perf_press(app::Context& ctx, unsigned button, bool shift) noexcept {
-  if (button >= kPerfButtons) {
-    return;
-  }
-  if (shift) {
-    perf_latched_ ^= 1u << button;
-  } else {
-    perf_held_ |= 1u << button;
-  }
-  apply_perf(ctx);
-}
-
-void MainScreen::perf_release(app::Context& ctx, unsigned button) noexcept {
-  if (button >= kPerfButtons) {
-    return;
-  }
-  perf_held_ &= ~(1u << button);
-  apply_perf(ctx);
-}
-
-// What the buttons held or latched say, put on the sequencer's flags, the delay send, the live transpose and the freeze. An action two
-// buttons carry is on while either is. The freeze is only written when it changes (a command to the engine each time would be noise).
-void MainScreen::apply_perf(app::Context& ctx) noexcept {
-  const std::uint16_t on = perf_actions_on(rig_->wiring.perf, perf_held_, perf_latched_);
-  const auto is_on = [&](PerfAction a) { return (on & perf_bit(a)) != 0u; };
-  seq::Sequencer& sequencer = *rig_->seq;
-  sequencer.set_perf_flag(seq::kPerfMute, is_on(PerfAction::Mute));
-  sequencer.set_perf_flag(seq::kPerfAccAll, is_on(PerfAction::AccAll));
-  sequencer.set_perf_flag(seq::kPerfSlideAll, is_on(PerfAction::SlideAll));
-  sequencer.set_fill(is_on(PerfAction::Fill));
-  rig_->wiring.throw_on = is_on(PerfAction::Throw);
-  controls_->apply_send(ctx.engine());
-  const std::uint16_t changed = static_cast<std::uint16_t>(on ^ perf_applied_);
-  perf_applied_ = on;
-  if ((changed & perf_bit(PerfAction::OctUp)) != 0u) {
-    push_live_transpose();
-  }
-  // FREEZE, ROLL, STOP and REV are the modes of the one freeze unit: the one that went on first has it until it goes off (perform.h FreezeOwner). It
-  // writes the Mode, then Active; the release writes Active only and leaves the Mode: nothing touches the unit while it leaves, so nothing can click,
-  // and the next entry writes its own Mode first. FREEZE alone is what it was (its Mode write is FREEZE, the unit's default).
-  const FreezeCmd fc = freeze_owner_.step(on, changed);
-  if (fc.set_mode) {
-    set_freeze_mode(ctx.engine(), *rig_, static_cast<Freeze::ModeValue>(fc.mode));
-  }
-  if (fc.set_active) {
-    set_freeze(ctx.engine(), *rig_, fc.active);
-  }
-  // WOBBLE: the LFO runs while the action is on, at the WOBBLE page's settings; a pad of the bottom row sets its rate (wobble_pad); the release
-  // switches it off and gives the pattern's rate back.
-  if ((changed & perf_bit(PerfAction::Wobble)) != 0u) {
-    controls_->apply_wobble(is_on(PerfAction::Wobble));
-    if (!is_on(PerfAction::Wobble)) {
-      sequencer.wobble_rate_override(seq::kWobbleRateNone);
-    }
-  }
-  ctx.redraw();
-}
 
 // A pad of the bottom row while WOBBLE is on: its rate, live, until the action lets go.
 void MainScreen::wobble_pad(app::Context& ctx, unsigned pad) noexcept {
@@ -123,29 +60,6 @@ void MainScreen::wobble_leds(app::PadLeds& leds) const noexcept {
     const unsigned pad = app::pad_at(app::kPadRows - 1u, col);
     leds.set(pad, wobble_pad_rate(pad) < 0 ? app::kLedOff : (wobble_pad_rate(pad) == now ? app::kLedOn : app::kLedDim));
   }
-}
-
-// A button the PERF page gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a
-// held one goes on, now with the new action.
-void MainScreen::sync_perf_assignments(app::Context& ctx) noexcept {
-  bool changed = false;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    if (rig_->wiring.perf[b] != perf_seen_[b]) {
-      perf_seen_[b] = rig_->wiring.perf[b];
-      perf_latched_ &= ~(1u << b);
-      changed = true;
-    }
-  }
-  if (changed) {
-    apply_perf(ctx);
-  }
-}
-
-// The live transposition the sequencer plays: the keyboard's (live_trn_) and an octave up while an OCT UP action is on.
-void MainScreen::push_live_transpose() noexcept {
-  int t = live_trn_ + ((perf_applied_ & perf_bit(PerfAction::OctUp)) != 0u ? kOctave : 0);
-  t = t < -kLiveTransposeMax ? -kLiveTransposeMax : (t > kLiveTransposeMax ? kLiveTransposeMax : t);
-  rig_->seq->set_live_transpose(t);
 }
 
 // ---- Master: the tempo (R7) --------------------------------------------------------------------------------------------------------

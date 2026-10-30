@@ -1,0 +1,143 @@
+# PERFORM (docs/UX-303.md 5.3, 6.3): the Perform button opens it and the 48 pads are live, one lamp over each pad on the screen. Row 1: the eleven
+# live actions (held while the pad is down; Shift latches; ALL OFF lets the latched ones go); row 2: snapshots 1..8 (a tap recalls and the encoder
+# becomes MORPH, Shift stores) then NEW, VARY, UNDO, REDO; row 3: the ladder of the latched sound knob (the wobble's rate while WOBBLE is on);
+# row 4: the keys (here first transposing the running pattern, then, after KEYS on the 303 screen, playing the voice). Perform again is
+# PERFORM SETUP, today's PERF page. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
+wait 300
+tap performance
+wait 100
+snap 01_perform
+# The pattern plays; MUTE (pad 0) is held: its lamp and the chip say so, and it ends at the release.
+tap play
+wait 700
+paddown 0
+wait 300
+snap 02_mute_held
+padup 0
+wait 200
+# FREEZE (pad 6) and WOBBLE (pad 10) latched with Shift: Accent frames, chips; row 3 is now the wobble's rates and a tap picks one.
+press shift
+pad 6
+pad 10
+release shift
+wait 500
+snap 03_frz_wob_latched
+pad 28
+wait 400
+snap 04_wobble_rate_1_8
+# Shift + the pad of a latched action lets it go; ALL OFF lets every latched action go.
+press shift
+pad 10
+release shift
+wait 100
+pad 11
+wait 300
+snap 05_all_off
+# Snapshots: store the sound on 1, turn CUTOFF up and store it on 2 (Shift + the pad); an empty slot says so.
+press shift
+pad 12
+release shift
+turn 25
+press shift
+pad 13
+release shift
+wait 100
+snap 06_snapshots_stored
+pad 14
+wait 100
+snap 07_empty_slot
+# A recall glides there and the encoder is MORPH: back half way to the sound before.
+pad 12
+wait 300
+snap 08_recall_1
+record on
+turn -16
+wait 300
+snap 09_morph_half_way
+turn -16
+wait 300
+snap 09b_morph_start_is_the_sound_before
+# The ladder follows the latched sound knob: F2 is RESO, row 3 shows the value each pad jumps to and a bar to where it stands.
+tap f2
+pad 32
+wait 300
+snap 10_ladder_reso
+# NEW and VARY change the pattern shown, UNDO and REDO walk back and forth.
+pad 20
+wait 200
+snap 11_new_line
+pad 22
+wait 200
+snap 12_undo
+pad 23
+wait 200
+# The keys transpose the running pattern (TRNSP); the bottom left C is no transposition.
+pad 43
+wait 500
+snap 13_keys_transpose
+pad 36
+# The colour buttons are the four assigned actions: ACC ALL held on Instr.
+press instr
+wait 300
+snap 14_instr_acc_all_held
+release instr
+# Shift held: the Shift row, REDO and UNDO on F7 and F8, the others empty.
+press shift
+wait 100
+snap 15_shift_row
+release shift
+# The 303 screen's KEYS pad (row 2, column 11) puts the keyboard on the voice: PERFORM's key row plays it.
+# A latched action stays on when the screen changes, with its chip: ROLL and FREEZE latched here are chips on the 303 screen too.
+press shift
+pad 7
+pad 6
+release shift
+tap pattern
+wait 300
+snap 16_home_keeps_the_latched_chips
+pad 22
+tap performance
+wait 100
+pad 11
+wait 100
+paddown 40
+wait 400
+snap 17_keys_play_voice
+padup 40
+wait 600
+wav perform_pads
+record off
+# Every action latched with Rec armed: the status line and the 303 screen's strip show the chips that fit and "+N" for the rest.
+tap rec
+press shift
+pad 0
+pad 1
+pad 2
+pad 3
+pad 4
+pad 5
+pad 6
+pad 7
+pad 8
+pad 9
+pad 10
+release shift
+pad 12
+wait 200
+snap 18_all_latched_perform
+tap pattern
+wait 300
+snap 19_all_latched_home
+tap performance
+wait 100
+pad 11
+tap rec
+# PERFORM SETUP is the PERF page; Perform from another screen always opens page 1.
+tap performance
+wait 100
+snap 20_setup
+tap pattern
+tap performance
+wait 100
+snap 21_page_1_again
+tap play

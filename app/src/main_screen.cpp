@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "main_screen.h"
 
+#include "frame.h"
 #include "knob_strip.h"
 #include "step_view.h"
 
@@ -87,10 +88,10 @@ void MainScreen::init(Rig& rig) noexcept {
   // Every piece of state starts afresh: the app object outlives a run in the simulator's tests.
   rig_ = &rig;
   controls_ = &rig.controls;
+  live_ = rig.live;
   keys_ = PageKeys{};
   keys_.set_page(kPageSound);
   rec_ = false;
-  keys_live_ = false;
   roll_ = false;
   motion_latched_ = false;
   playing_ = false;
@@ -98,10 +99,7 @@ void MainScreen::init(Rig& rig) noexcept {
   cursor_ = 0;
   view_page_ = 0;
   last_play_page_ = -1;
-  was_playing_ = false;
   lane_ = 0;
-  seed_ = 0x303u;
-  live_trn_ = 0;
   win_pattern_ = -1;
   win_lo_ = 0;
   win_hi_ = 0;
@@ -119,13 +117,6 @@ void MainScreen::init(Rig& rig) noexcept {
     n = -1;
   }
   audition_note_ = -1;
-  perf_held_ = 0;
-  perf_latched_ = 0;
-  perf_applied_ = 0;
-  freeze_owner_.reset();
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    perf_seen_[b] = rig.wiring.perf[b];
-  }
   enc_latch_ = EncLatch::None;
   master_down_ = false;
   master_used_ = false;
@@ -146,9 +137,6 @@ void MainScreen::init(Rig& rig) noexcept {
   toast_off_ = false;
   random_open_ = false;
   random_focus_ = 0;
-  snap_pending_ = false;
-  snap_deadline_ms_ = 0;
-  rig.wiring.snaps.clear();
   lock_active_ = false;
   lock_step_ = 0;
   lock_norm_ = 0.0f;
@@ -185,12 +173,11 @@ void MainScreen::leave(app::Context& ctx) noexcept {
   }
   audition_off(ctx);
   keys_.release_all();
-  snap_finish(ctx, true);
+  live_->snap_finish(ctx, true);
   random_open_ = false;
   nudge_end(ctx);  // a tempo nudge ends with the screen: its release would reach another one
   master_down_ = false;
-  perf_held_ = 0;
-  apply_perf(ctx);
+  live_->leave(ctx);  // the actions held end with the screen (their releases would reach another one)
   tool_mask_ = 0;
   pattern_down_ = false;
   overlay_ = false;
@@ -241,10 +228,7 @@ std::uint8_t MainScreen::modifier_flag_down() const noexcept {
 }
 
 // A seed that differs from press to press and from boot to boot: the sequence of the last one and the time of this press.
-std::uint32_t MainScreen::next_seed(app::Context& ctx) noexcept {
-  seed_ = seed_ * 1664525u + 1013904223u + static_cast<std::uint32_t>(ctx.uptime_ms()) * 2654435761u;
-  return seed_;
-}
+std::uint32_t MainScreen::next_seed(app::Context& ctx) noexcept { return live_->next_seed(ctx); }
 
 void MainScreen::clamp_cursor() noexcept {
   const int len = static_cast<int>(length());
@@ -293,11 +277,6 @@ void MainScreen::update(app::Context& ctx) noexcept {
   } else {
     last_play_page_ = -1;
   }
-  if (was_playing_ && !playing_) {
-    live_trn_ = 0;  // the keyboard's transposition ends with the run
-    push_live_transpose();
-  }
-  was_playing_ = playing_;
   if (pattern_down_ && !overlay_ && ctx.uptime_ms() - pattern_down_ms_ >= kHoldMs) {
     overlay_ = true;
     chain_started_ = false;
@@ -309,10 +288,7 @@ void MainScreen::update(app::Context& ctx) noexcept {
   if (toast_[0] != '\0' && ctx.uptime_ms() >= toast_until_ms_) {
     toast_[0] = '\0';
   }
-  if (snap_pending_ && ctx.uptime_ms() >= snap_deadline_ms_) {
-    snap_finish(ctx, false);
-  }
-  sync_perf_assignments(ctx);
+  // (LiveActions::update, from the app's own, ends the keyboard's transposition with the run and stores a morph's blend.)
   sync_step_focus();
 }
 
@@ -496,12 +472,11 @@ void MainScreen::key_press(app::Context& ctx, unsigned pad) noexcept {
     if (ph.playing && ph.step >= 0 && ph.pattern >= 0) {
       (void)rig_->bank->write_advance(static_cast<unsigned>(ph.pattern), static_cast<unsigned>(ph.step), un, flags);
     }
-  } else if (playing_ && !keys_live_) {
+  } else if (playing_ && !live_->keys_live()) {
     // The keyboard transposes the running pattern: the bottom left C is no transposition.
     int t = note - kLowestNote;
     t = t < -36 ? -36 : (t > 36 ? 36 : t);
-    live_trn_ = t;
-    push_live_transpose();
+    live_->set_live_transpose(t);
     sound = false;
   }
   if (sound) {
@@ -589,8 +564,8 @@ void MainScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
           mod_down_[ri] = false;
           // A tap still switches the keyboard between transposing and playing; held (and used for the ladders) it was the ladders' key.
           if (!mod_used_[ri] && !overlay_ && ctx.uptime_ms() - mod_down_ms_[ri] < kHoldMs) {
-            keys_live_ = !keys_live_;
-            toast(ctx, keys_live_ ? "KEYS PLAY THE VOICE" : "KEYS TRANSPOSE");
+            live_->set_keys_live(!live_->keys_live());
+            toast(ctx, live_->keys_live() ? "KEYS PLAY THE VOICE" : "KEYS TRANSPOSE");
           }
           mod_used_[ri] = false;
         }
@@ -1017,7 +992,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       case Button::Instr:
       case Button::Vol:
       case Button::Fx:
-        perf_release(ctx, static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note));
+        live_->button_release(ctx, static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note));
         break;
       case Button::Master:
         master_release(ctx);
@@ -1051,7 +1026,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
           keys_.next_page();
         }
         if (was_snap && !on_snap_page()) {
-          snap_finish(ctx, true);
+          live_->snap_finish(ctx, true);
         }
       }
       ctx.redraw();
@@ -1101,7 +1076,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     case Button::Instr:
     case Button::Vol:
     case Button::Fx:  // the four assignable performance buttons (C4)
-      perf_press(ctx, static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note), in.shift);
+      live_->button_press(ctx, static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note), in.shift);
       break;
     case Button::Master:
       master_press(ctx, in.shift);
@@ -1227,7 +1202,7 @@ void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
   leds.set(role_pad(PadRole::Rest), mod_level(PadRole::Rest, (cs.flags & kStepRest) != 0u));
   leds.set(role_pad(PadRole::OctDown), octave_ < 0 ? app::kLedMid : app::kLedDim);
   leds.set(role_pad(PadRole::OctUp), octave_ > 0 ? app::kLedMid : app::kLedDim);
-  leds.set(role_pad(PadRole::Keys), mod_down_[role_index(PadRole::Keys)] ? app::kLedOn : (keys_live_ ? app::kLedMid : app::kLedDim));
+  leds.set(role_pad(PadRole::Keys), mod_down_[role_index(PadRole::Keys)] ? app::kLedOn : (live_->keys_live() ? app::kLedMid : app::kLedDim));
   leds.set(role_pad(PadRole::Motion), mod_down_[role_index(PadRole::Motion)] ? app::kLedOn : (motion_latched_ ? app::kLedMid : app::kLedDim));
 
   if (mod_down_[role_index(PadRole::Keys)]) {  // KEYS held: rows 2 and 3 are the filter ladders, drawn as bars
@@ -1255,7 +1230,7 @@ void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
     }
     // The piano drawn with one colour: naturals dim, sharps off. With a scale chosen, lit means playable: every pad of the scale is dim.
     std::uint8_t level = is_natural(static_cast<unsigned>(n)) || scale_locked() ? app::kLedDim : app::kLedOff;
-    if (playing_ && !keys_live_ && !rec_ && n == kLowestNote + live_trn_) {
+    if (playing_ && !live_->keys_live() && !rec_ && n == kLowestNote + live_->live_transpose()) {
       level = app::kLedMid;  // the key the running pattern is transposed by
     }
     if (n == current) {
@@ -1319,7 +1294,7 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
     row.skip(6);
   }
-  if (keys_live_) {  // the mode that is on is a filled chip, the other an outline
+  if (live_->keys_live()) {  // the mode that is on is a filled chip, the other an outline
     row.chip(Face::Label, "KEYS", Color::ChromeText, Color::Chrome);
     row.skip(4);
     outline_chip(r, row, baseline, Face::Label, "TRNSP", Color::ChromeDim);
@@ -1327,10 +1302,11 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     outline_chip(r, row, baseline, Face::Label, "KEYS", Color::ChromeDim);
     row.skip(4);
     char t[12] = "TRNSP";
-    if (live_trn_ != 0) {
+    const int live_trn = live_->live_transpose();
+    if (live_trn != 0) {
       char num[8];
-      view::fmt_uint(static_cast<unsigned>(live_trn_ < 0 ? -live_trn_ : live_trn_), num);
-      append(t, sizeof t, live_trn_ < 0 ? " -" : " +");
+      view::fmt_uint(static_cast<unsigned>(live_trn < 0 ? -live_trn : live_trn), num);
+      append(t, sizeof t, live_trn < 0 ? " -" : " +");
       append(t, sizeof t, num);
     }
     row.chip(Face::Label, t, Color::ChromeText, Color::Chrome);
@@ -1345,19 +1321,30 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   }
 
   // The performance chips, right aligned: the action each of the four buttons does now (the PERF page assigns them), lit while the button
-  // is down, filled in Sel when latched.
+  // is down, filled in Sel when latched (by the button or by its action's pad on PERFORM). Before them, a Sel chip for each action latched on a
+  // PERFORM pad that no button carries, as many as fit between the fields on the left and these chips, then a "+N" for the rest (frame.h): a
+  // latched action stays on when the screen changes and is never lost without a word.
   const char* chip[kPerfButtons];
+  std::uint16_t extra = live_->pads_latched();
   int total = 0;
   for (unsigned i = 0; i < kPerfButtons; ++i) {
     const unsigned a = rig_->wiring.perf[i];
     chip[i] = a < kPerfActionCount ? kPerfActionChips[a] : "";
     total += r.text_width(chip[i], Face::Label) + 2 * theme.metrics.gap + 6;
+    if (a < kPerfActionCount) {
+      extra = static_cast<std::uint16_t>(extra & ~perf_bit(static_cast<PerfAction>(a)));
+    }
   }
-  ui::FieldRow perf(r, ui::kScreenW - 6 - total, baseline);
+  const int perf_x = ui::kScreenW - 6 - total;
+  const int extra_w = frame::action_chips_width(r, extra, perf_x - (row.x() + 8));
+  (void)frame::draw_action_chips(r, perf_x - extra_w, perf_x, baseline, extra);
+  ui::FieldRow perf(r, perf_x, baseline);
   for (unsigned i = 0; i < kPerfButtons; ++i) {
-    if ((perf_latched_ >> i & 1u) != 0u) {
+    const unsigned a = rig_->wiring.perf[i];
+    const bool pad_latched = a < kPerfActionCount && (live_->pads_latched() & perf_bit(static_cast<PerfAction>(a))) != 0u;
+    if ((live_->buttons_latched() >> i & 1u) != 0u || pad_latched) {
       perf.chip(Face::Label, chip[i], Color::Sel, Color::SelText);
-    } else if ((perf_held_ >> i & 1u) != 0u) {
+    } else if ((live_->buttons_held() >> i & 1u) != 0u) {
       perf.chip(Face::Label, chip[i], Color::Accent, Color::AccentText);
     } else {  // off: an outline of the same size
       outline_chip(r, perf, baseline, Face::Label, chip[i], Color::ChromeDim);

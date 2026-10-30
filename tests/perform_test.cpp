@@ -3,6 +3,7 @@
 // the four buttons have on, the ladder positions, the tempo nudge, the scale lock, how a trig condition reads.
 #include <doctest/doctest.h>
 
+#include <o3sdk/app/panel.h>
 #include <o3_303/pattern.h>
 #include <o3_303/perform.h>
 
@@ -250,4 +251,74 @@ TEST_CASE("perform: the freeze family has one owner; Mode then Active at the ent
   c = f.step(static_cast<std::uint16_t>(perf_bit(PerfAction::Reverse) | perf_bit(PerfAction::Roll)),
              static_cast<std::uint16_t>(perf_bit(PerfAction::Reverse) | perf_bit(PerfAction::Roll)));
   CHECK(c.mode == 1u);
+}
+
+// ---- P1: PERFORM's pad map and the actions on its pads (docs/UX-303.md 5.3, 6.3) ----------------------------------------------------------
+
+namespace {
+
+unsigned pad_of(unsigned row, unsigned col) { return o3sdk::app::pad_at(row, col); }
+
+}  // namespace
+
+TEST_CASE("perform map: row 1 is the eleven actions in the mockup's order and ALL OFF") {
+  // MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE, ROLL, STOP, REV, WOBBLE: not the enum's order (WOBBLE is the 8th there).
+  const PerfAction expect[kPerfActionCount] = {PerfAction::Mute,  PerfAction::AccAll, PerfAction::SlideAll, PerfAction::OctUp, PerfAction::Fill,    PerfAction::Throw,
+                                               PerfAction::Freeze, PerfAction::Roll,   PerfAction::Stop,     PerfAction::Reverse, PerfAction::Wobble};
+  for (unsigned col = 0; col < kPerfActionCount; ++col) {
+    const PerformPad pp = perform_pad(pad_of(0, col));
+    CHECK(pp.role == PerformRole::Action);
+    CHECK(pp.index == static_cast<std::uint8_t>(expect[col]));
+    CHECK(perform_action_pad(expect[col]) == col);  // the inverse
+  }
+  CHECK(perform_pad(pad_of(0, 11)).role == PerformRole::AllOff);
+  // Every action is on exactly one pad.
+  unsigned seen = 0;
+  for (unsigned col = 0; col < kPerfActionCount; ++col) {
+    seen |= 1u << perform_pad(pad_of(0, col)).index;
+  }
+  CHECK(seen == kAllActionsMask);
+}
+
+TEST_CASE("perform map: row 2 is snapshots 1..8, NEW, VARY, UNDO, REDO; row 3 the ladder; row 4 the keys") {
+  for (unsigned col = 0; col < 8; ++col) {
+    const PerformPad pp = perform_pad(pad_of(1, col));
+    CHECK(pp.role == PerformRole::Snapshot);
+    CHECK(pp.index == col);
+  }
+  CHECK(perform_pad(pad_of(1, 8)).role == PerformRole::New);
+  CHECK(perform_pad(pad_of(1, 9)).role == PerformRole::Vary);
+  CHECK(perform_pad(pad_of(1, 10)).role == PerformRole::Undo);
+  CHECK(perform_pad(pad_of(1, 11)).role == PerformRole::Redo);
+  for (unsigned col = 0; col < 12; ++col) {
+    CHECK(perform_pad(pad_of(2, col)).role == PerformRole::Ladder);
+    CHECK(perform_pad(pad_of(2, col)).index == col);
+    CHECK(perform_pad(pad_of(3, col)).role == PerformRole::Key);
+    CHECK(perform_pad(pad_of(3, col)).index == col);
+  }
+  CHECK(perform_pad(o3sdk::app::kPadCount).role == PerformRole::None);  // a pad past the panel is nothing
+}
+
+TEST_CASE("perform map: the wobble's rates are row 3's columns 1..11, not the bottom row's") {
+  for (unsigned col = 0; col < 11; ++col) {
+    CHECK(perform_wobble_rate(pad_of(2, col)) == static_cast<int>(col));
+    CHECK(wobble_pad_rate(pad_of(3, col)) == static_cast<int>(col));  // the 303 screen's picker is unchanged
+    CHECK(perform_wobble_rate(pad_of(3, col)) == -1);
+    CHECK(wobble_pad_rate(pad_of(2, col)) == -1);
+  }
+  CHECK(perform_wobble_rate(pad_of(2, 11)) == -1);  // column 12 has none
+  CHECK(perform_wobble_rate(pad_of(0, 3)) == -1);
+  CHECK(perform_wobble_rate(o3sdk::app::kPadCount) == -1);
+}
+
+TEST_CASE("perform map: an action is on while a colour button or its own pad is held or latched") {
+  std::uint8_t assign[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
+  CHECK(live_actions_on(assign, 0, 0, 0, 0) == 0);
+  CHECK(live_actions_on(assign, 0, 0, perf_bit(PerfAction::Roll), 0) == perf_bit(PerfAction::Roll));
+  CHECK(live_actions_on(assign, 0, 0, 0, perf_bit(PerfAction::Wobble)) == perf_bit(PerfAction::Wobble));
+  // The pad and the button are one action: one bit.
+  CHECK(live_actions_on(assign, 1u << 0, 0, perf_bit(PerfAction::Mute), 0) == perf_bit(PerfAction::Mute));
+  CHECK(live_actions_on(assign, 1u << 3, 0, 0, perf_bit(PerfAction::Stop)) == (perf_bit(PerfAction::Freeze) | perf_bit(PerfAction::Stop)));
+  // A bit above the eleven actions is no action.
+  CHECK(live_actions_on(assign, 0, 0, 0xFFFFu, 0) == kAllActionsMask);
 }

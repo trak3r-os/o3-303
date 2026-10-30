@@ -7,12 +7,15 @@
 //
 //   PLAY          play / stop at the press (Shift: tap tempo)
 //   PATTERN       the 303 screen (on it: a tap flips the step view and the piano roll; held: the 48 pads are the patterns)
+//   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   FILE          the GEN vault (on it: load the slot shown)
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
+#include "live_actions.h"
 #include "main_screen.h"
+#include "perform_screen.h"
 #include "rig.h"
 #include "vault_screen.h"
 
@@ -67,6 +70,9 @@ class O3_303App final : public app::App {
     dsp::Engine& e = ctx.engine();
     tap_count_ = 0;
     rig_.wiring = o3_303::Wiring{};
+    rig_.sound_keys = o3_303::PageKeys{};  // the global table's page SOUND, F1 latched
+    rig_.sound_keys.set_page(o3_303::kPageSound);
+    rig_.live = &live_;
     rig_.bank = &o3_303::seq::project_bank();
     rig_.bank->init();
     rig_.seq = &sequencer_;
@@ -115,7 +121,9 @@ class O3_303App final : public app::App {
     o3_303::load_preset(e, rig_, first, o3_303::LoadWhat::Both);
     rig_.bank->clear_history();  // the boot load is no edit of the user's: the first UNDO must not empty A01
 
+    live_.init(rig_);
     main_.init(rig_);
+    perform_.init(rig_, main_);
     vault_.init(rig_, main_);
     ctx.show(main_);
   }
@@ -132,7 +140,17 @@ class O3_303App final : public app::App {
       return true;
     }
     if (in.press(Button::Pattern) && ctx.screen() != &main_) {
-      ctx.show(main_);  // back from the vault: the press is taken, the screen's own release does nothing
+      ctx.show(main_);  // back from the vault or PERFORM: the press is taken, the screen's own release does nothing
+      return true;
+    }
+    if (in.press(Button::Performance)) {  // PERFORM; on it, PERFORM SETUP and back; from any other screen always page 1
+      if (ctx.screen() == &perform_) {
+        perform_.toggle_page();
+        ctx.redraw();
+      } else {
+        perform_.open_first_page();
+        ctx.show(perform_);
+      }
       return true;
     }
     if (in.press(Button::File) && ctx.screen() == &main_) {
@@ -144,8 +162,9 @@ class O3_303App final : public app::App {
 
   void update(app::Context& ctx) noexcept override {
     sequencer_.update();
-    // The 303 screen's bookkeeping (the live transpose that ends with the run, the follow of the playing pattern) goes on while another
-    // screen is up; when it is the current screen the runtime calls its update() itself.
+    live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
+    // The 303 screen's bookkeeping (the follow of the playing pattern) goes on while another screen is up; when it is the current screen the
+    // runtime calls its update() itself.
     if (ctx.screen() != nullptr && ctx.screen() != &main_) {
       main_.update(ctx);
     }
@@ -184,7 +203,9 @@ class O3_303App final : public app::App {
   o3_303::Growl growl_;
   o3_303::seq::Sequencer sequencer_{o3_303::seq::project_bank()};
   o3_303::Rig rig_;
+  o3_303::LiveActions live_;
   o3_303::MainScreen main_;
+  o3_303::PerformScreen perform_;
   o3_303::VaultScreen vault_;
   std::uint64_t tap_ms_[kTaps] = {};
   unsigned tap_count_ = 0;

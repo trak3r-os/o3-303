@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Every scenario of app/scenarios runs as it is: each command is understood, every `snap` writes its picture, every `wav` its file, and no
-// frame of the whole run fails to fit the display list (2048 words). The pictures are looked at by a person (docs/M3-PLAN.md); this is
+// frame of the whole run fails to fit the display list (UX-303 section 4: under 1,800 of its 2048 words). The pictures are looked at by a person (docs/M3-PLAN.md); this is
 // the gate that keeps them reproducible.
 #include <doctest/doctest.h>
 
@@ -49,7 +49,7 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "pages", "tools", "patterns", "perform", "vault", "long"}) {
+  for (const char* name : {"boot", "write", "edit", "pages", "tools", "patterns", "perform", "perform_pads", "vault", "long"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -93,7 +93,7 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
     }
     CHECK(h->runtime().frame_failures() == 0u);
     CHECK(h->display().render_failures() == 0u);
-    CHECK(h->display().peak_frame_words() < 2048u);
+    CHECK(h->display().peak_frame_words() < 1800u);
     CHECK(h->engine().dropped_commands() == 0u);
     fs::remove_all(sub);
   }
