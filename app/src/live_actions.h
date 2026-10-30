@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The live actions (docs/UX-303.md 5.3, docs/M3B-PLAN.md C4 and R2, docs/M3C-PLAN.md R and W), one state for the two screens that run them: the
-// 303 screen (its four colour buttons, until slice H3) and PERFORM (its 48 pads and the same four buttons). It holds what is held and latched,
+// The live actions (docs/UX-303.md 5.3, docs/M3B-PLAN.md C4 and R2, docs/M3C-PLAN.md R and W), one state for the screen that runs them (PERFORM:
+// its 48 pads and the four colour buttons; on HOME, SETUP and INSTRUMENT the colour buttons are the drawer's rows since H3). It holds what is held and latched,
 // puts it on the sequencer, the delay send, the live transpose, the beat freeze (through FreezeOwner) and the wobble, and runs the snapshots (recall,
 // store, the morph's slews). The keyboard's live transposition and its mode (TRNSP: transpose the pattern, else play the voice) live here too:
 // PERFORM's key row and the home map's keyboard are one keyboard. Main loop only; the app owns one and `Rig::live` points at it.

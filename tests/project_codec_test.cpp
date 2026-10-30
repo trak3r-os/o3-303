@@ -1074,3 +1074,50 @@ TEST_CASE("project: a container with no CRC chunk, or one that is not last, is d
   put_be32(twice, 4, static_cast<std::uint32_t>(twice.size() - 8));
   CHECK(load(twice, s).status == project::Status::Damaged);
 }
+
+TEST_CASE("project: an autosave gathered during a tempo nudge stores the tempo the nudge started from") {
+  Session a;
+  (void)a.engine.set_tempo(125'000);
+  CHECK(a.gather().tempo_mbpm == 125'000u);
+  a.rig.tempo_base_mbpm = 125'000;  // MASTER's nudge: the engine holds the nudged tempo, the rig the base
+  (void)a.engine.set_tempo(128'750);
+  CHECK(a.gather().tempo_mbpm == 125'000u);
+  a.rig.tempo_base_mbpm = 0;  // the nudge ended
+  (void)a.engine.set_tempo(125'000);
+  CHECK(a.gather().tempo_mbpm == 125'000u);
+}
+
+// F3 review: the save counter of HEAD 1.1 (boot and LOAD take the newest of live.o3a and project.o3a by it).
+TEST_CASE("project: HEAD 1.1 carries the save counter; a 1.0 HEAD reads as 0; small_crc ignores it") {
+  Session a;
+  scramble(a);
+  project::ProjectState st = a.gather();
+  std::snprintf(st.name, sizeof st.name, "%s", "JAM ONE");
+  st.save_count = 0xA1B2C3D4u;
+  std::vector<std::uint8_t> img(project::kProjectBytes);
+  const std::size_t n = project::encode(st, *a.bank, img.data(), img.size());
+  REQUIRE(n > 0);
+  img.resize(n);
+  project::ProjectState back;
+  REQUIRE(load(img, back).status == project::Status::Ok);
+  CHECK(back.save_count == 0xA1B2C3D4u);
+
+  // A HEAD of version 1.0 ends at the name: the counter is 0 and the rest is read as before.
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "HEAD")) {
+      p[1] = 0;  // minor 0
+      p.resize(p.size() - 4);
+    }
+    return true;
+  });
+  project::ProjectState o;
+  REQUIRE(load(old, o).status == project::Status::Ok);
+  CHECK(o.save_count == 0u);
+  CHECK(o.tempo_mbpm == back.tempo_mbpm);
+  CHECK(std::string(o.name) == "JAM ONE");
+
+  // The counter moves with every write: it is no change of the session.
+  project::ProjectState other = st;
+  other.save_count = 7;
+  CHECK(project::small_crc(st) == project::small_crc(other));
+}

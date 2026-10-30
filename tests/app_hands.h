@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -101,8 +102,12 @@ struct Hands {
   // Back to the 303 screen (Pattern).
   void to_home() { tap(Button::Pattern); }
   // A performance button's action, set on PERFORM SETUP: F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions (to the first,
-  // then up). Starts from the 303 screen and ends on it.
-  void assign_perf(Button which, PerfAction action) {
+  // then up). From any screen; it ends on the 303 screen, or on PERFORM with `stay`, where the four buttons are the live actions (on the 303 screen
+  // they are the drawer's rows).
+  void assign_perf(Button which, PerfAction action, bool stay = false) {
+    if (std::strncmp(title(), "PERFORM", 7) == 0) {
+      tap(Button::Pattern);
+    }
     tap(Button::Performance);
     tap(Button::Performance);  // PERFORM SETUP
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
@@ -110,7 +115,7 @@ struct Hands {
     if (action != PerfAction::Mute) {
       turn(static_cast<int>(action));
     }
-    tap(Button::Pattern);
+    tap(stay ? Button::Performance : Button::Pattern);
   }
   std::uint8_t led(unsigned pad_index) const { return h->leds().level(pad_index); }
   const char* title() { return h->runtime().context().screen()->title(); }

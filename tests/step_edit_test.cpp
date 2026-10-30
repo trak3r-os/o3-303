@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Step editing of M3b (docs/M3B-PLAN.md R3, R4, R5): hold a step + OCT+ / OCT- is its ratchet (until the PLAYS row), hold a step + Shift + up / down its
+// Step editing of M3b (docs/M3B-PLAN.md R3, R4, R5): the ratchet is the PLAYS row (hold a step + the encoder; the OCT+ / OCT- gesture is cut), hold a step + Shift + up / down its
 // octave (up / down alone are a semitone, on the held step or the cursor's), hold a step + the encoder on INSTRUMENT MORE's RATCHET and COND entries edits them (the condition
 // through seq::step_cond), hold ACC (or SLIDE) + left / right rotates that layer alone. Every edit goes through the Bank, so it is undoable.
 #include <doctest/doctest.h>
@@ -39,19 +39,22 @@ void set_layers(Hands& t) {
 
 }  // namespace
 
-TEST_CASE("hold a step + OCT+ / OCT- moves its ratchet one hit up or down, x1 to x4, and not the octave of the keyboard") {
+TEST_CASE("hold a step + the PLAYS row moves its ratchet one hit up or down, x1 to x4; OCT+ / OCT- with a step held are only the keyboard's octave (D24)") {
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
+  t.tap(Button::Vol);  // the PLAYS row owns the encoder
   t.down(step_pad_of(5));
-  t.pad(kOctUpPad);
+  t.turn(1);
   CHECK(seq::get_ratchet(t.pat(), 5) == 1);
-  t.pad(kOctUpPad);
-  t.pad(kOctUpPad);
+  t.turn(2);
   CHECK(seq::get_ratchet(t.pat(), 5) == 3);
-  t.pad(kOctUpPad);  // x4 is the top
+  t.turn(1);  // x4 is the first stop; the list goes on with 75 % (a condition replaces the ratchet)
+  CHECK(seq::get_cond(t.pat(), 5) == 75);
+  t.turn(-1);
+  CHECK(seq::get_cond(t.pat(), 5) == kCondAlways);
   CHECK(seq::get_ratchet(t.pat(), 5) == 3);
-  t.pad(kOctDownPad);
+  t.turn(-1);
   CHECK(seq::get_ratchet(t.pat(), 5) == 2);
   t.up(step_pad_of(5));
   // The note and the other flags of the step, the other steps and the keyboard's octave are as they were.
@@ -67,14 +70,12 @@ TEST_CASE("hold a step + OCT+ / OCT- moves its ratchet one hit up or down, x1 to
 
   // Down below x1 stops at x1.
   t.down(step_pad_of(5));
-  for (int i = 0; i < 5; ++i) {
-    t.pad(kOctDownPad);
-  }
+  t.turn(-5);
   CHECK(seq::get_ratchet(t.pat(), 5) == 0);
   // Two held steps move together, each from where it stands.
-  t.pad(kOctUpPad);  // step 5: x2
+  t.turn(1);  // step 5: x2
   t.down(step_pad_of(9));
-  t.pad(kOctUpPad);  // step 5: x3, step 9: x2
+  t.turn(1);  // step 5: x3, step 9: x2
   t.up(step_pad_of(5));
   t.up(step_pad_of(9));
   CHECK(seq::get_ratchet(t.pat(), 5) == 2);
@@ -83,6 +84,19 @@ TEST_CASE("hold a step + OCT+ / OCT- moves its ratchet one hit up or down, x1 to
   const unsigned note = t.pat().steps[1].note;
   t.tap(Button::Up);
   CHECK(t.pat().steps[1].note == note + 1);
+
+  // The old gesture is cut: OCT+ / OCT- with a step held are the keyboard's octave and leave the ratchet where it is.
+  t.down(step_pad_of(5));
+  t.pad(kOctUpPad);
+  CHECK(seq::get_ratchet(t.pat(), 5) == 2);
+  t.pad(kOctDownPad);
+  CHECK(seq::get_ratchet(t.pat(), 5) == 2);
+  t.up(step_pad_of(5));
+  t.pad(kOctUpPad);
+  t.tap(Button::Rec);
+  t.pad(key_pad(36));  // the keyboard is an octave up: C3, written on the cursor, which the tap of the step pad left on step 6
+  CHECK(t.pat().steps[5].note == 48);
+  t.tap(Button::Rec);
 }
 
 TEST_CASE("OCT+ / OCT- with no step held still move the keyboard's octave") {
@@ -106,10 +120,11 @@ TEST_CASE("a ratchet edit is undoable, and a run of presses on one step is one u
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
+  t.tap(Button::Vol);
   t.down(step_pad_of(5));
-  t.pad(kOctUpPad);
-  t.pad(kOctUpPad);
-  t.pad(kOctUpPad);
+  t.turn(1);
+  t.turn(1);
+  t.turn(1);
   t.up(step_pad_of(5));
   CHECK(seq::get_ratchet(t.pat(), 5) == 3);
   CHECK(bank().can_undo());

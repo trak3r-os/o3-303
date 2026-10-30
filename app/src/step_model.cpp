@@ -1,9 +1,49 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <o3_303/step_model.h>
 
+#include <o3_303/perform.h>
+#include <o3_303/seq/ops.h>
+
 namespace o3_303 {
 
 namespace {
+
+// `s` appended to the text in `out` (cap bytes with the terminator).
+void append(char* out, unsigned cap, const char* s) noexcept {
+  unsigned n = 0;
+  while (n < cap && out[n] != '\0') {
+    ++n;
+  }
+  for (; s != nullptr && *s != '\0' && n + 1u < cap; ++s) {
+    out[n++] = *s;
+  }
+  if (n < cap) {
+    out[n] = '\0';
+  }
+}
+
+void append_uint(char* out, unsigned cap, unsigned v) noexcept {
+  char num[12];
+  unsigned n = 0;
+  char tmp[12];
+  do {
+    tmp[n++] = static_cast<char>('0' + v % 10u);
+    v /= 10u;
+  } while (v != 0u && n < sizeof tmp);
+  for (unsigned i = 0; i < n; ++i) {
+    num[i] = tmp[n - 1u - i];
+  }
+  num[n] = '\0';
+  append(out, cap, num);
+}
+
+unsigned text_length(const char* s, unsigned cap) noexcept {
+  unsigned n = 0;
+  while (n < cap && s[n] != '\0') {
+    ++n;
+  }
+  return n;
+}
 
 constexpr bool is_rest(const Step& s) noexcept { return (s.flags & kStepRest) != 0u; }
 constexpr bool is_tie(const Step& s) noexcept { return (s.flags & kStepTie) != 0u && !is_rest(s); }
@@ -105,45 +145,6 @@ bool pattern_has_motion(const Pattern& p, unsigned lane) noexcept {
   return false;
 }
 
-PitchWindow fit_window(int lowest, int highest, int lane_h, int top_px) noexcept {
-  PitchWindow w;
-  if (highest < lowest) {
-    const int t = lowest;
-    lowest = highest;
-    highest = t;
-  }
-  const int span = highest - lowest + 1;
-  int px = 16;
-  int rows = lane_h / px;
-  int top = (top_px + px - 1) / px;
-  for (; px > 5; --px) {  // the tallest rows that leave the notes, a margin above them for a name and one row below
-    rows = lane_h / px;
-    top = (top_px + px - 1) / px;
-    if (rows >= span + top + 1) {
-      break;
-    }
-  }
-  rows = lane_h / px;
-  top = (top_px + px - 1) / px;
-  rows = rows < 1 ? 1 : (rows > 128 ? 128 : rows);
-  const int free_rows = rows - span;
-  int t = top;
-  if (free_rows - top - 1 > 0) {
-    t += (free_rows - top - 1) / 2;
-  }
-  int b = free_rows - t;
-  b = b < 0 ? 0 : b;
-  int lo = lowest - b;
-  lo = lo < 0 ? 0 : lo;
-  if (lo + rows - 1 > 127) {
-    lo = 128 - rows;
-  }
-  w.lo = lo;
-  w.rows = rows;
-  w.px = px;
-  return w;
-}
-
 PitchWindow range_window(int lowest, int highest, int lane_h, int pad) noexcept {
   PitchWindow w;
   if (highest < lowest) {
@@ -212,6 +213,82 @@ void pattern_name(unsigned index, char* out, unsigned cap) noexcept {
   out[1] = static_cast<char>('0' + (i % 12u + 1u) / 10u);
   out[2] = static_cast<char>('0' + (i % 12u + 1u) % 10u);
   out[3] = '\0';
+}
+
+// ---- The drawer's rows ------------------------------------------------------------------------------------------------------
+
+const char* gate_name(unsigned index) noexcept {
+  static constexpr const char* kNames[seq::kGateListCount] = {"REST", "NOTE", "ACC", "SLD", "ACC+SLD", "TIE"};
+  return kNames[index < seq::kGateListCount ? index : seq::kGateListCount - 1u];
+}
+
+const char* gate_glyph(unsigned index) noexcept {
+  static constexpr const char* kGlyphs[seq::kGateListCount] = {".", "-", "A", "S", "AS", "~"};
+  return kGlyphs[index < seq::kGateListCount ? index : seq::kGateListCount - 1u];
+}
+
+unsigned plays_text(std::uint8_t flags, std::uint8_t cond, char* out, unsigned cap) noexcept {
+  if (out == nullptr || cap == 0u) {
+    return 0;
+  }
+  out[0] = '\0';
+  if (cond != kCondAlways && cond_valid(cond)) {  // a step with both (old data) shows the condition (D8)
+    char text[12];
+    (void)cond_text(cond, text, sizeof text);
+    append(out, cap, text);
+  } else {
+    append(out, cap, "x");
+    append_uint(out, cap, ratchet_hits(flags));
+  }
+  return text_length(out, cap);
+}
+
+unsigned step_text(const Pattern& p, unsigned step, char* out, unsigned cap) noexcept {
+  if (out == nullptr || cap == 0u) {
+    return 0;
+  }
+  out[0] = '\0';
+  const unsigned len = p.length != 0u ? p.length : kDefaultLength;
+  const unsigned s = step < len ? step : len - 1u;
+  const Step& st = p.steps[s];
+  append(out, cap, "STEP ");
+  append_uint(out, cap, s + 1u);
+  append(out, cap, ": ");
+  const StepInfo info = describe(p, s);
+  if (info.kind == Cell::Note) {
+    char name[8];
+    (void)note_name(info.note, name, sizeof name);
+    append(out, cap, name);
+    if (info.accent) {
+      append(out, cap, " ACC");
+    }
+    if ((st.flags & kStepSlide) != 0u) {
+      append(out, cap, " SLD");
+    }
+  } else {
+    append(out, cap, info.kind == Cell::Tie ? "TIE" : "REST");
+  }
+  const bool has_cond = st.cond != kCondAlways && cond_valid(st.cond);
+  if (has_cond || (info.kind == Cell::Note && ratchet_hits(st.flags) > 1u)) {
+    char plays[12];
+    (void)plays_text(st.flags, st.cond, plays, sizeof plays);
+    append(out, cap, " ");
+    append(out, cap, plays);
+  }
+  return text_length(out, cap);
+}
+
+std::uint8_t step_lock_point(const Pattern& p, unsigned lane, unsigned step) noexcept {
+  if (lane >= kMotionLanes || step >= kMaxSteps) {
+    return kNoLock;
+  }
+  for (unsigned q = 0; q < kMotionPointsPerStep; ++q) {
+    const std::uint8_t v = p.motion[lane][step * kMotionPointsPerStep + q];
+    if (v != kNoLock) {
+      return v;
+    }
+  }
+  return kNoLock;
 }
 
 }  // namespace o3_303

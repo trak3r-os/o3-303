@@ -60,15 +60,18 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // The beat freeze's Length from PERFORM SETUP (F5, FRZ LEN): Perform twice, and Pattern back to the 303 screen. The encoder walks 1/4, 1/8, 1/16 and
-  // stops at the ends.
+  // PERFORM, where Note / Instr / Vol / Fx are the live actions (on the 303 screen they are the drawer's rows). From the 303 screen.
+  void to_perform() { tap(Button::Performance); }
+  // The beat freeze's Length from PERFORM SETUP (F5, FRZ LEN): from the 303 screen Perform twice, and once more for PERFORM. The encoder walks 1/4, 1/8,
+  // 1/16 and stops at the ends.
   void choose_length(Freeze::LengthValue v) {
+    tap(Button::Pattern);
     tap(Button::Performance);
     tap(Button::Performance);
     tap(Button::F5);
     turn(-3);
     turn(static_cast<int>(v));
-    tap(Button::Pattern);
+    tap(Button::Performance);
   }
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }
   std::size_t frames() const { return h->audio().size() / 2u; }
@@ -86,6 +89,7 @@ struct Run {
 Run play_run(bool freeze, unsigned hold_ms = 900, Freeze::LengthValue length = Freeze::Eighth) {
   Hands t;
   t.h->record(true);
+  t.to_perform();
   if (length != Freeze::Eighth) {
     t.choose_length(length);
   }
@@ -160,8 +164,9 @@ TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the f
   CHECK(others == 0.0f);
 }
 
-TEST_CASE("freeze: off at boot with the unit's defaults; Fx is FREEZE: held = on, Shift + tap latches; the Song key does nothing now") {
+TEST_CASE("freeze: off at boot with the unit's defaults; Fx is FREEZE on PERFORM: held = on, Shift + tap latches; the Song key does nothing now") {
   Hands t;
+  t.to_perform();
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   CHECK(t.param(kFreeze, Freeze::Length) == 1.0f);  // 1/8 of a bar
   CHECK(t.param(kFreeze, Freeze::Mix) == 1.0f);
@@ -231,6 +236,7 @@ TEST_CASE("freeze: the Length is 1/4 or 1/16 of a bar after the PERF page's FRZ 
 TEST_CASE("freeze: a tempo change while frozen leaves the loop; the next entry takes the new tempo") {
   Hands t;
   t.h->record(true);
+  t.to_perform();
   t.tap(Button::Play);
   t.wait(1500);
   const std::size_t n0 = t.frames();

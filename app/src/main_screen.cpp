@@ -334,6 +334,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       }
       enc_latch_ = EncLatch::None;  // the encoder is the page's again (Master's tap had it on TEMPO or SWING)
       if (random_open_ || on_snap_page()) {  // the popup's keys and the snapshots are not the pages' latches
+        home_.release_row();  // but the encoder is theirs (the setting, the morph), not a drawer row's
         tool_mask_ |= 1u << k;
         if (random_open_) {
           random_press(ctx, k);
@@ -341,6 +342,9 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
           snap_press(ctx, k, false);
         }
         return;
+      }
+      if (fkeys().page().entry[k].item != Item::Blank) {
+        home_.release_row();  // an F key gives the encoder back to the knob (UX-303 2.3); an empty box does nothing
       }
       (void)fkeys().input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
@@ -356,7 +360,11 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   if (in.which() == Button::Pattern && in.type == Input::Type::Release && home_.pattern_tap()) {
     setup_toggle(ctx);  // a tap on the screen's own button: HOME and PATTERN SETUP
   }
-  if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons, Pattern
+  if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows), Pattern
+    if (home_.row() != DrawerRow::None) {  // a row has the encoder: it is not Master's latch nor the popup's
+      enc_latch_ = EncLatch::None;
+      random_open_ = false;
+    }
     return;
   }
 
@@ -380,6 +388,9 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
         }
         if (was_snap && !on_snap_page()) {
           live_->snap_finish(ctx, true);
+        }
+        if (on_snap_page()) {
+          home_.release_row();  // the SNAP page's encoder is the morph
         }
       }
       ctx.redraw();
@@ -437,11 +448,13 @@ void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_.le
 
 // ---- Drawing ----------------------------------------------------------------------------------------------------------------
 
-// What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): the F key latched (or held), a latch of Master, the popup's setting, the morph.
+// What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): a row of the drawer, the F key latched (or held), a latch of Master, the popup's setting, the morph.
 void MainScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
   if (master_down_) {
     append(out, cap, "TEMPO NUDGE");
+  } else if (home_.row() != DrawerRow::None) {
+    home_.row_text(ctx, out, cap);
   } else if (enc_latch_ != EncLatch::None) {
     append(out, cap, enc_latch_ == EncLatch::Tempo ? "TEMPO" : "SWING");
   } else if (random_open_) {
@@ -614,7 +627,7 @@ void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area
     if (kn.blank) {
       continue;
     }
-    kn.focus = enc_latch_ == EncLatch::None && k == fk.focus();
+    kn.focus = enc_latch_ == EncLatch::None && (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus();
     kn.held = (fk.held() >> k & 1u) != 0u;
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];
@@ -794,9 +807,9 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
     win_lo_ = lo < win_lo_ ? lo : win_lo_;
     win_hi_ = hi > win_hi_ ? hi : win_hi_;
 
-    view::Marks m = home_.drawer(false);
+    view::Marks m = home_.drawer(ctx);
     const Rect hero{area.x, hero_y, area.w, kHeroH - (setup_ ? kGenH : 0)};
-    m.window = range_window(win_lo_, win_hi_, view::lane_height(hero.h, false));
+    m.window = range_window(win_lo_, win_hi_, view::lane_height(hero.h));
     view::draw_steps(r, hero, p, m);
     if (pattern_is_empty(p)) {
       const char* a = "EMPTY PATTERN";

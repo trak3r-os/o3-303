@@ -232,8 +232,17 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
   const int y_numbers = area.y + kDrawerY;
   const int y_note = y_numbers + 14;
   const int y_gate = y_note + kCellRowH + 2;
-  r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_note, kCellRowH), "NOTE", Color::TextDim, Face::Label);
-  r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_gate, kCellRowH), "GATE", Color::TextDim, Face::Label);
+  // The caption of the row the encoder owns is highlighted (a colour button latched it).
+  const bool note_owned = view.marks.row == DrawerRow::Note;
+  const bool gate_owned = view.marks.row == DrawerRow::Gate;
+  if (note_owned) {
+    r.panel(Rect{area.x + 4, y_note, view::kGridX - 8, kCellRowH}, Color::Sel);
+  }
+  if (gate_owned) {
+    r.panel(Rect{area.x + 4, y_gate, view::kGridX - 8, kCellRowH}, Color::Sel);
+  }
+  r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_note, kCellRowH), "NOTE", note_owned ? Color::SelText : Color::TextDim, Face::Label);
+  r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_gate, kCellRowH), "GATE", gate_owned ? Color::SelText : Color::TextDim, Face::Label);
   const auto cell_x = [&](unsigned k) { return area.x + view::kGridX + static_cast<int>(k) * view::kCellW; };
   const auto mark = [&](unsigned k) -> int {  // 0 plain, 1 cursor, 2 playhead
     const int step = view.marks.page * 16 + static_cast<int>(k);
@@ -369,11 +378,13 @@ void InstrumentScreen::release_keys() noexcept {
 
 void InstrumentScreen::open_first_page() noexcept {
   release_keys();  // a key held across the change would stay held in the keys it was pressed on
+  home_->release_row();
   page_ = kInstVoice;
 }
 
 void InstrumentScreen::next_page() noexcept {
   release_keys();
+  home_->release_row();  // the page has its own knobs: the encoder is the knob's again
   page_ = (page_ + 1u) % kInstrumentPageCount;
 }
 
@@ -439,6 +450,9 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
         ctx.redraw();
         return;
       }
+      if (keys().page().entry[k].item != Item::Blank) {
+        home_->release_row();  // an F key gives the encoder back to the knob (UX-303 2.3); an empty box does nothing
+      }
       (void)keys().input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
       if ((tool_mask_ >> k & 1u) != 0u) {
@@ -449,7 +463,7 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
     }
     return;
   }
-  (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, Rec, the colour buttons
+  (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows)
 }
 
 // ---- Soft keys and LEDs -----------------------------------------------------------------------------------------------------
@@ -464,9 +478,13 @@ void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { ho
 
 // ---- The view -----------------------------------------------------------------------------------------------------------------
 
-// "F1 CUTOFF": the key the encoder drives.
+// "F1 CUTOFF": the key the encoder drives, or the row of the drawer a colour button latched ("GATE", "LOCK CUTOFF").
 void InstrumentScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
+  if (home_->row() != DrawerRow::None) {
+    home_->row_text(ctx, out, cap);
+    return;
+  }
   const PageKeys& pk = keys();
   char fk[4] = {'F', static_cast<char>('1' + pk.focus()), ' ', '\0'};
   append(out, cap, fk);
@@ -486,7 +504,7 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     if (kn.blank) {
       continue;
     }
-    kn.focus = k == pk.focus();
+    kn.focus = k == pk.focus() && (home_->row() == DrawerRow::None || home_->row() == DrawerRow::Lock);
     kn.held = (pk.held() >> k & 1u) != 0u;
     if (home_->lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       apply_lock(view, kn, home_->lock_step(), home_->lock_text(), home_->lock_norm());
@@ -496,7 +514,7 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   fill_sections(e, *controls_, live_->wobble_on(), page_, view);
 
   const seq::Bank& bank = *rig_->bank;
-  view.marks = home_->drawer(false);
+  view.marks = home_->drawer(ctx);
   fill_cells(bank.pattern(bank.selected()), static_cast<unsigned>(view.marks.page) * 16u, view);
 }
 

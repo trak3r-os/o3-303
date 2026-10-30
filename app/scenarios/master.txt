@@ -1,0 +1,54 @@
+# MASTER (docs/UX-303.md 5.6): the tempo large, the nudge, the clock, the master's peaks as two meters; F1 TEMPO latched on entry, F2 TAP, F3 NUDGE (hold + turn),
+# F4 MASTER; the pads are HOME's; the colour buttons do nothing here. Choices made here: CPU % is left off (D19: the kit's header strip already shows it); the meters
+# are on a -48 dB .. 0 dB scale with a peak tick that falls slowly.
+wait 300
+tap master
+wait 100
+snap 01_opened_stopped
+# The encoder is on TEMPO: turn.
+turn 10
+wait 100
+snap 02_tempo_up
+# TAP: four taps 500 ms apart make 120 BPM; the box counts them and the tick shows in the readout.
+tap f2 30
+wait 470
+tap f2 30
+wait 470
+tap f2 30
+wait 470
+tap f2 30
+wait 200
+snap 03_tapped_120
+# F3 NUDGE: hold + turn; the readout is amber while it is not zero, the box F3 shows it.
+press f3
+turn 3
+wait 200
+snap 04_nudge_f3_held
+release f3
+wait 100
+# F4 MASTER takes the encoder: the level.
+tap f4
+turn -6
+wait 100
+snap 05_master_level
+# Play: the meters move with the factory line.
+tap f1
+tap play
+wait 1500
+snap 06_playing_meters
+wait 400
+snap 07_playing_meters_later
+tap play
+wait 2500
+snap 08_stopped_peaks_falling
+# The pads are HOME's: a step pad toggles its step, the PADS line is HOME's.
+paddown 30
+wait 50
+snap 09_a_pad_held
+padup 30
+# Master pressed again on MASTER puts the encoder back on TEMPO; the colour buttons do nothing.
+tap master
+press note
+wait 100
+snap 10_colour_button_does_nothing
+release note

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The four assignable performance buttons (docs/M3B-PLAN.md C4): Note, Instr, Vol and Fx each take one of MUTE, ACC ALL, SLIDE ALL, OCT UP,
 // FILL, THROW, FREEZE (the PERF page); the defaults are MUTE, ACC ALL, FILL, FREEZE; held is momentary, Shift latches. The actions reach the
-// sequencer's flags, the delay send, the live transpose and the beat freeze.
+// sequencer's flags, the delay send, the live transpose and the beat freeze. They are PERFORM's: on HOME, SETUP and INSTRUMENT the same buttons are
+// the drawer's rows (tests/home_rows_test.cpp).
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -26,6 +27,7 @@ float freeze_active(Hands& t) { return t.param(kFreeze, Freeze::Active); }
 
 TEST_CASE("the defaults: Note is MUTE, Instr ACC ALL, Vol FILL and Fx FREEZE, each while held") {
   Hands t;
+  t.to_perform();
   o3_303::seq::Sequencer& s = app_sequencer();
   CHECK(s.perf() == 0);
   CHECK(freeze_active(t) == 0.0f);
@@ -69,6 +71,7 @@ TEST_CASE("the defaults: Note is MUTE, Instr ACC ALL, Vol FILL and Fx FREEZE, ea
 
 TEST_CASE("Shift + the button latches its action, Shift + it again lets go, and the button's own release does not undo it") {
   Hands t;
+  t.to_perform();
   o3_303::seq::Sequencer& s = app_sequencer();
   t.shift_tap(Button::Vol);
   CHECK(s.fill_held());
@@ -92,7 +95,7 @@ TEST_CASE("an assignment on the PERF page gives a button another action; all sev
   o3_303::seq::Sequencer& s = app_sequencer();
   // Vol = SLIDE ALL, Fx = THROW: the two the defaults left.
   t.assign_perf(Button::Vol, PerfAction::SlideAll);
-  t.assign_perf(Button::Fx, PerfAction::Throw);
+  t.assign_perf(Button::Fx, PerfAction::Throw, true);
   t.press(Button::Vol);
   CHECK(s.perf() == o3_303::seq::kPerfSlideAll);
   CHECK_FALSE(s.fill_held());
@@ -106,7 +109,7 @@ TEST_CASE("an assignment on the PERF page gives a button another action; all sev
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.3f));
   // Note = FREEZE, Instr = FILL: any action on any button.
   t.assign_perf(Button::Note, PerfAction::Freeze);
-  t.assign_perf(Button::Instr, PerfAction::Fill);
+  t.assign_perf(Button::Instr, PerfAction::Fill, true);
   t.press(Button::Note);
   CHECK(freeze_active(t) == 1.0f);
   CHECK(s.perf() == 0);
@@ -116,7 +119,7 @@ TEST_CASE("an assignment on the PERF page gives a button another action; all sev
   t.release(Button::Instr);
   CHECK(s.perf() == 0);
   // Back to the defaults by the same page.
-  t.assign_perf(Button::Note, PerfAction::Mute);
+  t.assign_perf(Button::Note, PerfAction::Mute, true);
   t.press(Button::Note);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
   t.release(Button::Note);
@@ -125,14 +128,16 @@ TEST_CASE("an assignment on the PERF page gives a button another action; all sev
 TEST_CASE("OCT UP is an octave on the running pattern while it is on, on top of the keyboard's transposition") {
   Hands t;
   o3_303::seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Instr, PerfAction::OctUp);
+  t.assign_perf(Button::Instr, PerfAction::OctUp, true);
   CHECK(s.live_transpose() == 0);
   t.press(Button::Instr);
   CHECK(s.live_transpose() == 12);
   t.release(Button::Instr);
   CHECK(s.live_transpose() == 0);
-  // Latched while the keyboard transposes (TRNSP on): 7 + 12.
+  // Latched while the keyboard transposes (TRNSP on, HOME's pad; PERFORM's row 4 is the keyboard here): 7 + 12.
+  t.to_home();
   t.toggle_trnsp();
+  t.to_perform();
   t.tap(Button::Play);
   t.wait(200);
   t.shift_tap(Button::Instr);
@@ -155,7 +160,7 @@ TEST_CASE("OCT UP is an octave on the running pattern while it is on, on top of 
 TEST_CASE("two buttons with one action: it is on while either is; a button reassigned loses its latch; a held one takes the new action") {
   Hands t;
   o3_303::seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Instr, PerfAction::Mute);  // Note and Instr are both MUTE
+  t.assign_perf(Button::Instr, PerfAction::Mute, true);  // Note and Instr are both MUTE
   t.press(Button::Note);
   t.press(Button::Instr);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
@@ -167,7 +172,7 @@ TEST_CASE("two buttons with one action: it is on while either is; a button reass
   // A latched MUTE on Note, then Note is reassigned to FREEZE: the latch is gone, nothing is muted or frozen under the hand.
   t.shift_tap(Button::Note);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
-  t.assign_perf(Button::Note, PerfAction::Freeze);
+  t.assign_perf(Button::Note, PerfAction::Freeze, true);
   t.wait(50);
   CHECK(s.perf() == 0);
   CHECK(freeze_active(t) == 0.0f);
@@ -182,22 +187,23 @@ TEST_CASE("two buttons with one action: it is on while either is; a button reass
   CHECK(s.perf() == 0);
 }
 
-TEST_CASE("leaving the 303 screen lets go of the held buttons and keeps the latches") {
+TEST_CASE("leaving PERFORM lets go of the held buttons and keeps the latches") {
   Hands t;
+  t.to_perform();
   o3_303::seq::Sequencer& s = app_sequencer();
   t.shift_tap(Button::Note);  // MUTE latched
   t.press(Button::Vol);       // FILL held
   t.press(Button::Fx);        // FREEZE held
   CHECK(s.fill_held());
   CHECK(freeze_active(t) == 1.0f);
-  t.tap(Button::File);
-  CHECK(std::strcmp(t.title(), "VAULT") == 0);
+  t.tap(Button::Params);  // INSTRUMENT
+  CHECK(std::strcmp(t.title(), "INSTRUMENT VOICE") == 0);
   t.wait(10);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
   CHECK(freeze_active(t) == 0.0f);
   t.release(Button::Vol);
   t.release(Button::Fx);
-  t.tap(Button::Pattern);
+  t.to_perform();
   CHECK(s.perf() == o3_303::seq::kPerfMute);
   t.shift_tap(Button::Note);
   CHECK(s.perf() == 0);
@@ -212,6 +218,7 @@ TEST_CASE("the Song key does nothing (M3b's provisional freeze key is gone), and
   t.assign_perf(Button::Fx, PerfAction::OctUp);  // leave a non-default assignment behind for the next run
   Hands again;
   CHECK(again.h->runtime().context().screen() != nullptr);
+  again.to_perform();
   again.press(Button::Fx);
   CHECK(freeze_active(again) == 1.0f);  // Fx is FREEZE again: setup() resets the app's wiring
   again.release(Button::Fx);

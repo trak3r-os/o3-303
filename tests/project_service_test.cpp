@@ -6,6 +6,8 @@
 // the one project::encode() makes.
 #include <doctest/doctest.h>
 
+#include "../app/src/frame.h"
+#include "../app/src/main_screen.h"
 #include "../app/src/project.h"
 #include "../app/src/project_service.h"
 
@@ -750,24 +752,422 @@ TEST_CASE("project service: an edit while the image is being built is saved by t
   check_image(s.read("UNTITLED/live.o3a"), true);
 }
 
-TEST_CASE("project service: Shift + File saves everywhere but on the vault, where it still loads the slot") {
+TEST_CASE("project service: Shift + File saves from every screen, the library included") {
   Session s;
   s.run(500);
-  const auto* home = s.h->runtime().context().screen();
-  s.h->press(Button::File);  // the vault
+  s.h->press(Button::File);  // FILE PROJECTS
   s.h->run_ms(2);
   s.h->release(Button::File);
   s.h->run_ms(20);
-  const auto* vault = s.h->runtime().context().screen();
-  REQUIRE(vault != home);
-  const std::uint32_t seq = app_project().info().notice_seq;
-  s.shift_file();  // on the vault: the vault's own File, not SAVE
-  s.run(300);
-  CHECK(s.h->runtime().context().screen() == home);  // it loaded the slot and went back
-  CHECK(app_project().info().notice_seq == seq);
-  CHECK_FALSE(s.has("UNTITLED/project.o3a"));
-  CHECK(app_project().saves() == 0u);
-  s.shift_file();  // on HOME: SAVE
+  const auto* projects = s.h->runtime().context().screen();
+  s.h->press(Button::File);  // FILE LIBRARY
+  s.h->run_ms(2);
+  s.h->release(Button::File);
+  s.h->run_ms(20);
+  const auto* library = s.h->runtime().context().screen();
+  REQUIRE(library != projects);
+  s.shift_file();  // on the library: SAVE, not a load and not a screen change
   s.settle();
+  CHECK(s.h->runtime().context().screen() == library);
+  CHECK(std::string(app_project().info().notice) == "SAVED");
   CHECK(s.has("UNTITLED/project.o3a"));
+  CHECK(app_project().saves() == 1u);
+}
+
+// ---- F3's review: the names, the order of a pending SAVE, the newest file, SAVING ----------------------------------------------------------------------------
+
+namespace {
+
+// The save counter of HEAD in a file of the card.
+std::uint32_t count_of(const Session& s, const std::string& rel) {
+  const Bytes b = s.read(rel);
+  project::ProjectState st;
+  REQUIRE(project::decode(b.data(), b.size(), st).status == project::Status::Ok);
+  return st.save_count;
+}
+
+// The list the screen keeps, read now (no screen needed).
+void read_list(Session& s) {
+  app_project().want_list(true);
+  app_project().refresh_list();
+  s.run(300);
+  s.settle();
+}
+
+}  // namespace
+
+TEST_CASE("project service: boot takes the newest of live.o3a and project.o3a by the save counter, whatever the file names say") {
+  Session s;
+  s.run(500);
+  edit_note(0, 3);
+  s.run(2'500);
+  s.settle();
+  REQUIRE(app_project().saves() == 1u);
+  const Bytes old_live = s.read("UNTITLED/live.o3a");  // an autosave: counter 1
+  edit_note(0, 4);
+  const unsigned saved_note = bank().pattern(0).steps[4].note;
+  s.shift_file();
+  s.settle();
+  const std::uint32_t c_live = count_of(s, "UNTITLED/live.o3a");
+  CHECK(c_live > count_of(s, "UNTITLED/live.o3a") - 1u);
+  CHECK(count_of(s, "UNTITLED/project.o3a") == c_live);  // both files of one SAVE are the same write
+
+  // A reset inside the window of an autosave write that was in flight when SAVE waited: live.o3a is the older one, project.o3a the SAVE's.
+  s.write("UNTITLED/live.o3a", old_live);
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(app_project().has_project());
+  CHECK(bank().pattern(0).steps[4].note == saved_note);  // the newer file, not the one that is called live
+  CHECK(app_project().boot_reads() == 3u);               // project.o3a, live.o3a, and the newer one read again
+  // The counter goes on from what was loaded: the next write is newer than both files.
+  edit_note(0, 5);
+  s.run(2'500);
+  s.settle();
+  CHECK(count_of(s, "UNTITLED/live.o3a") > c_live);
+
+  // live.o3a gone altogether (the kit's .bak is read for it) or damaged: the other file, as before.
+  fs::remove(s.path("UNTITLED/live.o3a"));
+  fs::remove(s.path("UNTITLED/live.o3a.bak"));
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(app_project().has_project());
+  CHECK(bank().pattern(0).steps[4].note == saved_note);
+}
+
+TEST_CASE("project service: the common boot reads two files and no more (project.o3a, then live.o3a, which wins a tie and a newer counter)") {
+  Session s;
+  s.run(500);
+  edit_note(0, 2);
+  s.shift_file();  // both files, the same image
+  s.settle();
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(app_project().has_project());
+  CHECK(app_project().boot_reads() == 2u);
+  edit_note(0, 3);
+  s.run(2'500);  // an autosave: live.o3a is newer than project.o3a
+  s.settle();
+  const unsigned note = bank().pattern(0).steps[3].note;
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(bank().pattern(0).steps[3].note == note);
+  CHECK(app_project().boot_reads() == 2u);  // the last one read is the newest: no re-read
+}
+
+TEST_CASE("project service: the newest file read again that fails the second time is no project, never a loop, and nothing is written over") {
+  Session s;
+  s.run(500);
+  edit_note(0, 3);
+  s.run(2'500);
+  s.settle();
+  const Bytes old_live = s.read("UNTITLED/live.o3a");
+  edit_note(0, 4);
+  s.shift_file();
+  s.settle();
+  s.write("UNTITLED/live.o3a", old_live);  // live.o3a older than project.o3a: the boot will read project.o3a again
+  Bytes proj = s.read("UNTITLED/project.o3a");
+  REQUIRE(s.h->reboot());
+  // Spoil project.o3a while live.o3a is being read: the second read of the winner finds it damaged.
+  bool spoiled = false;
+  for (unsigned i = 0; i < 2'000 && !spoiled; ++i) {
+    s.h->run_ms(1);
+    if (app_project().boot_reads() == 2u) {
+      Bytes bad = proj;
+      bad[bad.size() / 2] ^= 0x55u;
+      s.write("UNTITLED/project.o3a", bad);
+      spoiled = true;
+    }
+  }
+  REQUIRE(spoiled);
+  s.run(1'000);
+  s.settle();
+  CHECK(app_project().boot_reads() == 3u);  // one re-read, not more
+  CHECK_FALSE(app_project().has_project());
+  CHECK(std::string(app_project().info().notice) == "CARD READ FAILED: AUTOSAVE OFF");
+  edit_note(0, 5);
+  s.run(3'000);
+  CHECK(app_project().saves() == 0u);  // nothing was written over
+  CHECK(s.read("UNTITLED/live.o3a") == old_live);
+}
+
+TEST_CASE("project service: a tie between live.o3a and project.o3a is live.o3a (a SAVE writes the same image to both)") {
+  Session s;
+  s.run(500);
+  edit_note(0, 2);
+  s.shift_file();
+  s.settle();
+  const unsigned note = bank().pattern(0).steps[2].note;
+  REQUIRE(count_of(s, "UNTITLED/live.o3a") == count_of(s, "UNTITLED/project.o3a"));
+  // project.o3a made a different, equally counted image: the boot takes live.o3a.
+  Bytes proj = s.read("UNTITLED/project.o3a");
+  s.write("UNTITLED/project.o3a", proj);
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(bank().pattern(0).steps[2].note == note);
+}
+
+TEST_CASE("project service: SAVING from the press until both files are written, also while an autosave in flight makes the SAVE wait") {
+  Session s;
+  s.run(500);
+  edit_note(0, 1);
+  for (unsigned i = 0; i < 3'000 && app_project().phase() != ProjectService::Phase::Encoding; ++i) {
+    s.h->run_ms(1);
+  }
+  REQUIRE(app_project().phase() == ProjectService::Phase::Encoding);  // the autosave is on
+  CHECK_FALSE(app_project().saving_explicit());
+  app_project().save();  // Shift + File: the SAVE waits for the autosave
+  CHECK(app_project().saving_explicit());
+  unsigned polled = 0;
+  for (unsigned i = 0; i < 4'000 && !(s.has("UNTITLED/project.o3a") && app_project().idle() && !s.files().busy()); ++i) {
+    s.h->run_ms(1);
+    if (!s.has("UNTITLED/project.o3a")) {
+      ++polled;
+      CHECK(app_project().saving_explicit());  // no moment of the wait or the write says nothing
+      CHECK(app_project().info().saving);
+    }
+  }
+  CHECK(polled > 10u);
+  s.settle();
+  CHECK_FALSE(app_project().saving_explicit());
+  CHECK(std::string(app_project().info().notice) == "SAVED");
+  check_image(s.read("UNTITLED/project.o3a"), true);
+}
+
+TEST_CASE("project service: a SAVE AS that waits keeps its name when Shift + File comes after it, and a LOAD asked after it is refused") {
+  Session s;
+  s.run(500);
+  REQUIRE(app_project().save_as("xx"));
+  app_project().save();  // Shift + File in the same breath: still the SAVE AS
+  CHECK_FALSE(app_project().load("xx"));  // a request behind a pending save is BUSY
+  CHECK(std::string(app_project().info().notice) == "BUSY");
+  s.settle();
+  CHECK(std::string(app_project().name()) == "xx");
+  CHECK(s.has("xx/project.o3a"));
+  CHECK_FALSE(s.has("UNTITLED"));
+  CHECK(s.text("last.txt") == "xx\n");
+}
+
+TEST_CASE("project service: a project list that was cut refuses every name it cannot see (nothing is overwritten past the cut)") {
+  Session s;
+  s.run(500);
+  for (unsigned i = 0; i < 50; ++i) {
+    char name[8];
+    std::snprintf(name, sizeof name, "p%02u", i);
+    fs::create_directories(s.path(name));
+  }
+  read_list(s);
+  REQUIRE(app_project().list_valid());
+  CHECK(app_project().list_truncated());
+  CHECK(app_project().projects() == 48u);
+  CHECK_FALSE(app_project().save_as("p49"));  // beyond the 48 the list holds
+  CHECK(std::string(app_project().info().notice) == "TOO MANY PROJECTS");
+  CHECK_FALSE(app_project().new_project("p49"));
+  CHECK(std::string(app_project().info().notice) == "TOO MANY PROJECTS");
+  CHECK_FALSE(app_project().save_as("p01"));  // one that is on it
+  CHECK(std::string(app_project().info().notice) == "NAME TAKEN");
+  CHECK_FALSE(app_project().new_project("brandnew"));  // free as far as can be seen: not known to be
+  CHECK(std::string(app_project().info().notice) == "TOO MANY PROJECTS");
+  s.run(500);
+  s.settle();
+  CHECK_FALSE(s.has("p49/live.o3a"));
+  CHECK_FALSE(s.has("brandnew"));
+  CHECK(app_project().idle());
+}
+
+TEST_CASE("project service: NEW under the name a flush just gave the session is refused, and the flushed work is not wiped") {
+  Session s;
+  s.run(500);
+  REQUIRE(app_project().save_as("keep"));
+  s.settle();
+  s.h->card_out();
+  s.run(1'500);
+  s.h->card_in();
+  s.run(300);
+  REQUIRE_FALSE(app_project().has_project());  // the card may be another one
+  edit_note(0, 5);
+  const Pattern edited = bank().pattern(0);
+  read_list(s);
+  REQUIRE(app_project().list_valid());
+  CHECK(app_project().new_project("UNTITLED"));  // free by the list ...
+  s.settle();
+  // ... but the flush saves the session as the first free UNTITLED, which is that name.
+  CHECK(std::string(app_project().info().notice) == "NAME TAKEN");
+  CHECK(std::string(app_project().name()) == "UNTITLED");
+  CHECK(std::memcmp(&bank().pattern(0), &edited, sizeof edited) == 0);  // not replaced by the factory line
+  project::ProjectState st;
+  const Bytes saved = s.read("UNTITLED/live.o3a");
+  REQUIRE(project::decode(saved.data(), saved.size(), st).status == project::Status::Ok);
+  CHECK(std::memcmp(st.pats, &edited, sizeof edited) == 0);  // and on the card
+}
+
+TEST_CASE("project service: NEW under the name of a project deleted before is refused before the session is wiped; from an earlier session it says so after") {
+  Session s;
+  s.run(500);
+  REQUIRE(app_project().save_as("one"));
+  s.settle();
+  REQUIRE(app_project().save_as("two"));
+  s.settle();
+  read_list(s);
+  REQUIRE(app_project().remove("one"));
+  s.settle();
+  CHECK(std::string(app_project().info().notice) == "DELETED");
+  CHECK(s.has("one/.deleted"));
+  edit_note(0, 6);
+  const Pattern edited = bank().pattern(0);
+  CHECK_FALSE(app_project().new_project("one"));  // this session deleted it: said before anything is wiped
+  CHECK(std::string(app_project().info().notice) == "NAME USED BEFORE: PICK ANOTHER");
+  CHECK_FALSE(app_project().save_as("one"));
+  CHECK(std::memcmp(&bank().pattern(0), &edited, sizeof edited) == 0);
+  CHECK(std::string(app_project().name()) == "two");
+
+  // A folder deleted in an earlier session cannot be known: the write says so (and the old project is on the card, flushed).
+  s.run(1'500);
+  s.settle();
+  const Bytes deleted_live = s.read("one/live.o3a");
+  REQUIRE(s.h->reboot());
+  s.run(600);
+  s.settle();
+  read_list(s);
+  CHECK(std::string(app_project().name()) == "two");
+  CHECK(app_project().new_project("one"));
+  s.settle();
+  CHECK(std::string(app_project().info().notice) == "NAME USED BEFORE: PICK ANOTHER");
+  CHECK_FALSE(app_project().has_project());  // the session is the new project, with no project on the card: SAVE takes a free name
+  CHECK(s.read("one/live.o3a") == deleted_live);  // the deleted project's files were not touched
+}
+
+namespace {
+
+// What the status line of the screen that is up shows as its toast.
+std::string home_toast(Session& s) {
+  auto* main = static_cast<MainScreen*>(s.h->runtime().context().screen());
+  frame::StatusView v;
+  main->home_map().status(v);
+  return v.toast;
+}
+
+}  // namespace
+
+TEST_CASE("project service: Shift + File always gets an answer on the screen: the reason at once with no card or a card that cannot be written, SAVING then SAVED otherwise") {
+  {
+    Session s(false);
+    s.run(300);
+    REQUIRE(std::string(s.h->runtime().context().screen()->title()) == "STEPS");
+    s.shift_file();
+    s.run(30);
+    CHECK(std::string(app_project().info().notice) == "NO CARD");
+    CHECK(home_toast(s) == "NO CARD");
+    CHECK(s.files().stats().jobs == 0u);  // and no file call was made for it
+  }
+  {
+    Session s;
+    s.run(300);
+    s.h->card_protect(true);
+    s.run(100);
+    s.shift_file();
+    s.run(30);
+    CHECK(std::string(app_project().info().notice) == "CARD WRITE PROTECTED");
+    CHECK(home_toast(s) == "CARD WRITE PROTECTED");
+    s.h->card_protect(false);
+    s.run(100);
+  }
+  {
+    Session s;
+    s.run(300);
+    edit_note(0, 1);
+    s.shift_file();
+    s.run(5);
+    CHECK(home_toast(s) == "SAVING");
+    s.settle();
+    s.run(30);
+    CHECK(home_toast(s) == "SAVED");
+  }
+}
+
+// U3 found, once in four, a project that came back at LEN 16 after a SAVE on INSTRUMENT with the pattern at LEN 64 (a length change, an UNDO, a play session
+// with an autosave in it). The sequence here: LEN 64 saved, LEN 32, an autosave encode that has run `k` passes when the UNDO lands, SAVE `j` ms later (from HOME or
+// from INSTRUMENT), the settle, a reboot: the length that comes back is the one on the screen.
+namespace {
+
+void tap_params(Session& s) {
+  s.h->press(Button::Params);
+  s.h->run_ms(2);
+  s.h->release(Button::Params);
+  s.h->run_ms(20);
+}
+
+unsigned g_mid_encode = 0;  // trials whose UNDO landed while the image was being built
+unsigned g_mid_write = 0;   // ... while it was being written
+
+void length_trial(Session& s, unsigned k, unsigned j, bool from_instrument, bool playing) {
+  (void)bank().resize(0, 16);
+  REQUIRE(bank().resize(0, 64));
+  bank().clear_history();
+  s.run(1'500);
+  s.settle();  // LEN 64 is on the card
+  if (playing) {  // the transport runs through the length change, the UNDO, the autosave and the SAVE
+    (void)s.h->engine().play();
+    s.run(200);
+  }
+  REQUIRE(bank().resize(0, 32));
+  // Let the autosave encode begin, and run `k` ms of it.
+  for (unsigned i = 0; i < 3'000 && app_project().phase() != ProjectService::Phase::Encoding; ++i) {
+    s.h->run_ms(1);
+  }
+  s.run(k);
+  g_mid_encode += app_project().phase() == ProjectService::Phase::Encoding ? 1u : 0u;
+  g_mid_write += app_project().phase() == ProjectService::Phase::Writing ? 1u : 0u;
+  REQUIRE(bank().undo() == 0);  // back to 64
+  REQUIRE(bank().pattern(0).length == 64);
+  s.run(j);
+  if (playing) {
+    s.run(300 + 7 * k);  // a play session in which another autosave may run
+  }
+  if (from_instrument) {
+    tap_params(s);
+  }
+  s.shift_file();
+  s.settle();
+  s.run(1'500);  // whatever autosave was pending
+  s.settle();
+  REQUIRE(bank().pattern(0).length == 64);
+  for (const char* file : {"UNTITLED/live.o3a", "UNTITLED/project.o3a"}) {  // both files of the SAVE hold the 64
+    const Bytes image = s.read(file);
+    project::ProjectState st;
+    REQUIRE(project::decode(image.data(), image.size(), st).status == project::Status::Ok);
+    Pattern p0;
+    std::memcpy(&p0, st.pats, sizeof p0);
+    INFO(file << " k=" << k << " j=" << j << " instrument=" << from_instrument << " playing=" << playing);
+    CHECK(p0.length == 64);
+  }
+  (void)s.h->engine().stop();
+  s.run(50);
+  REQUIRE(s.h->reboot());
+  s.run(600);
+  s.settle();
+  INFO("k=" << k << " j=" << j << " instrument=" << from_instrument << " playing=" << playing);
+  CHECK(bank().pattern(0).length == 64);
+}
+
+}  // namespace
+
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3)") {
+  Session s(true, 1'000);
+  s.run(500);
+  for (const bool instrument : {false, true}) {
+    for (const bool playing : {false, true}) {
+      for (const unsigned k : {0u, 1u, 3u, 8u, 40u}) {
+        for (const unsigned j : {0u, 2u, 15u}) {
+          length_trial(s, k, j, instrument, playing);
+        }
+      }
+    }
+  }
+  CHECK(g_mid_encode >= 10u);  // the trials did land inside the staged encode
+  CHECK(g_mid_write >= 3u);    // and inside the write
 }

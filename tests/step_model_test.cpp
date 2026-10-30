@@ -143,44 +143,6 @@ TEST_CASE("step model: pattern_is_empty, pitch_range and motion questions") {
   CHECK_FALSE(step_has_motion(p, 2, kMaxSteps));
 }
 
-TEST_CASE("step model: the pitch window holds the notes with a margin for the name above and a row below") {
-  const int lane_h = 216;
-  for (int lowest = 0; lowest <= 100; lowest += 7) {
-    for (int span = 0; span <= 36; span += 3) {
-      const int highest = lowest + span;
-      if (highest > 127) {
-        continue;
-      }
-      const PitchWindow w = fit_window(lowest, highest, lane_h);
-      CHECK(w.px >= 5);
-      CHECK(w.px <= 16);
-      CHECK(w.rows * w.px <= lane_h);
-      CHECK(w.lo >= 0);
-      CHECK(w.hi() <= 127);
-      if (span <= 24) {  // the notes fit with the room at 5 px a row
-        CHECK(w.lo <= lowest);
-        CHECK(w.hi() >= highest);
-        const int top_rows = (18 + w.px - 1) / w.px;
-        if (highest + top_rows <= 127 && lowest - 1 >= 0) {
-          CHECK(w.hi() >= highest + top_rows);  // the name of the highest note has its room
-          CHECK(w.lo <= lowest - 1);            // one row below the lowest
-        }
-      }
-    }
-  }
-}
-
-TEST_CASE("step model: a narrow line gets the tallest rows, a wide one smaller rows") {
-  const PitchWindow narrow = fit_window(40, 44, 216);
-  CHECK(narrow.px == 16);
-  const PitchWindow wide = fit_window(24, 60, 216);
-  CHECK(wide.px < narrow.px);
-  CHECK(wide.px >= 5);
-  const PitchWindow swapped = fit_window(44, 40, 216);
-  CHECK(swapped.px == narrow.px);
-  CHECK(swapped.lo == narrow.lo);
-}
-
 TEST_CASE("step model: the step view's window is the real range and three semitones each side (S1)") {
   const int lane_h = 202;
   // A narrow line: 11 rows of the tallest size, centred, exactly the range +-3.
@@ -259,4 +221,76 @@ TEST_CASE("step model: note and pattern names") {
   CHECK(std::strcmp(p, "D12") == 0);
   pattern_name(500, p, sizeof p);  // past the project: the last one
   CHECK(std::strcmp(p, "D12") == 0);
+}
+
+TEST_CASE("step model: the GATE row's names and glyphs follow the list, past the end the last") {
+  static constexpr const char* kNames[] = {"REST", "NOTE", "ACC", "SLD", "ACC+SLD", "TIE"};
+  static constexpr const char* kGlyphs[] = {".", "-", "A", "S", "AS", "~"};
+  for (unsigned i = 0; i < 6; ++i) {
+    CHECK(std::strcmp(gate_name(i), kNames[i]) == 0);
+    CHECK(std::strcmp(gate_glyph(i), kGlyphs[i]) == 0);
+  }
+  CHECK(std::strcmp(gate_name(99), "TIE") == 0);
+  CHECK(std::strcmp(gate_glyph(99), "~") == 0);
+}
+
+TEST_CASE("step model: the PLAYS row shows the condition, else the ratchet, a stray value as itself") {
+  char t[16];
+  CHECK(plays_text(0, kCondAlways, t, sizeof t) == 2);
+  CHECK(std::strcmp(t, "x1") == 0);
+  (void)plays_text(with_ratchet(0, 3), kCondAlways, t, sizeof t);
+  CHECK(std::strcmp(t, "x4") == 0);
+  (void)plays_text(0, 50, t, sizeof t);
+  CHECK(std::strcmp(t, "50%") == 0);
+  (void)plays_text(0, cond_ratio(1, 2), t, sizeof t);
+  CHECK(std::strcmp(t, "1:2") == 0);
+  (void)plays_text(0, kCondNotFill, t, sizeof t);
+  CHECK(std::strcmp(t, "!FILL") == 0);
+  // Both (old data): the condition. A probability off the list and an A:B off it are shown as themselves; a reserved byte plays as always.
+  (void)plays_text(with_ratchet(0, 2), kCondFirst, t, sizeof t);
+  CHECK(std::strcmp(t, "FIRST") == 0);
+  (void)plays_text(0, 33, t, sizeof t);
+  CHECK(std::strcmp(t, "33%") == 0);
+  (void)plays_text(0, cond_ratio(3, 8), t, sizeof t);
+  CHECK(std::strcmp(t, "3:8") == 0);
+  (void)plays_text(with_ratchet(0, 1), 0xC9, t, sizeof t);
+  CHECK(std::strcmp(t, "x2") == 0);
+  CHECK(plays_text(0, kCondAlways, nullptr, 0) == 0);
+}
+
+TEST_CASE("step model: the STEP box shows the step whole: note, accent, slide, ratchet and condition, or a rest or a tie") {
+  Pattern p = rests(16);
+  char t[48];
+  note(p, 4, 39, kStepAccent | kStepSlide);  // D#2
+  p.steps[4].flags = with_ratchet(p.steps[4].flags, 1);
+  CHECK(step_text(p, 4, t, sizeof t) == std::strlen("STEP 5: D#2 ACC SLD x2"));
+  CHECK(std::strcmp(t, "STEP 5: D#2 ACC SLD x2") == 0);
+  p.steps[4].cond = cond_ratio(1, 2);  // a condition shows instead of the ratchet
+  (void)step_text(p, 4, t, sizeof t);
+  CHECK(std::strcmp(t, "STEP 5: D#2 ACC SLD 1:2") == 0);
+  note(p, 5, 36);
+  (void)step_text(p, 5, t, sizeof t);
+  CHECK(std::strcmp(t, "STEP 6: C2") == 0);  // x1 is not said
+  p.steps[6].flags = kStepTie;
+  (void)step_text(p, 6, t, sizeof t);
+  CHECK(std::strcmp(t, "STEP 7: TIE") == 0);
+  (void)step_text(p, 7, t, sizeof t);
+  CHECK(std::strcmp(t, "STEP 8: REST") == 0);
+  (void)step_text(p, 90, t, sizeof t);  // past the length: the last step
+  CHECK(std::strcmp(t, "STEP 16: REST") == 0);
+  char tiny[6];
+  (void)step_text(p, 4, tiny, sizeof tiny);  // cut, still terminated
+  CHECK(std::strlen(tiny) == 5);
+}
+
+TEST_CASE("step model: a step's lock is the first of its four points that has one") {
+  Pattern p = rests(16);
+  clear(p);
+  CHECK(step_lock_point(p, 1, 3) == kNoLock);
+  p.motion[1][3 * kMotionPointsPerStep + 2] = 77;
+  CHECK(step_lock_point(p, 1, 3) == 77);
+  p.motion[1][3 * kMotionPointsPerStep + 0] = 5;
+  CHECK(step_lock_point(p, 1, 3) == 5);
+  CHECK(step_lock_point(p, kMotionLanes, 3) == kNoLock);
+  CHECK(step_lock_point(p, 1, kMaxSteps) == kNoLock);
 }

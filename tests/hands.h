@@ -19,6 +19,7 @@
 #include "../app/src/instrument_screen.h"
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 
 namespace hands {
@@ -115,8 +116,12 @@ struct Hands {
   // The RANDOM popup (Shift + F1), and the key that sets its three settings up.
   void random_popup() { shift_tap(Button::F1); }
   // A performance button's action, set on PERFORM SETUP (F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions: down to the first,
-  // then up). Starts from the 303 screen and ends on it.
-  void assign_perf(Button which, o3_303::PerfAction action) {
+  // then up). From any screen; it ends on the 303 screen, or on PERFORM with `stay`, where the four buttons are the live actions (on the 303 screen they
+  // are the drawer's rows).
+  void assign_perf(Button which, o3_303::PerfAction action, bool stay = false) {
+    if (std::strncmp(title(), "PERFORM", 7) == 0) {
+      to_home();
+    }
     to_perform();
     tap(Button::Performance);  // PERFORM SETUP
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
@@ -124,7 +129,11 @@ struct Hands {
     if (action != o3_303::PerfAction::Mute) {
       turn(static_cast<int>(action));
     }
-    to_home();
+    if (stay) {
+      tap(Button::Performance);
+    } else {
+      to_home();
+    }
   }
 };
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The drawing of a pattern: the step view (the hero of the 303 screen) and its piano-roll form, the motion lane under them, the
-// pattern grid and the small helpers they share. Pure drawing: a function of a Pattern and a few marks, no state, no engine. The
+// The drawing of a pattern: the step view (the hero of the 303 screen, the drawer of UX-303 5.1: the NOTE lane and the GATE, PLAYS and LOCK rows), the
+// motion lane under it, the pattern grid and the small helpers they share. Pure drawing: a function of a Pattern and a few marks, no state, no engine. The
 // geometry is fixed on the 800 x 480 panel: 16 columns of kCellW pixels to the right of a gutter, so a page of 16 steps is the 16 step
 // pads (DESIGN-303 section 5).
 
@@ -22,8 +22,9 @@ inline constexpr int kCellW = 46;     // one step
 inline constexpr int kGridX = kGutterW;
 inline constexpr int kGridW = kCellW * 16;
 inline constexpr int kNumbersH = 18;  // the row of step numbers
-inline constexpr int kFlagRowH = 11;  // one of the flag rows (ACC, SLD, TIE, and R/C: the ratchet and the trig condition)
-inline constexpr int kFlagRows = 4;
+inline constexpr int kRowH = 14;      // one of the drawer's rows under the NOTE lane: GATE, PLAYS, LOCK
+inline constexpr int kRows = 3;
+inline constexpr unsigned kLockChars = 8;  // a lock's text in its cell (with the terminator)
 inline constexpr int kMotionH = 46;   // the motion lane with its caption
 inline constexpr int kPointW = kCellW / 4;
 
@@ -36,15 +37,16 @@ struct Marks {
   std::uint32_t held = 0;       // bit k: step pad k of the page is held
   std::uint32_t emphasis = 0;   // bit k: step k of the page is outlined (a held modifier's steps, motion steps)
   int focus = -1;               // global step whose ratchet and condition the RATCHET / COND keys edit (Wiring::step_focus), -1: none marked
-  bool roll = false;            // the piano-roll form
+  DrawerRow row = DrawerRow::None;  // the row the encoder owns: its caption is highlighted
+  char lock[16][kLockChars] = {};   // the LOCK row: the latched knob's lock on each step of the page ("" none), as the home map formats them
   PitchWindow window;
 };
 
-// The height the pitch lane gets inside a hero area of height `h` (the step view keeps room for the flag rows).
-int lane_height(int h, bool roll) noexcept;
+// The height the pitch lane gets inside a hero area of height `h` (the step view keeps room for the three rows).
+int lane_height(int h) noexcept;
 
-// The hero inside `area`: the step numbers, the pitch lane with its gutter, the flag rows (not in the roll). A ratchet is the bar in its hits, a
-// condition and the ratchet's number are on the R/C row.
+// The hero inside `area`: the step numbers, the NOTE lane with its gutter, and the GATE (one glyph a step), PLAYS (the ratchet or the condition) and
+// LOCK rows under it. A ratchet is also the bar in its hits. The caption of the row `m.row` is highlighted.
 void draw_steps(ui::Renderer& r, const ui::Rect& area, const Pattern& p, const Marks& m) noexcept;
 
 // The lane of motion points of `lane` under the same 16 columns. `knob_norm` (0..1) is where the knob stands, drawn as a guide;

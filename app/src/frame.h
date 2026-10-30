@@ -23,6 +23,7 @@ inline constexpr int kPadsLineH = view::kKnobTabsH;  // the PADS line takes the 
 // The status line: the encoder's owner, the keyboard's mode and octave, REC, a chip for each live action that is on, a toast, a failed autosave.
 struct StatusView {
   char enc[32] = "";          // what follows "ENC > ": "F1 CUTOFF", "MORPH 1>2 50%"
+  bool keys = true;           // false: no KEYS / TRNSP chip and no octave (a screen whose pads are not a keyboard: FILE)
   bool trnsp = false;         // the keyboard transposes the pattern (TRNSP), else it plays the voice (KEYS)
   int octave = 0;             // the keyboard's octave shift: 0 is "OCT 2-3"
   bool rec = false;           // write / record mode is on

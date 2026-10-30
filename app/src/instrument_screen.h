@@ -6,12 +6,13 @@
 //   VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
 //   MODS    VOWEL FMT Q GRL MIX CMB MIX (the growl), WOB RATE SHAPE DEPTH TARGET (the wobble)
-//   MORE    until MASTER (M1), PATTERN SETUP (H2) and PLAYS (H3) exist: TEMPO MASTER LENGTH GATE TRANSP FILL RATCHET COND
+//   MORE    until PERFORM SETUP (P2) takes FILL, and MASTER, SETUP and PLAYS (H3) exist already: TEMPO MASTER LENGTH GATE TRANSP FILL RATCHET COND
 //   DEEP    until Config DEEP (C1): FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE, which no other page has
 //
 // The eight knobs of the page are drawn large, the sections of the other pages as read-outs, and under them the two lines of the drawer (NOTE and
-// GATE) of the pattern's page of 16 steps. The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons are the home map's (home_map.h),
-// the very one HOME has (one cursor, one keyboard, one Rec): this screen forwards them and draws what it reads. The Shift row is empty until C1
+// GATE) of the pattern's page of 16 steps. The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons (Note, Instr, Vol, Fx: the drawer rows NOTE, GATE,
+// PLAYS and LOCK on the encoder; their captions here are NOTE and GATE, the ENC text names the other two) are the home map's (home_map.h), the very one HOME has (one
+// cursor, one keyboard, one Rec): this screen forwards them and draws what it reads. The Shift row is empty until C1
 // (MIDI learn).
 //
 // The view logic is apart from the drawing: InstrumentScreen::fill_view() makes an InstrumentView from the state with the free functions below (fill_cells(),

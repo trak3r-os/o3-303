@@ -71,6 +71,9 @@ void MainScreen::snap_turn(app::Context& ctx, int detents, bool coarse) noexcept
 void MainScreen::random_toggle(app::Context& ctx) noexcept {
   random_open_ = !random_open_;
   enc_latch_ = EncLatch::None;  // the encoder is the popup's
+  if (random_open_) {
+    home_.release_row();  // ... not a drawer row's: home_.turn() would take every turn while a row is latched
+  }
   ctx.redraw();
 }
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The home map (docs/UX-303.md 6.2 and 2.2): what the 48 pads, the arrows, Copy / Insert / Delete, Rec and the four colour buttons do to the
-// pattern on screen, and what the screen asks of it to draw. Every home-map screen (HOME and PATTERN SETUP, the two pages of MainScreen; INSTRUMENT; MASTER and RECORD later)
+// The home map (docs/UX-303.md 6.2, 2.2 and 2.3): what the 48 pads, the arrows, Copy / Insert / Delete, Rec and the four colour buttons (Note, Instr, Vol, Fx:
+// they latch the NOTE, GATE, PLAYS and LOCK rows of the drawer on the encoder) do to the pattern on screen, and what the screen asks of it to draw. Every home-map screen (HOME and PATTERN SETUP, the two pages of MainScreen; INSTRUMENT; MASTER and RECORD later)
 // forwards its input here, so the pads mean the same on all of them.
 //
 //   row 1   steps 1-8           ACC SLIDE TIE REST
@@ -13,7 +13,7 @@
 // It holds the pattern cursor and the step page, what is held (step pads, the four modifiers, Pattern), the keyboard's octave and Rec, the lane the
 // drawer shows and the toast; the pattern itself is the Bank's, the sound knobs and the keyboard's transposition are Controls' and LiveActions'.
 // The screen owns the encoder's owner (the F keys, a latch of Master), so it passes the latched knob in: turn() takes a turn that is a step's
-// (a held step), and gives back the others.
+// (a held step, or a drawer row latched: Note, Instr, Vol, Fx), and gives back the others. An F key gives the encoder back to the knob (release_row()).
 //
 // The view logic (pads_line_text(), the drawer's marks, the STEP box, the status) is apart from the drawing, which is the screen's (frame.h,
 // step_view.h). Main loop only.
@@ -36,7 +36,8 @@ namespace o3_303 {
 
 inline constexpr std::uint64_t kHoldMs = 300;  // a press shorter than this is a tap; Pattern held this long: the 48 pads are the patterns
 
-// The toast when a lock or a recorded turn finds all eight lanes in use (UX-303 D2). Until H3 no gesture removes one lock, so it names CLEAR LOCKS alone.
+// The toast when a lock or a recorded turn finds all eight lanes in use (UX-303 D2). A lane is free once its last lock is gone; the toast names the
+// way out that is always there (SETUP's CLEAR LOCKS).
 inline constexpr const char* kLanesUsedToast = "8 LANES USED: CLEAR LOCKS (SETUP)";
 
 // What the PADS line says (UX-303 6.2, the state table): a plain value, so the text is a pure function of it.
@@ -49,7 +50,7 @@ struct PadsLineState {
   int octave = 0;           // the keyboard's octave shift (the keys' range is C2-B3 at 0)
   unsigned step_held = 0;   // the first held step, 1-based; 0 none
   PadRole attribute = PadRole::None;  // the attribute pad held (Acc, Slide, Tie, Rest), None when none is
-  const char* turn = "";    // what a turn does on a held step ("LOCK CUTOFF", "RATCHET"), "" the encoder's owner is not the step's
+  const char* turn = "";    // what a turn does on a held step ("LOCK CUTOFF", "RATCHET", "PLAYS"), "" the encoder's owner is not the step's
 };
 
 // The one sentence of the PADS line for `s` into `out` (cap bytes, terminated). The priorities: Pattern held, an attribute held, a step held, FILT,
@@ -64,27 +65,35 @@ class HomeMap {
   void enter(o3sdk::app::Context& ctx) noexcept;
   void leave(o3sdk::app::Context& ctx) noexcept;
 
-  // Pads, Note / Instr / Vol / Fx, Left / Right / Up / Down, Copy / Insert / Delete, Rec and Pattern. true when it took the event; a tap of
+  // Pads, Note / Instr / Vol / Fx (a tap latches the NOTE, GATE, PLAYS or LOCK row; Shift is the same, D22), Left / Right / Up / Down, Copy / Insert /
+  // Delete, Rec and Pattern. true when it took the event; a tap of
   // Pattern (a release that did not open the grid) is the screen's (it flips HOME and PATTERN SETUP), so it answers false. Copy / Insert / Delete with
   // Pattern held do nothing but say where those went (PATTERN SETUP's COPY PAT, DUP>NEXT, CLEAR LOCKS, UX-303 5.2).
   bool input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
-  // The encoder moved by `detents` (`coarse`: Shift) with `knob` as its owner. true when it is a step's: a held step takes the turn, as the
-  // ratchet or the condition of the held steps when `knob` is that entry, as the parameter lock of `knob` (its lane claimed) when a lane can drive it.
-  // false: the owner has it (the screen applies it, then calls turned()).
+  // The encoder moved by `detents` (`coarse`: Shift) with `knob` as its owner. true when it is a step's: a latched row takes the turn (on the held
+  // steps, else the cursor's: NOTE the semitone, Shift the octave; GATE the list; PLAYS the list, Shift four places; LOCK the lock of the lock knob,
+  // Shift coarse), and so does a held step: as the ratchet or the condition of the held steps when `knob` is that entry, as the parameter lock of
+  // `knob` (its lane claimed) when a lane can drive it. false: the owner has it (the screen applies it, then calls turned()).
   bool turn(o3sdk::app::Context& ctx, int detents, bool coarse, const Entry& knob) noexcept;
   // The screen applied a turn to `knob`: Rec while the pattern plays writes the new value as motion under the playhead (the lane claimed first).
   void turned(o3sdk::app::Context& ctx, const Entry& knob) noexcept;
-  // `knob` is the one the encoder owns now (an F key latched it, a page or a pattern changed under it): the lane the drawer shows follows it.
+  // `knob` is the one the encoder owns now (an F key latched it, a page or a pattern changed under it): the lane the drawer shows follows it, and it is
+  // the LOCK row's knob when a lane can drive it (SETUP's knobs cannot: the LOCK row keeps the last sound knob).
   void knob_latched(const Entry& knob) noexcept;
+  // The encoder goes back to the knob (an F key was tapped, the page changed).
+  void release_row() noexcept { row_ = DrawerRow::None; }
+  DrawerRow row() const noexcept { return row_; }
+  // What the encoder moves while a row owns it, for the ENC text: "NOTE", "GATE", "PLAYS", "LOCK CUTOFF".
+  void row_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   // Every pass of the main loop while the screen is shown (and from the app's, while another is): the pattern being played is followed,
   // Pattern held long enough opens the grid, the lock readout and the toast expire.
   void update(o3sdk::app::Context& ctx) noexcept;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept;
 
   // ---- What the screen reads, to draw
-  // The drawer: the marks of the step view for the page shown (the pitch window and the geometry are the screen's).
-  view::Marks drawer(bool roll) const noexcept;
-  // The STEP box: the held step, else the cursor's, whole: "STEP 5: D#2 ACC SLD x2 CUTOFF 420Hz" (the lock of the latched knob when it has one).
+  // The drawer: the marks of the step view for the page shown, with the LOCK row's texts (the pitch window and the geometry are the screen's).
+  view::Marks drawer(o3sdk::app::Context& ctx) const noexcept;
+  // The STEP box: the held step, else the cursor's, whole: "STEP 5: D#2 ACC SLD x2 CUTOFF 420Hz" (the lock of the LOCK row's knob when it has one).
   unsigned step_box(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   // The status line, but for the encoder's text (the screen's): the keyboard's mode and octave, Rec, the actions that are on, the toast.
   void status(frame::StatusView& out) const noexcept;
@@ -147,7 +156,16 @@ class HomeMap {
   void toggle_flag_on_held_or_cursor(o3sdk::app::Context& ctx, std::uint8_t flag) noexcept;
   void step_entry_turn(o3sdk::app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept;
   bool lock_turn(o3sdk::app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept;
-  void ratchet_step(o3sdk::app::Context& ctx, int direction) noexcept;
+  // The steps a row edits: the held ones, else the cursor's (into `out`, the count).
+  unsigned row_steps(unsigned (&out)[kPageSteps]) noexcept;
+  void row_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
+  void latch_row(o3sdk::app::Context& ctx, DrawerRow row) noexcept;
+  // The lock of `entry` on `steps`, each moved `detents` from where it stands ("--" below the minimum removes it). NoTarget: no lane can drive the entry;
+  // LanesFull: all eight are in use (the toast is up).
+  enum class LockResult : std::uint8_t { Done, NoTarget, LanesFull };
+  LockResult lock_steps(o3sdk::app::Context& ctx, const Entry& entry, const unsigned* steps, unsigned count, int detents, bool coarse) noexcept;
+  // `entry`'s lock `point` as the text of a LOCK cell or the STEP box: the value and its unit, "420Hz".
+  void lock_value_text(o3sdk::app::Context& ctx, const Entry& entry, std::uint8_t point, char* out, unsigned cap) const noexcept;
   void rotate_layers(o3sdk::app::Context& ctx, int direction) noexcept;
   void copy_buttons(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
   void arrow(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
@@ -183,6 +201,8 @@ class HomeMap {
   unsigned lane_ = 0;
   bool on_lane_ = false;
   Entry knob_;  // the knob the encoder owns (knob_latched)
+  Entry lock_knob_;  // the knob the LOCK row edits: knob_ when a lane can drive it, else the last such knob (CUTOFF at boot)
+  DrawerRow row_ = DrawerRow::None;  // the row the encoder owns (a colour button latched it), None: the knob has it
 
   // What is held.
   int held_step_[kPageSteps] = {};   // the global step a held step pad k selected, -1 when up

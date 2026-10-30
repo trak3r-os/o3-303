@@ -1,11 +1,11 @@
-# Performance (DESIGN-303 section 4): Note / Instr / Vol / Fx are MUTE, ACC ALL, SLIDE ALL and DELAY THROW while held (Shift + the button
-# latches); with TRNSP on the keyboard transposes the running pattern, with it off (the default) it plays the voice; Shift + Play taps the tempo; CONFIG opens the kit's system screen (DISPLAY changes the theme).
+# Performance (DESIGN-303 section 4): on PERFORM, Note / Instr / Vol / Fx are MUTE, ACC ALL, SLIDE ALL and DELAY THROW while held (Shift + the button
+# latches; on HOME they are the drawer's rows); with TRNSP on (HOME's pad) the keyboard transposes the running pattern (PERFORM's row 4 here), with it off (the default)
+# it plays the voice; Shift + Master taps the tempo; CONFIG opens the kit's system screen (DISPLAY changes the theme).
 # Choices made here: CONFIG, then the encoder in DISPLAY, cycles the theme (amiga, black, white) (the kit's system screen); MUTE is the sequencer's (no new notes), DELAY THROW opens
 # send A to unity for as long as it is held or latched.
 # Since M3b (docs/M3B-PLAN.md C4) the four buttons are assignable and Vol and Fx default to FILL and FREEZE; this scenario shows SLIDE ALL and
 # DELAY THROW, so it first gives them to Vol and Fx on PERFORM SETUP (Perform twice; F3 and F4 are Vol and Fx; the
-# encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE) and comes back to the 303 screen with F1 latched, as it began; the wait makes
-# the 300 ms the scenario always started with, so that its pictures are the ones of before; the TRNSP pad (22) is turned on inside that wait.
+# encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE), turns TRNSP on (pad 22) on the 303 screen, and comes to PERFORM for the buttons.
 tap performance 5
 tap performance 5
 tap f3 5
@@ -16,7 +16,8 @@ turn -8
 turn 5
 tap pattern 5
 pad 22
-wait 142
+tap performance 5
+wait 135
 tap play
 wait 700
 press note
@@ -51,6 +52,7 @@ wait 500
 snap 06_live_transpose_g
 pad 36
 wait 300
+tap pattern 5
 pad 22
 paddown 40
 wait 300
@@ -58,13 +60,13 @@ snap 07_keys_play_the_voice
 padup 40
 pad 22
 press shift
-tap play
+tap master
 wait 400
-tap play
+tap master
 wait 400
-tap play
+tap master
 wait 400
-tap play
+tap master
 release shift
 wait 100
 snap 08_tap_tempo

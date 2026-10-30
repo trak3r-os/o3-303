@@ -41,6 +41,9 @@ struct Rig {
   // INSTRUMENT VOICE and HOME later (UX-303 D3). Main loop only.
   PageKeys sound_keys;
   ProjectInfo project;  // the project service's state (project_service.h)
+  // The tempo (milli-BPM) a tempo nudge started from, while one is on or its restore is pending, else 0 (MasterScreen writes it, main loop only): the engine holds the
+  // nudged tempo then, and a project saved meanwhile (project.cpp gather()) stores this one.
+  std::uint32_t tempo_base_mbpm = 0;
 };
 
 // What a vault load takes from a preset.

@@ -5,7 +5,8 @@
 // the project service (F2) moves the image to and from the card. A chunk file (o3sdk/formats/chunk_file.h) of FORM type "303P", every chunk's
 // payload starting with a u16 version (major high byte, minor low), all 1.0 here, then the CRC chunk:
 //
-//   HEAD  selected pattern u8, tempo u32 (milli-BPM), flags u8 (bit 0: the scale lock is set), name char[16]
+//   HEAD  selected pattern u8, tempo u32 (milli-BPM), flags u8 (bit 0: the scale lock is set), name char[16], then (HEAD 1.1) the save counter u32: it counts the
+//         writes of one project (the service's), so that boot and LOAD take the newest of live.o3a, its .bak and project.o3a; a 1.0 file has none and reads as 0
 //   GEN   the generator's settings, seven u8 (seq::GenParams in order)
 //   PATS  count u8 (48), bytes a pattern u16 (sizeof(Pattern) = 2,260), then the patterns byte for byte in struct order
 //   SND   n u16; n entries of {target u8, 0 u8, id u16, value f32}: the units' parameters by id (targets 1 voice, 2 distortion, 3 delay, 5 growl,
@@ -44,7 +45,8 @@ inline constexpr std::size_t kProjectBytes = 128u * 1024u;  // the one image buf
 inline constexpr unsigned kNameChars = 16;                  // with the terminating NUL (a valid_name is at most 15)
 inline constexpr unsigned kMaxSound = 128;                  // SND entries a ProjectState holds (about 40 are in use)
 
-inline constexpr std::uint16_t kVersion = 0x0100;  // every chunk's version: major 1, minor 0
+inline constexpr std::uint16_t kVersion = 0x0100;      // every chunk's version: major 1, minor 0
+inline constexpr std::uint16_t kHeadVersion = 0x0101;  // HEAD's: minor 1 added the save counter
 inline constexpr unsigned kMajor = 1;
 inline constexpr char kSongId[5] = "SONG";  // SG1 adds the chunk and SG2 reads it; until then it is skipped
 
@@ -80,6 +82,7 @@ struct ProjectState {
   std::uint32_t tempo_mbpm = 125'000;
   bool scale_set = false;
   char name[kNameChars] = {};  // informational; gather() leaves it alone: the service owns the name
+  std::uint32_t save_count = 0;  // HEAD 1.1: the write this image is (the service sets it before an encode; gather() leaves it alone; a 1.0 file reads 0). small_crc() ignores it
   // GEN
   seq::GenParams gen;
   // SND

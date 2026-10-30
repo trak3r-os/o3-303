@@ -63,6 +63,10 @@ void append_uint(char* out, unsigned cap, unsigned v) noexcept {
   append(out, cap, num);
 }
 
+// The coalescing byte a gesture over `count` steps gives every one of its Bank edits: one value for all, so the turns are one undo step (Bank::kJoinOwn: a single
+// step keeps its own, as the keys do).
+unsigned join_of(const unsigned* steps, unsigned count) noexcept { return count > 1u ? 0x80u | (steps[0] & 0x3Fu) : seq::Bank::kJoinOwn; }
+
 int wrap(int v, int n) noexcept { return n > 0 ? ((v % n) + n) % n : 0; }
 
 // "C2-B3": the keyboard's two octaves at shift `octave` (C2 is the bottom left pad at 0).
@@ -148,6 +152,8 @@ void HomeMap::init(Rig& rig) noexcept {
   lane_ = 0;
   on_lane_ = false;
   knob_ = Entry{};
+  lock_knob_ = Entry{Item::Voice, static_cast<std::uint16_t>(AcidVoice::Cutoff), nullptr};
+  row_ = DrawerRow::None;
   for (unsigned k = 0; k < kPageSteps; ++k) {
     held_step_[k] = -1;
     step_used_[k] = false;
@@ -184,6 +190,7 @@ void HomeMap::enter(app::Context& ctx) noexcept {
   }
   pattern_down_ = false;
   overlay_ = false;
+  row_ = DrawerRow::None;  // a screen shown again: the encoder is the knob's (the ENC text says so)
   refocus();
   ctx.redraw();
 }
@@ -328,6 +335,10 @@ int HomeMap::lane_of(const Entry& entry, const Pattern& p) const noexcept {
 
 void HomeMap::knob_latched(const Entry& knob) noexcept {
   knob_ = knob;
+  LaneRef ref{kLaneNone, 0};
+  if (controls_->lane_ref(knob, ref)) {
+    lock_knob_ = knob;
+  }
   const int lane = lane_of(knob, pat());
   on_lane_ = lane >= 0;
   if (on_lane_) {
@@ -650,17 +661,10 @@ void HomeMap::pad_input(app::Context& ctx, const Input& in) noexcept {
       }
       break;
     case PadRole::OctDown:
-    case PadRole::OctUp: {
-      const int d = role == PadRole::OctUp ? 1 : -1;
-      mod_down_[ri] = true;
-      if (any_step_held()) {  // hold a step + OCT+ / OCT-: the step's ratchet up or down (kept until the PLAYS row, UX-303 D24)
-        mark_held_used();
-        ratchet_step(ctx, d);
-      } else {
-        octave_ = clamp_octave(octave_ + d);
-      }
+    case PadRole::OctUp:
+      mod_down_[ri] = true;  // (held only for the LED; the ratchet gesture that was hold a step + OCT+ / OCT- is the PLAYS row's now, UX-303 D24)
+      octave_ = clamp_octave(octave_ + (role == PadRole::OctUp ? 1 : -1));
       break;
-    }
     case PadRole::Trnsp:
       live_->set_trnsp(!live_->trnsp());
       if (!live_->trnsp()) {
@@ -704,46 +708,219 @@ void HomeMap::step_entry_turn(app::Context& ctx, const Entry& entry, int detents
   toast(ctx, text);
 }
 
-// Hold a step + the encoder on an entry a lane can drive: a parameter lock on that step, its lane claimed first (D2: one undoable edit), scaled with
-// the target's own descriptor (a unit's parameter) or range (the mixer). false: no lane can drive the entry.
-bool HomeMap::lock_turn(app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept {
+// The lock of `entry` on each of `steps`, moved `detents` from where it stands (the knob's own value when the step has none), its lane claimed first
+// (D2: one undoable edit), scaled with the target's own descriptor (a unit's parameter) or range (the mixer). Turned below the minimum, a lock is removed
+// ("--"); a step with none stays without.
+HomeMap::LockResult HomeMap::lock_steps(app::Context& ctx, const Entry& entry, const unsigned* steps, unsigned count, int detents, bool coarse) noexcept {
   LaneRef ref{kLaneNone, 0};
   const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
   if (d == nullptr || !controls_->lane_ref(entry, ref)) {
+    return LockResult::NoTarget;
+  }
+  const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
+  const unsigned join = join_of(steps, count);
+  for (unsigned i = 0; i < count; ++i) {
+    const unsigned s = steps[i];
+    const int have = seq::find_lane(pat(), ref.target, ref.id);
+    const std::uint8_t cur = have >= 0 ? step_lock_point(pat(), static_cast<unsigned>(have), s) : kNoLock;
+    const float base = controls_->get(ctx.engine(), entry);
+    std::uint8_t pt = 0;
+    bool removed = false;
+    if (cur == kNoLock) {
+      const float v = core::param_step(*d, base, n);
+      if (n < 0 && v >= base) {  // the knob is at its minimum already: nothing below it to lock
+        continue;
+      }
+      pt = controls_->to_point(ctx.engine(), entry, v);
+    } else if (cur == 0u && n < 0) {  // below the minimum: no lock
+      removed = true;
+    } else {
+      pt = controls_->to_point(ctx.engine(), entry, core::param_step(*d, controls_->from_point(ctx.engine(), entry, cur), n));
+    }
+    if (removed) {
+      (void)rig_->bank->unlock_step(sel(), ref.target, ref.id, s, join);
+    } else {
+      const int lane = rig_->bank->lock_step(sel(), ref.target, ref.id, s, pt, join);
+      if (lane < 0) {  // all eight lanes are in use by other parameters (D2)
+        toast(ctx, kLanesUsedToast, true);
+        return LockResult::LanesFull;
+      }
+      lane_ = static_cast<unsigned>(lane);
+      on_lane_ = true;
+    }
+    lock_active_ = any_step_held();
+    lock_step_ = static_cast<int>(s);
+    lock_norm_ = removed ? 0.0f : static_cast<float>(pt) / 254.0f;
+    lock_text_[0] = '\0';
+    if (removed) {
+      append(lock_text_, sizeof lock_text_, "--");
+    } else {
+      lock_value_text(ctx, entry, pt, lock_text_, sizeof lock_text_);
+    }
+  }
+  ctx.redraw();
+  return LockResult::Done;
+}
+
+// Hold a step + the encoder on an entry a lane can drive: a parameter lock on each held step.
+bool HomeMap::lock_turn(app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept {
+  unsigned steps[kPageSteps];
+  unsigned count = 0;
+  for (int s : held_step_) {
+    if (s >= 0) {
+      steps[count++] = static_cast<unsigned>(s);
+    }
+  }
+  LaneRef ref{kLaneNone, 0};
+  if (!controls_->lane_ref(entry, ref)) {
     return false;
   }
   mark_held_used();
-  const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
-  for (unsigned k = 0; k < kPageSteps; ++k) {
-    if (held_step_[k] < 0) {
-      continue;
-    }
-    const unsigned s = static_cast<unsigned>(held_step_[k]);
-    const int have = seq::find_lane(pat(), ref.target, ref.id);
-    const std::uint8_t cur = have >= 0 ? pat().motion[have][s * kMotionPointsPerStep] : kNoLock;
-    const float v = cur == kNoLock ? controls_->get(ctx.engine(), entry) : controls_->from_point(ctx.engine(), entry, cur);
-    const std::uint8_t pt = controls_->to_point(ctx.engine(), entry, core::param_step(*d, v, n));
-    const int lane = rig_->bank->lock_step(sel(), ref.target, ref.id, s, pt);
-    if (lane < 0) {  // all eight lanes are in use by other parameters (D2)
-      toast(ctx, kLanesUsedToast, true);
-      return true;
-    }
-    lane_ = static_cast<unsigned>(lane);
-    on_lane_ = true;
-    lock_active_ = true;
-    lock_step_ = static_cast<int>(s);
-    lock_norm_ = static_cast<float>(pt) / 254.0f;
-    (void)core::param_format(*d, controls_->from_point(ctx.engine(), entry, pt), lock_text_, sizeof lock_text_);
-    char unit[8];
-    cut(d->unit_text, 3, unit, sizeof unit);
-    append(lock_text_, sizeof lock_text_, unit);
+  return lock_steps(ctx, entry, steps, count, detents, coarse) != LockResult::NoTarget;
+}
+
+// "420Hz": the value of motion point `point` of `entry` and the first three letters of its unit.
+void HomeMap::lock_value_text(app::Context& ctx, const Entry& entry, std::uint8_t point, char* out, unsigned cap) const noexcept {
+  out[0] = '\0';
+  const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
+  if (d == nullptr) {
+    return;
   }
+  char v[16];
+  (void)core::param_format(*d, controls_->from_point(ctx.engine(), entry, point), v, sizeof v);
+  append(out, cap, v);
+  char unit[8];
+  cut(d->unit_text, 3, unit, sizeof unit);
+  append(out, cap, unit);
+}
+
+// ---- The drawer rows (UX-303 2.3): what the colour buttons latch and what the encoder then walks ----------------------------------
+
+unsigned HomeMap::row_steps(unsigned (&out)[kPageSteps]) noexcept {
+  unsigned n = 0;
+  for (int s : held_step_) {
+    if (s >= 0) {
+      out[n++] = static_cast<unsigned>(s);
+    }
+  }
+  if (n == 0u) {
+    clamp_cursor();
+    out[n++] = static_cast<unsigned>(cursor_);
+  } else {
+    mark_held_used();  // the held steps took the turn: their release does not select
+  }
+  return n;
+}
+
+// A tap of Note / Instr / Vol / Fx: the encoder edits that row from now on, until an F key gives it back to the knob.
+void HomeMap::latch_row(app::Context& ctx, DrawerRow row) noexcept {
+  row_ = row;
   ctx.redraw();
-  return true;
+}
+
+void HomeMap::row_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
+  out[0] = '\0';
+  switch (row_) {
+    case DrawerRow::Note:
+      append(out, cap, "NOTE");
+      break;
+    case DrawerRow::Gate:
+      append(out, cap, "GATE");
+      break;
+    case DrawerRow::Plays:
+      append(out, cap, "PLAYS");
+      break;
+    case DrawerRow::Lock:
+      append(out, cap, "LOCK ");
+      append(out, cap, controls_->label(ctx.engine(), lock_knob_));
+      break;
+    case DrawerRow::None:
+      break;
+  }
+}
+
+void HomeMap::row_turn(app::Context& ctx, int detents, bool coarse) noexcept {
+  unsigned steps[kPageSteps];
+  const unsigned count = row_steps(steps);
+  const unsigned join = join_of(steps, count);
+  seq::Bank& bank = *rig_->bank;
+  char text[48] = "STEP ";
+  append_uint(text, sizeof text, steps[0] + 1u);
+  switch (row_) {
+    case DrawerRow::Note: {  // the semitone; Shift the octave
+      const int d = detents * (coarse ? 12 : 1);
+      const int low = static_cast<int>(kRowNoteLow);
+      const int high = static_cast<int>(kRowNoteHigh);
+      for (unsigned i = 0; i < count; ++i) {
+        const int was = pat().steps[steps[i]].note;
+        int n = was + d;
+        if (was < low) {  // outside C1..C5 a turn moves the note by its own amount, toward the range only (never into the other side of it)
+          n = d > 0 ? (n > high ? high : n) : was;
+        } else if (was > high) {
+          n = d < 0 ? (n < low ? low : n) : was;
+        } else {
+          n = n < low ? low : (n > high ? high : n);
+        }
+        (void)bank.set_note(sel(), steps[i], static_cast<unsigned>(n), join);
+      }
+      char name[8];
+      (void)note_name(pat().steps[steps[0]].note, name, sizeof name);
+      append(text, sizeof text, " NOTE ");
+      append(text, sizeof text, name);
+      break;
+    }
+    case DrawerRow::Gate:
+      for (unsigned i = 0; i < count; ++i) {
+        const int at = static_cast<int>(seq::gate_list_index(pat().steps[steps[i]].flags)) + detents;
+        const int top = static_cast<int>(seq::kGateListCount) - 1;
+        (void)bank.set_gate_list(sel(), steps[i], static_cast<unsigned>(at < 0 ? 0 : (at > top ? top : at)), join);
+      }
+      append(text, sizeof text, " GATE ");
+      append(text, sizeof text, gate_name(seq::gate_list_index(pat().steps[steps[0]].flags)));
+      break;
+    case DrawerRow::Plays:  // the list of D8, Shift four places
+      for (unsigned i = 0; i < count; ++i) {
+        const Step& st = pat().steps[steps[i]];
+        (void)bank.set_plays(sel(), steps[i], seq::plays_step(st.flags, st.cond, detents * (coarse ? 4 : 1)), join);
+      }
+      append(text, sizeof text, " PLAYS ");
+      {
+        char plays[12];
+        (void)plays_text(pat().steps[steps[0]].flags, pat().steps[steps[0]].cond, plays, sizeof plays);
+        append(text, sizeof text, plays);
+      }
+      break;
+    case DrawerRow::Lock:
+      if (lock_steps(ctx, lock_knob_, steps, count, detents, coarse) != LockResult::Done) {  // (the lanes-used toast is up)
+        return;
+      }
+      append(text, sizeof text, " LOCK ");
+      append(text, sizeof text, controls_->label(ctx.engine(), lock_knob_));
+      append(text, sizeof text, " ");
+      {
+        const int lane = lane_of(lock_knob_, pat());
+        const std::uint8_t pt = lane >= 0 ? step_lock_point(pat(), static_cast<unsigned>(lane), steps[0]) : kNoLock;
+        if (pt == kNoLock) {
+          append(text, sizeof text, "--");
+        } else {
+          char v[16];
+          lock_value_text(ctx, lock_knob_, pt, v, sizeof v);
+          append(text, sizeof text, v);
+        }
+      }
+      break;
+    case DrawerRow::None:
+      return;
+  }
+  toast(ctx, text);
 }
 
 bool HomeMap::turn(app::Context& ctx, int detents, bool coarse, const Entry& knob) noexcept {
   playing_ = ctx.engine().playing();
+  if (row_ != DrawerRow::None) {  // a colour button latched a row: it takes the turn, on the held steps or the cursor's
+    row_turn(ctx, detents, coarse);
+    return true;
+  }
   if (!any_step_held()) {
     return false;
   }
@@ -776,24 +953,6 @@ void HomeMap::turned(app::Context& ctx, const Entry& knob) noexcept {
 }
 
 // ---- Buttons ----------------------------------------------------------------------------------------------------------------
-
-// Hold a step + OCT+ / OCT-: the ratchet of every held step one up or down (x1 .. x4).
-void HomeMap::ratchet_step(app::Context& ctx, int direction) noexcept {
-  const Entry entry{Item::Ratchet, 0, nullptr};
-  for (int s : held_step_) {
-    if (s >= 0) {
-      controls_->step_at(ctx.engine(), entry, static_cast<unsigned>(s), direction, false);
-    }
-  }
-  sync_step_focus();
-  char text[24] = "STEP ";
-  append_uint(text, sizeof text, rig_->wiring.step_focus + 1u);
-  append(text, sizeof text, " RATCHET ");
-  char value[16];
-  (void)controls_->format(ctx.engine(), entry, value, sizeof value);
-  append(text, sizeof text, value);
-  toast(ctx, text);
-}
 
 // Hold ACC (or SLIDE) + left / right: that layer of the pattern alone moves one step (R3); the notes and everything else stay.
 void HomeMap::rotate_layers(app::Context& ctx, int direction) noexcept {
@@ -919,8 +1078,7 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
       case Button::Note:
       case Button::Instr:
       case Button::Vol:
-      case Button::Fx:
-        live_->button_release(ctx, static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note));
+      case Button::Fx:  // (a row is latched at the press; the live actions of these buttons are PERFORM's)
         break;
       case Button::Pattern:
         taken = pattern_down_;
@@ -948,10 +1106,16 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
         arrow(ctx, which, in.shift);
         break;
       case Button::Note:
+        latch_row(ctx, DrawerRow::Note);
+        break;
       case Button::Instr:
+        latch_row(ctx, DrawerRow::Gate);
+        break;
       case Button::Vol:
-      case Button::Fx:  // the four assignable performance buttons (C4)
-        live_->button_press(ctx, static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note), in.shift);
+        latch_row(ctx, DrawerRow::Plays);
+        break;
+      case Button::Fx:  // Shift + the button is the same as the button alone (D22): Shift matters for the turn
+        latch_row(ctx, DrawerRow::Lock);
         break;
       case Button::Copy:
       case Button::Insert:
@@ -1103,7 +1267,7 @@ void HomeMap::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
 
 // ---- What the screen reads --------------------------------------------------------------------------------------------------
 
-view::Marks HomeMap::drawer(bool roll) const noexcept {
+view::Marks HomeMap::drawer(app::Context& ctx) const noexcept {
   const seq::Playhead ph = rig_->seq->playhead();
   const Pattern& p = pat();
   const unsigned len = length();
@@ -1113,8 +1277,9 @@ view::Marks HomeMap::drawer(bool roll) const noexcept {
   m.playhead = ph.playing && ph.pattern == static_cast<int>(sel()) ? ph.step : -1;
   m.playpoint = ph.point;
   m.held = held_mask();
-  m.roll = roll;
+  m.row = row_;
   const std::uint8_t flag = modifier_flag_down();
+  const int lane = lane_of(lock_knob_, p);  // the LOCK row: the lock knob's lane
   for (unsigned k = 0; k < kPageSteps; ++k) {
     const unsigned s = static_cast<unsigned>(view_page_) * 16u + k;
     if (s >= len) {
@@ -1123,61 +1288,33 @@ view::Marks HomeMap::drawer(bool roll) const noexcept {
     if (flag != 0u && (p.steps[s].flags & flag) != 0u) {
       m.emphasis |= 1u << k;
     }
+    const std::uint8_t pt = lane >= 0 ? step_lock_point(p, static_cast<unsigned>(lane), s) : kNoLock;
+    if (pt != kNoLock) {
+      char text[16];
+      lock_value_text(ctx, lock_knob_, pt, text, sizeof text);
+      cut(text, view::kLockChars - 1u, m.lock[k], view::kLockChars);
+    }
   }
   m.focus = Controls::is_step_entry(knob_) ? static_cast<int>(rig_->wiring.step_focus) : -1;  // the step RATCHET / COND edit
   return m;
 }
 
 unsigned HomeMap::step_box(app::Context& ctx, char* out, unsigned cap) const noexcept {
-  out[0] = '\0';
   const Pattern& p = pat();
   const unsigned len = length();
   unsigned s = first_held_step() != 0u ? first_held_step() - 1u : static_cast<unsigned>(cursor_ < 0 ? 0 : cursor_);
   s = s < len ? s : len - 1u;
-  append(out, cap, "STEP ");
-  append_uint(out, cap, s + 1u);
-  append(out, cap, ": ");
-  const StepInfo info = describe(p, s);
-  if (info.kind == Cell::Note) {
-    char name[8];
-    (void)note_name(info.note, name, sizeof name);
-    append(out, cap, name);
-    if (info.accent) {
-      append(out, cap, " ACC");
-    }
-    if ((p.steps[s].flags & kStepSlide) != 0u) {
-      append(out, cap, " SLD");
-    }
-  } else {
-    append(out, cap, info.kind == Cell::Tie ? "TIE" : "REST");
-  }
-  const unsigned hits = ratchet_hits(p.steps[s].flags);
-  if (info.kind == Cell::Note && hits > 1u) {
-    append(out, cap, " x");
-    append_uint(out, cap, hits);
-  }
-  if (p.steps[s].cond != kCondAlways) {
-    char cond[16];
-    (void)cond_text(p.steps[s].cond, cond, sizeof cond);
+  (void)step_text(p, s, out, cap);
+  // The lock of the LOCK row's knob on this step.
+  const int lane = lane_of(lock_knob_, p);
+  const std::uint8_t pt = lane >= 0 ? step_lock_point(p, static_cast<unsigned>(lane), s) : kNoLock;
+  if (pt != kNoLock) {
+    char v[16];
+    lock_value_text(ctx, lock_knob_, pt, v, sizeof v);
     append(out, cap, " ");
-    append(out, cap, cond);
-  }
-  // The lock of the latched knob on this step.
-  const int lane = lane_of(knob_, p);
-  const core::ParamDesc* d = controls_->desc(ctx.engine(), knob_);
-  if (lane >= 0 && d != nullptr) {
-    const std::uint8_t pt = p.motion[lane][s * kMotionPointsPerStep];
-    if (pt != kNoLock) {
-      char v[16];
-      (void)core::param_format(*d, controls_->from_point(ctx.engine(), knob_, pt), v, sizeof v);
-      char unit[8];
-      cut(d->unit_text, 3, unit, sizeof unit);
-      append(out, cap, " ");
-      append(out, cap, controls_->label(ctx.engine(), knob_));
-      append(out, cap, " ");
-      append(out, cap, v);
-      append(out, cap, unit);
-    }
+    append(out, cap, controls_->label(ctx.engine(), lock_knob_));
+    append(out, cap, " ");
+    append(out, cap, v);
   }
   unsigned n = 0;
   while (n < cap && out[n] != '\0') {
@@ -1208,7 +1345,9 @@ void HomeMap::pads_line(app::Context& ctx, char* out, unsigned cap) const noexce
   char turn[24];
   turn[0] = '\0';
   if (s.step_held != 0u) {
-    if (Controls::is_step_entry(knob_)) {
+    if (row_ != DrawerRow::None) {
+      row_text(ctx, turn, sizeof turn);
+    } else if (Controls::is_step_entry(knob_)) {
       cut(knob_.item == Item::Ratchet ? "RATCHET" : "COND", 7, turn, sizeof turn);
     } else {
       LaneRef ref{kLaneNone, 0};

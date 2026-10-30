@@ -1,9 +1,10 @@
-# The beat freeze (docs/M3B-PLAN.md R6, units/freeze) on master insert 0, driven by the real gesture (C4): the Fx performance button is FREEZE by
-# default (held = on, Shift + tap latches), and PERFORM SETUP's F5 picks the Length. While it is on, the last 1/4, 1/8 or 1/16 of a bar of the
+# The beat freeze (docs/M3B-PLAN.md R6, units/freeze) on master insert 0, driven by the real gesture (C4), on PERFORM (the colour buttons are the drawer's
+# rows on HOME since H3): the Fx performance button is FREEZE by default (held = on, Shift + tap latches), and PERFORM SETUP's F5 picks the Length. While it is on, the last 1/4, 1/8 or 1/16 of a bar of the
 # master loops, pitch kept, with 5 ms crossfades at entry, at the loop point and at exit; off, the master passes through bit for bit.
 # The header's FREEZE chip lights while it is held; the evidence for the loop is the WAV (tests/freeze_app_test.cpp checks that it loops at the
 # tempo; units/freeze/tests that it has no click).
-wait 300
+wait 238
+tap performance
 record on
 tap play
 wait 2400
@@ -13,14 +14,14 @@ wait 1700
 snap 02_frozen_eighth
 release fx
 wait 1300
-# 1/16 of a bar: PERFORM SETUP (Perform twice; Pattern comes back), F5 FRZ LEN, down to the first entry and up two.
+# 1/16 of a bar: PERFORM SETUP (Perform again; once more comes PERFORM back), F5 FRZ LEN, down to the first entry and up two.
 tap performance
-tap performance
+wait 62
 tap f5
 turn -3
 turn 2
 snap 03_perform_setup_sixteenth
-tap pattern
+tap performance
 wait 248
 press fx
 wait 1300
@@ -28,9 +29,9 @@ release fx
 wait 1200
 # 1/4 of a bar, a whole beat
 tap performance
-tap performance
+wait 62
 turn -3
-tap pattern
+tap performance
 wait 248
 press fx
 wait 2200
@@ -38,9 +39,9 @@ release fx
 wait 1200
 # a stutter by hand: short holds, the Length back to 1/8; the last one latched with Shift and let go again
 tap performance
-tap performance
+wait 62
 turn 1
-tap pattern
+tap performance
 wait 248
 tap fx 140
 wait 260

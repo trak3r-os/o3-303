@@ -19,7 +19,7 @@ tap f8
 turn 1
 wait 100
 snap 01_mods_growl_and_wobble
-# PERFORM SETUP (Perform twice): Fx (F4) gets the WOBBLE action (the eleven actions: down to the first, then up seven); Pattern comes back.
+# PERFORM SETUP (Perform twice): Fx (F4) gets the WOBBLE action (the eleven actions: down to the first, then up seven); Perform once more comes PERFORM back, where the buttons are the live actions.
 tap performance
 tap performance
 tap f4
@@ -27,7 +27,7 @@ turn -16
 turn 7
 wait 100
 snap 02_perf_wobble_on_fx
-tap pattern
+tap performance
 wait 162
 tap play
 wait 2100
@@ -35,7 +35,7 @@ wait 2100
 press fx
 wait 2400
 snap 04_wobble_held
-# The wobble goes on at its set 1/8 (HOME's pads are keys: no rate is picked here), for as long as the picker used to take.
+# The wobble goes on at its set 1/8 (PERFORM's row 3 is the picker, and none is picked here), for as long as the picker used to take.
 wait 1802
 snap 05_wobble_goes_on
 wait 1802

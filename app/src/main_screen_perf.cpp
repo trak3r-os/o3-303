@@ -5,8 +5,8 @@
 //   tap Master                the encoder latches TEMPO (Shift: SWING), whatever page the F keys are on (R7)
 //   hold Master + turn        a tempo nudge of 1 % a detent, at most 3 %, back at the release (R7)
 //
-// and the chips of what is latched or locked. The four assignable buttons (Note / Instr / Vol / Fx: held = momentary, Shift + tap latches, C4) are
-// LiveActions' (live_actions.h), shared with PERFORM; the keyboard, the FILT ladders and the scale lock are the home map's (home_map.h). The pure parts
+// and the chips of what is latched or locked. The four colour buttons are the drawer's rows on this screen (home_map.h); their live actions (held =
+// momentary, Shift + tap latches, C4) are PERFORM's, through LiveActions (live_actions.h); the keyboard, the FILT ladders and the scale lock are the home map's (home_map.h). The pure parts
 // (the nudge, the scale) are in o3_303/perform.h and tested alone; what is here puts them on the engine and the screen.
 
 #include "main_screen.h"
@@ -57,6 +57,9 @@ void MainScreen::master_release(app::Context& ctx) noexcept {
   if (!master_used_ && ctx.uptime_ms() - master_down_ms_ < kHoldMs) {  // a tap: TEMPO (Shift: SWING) on the encoder; again, back to the page
     const EncLatch want = master_shift_ ? EncLatch::Swing : EncLatch::Tempo;
     enc_latch_ = enc_latch_ == want ? EncLatch::None : want;
+    if (enc_latch_ != EncLatch::None) {
+      home_.release_row();  // one owner at a time: the encoder is TEMPO's, not a drawer row's
+    }
     toast(ctx, enc_latch_ == EncLatch::Tempo ? "ENCODER: TEMPO" : (enc_latch_ == EncLatch::Swing ? "ENCODER: SWING" : "ENCODER: THE PAGE"),
           enc_latch_ == EncLatch::None);
   }

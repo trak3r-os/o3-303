@@ -43,21 +43,39 @@ bool step_has_motion(const Pattern& p, unsigned lane, unsigned step) noexcept;
 // Whether any step of `p` has a motion point on lane `lane` (lane >= kMotionLanes: any lane).
 bool pattern_has_motion(const Pattern& p, unsigned lane) noexcept;
 
-// The pitch lane: `rows` semitones from `lo` up, `px` pixels each, fitted to a lane `lane_h` pixels tall around the notes
-// [lowest, highest]: the tallest rows (16 px down to 5) that leave a margin of `top_px` pixels above the highest note (for its name)
-// and a row below the lowest; the spare rows are shared above and below.
+// The pitch lane: `rows` semitones from `lo` up, `px` pixels each.
 struct PitchWindow {
   int lo = 0;
   int rows = 13;
   int px = 16;
   int hi() const noexcept { return lo + rows - 1; }
 };
-PitchWindow fit_window(int lowest, int highest, int lane_h, int top_px = 18) noexcept;
 
 // The step view's lane (docs/M3B-PLAN.md S1): the pattern's real range [lowest, highest] and `pad` semitones each side, no more, in the tallest
 // rows (16 px down to 5) that lane_h holds; the rows are centred in the lane, so a narrow pattern leaves empty lane at both ends. A range too
 // wide for 5 px rows shows as many rows as fit, centred on it.
 PitchWindow range_window(int lowest, int highest, int lane_h, int pad = 3) noexcept;
+
+// ---- The drawer's rows (docs/UX-303.md 2.3 and 5.1): what the encoder can own on HOME, SETUP and INSTRUMENT besides a knob -------------------
+
+// The row the encoder edits on the step (Note, Instr, Vol, Fx latch them, one each): the NOTE row, the GATE row, the PLAYS row, the LOCK row.
+enum class DrawerRow : std::uint8_t { None, Note, Gate, Plays, Lock };
+// The NOTE row walks C1..C5.
+inline constexpr unsigned kRowNoteLow = 24;
+inline constexpr unsigned kRowNoteHigh = 72;
+
+// "REST", "NOTE", "ACC", "SLD", "ACC+SLD", "TIE" (seq::kGateListCount entries; an index past the end gives the last) and the glyph a step shows on the GATE
+// row: ".", "-", "A", "S", "AS", "~".
+const char* gate_name(unsigned index) noexcept;
+const char* gate_glyph(unsigned index) noexcept;
+// What the PLAYS row shows of a step (D8): its condition ("75%", "1:2", "FILL", "!FIRST": the stored value as itself), else its ratchet "x1".."x4".
+// Returns the length written (cap bytes with the terminator).
+unsigned plays_text(std::uint8_t flags, std::uint8_t cond, char* out, unsigned cap) noexcept;
+// The STEP box: "STEP 5: D#2 ACC SLD x2", "STEP 6: REST", "STEP 7: TIE 1:2" (the note and its accent and slide, the ratchet when above x1, the condition),
+// without the lock (the screen adds the latched knob's). Step `step` is clamped into the pattern. Returns the length written.
+unsigned step_text(const Pattern& p, unsigned step, char* out, unsigned cap) noexcept;
+// The lock of `step` on `lane` as a motion point: the first of its four points that has one, kNoLock when none (lane >= kMotionLanes: kNoLock).
+std::uint8_t step_lock_point(const Pattern& p, unsigned lane, unsigned step) noexcept;
 
 // "C2", "C#3", "A#-1"-style name of a MIDI note (C2 = 36: the octave is note / 12 - 1) into `out` (cap at least 5). Returns its length.
 unsigned note_name(unsigned note, char* out, unsigned cap) noexcept;

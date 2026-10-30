@@ -3,6 +3,7 @@
 
 #include <o3_303/pad_map.h>
 #include <o3_303/perform.h>
+#include <o3_303/seq/ops.h>
 
 namespace o3_303::view {
 
@@ -18,21 +19,21 @@ namespace dl = eve::dl;
 struct Geo {
   Rect numbers;
   Rect lane;
-  Rect flags;  // h == 0 in the roll
+  Rect rows;   // the GATE, PLAYS and LOCK rows
   int bottom;  // the bottom of everything the columns span
 };
 
-constexpr int kFlagGap = 3;
+constexpr int kRowGap = 3;
 
-Geo geometry(const Rect& area, bool roll) noexcept {
+Geo geometry(const Rect& area) noexcept {
   Geo g;
   g.numbers = Rect{area.x, area.y, area.w, kNumbersH};
-  const int flags_h = roll ? 0 : kFlagRows * kFlagRowH;
+  const int rows_h = kRows * kRowH;
   const int lane_y = area.y + kNumbersH + 2;
-  const int lane_h = area.h - kNumbersH - 2 - (roll ? 0 : flags_h + kFlagGap);
+  const int lane_h = area.h - kNumbersH - 2 - (rows_h + kRowGap);
   g.lane = Rect{area.x, lane_y, area.w, lane_h};
-  g.flags = Rect{area.x, lane_y + lane_h + (roll ? 0 : kFlagGap), area.w, flags_h};
-  g.bottom = g.flags.y + g.flags.h;
+  g.rows = Rect{area.x, lane_y + lane_h + kRowGap, area.w, rows_h};
+  g.bottom = g.rows.y + g.rows.h;
   return g;
 }
 
@@ -65,41 +66,11 @@ unsigned fmt_uint(unsigned v, char* out) noexcept {
   return o;
 }
 
-int lane_height(int h, bool roll) noexcept {
-  return h - kNumbersH - 2 - (roll ? 0 : kFlagRows * kFlagRowH + kFlagGap);
-}
-
-// The R/C cell of a step at (x, y): its ratchet ("x2".."x4") at the left, its condition at the right, both in Micro; when both do not fit the
-// cell the condition alone stays (the bar already shows the ratchet). The step the RATCHET / COND keys edit gets a frame.
-namespace {
-
-void draw_ratchet_cond(ui::Renderer& r, int x, int y, const Step& st, bool is_note, bool focus) noexcept {
-  const unsigned hits = is_note ? ratchet_hits(st.flags) : 1u;
-  char cond[8];
-  unsigned cn = 0;
-  if (st.cond != kCondAlways && is_note) {
-    cn = cond_text(st.cond, cond, sizeof cond);
-  } else {
-    cond[0] = '\0';
-  }
-  const int cw = static_cast<int>(cn) * 6;
-  if (hits > 1u && (cn == 0u || 2 + 12 + 2 + cw + 2 <= kCellW)) {
-    const char rt[3] = {'x', static_cast<char>('0' + hits), '\0'};
-    r.text(x + 3, y, rt, Color::Instr, Face::Micro);
-  }
-  if (cn != 0u) {
-    r.text(x + kCellW - 3 - cw, y, cond, Color::Fx, Face::Micro);
-  }
-  if (focus) {
-    r.frame(Rect{x + 1, y, kCellW - 2, kFlagRowH}, Color::TextDim);
-  }
-}
-
-}  // namespace
+int lane_height(int h) noexcept { return h - kNumbersH - 2 - (kRows * kRowH + kRowGap); }
 
 void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks& m) noexcept {
   const ui::Theme& theme = r.theme();
-  const Geo g = geometry(area, m.roll);
+  const Geo g = geometry(area);
   const PitchWindow& w = m.window;
   const unsigned len = length_of(p);
   const int first = m.page * 16;
@@ -135,36 +106,22 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
   }
   r.end_raw();
 
-  // ---- The gutter: names of the C rows, or the piano keys of the roll ----
+  // ---- The gutter: the NOTE caption and the names of the C rows ----
   const int gx = area.x;
-  if (m.roll) {
-    for (int n = w.lo; n <= w.hi(); ++n) {
-      const int rt = row_top(g.lane, w, n);
-      const int h = w.px > 2 ? w.px - 1 : w.px;
-      r.panel(Rect{gx + 2, rt, kGutterW - 6, h}, Color::TextDim);  // the white keys are dim: they must not outshine the notes
+  {
+    const bool owned = m.row == DrawerRow::Note;
+    if (owned) {
+      r.panel(Rect{gx + 2, g.lane.y, kGutterW - 4, kRowH - 2}, Color::Sel);
     }
-    for (int n = w.lo; n <= w.hi(); ++n) {
-      if (!is_natural(static_cast<unsigned>(n))) {
-        const int rt = row_top(g.lane, w, n);
-        const int h = w.px > 2 ? w.px - 1 : w.px;
-        r.panel(Rect{gx + 2, rt, 30, h}, Color::ChromeText);
-      }
-    }
-    for (int n = w.lo; n <= w.hi(); ++n) {
-      if (n % 12 == 0 && w.px >= 8) {
-        char name[6];
-        (void)note_name(static_cast<unsigned>(n), name, sizeof name);
-        r.text(gx + 34, row_top(g.lane, w, n) + (w.px - 12) / 2, name, Color::Pane, Face::Micro);
-      }
-    }
-  } else {
+    r.text(gx + 6, g.lane.y + 1, "NOTE", owned ? Color::SelText : Color::TextDim, Face::Micro);
     const StepInfo cur = m.cursor >= 0 ? describe(p, static_cast<unsigned>(m.cursor)) : StepInfo{};
     for (int n = w.lo; n <= w.hi(); ++n) {
       if (n % 12 == 0) {
         const int rt = row_top(g.lane, w, n);
         char name[6];
         (void)note_name(static_cast<unsigned>(n), name, sizeof name);
-        if (!(cur.kind != Cell::Rest && cur.note == n && w.px >= 8)) {  // the cursor's chip below names its own row
+        const bool under_caption = rt < g.lane.y + kRowH;  // the lane's top left is the NOTE caption's
+        if (!under_caption && !(cur.kind != Cell::Rest && cur.note == n && w.px >= 8)) {  // the cursor's chip below names its own row
           r.text(gx + 6, ui::caps_y(theme, Face::Label, rt, w.px), name, Color::Text, Face::Label);
         }
         r.rule(kGridX, rt + w.px - 1, kGridW, ui::Axis::Horizontal, Color::TextDim);  // the octave lines are the bright ones
@@ -284,55 +241,90 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
     }
   }
 
-  // ---- The note names above the bars (the step view) ----
-  if (!m.roll) {
-    for (int pass = 0; pass < 2; ++pass) {
-      for (int i = 0; i < 16; ++i) {
-        const int s = first + i;
-        if (static_cast<unsigned>(s) >= len) {
-          break;
-        }
-        const StepInfo info = describe(p, static_cast<unsigned>(s));
-        const bool is_cursor = s == m.cursor;
-        if (info.kind != Cell::Note || is_cursor != (pass == 1) || info.note % 12 == 0) {  // a C is named by its octave line
-          continue;
-        }
-        char name[6];
-        const unsigned n = note_name(info.note, name, sizeof name);
-        const int tw = static_cast<int>(n) * 8;
-        const int rt = row_top(g.lane, w, info.note);
-        r.text(cell_x(i) + (kCellW - tw) / 2, rt - 14, name, is_cursor ? Color::Text : Color::TextDim, Face::Label);
+  // ---- The note names above the bars ----
+  for (int pass = 0; pass < 2; ++pass) {
+    for (int i = 0; i < 16; ++i) {
+      const int s = first + i;
+      if (static_cast<unsigned>(s) >= len) {
+        break;
+      }
+      const StepInfo info = describe(p, static_cast<unsigned>(s));
+      const bool is_cursor = s == m.cursor;
+      if (info.kind != Cell::Note || is_cursor != (pass == 1) || info.note % 12 == 0) {  // a C is named by its octave line
+        continue;
+      }
+      char name[6];
+      const unsigned n = note_name(info.note, name, sizeof name);
+      const int tw = static_cast<int>(n) * 8;
+      const int rt = row_top(g.lane, w, info.note);
+      r.text(cell_x(i) + (kCellW - tw) / 2, rt - 14, name, is_cursor ? Color::Text : Color::TextDim, Face::Label);
+    }
+  }
+
+  // ---- The rows: GATE (a glyph a step), PLAYS (the condition, else the ratchet) and LOCK (the latched knob's lock) ----
+  r.rule(kGridX, g.rows.y - 2, kGridW, ui::Axis::Horizontal, Color::Empty);
+  static constexpr const char* kRowNames[kRows] = {"GATE", "PLAYS", "LOCK"};
+  static constexpr DrawerRow kRowIds[kRows] = {DrawerRow::Gate, DrawerRow::Plays, DrawerRow::Lock};
+  for (int k = 0; k < kRows; ++k) {
+    const int ry = g.rows.y + k * kRowH;
+    const bool owned = m.row == kRowIds[k];
+    if (owned) {
+      r.panel(Rect{gx + 2, ry, kGutterW - 4, kRowH - 2}, Color::Sel);
+    }
+    r.text(gx + 6, ry + 1, kRowNames[k], owned ? Color::SelText : Color::TextDim, Face::Micro);
+  }
+  const int gate_y = g.rows.y;
+  const int plays_y = g.rows.y + kRowH;
+  const int lock_y = g.rows.y + 2 * kRowH;
+  const auto dot = [&](int i, int ry, Color ink) { r.panel(Rect{cell_x(i) + kCellW / 2 - 1, ry + kRowH - 5, 2, 2}, ink); };
+  const auto centred = [&](int i, int ry, const char* text, Face face, Color ink) {
+    r.text(cell_x(i) + (kCellW - r.text_width(text, face)) / 2, face == Face::Micro ? ry + 1 : ui::caps_y(theme, face, ry, kRowH), text, ink, face);
+  };
+  const int shown = len > static_cast<unsigned>(first) ? static_cast<int>(len) - first : 0;
+  const int cells = shown < 16 ? shown : 16;
+  // One pass a colour (a colour is a word of the display list; a cell each would not fit).
+  // GATE: a rest is a dot, the others a glyph: REST dim, NOTE plain, ACC and ACC+SLD orange, SLD green, TIE blue.
+  static constexpr Color kGateInk[seq::kGateListCount] = {Color::Empty, Color::Text, Color::Accent, Color::Vol, Color::Accent, Color::Instr};
+  static constexpr Color kGatePasses[5] = {Color::Empty, Color::Text, Color::Accent, Color::Vol, Color::Instr};
+  for (const Color pass : kGatePasses) {
+    for (int i = 0; i < cells; ++i) {
+      const unsigned gi = seq::gate_list_index(p.steps[first + i].flags);
+      if (kGateInk[gi] != pass) {
+        continue;
+      }
+      if (gi == seq::kGateRest) {
+        dot(i, gate_y, pass);
+      } else {
+        centred(i, gate_y, gate_glyph(gi), Face::Label, pass);
       }
     }
-    // The flag rows: ACC (orange), SLD (green), TIE (blue), with their names in the gutter, and R/C: the ratchet's number and the trig condition.
-    r.rule(kGridX, g.flags.y - 2, kGridW, ui::Axis::Horizontal, Color::Empty);
-    static constexpr const char* kFlagNames[kFlagRows] = {"ACC", "SLD", "TIE", "R/C"};
-    static constexpr Color kFlagInk[kFlagRows] = {Color::Accent, Color::Vol, Color::Instr, Color::Fx};
-    for (int k = 0; k < kFlagRows; ++k) {
-      const int ry = g.flags.y + k * kFlagRowH;
-      r.text(gx + 6, ry, kFlagNames[k], Color::TextDim, Face::Micro);
-      for (int i = 0; i < 16; ++i) {
-        const int s = first + i;
-        if (static_cast<unsigned>(s) >= len) {
-          break;
-        }
-        const StepInfo info = describe(p, static_cast<unsigned>(s));
-        if (k == 3) {
-          draw_ratchet_cond(r, cell_x(i), ry, p.steps[s], info.kind == Cell::Note, s == m.focus);
-          continue;
-        }
-        bool on = false;
-        if (k == 0) {
-          on = info.kind == Cell::Note && info.accent;
-        } else if (k == 1) {
-          on = info.kind != Cell::Rest && info.slide;
-        } else {
-          on = info.kind == Cell::Tie;
-        }
-        if (on) {
-          r.panel(Rect{cell_x(i) + 8, ry + 2, kCellW - 16, kFlagRowH - 4}, kFlagInk[k]);
-        }
+  }
+  // PLAYS: x1 dim, a ratchet blue, a condition in the lock colour; the step the RATCHET / COND keys edit is framed.
+  for (unsigned pass = 0; pass < 3; ++pass) {
+    for (int i = 0; i < cells; ++i) {
+      const Step& st = p.steps[first + i];
+      const bool cond = st.cond != kCondAlways && cond_valid(st.cond);
+      const unsigned kind = cond ? 2u : (ratchet_hits(st.flags) > 1u ? 1u : 0u);
+      if (kind != pass) {
+        continue;
       }
+      char text[12];
+      (void)plays_text(st.flags, st.cond, text, sizeof text);
+      centred(i, plays_y, text, Face::Micro, pass == 0u ? Color::Empty : (pass == 1u ? Color::Instr : Color::Fx));
+    }
+  }
+  if (m.focus >= first && m.focus < first + cells) {
+    r.frame(Rect{cell_x(m.focus - first) + 1, plays_y, kCellW - 2, kRowH - 1}, Color::TextDim);
+  }
+  // LOCK: the latched knob's lock on each step, a dot where it has none.
+  for (int i = 0; i < cells; ++i) {
+    if (m.lock[i][0] == '\0') {
+      dot(i, lock_y, Color::Empty);
+    }
+  }
+  for (int i = 0; i < cells; ++i) {
+    if (m.lock[i][0] != '\0') {
+      centred(i, lock_y, m.lock[i], Face::Micro, Color::Fx);
     }
   }
 }

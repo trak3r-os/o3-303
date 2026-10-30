@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The GEN vault end to end: opening and loading a slot, the display list with all 512 slots, the headroom of the presets, the screen following the playing pattern.
-// (Split from the former o3_303_app_test.cpp; the hands are in app_hands.h.)
+// FILE LIBRARY (the vault, UX-303 5.9) end to end: opening it with File twice, loading a slot with a pad or INSERT, its Shift row, the display list with all 512 slots,
+// the headroom of the presets, the screen following the playing pattern. (Was app_vault_test.cpp; the hands are in app_hands.h.)
 #include "app_hands.h"
+
+#include "../app/src/vault_screen.h"
 
 #include <o3_303/seq/gen.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
@@ -10,19 +12,45 @@
 #include <cstring>
 #include <utility>
 
-TEST_CASE("File opens the GEN vault; FILE again loads the slot into the pattern and the sound and goes back") {
+// FILE LIBRARY is File's second press: PROJECTS first.
+void to_library(Hands& t) {
+  t.tap(Button::File);
+  t.tap(Button::File);
+}
+
+TEST_CASE("File opens FILE PROJECTS, again FILE LIBRARY, again PROJECTS; Pattern goes home") {
+  Hands t;
+  t.tap(Button::File);
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
+  t.tap(Button::File);
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
+  t.tap(Button::File);
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
+  t.tap(Button::File);
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
+  t.tap(Button::Pattern);
+  CHECK(std::strcmp(t.title(), "STEPS") == 0);  // HOME
+  t.tap(Button::File);  // from HOME: PROJECTS again (File opens PROJECTS from every screen)
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
+  t.to_instrument();
+  t.tap(Button::File);
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
+}
+
+TEST_CASE("the library: INSERT loads the slot shown into the pattern and the sound and stays; a pad loads its slot") {
   Hands t;
   seq::gen::Preset slot;
-  t.tap(Button::File);
-  CHECK(std::strcmp(t.title(), "VAULT") == 0);
-  t.tap(Button::F4);                    // bank D: ACID
+  to_library(t);
+  t.tap(Button::F4);  // bank D: ACID
   for (unsigned i = 0; i < 17; ++i) {
-    t.turn(1);                          // slot 17
+    t.turn(1);  // slot 17
   }
   seq::gen::factory(slot, 3, 17);
   const seq::gen::ParamValues v = seq::gen::to_values(slot.patch);
-  t.tap(Button::File);
-  CHECK(std::strcmp(t.title(), "STEPS") == 0);
+  const std::uint32_t undo_before = bank().version(0);
+  t.tap(Button::Insert);
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);  // a load leaves you here
+  CHECK(bank().version(0) != undo_before);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
     CHECK(t.pat().steps[i].flags == slot.pattern.steps[i].flags);
@@ -33,23 +61,62 @@ TEST_CASE("File opens the GEN vault; FILE again loads the slot into the pattern 
   CHECK(t.param(kDist, Distortion::Drive) == doctest::Approx(v.dist[2]).epsilon(0.001));
   CHECK(t.param(kVoice, AcidVoice::Volume) == doctest::Approx(0.0f));  // the level is not part of a preset
 
-  // GEN: a new seed gives a take that differs; PARAMS says what a load takes.
+  // A pad is a slot of the bank (0..47) and loads it.
+  seq::gen::factory(slot, 3, 40);
+  t.pad(40);
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
+  }
+  // Slots 48..63 have no pad: the encoder reaches them and INSERT loads them.
+  t.turn(12);  // 40 + 12 = 52
+  seq::gen::factory(slot, 3, 52);
+  t.tap(Button::Insert);
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
+  }
+  // Arrows: LEFT / RIGHT one slot, UP / DOWN a row of eight.
+  t.tap(Button::Down);
+  t.tap(Button::Left);
+  t.tap(Button::Up);
+  t.tap(Button::Right);
+  t.tap(Button::Insert);  // 52 + 8 - 1 - 8 + 1 = 52 again
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
+  }
+}
+
+TEST_CASE("the library's Shift row: F1 NEW SEED, F2 LOAD what (BOTH, LINE, SOUND); Params and Rec are no longer its keys") {
+  Hands t;
+  to_library(t);
+  t.pad(2);  // a slot with a line of its own
   const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
   const Pattern loaded = t.pat();
-  t.tap(Button::File);
-  t.tap(Button::Rec);   // GEN
-  t.tap(Button::Params);  // PATTERN only
-  t.tap(Button::File);
+
+  // Shift + F1: another take of the slot (a new seed), then a LINE-only load leaves the sound alone.
+  t.shift_tap(Button::F1);
+  t.shift_tap(Button::F2);  // LINE
+  t.tap(Button::Insert);
   bool pattern_changed = false;
   for (unsigned i = 0; i < 16; ++i) {
     pattern_changed = pattern_changed || t.pat().steps[i].note != loaded.steps[i].note || t.pat().steps[i].flags != loaded.steps[i].flags;
   }
   CHECK(pattern_changed);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(cutoff));  // the sound was not loaded
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
 
-  // PATTERN goes back without loading.
+  // Params leaves for INSTRUMENT (it is no longer the library's), and Rec does nothing there.
+  to_library(t);
+  const unsigned bank_before = t.pat().steps[0].note;
+  t.tap(Button::Rec);
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
+  CHECK(t.pat().steps[0].note == bank_before);
+  t.tap(Button::Params);
+  CHECK(std::strncmp(t.title(), "INSTRUMENT", 10) == 0);
+
+  // Pattern goes back without loading.
+  to_library(t);
   const Pattern kept = t.pat();
-  t.tap(Button::File);
   t.tap(Button::Right);
   t.tap(Button::Pattern);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
@@ -58,10 +125,23 @@ TEST_CASE("File opens the GEN vault; FILE again loads the slot into the pattern 
   }
 }
 
+TEST_CASE("the library's pure texts") {
+  char text[96];
+  (void)library_pads_text(0, text, sizeof text);
+  CHECK(std::strncmp(text, "SLOTS 0-47 OF AMBER . TAP = LOAD", 32) == 0);
+  (void)library_pads_text(6, text, sizeof text);
+  CHECK(std::strncmp(text, "SLOTS 0-47 OF OFF WORLD", 23) == 0);
+  CHECK(std::strcmp(load_what_name(LoadWhat::Both), "BOTH") == 0);
+  CHECK(std::strcmp(load_what_name(LoadWhat::Pattern), "LINE") == 0);
+  CHECK(std::strcmp(load_what_name(LoadWhat::Sound), "SOUND") == 0);
+  char tiny[8];
+  CHECK(library_pads_text(1, tiny, sizeof tiny) == 7);  // cut to the buffer, NUL ended
+}
+
 TEST_CASE("the vault draws every one of its 512 slots, and a GEN take of each, inside the display list") {
   Hands t;
-  t.tap(Button::File);
-  REQUIRE(std::strcmp(t.title(), "VAULT") == 0);
+  to_library(t);
+  REQUIRE(std::strcmp(t.title(), "FILE LIBRARY") == 0);
   const Button banks[8] = {Button::F1, Button::F2, Button::F3, Button::F4, Button::F5, Button::F6, Button::F7, Button::F8};
   for (unsigned b = 0; b < 8; ++b) {
     t.tap(banks[b], 5);
@@ -69,7 +149,7 @@ TEST_CASE("the vault draws every one of its 512 slots, and a GEN take of each, i
       t.turn(1);
       t.wait(36);
       if (s % 8 == 7) {
-        t.tap(Button::Rec, 5);  // a take with another seed every few slots
+        t.shift_tap(Button::F1);  // a take with another seed every few slots
         t.wait(36);
       }
     }
@@ -88,11 +168,12 @@ float vault_peak(Hands& t, unsigned bank_index, unsigned slot_index, unsigned& a
   seq::gen::Preset want;
   seq::gen::factory(want, bank_index, slot_index);
   const seq::gen::ParamValues v = seq::gen::to_values(want.patch);
-  t.tap(Button::File);
+  to_library(t);
   t.tap(banks[bank_index], 5);
   t.turn(static_cast<int>(slot_index) - static_cast<int>(at_slot));
   at_slot = slot_index;
-  t.tap(Button::File);  // load, back to the 303 screen
+  t.tap(Button::Insert);  // load
+  t.tap(Button::Pattern);  // back to the 303 screen
   CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(v.dist[0]));
   CHECK(t.param(kDist, Distortion::Type) == doctest::Approx(v.dist[1]));
   CHECK(t.param(kDist, Distortion::Drive) == doctest::Approx(v.dist[2]).epsilon(0.001));
@@ -181,11 +262,11 @@ TEST_CASE("the screen keeps following the playing pattern while the vault is up"
   t.wait(350);
   t.pad(1);
   t.release(Button::Pattern);
-  t.tap(Button::File);
-  REQUIRE(std::strcmp(t.title(), "VAULT") == 0);
+  to_library(t);
+  REQUIRE(std::strcmp(t.title(), "FILE LIBRARY") == 0);
   CHECK(t.selected() == 0);
   t.wait(2400);  // A01 ends: A02 starts
-  CHECK(std::strcmp(t.title(), "VAULT") == 0);
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
   CHECK(t.selected() == 1);
   t.tap(Button::Play);
 }

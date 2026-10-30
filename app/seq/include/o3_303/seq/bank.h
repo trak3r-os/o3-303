@@ -76,7 +76,10 @@ class Bank {
   void clear_history() noexcept { history_.clear(); }
 
   // ---- Named edits (each is one edit() with a coalescing key where it helps) ----------------------------------------------
-  bool set_note(unsigned index, unsigned step, unsigned note) noexcept;
+  // `join` (set_note, set_gate_list, set_plays, lock_step, unlock_step): the step byte of the coalescing key, kJoinOwn = the step itself. A gesture that edits
+  // several held steps passes one value for all of them (a byte of 0x80 or more: a step is below 0x40), so its turns are ONE undo step, not one a step.
+  static constexpr unsigned kJoinOwn = 0xFFFFu;
+  bool set_note(unsigned index, unsigned step, unsigned note, unsigned join = kJoinOwn) noexcept;
   bool toggle_flag(unsigned index, unsigned step, std::uint8_t flag) noexcept;
   bool set_flag(unsigned index, unsigned step, std::uint8_t flag, bool on) noexcept;
   // REC entry; returns the next cursor (0 at the end of the length).
@@ -113,17 +116,17 @@ class Bank {
   bool regen_notes(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;
   bool resize(unsigned index, unsigned length) noexcept;
   // The step's GATE and PLAYS rows (an entry of the list in ops.h): consecutive turns on one step's row are one undo step.
-  bool set_gate_list(unsigned index, unsigned step, unsigned entry) noexcept;
-  bool set_plays(unsigned index, unsigned step, unsigned entry) noexcept;
+  bool set_gate_list(unsigned index, unsigned step, unsigned entry, unsigned join = kJoinOwn) noexcept;
+  bool set_plays(unsigned index, unsigned step, unsigned entry, unsigned join = kJoinOwn) noexcept;
   // D2: the lane that drives (target, id), claiming one if none does (ops.h claim_lane); returns it, -1 when all eight are in use. The
   // claim is one undoable edit (nothing is recorded when the lane already existed).
   int claim_lane(unsigned index, std::uint8_t target, std::uint8_t id) noexcept;
   // The LOCK row: the parameter lock of (target, id) on `step`, its lane claimed first, all in ONE edit (one undo removes both). Returns
   // the lane, -1 when no lane is free (nothing changes). Consecutive turns on one step and parameter are one undo step. A value of kNoLock
   // ("--") is unlock_step() and claims nothing (it returns the lane that drives the target, -1 if none).
-  int lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, std::uint8_t value) noexcept;
+  int lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, std::uint8_t value, unsigned join = kJoinOwn) noexcept;
   // Removes the lock of (target, id) on `step`; the lane keeps its target (it is free once its last lock goes). true: a lock was removed.
-  bool unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step) noexcept;
+  bool unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, unsigned join = kJoinOwn) noexcept;
   // Replaces the pattern with `src` (a preset from the generator, a pasted pattern).
   bool replace(unsigned index, const Pattern& src) noexcept;
   // Puts `src` in pattern `index` as it is (a project loaded from the card): NOT an edit, nothing is recorded in the history, the version moves

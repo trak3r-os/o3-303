@@ -15,7 +15,7 @@ TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four but
   // The defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (tests/perf_buttons_test.cpp); SLIDE ALL and THROW, which
   // this test checks as it did before C4, are one assignment each away.
   t.assign_perf(Button::Vol, PerfAction::SlideAll);
-  t.assign_perf(Button::Fx, PerfAction::Throw);
+  t.assign_perf(Button::Fx, PerfAction::Throw, true);  // on PERFORM: there the colour buttons are the live actions
   seq::Sequencer& sequencer = app_sequencer();
   const std::uint8_t kMute = seq::kPerfMute;
   const std::uint8_t kAcc = seq::kPerfAccAll;
@@ -66,13 +66,14 @@ TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four but
   // A latch stays when the screen is left; a button held when it is left is let go (its release would reach another screen).
   t.press(Button::Vol);
   CHECK(sequencer.perf() == (kAcc | kSlide));
-  t.tap(Button::File);
-  CHECK(std::strcmp(t.title(), "VAULT") == 0);
+  t.tap(Button::Params);  // INSTRUMENT (the File button is the 303 screen's and INSTRUMENT's)
+  CHECK(std::strcmp(t.title(), "INSTRUMENT VOICE") == 0);
   CHECK(sequencer.perf() == kAcc);
   t.release(Button::Vol);
   t.tap(Button::Pattern);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   CHECK(sequencer.perf() == kAcc);
+  t.tap(Button::Performance);
   t.shift_tap(Button::Instr);
   CHECK(sequencer.perf() == 0);
 }
@@ -144,9 +145,10 @@ TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the botto
     t.pad(36);
   }
   t.tap(Button::Rec);
-  t.assign_perf(Button::Vol, PerfAction::SlideAll);
-  t.shift_tap(Button::Vol);
+  t.assign_perf(Button::Vol, PerfAction::SlideAll, true);
+  t.shift_tap(Button::Vol);  // (on PERFORM: the latch stays on when the screen is left)
   CHECK(sequencer.perf() == seq::kPerfSlideAll);
+  t.to_home();
   // A plain saw so that the pitch can be measured: the filter wide open with no resonance and no envelope, the distortion off, no delay
   // send (no echo of the old pitch in the measure).
   t.tap(Button::F1);
@@ -215,12 +217,12 @@ TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the botto
   t.pad(key_pad(47));
   CHECK(sequencer.live_transpose() == 11);
   t.tap(Button::File);
-  CHECK(std::strcmp(t.title(), "VAULT") == 0);
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
   t.tap(Button::Play);  // Play is global
   t.wait(50);
   CHECK_FALSE(t.h->engine().playing());
   CHECK(sequencer.live_transpose() == 0);
-  t.tap(Button::Pattern);
+  t.tap(Button::Performance);
   t.shift_tap(Button::Vol);
   CHECK(sequencer.perf() == 0);
 }

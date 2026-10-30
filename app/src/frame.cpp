@@ -152,16 +152,18 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   row.skip(8);
   row.put(Face::Label, view.enc, Color::ChromeText);
   row.skip(24);
-  if (view.trnsp) {  // the mode that is on is a filled chip, the other an outline
-    row.chip(Face::Label, "TRNSP", Color::ChromeText, Color::Chrome);
-  } else {
-    row.chip(Face::Label, "KEYS", Color::ChromeText, Color::Chrome);
+  if (view.keys) {
+    if (view.trnsp) {  // the mode that is on is a filled chip, the other an outline
+      row.chip(Face::Label, "TRNSP", Color::ChromeText, Color::Chrome);
+    } else {
+      row.chip(Face::Label, "KEYS", Color::ChromeText, Color::Chrome);
+    }
+    row.skip(8);
+    char oct[16];
+    octave_text(view.octave, oct, sizeof oct);
+    row.put(Face::Label, oct, Color::ChromeDim);
+    row.skip(14);
   }
-  row.skip(8);
-  char oct[16];
-  octave_text(view.octave, oct, sizeof oct);
-  row.put(Face::Label, oct, Color::ChromeDim);
-  row.skip(14);
   if (view.rec) {
     row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
     row.skip(8);

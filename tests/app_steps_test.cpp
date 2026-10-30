@@ -113,13 +113,14 @@ TEST_CASE("hold a step + a key sets that step's note and leaves the cursor where
   CHECK(t.pat().steps[5].note == 55);
 }
 
-TEST_CASE("hold a step + ACC / SLIDE / TIE / REST toggles that attribute on it, OCT+ is its ratchet, and the step is not selected") {
+TEST_CASE("hold a step + ACC / SLIDE / TIE / REST toggles that attribute on it, the PLAYS row is its ratchet, and the step is not selected") {
   Hands t;
   const Pattern before = bank().pattern(0);
+  t.tap(Button::Vol);      // the PLAYS row owns the encoder (H3: the old OCT+ gesture is cut)
   t.down(step_pad_of(3));  // step 4: C3, plain
   t.pad(kAccPad);
   t.pad(kSlidePad);
-  t.pad(kOctUpPad);  // M3b R4: the ratchet, no longer the octave
+  t.turn(1);  // the ratchet x2
   t.up(step_pad_of(3));
   CHECK(seq::get_ratchet(t.pat(), 3) == 1);
   CHECK((t.pat().steps[3].flags & ~kStepRatchetMask) == ((before.steps[3].flags ^ kStepAccent ^ kStepSlide) & ~kStepRatchetMask));
@@ -268,9 +269,11 @@ TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Pattern + Insert du
 TEST_CASE("Delete clears the step whole: a rest with no ratchet, no condition and no locks; held steps too") {
   Hands t;
   // Step 4: a ratchet, a condition and a lock on it.
+  t.tap(Button::Vol);
   t.down(step_pad_of(3));
-  t.pad(kOctUpPad);  // hold a step + OCT+: the ratchet
-  t.turn(10);        // the latched knob (CUTOFF): a lock on the held step
+  t.turn(1);          // hold a step + the PLAYS row: the ratchet
+  t.tap(Button::F1);  // the encoder is the knob's again
+  t.turn(10);         // the latched knob (CUTOFF): a lock on the held step
   t.up(step_pad_of(3));
   REQUIRE(ratchet_of(t.pat().steps[3].flags) > 0u);
   REQUIRE(step_has_motion(t.pat(), 0, 3));
@@ -294,7 +297,7 @@ TEST_CASE("Delete clears the step whole: a rest with no ratchet, no condition an
   CHECK((t.pat().steps[6].flags & kStepRest) == (before.steps[6].flags & kStepRest));
 }
 
-TEST_CASE("Play plays and stops at the press; Shift + Play taps the tempo") {
+TEST_CASE("Play plays and stops at the press; Shift + Master taps the tempo (M1: Shift + Play restarts, tempo_test.cpp)") {
   Hands t;
   t.press(Button::Play);
   t.wait(5);
@@ -307,7 +310,7 @@ TEST_CASE("Play plays and stops at the press; Shift + Play taps the tempo") {
 
   t.press(Button::Shift);
   for (unsigned i = 0; i < 5; ++i) {
-    t.tap(Button::Play, 30);
+    t.tap(Button::Master, 30);
     t.wait(470);  // 500 ms between the taps: 120 BPM
   }
   t.release(Button::Shift);
@@ -317,9 +320,9 @@ TEST_CASE("Play plays and stops at the press; Shift + Play taps the tempo") {
   // A gap over two seconds starts the measure again.
   t.wait(2500);
   t.press(Button::Shift);
-  t.tap(Button::Play, 30);
+  t.tap(Button::Master, 30);
   t.wait(970);
-  t.tap(Button::Play, 30);
+  t.tap(Button::Master, 30);
   t.release(Button::Shift);
   CHECK(t.h->engine().tempo() > 58'000u);
   CHECK(t.h->engine().tempo() < 62'000u);

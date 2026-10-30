@@ -33,7 +33,7 @@ static_assert(std::is_trivially_copyable<Pattern>::value, "a pattern is copied a
 static_assert(kPatternCount == 48, "PATS holds 48 patterns");
 static_assert(kSnapSlots == 8, "SNAP holds 8 slots");
 
-constexpr unsigned kHeadPayload = 2 + 1 + 4 + 1 + kNameChars;
+constexpr unsigned kHeadPayload = 2 + 1 + 4 + 1 + kNameChars + 4;  // version, selected, tempo, flags, name, the save counter (HEAD 1.1)
 constexpr unsigned kGenPayload = 2 + 7;
 constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
@@ -276,6 +276,7 @@ void read_head(chunk::Fields& f, ProjectState& out) noexcept {
     const bool printable = name[i] >= 0x20 && name[i] <= 0x7E;
     out.name[i] = end ? '\0' : (printable ? name[i] : '_');
   }
+  out.save_count = f.left() >= 4u ? f.u32() : 0u;  // HEAD 1.1 and later; a 1.0 file ends at the name
 }
 
 // false: the chunk is short; `out` is as it was.
@@ -378,7 +379,7 @@ std::uint8_t* buffer() noexcept { return g_buffer; }
 void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   const Wiring& w = rig.wiring;
   out.selected = static_cast<std::uint8_t>(rig.bank != nullptr ? rig.bank->selected() : 0u);
-  out.tempo_mbpm = e.own_tempo();
+  out.tempo_mbpm = rig.tempo_base_mbpm != 0u ? rig.tempo_base_mbpm : e.own_tempo();  // a tempo nudge on: the tempo it started from
   out.scale_set = w.scale_set;
   out.gen = w.gen;
 
@@ -420,13 +421,13 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
 namespace {
 
 // The chunks before PATS: HEAD and GEN.
-bool write_head_gen(chunk::Writer& w, const ProjectState& s) noexcept {
+bool write_head_gen(chunk::Writer& w, const ProjectState& s, std::uint32_t save_count) noexcept {
   char name[kNameChars] = {};
   for (unsigned i = 0; i + 1u < kNameChars && s.name[i] != '\0'; ++i) {
     name[i] = s.name[i];
   }
-  bool ok = w.begin("HEAD") && w.u16(kVersion) && w.u8(s.selected) && w.u32(s.tempo_mbpm) && w.u8(s.scale_set ? kFlagScaleSet : 0u) &&
-            w.bytes(name, kNameChars) && w.end();
+  bool ok = w.begin("HEAD") && w.u16(kHeadVersion) && w.u8(s.selected) && w.u32(s.tempo_mbpm) && w.u8(s.scale_set ? kFlagScaleSet : 0u) &&
+            w.bytes(name, kNameChars) && w.u32(save_count) && w.end();
 
   return ok && w.begin("GEN ") && w.u16(kVersion) && w.u8(s.gen.scale) && w.u8(s.gen.root) && w.u8(s.gen.low) && w.u8(s.gen.high) && w.u8(s.gen.density) &&
          w.u8(s.gen.accent_pct) && w.u8(s.gen.slide_pct) && w.end();
@@ -475,7 +476,7 @@ std::size_t encode(const ProjectState& s, const seq::Bank& bank, std::uint8_t* o
   ++g_generation;  // whatever a decode() left pointing into a buffer is not to be trusted from now on
   chunk::Writer w(out, cap, "303P");
 
-  bool ok = write_head_gen(w, s) && write_pats_header(w);
+  bool ok = write_head_gen(w, s, s.save_count) && write_pats_header(w);
   for (unsigned i = 0; i < kPatternCount && ok; ++i) {
     ok = w.bytes(&bank.pattern(i), sizeof(Pattern));
   }
@@ -487,7 +488,7 @@ std::size_t encode(const ProjectState& s, const seq::Bank& bank, std::uint8_t* o
 
 std::uint32_t small_crc(const ProjectState& s) noexcept {
   chunk::Writer w(g_small, sizeof g_small, "303P");
-  const bool ok = write_head_gen(w, s) && write_tail(w, s);
+  const bool ok = write_head_gen(w, s, 0) && write_tail(w, s);  // (the save counter moves with every write: it is no change of the session)
   // A state that does not fit (it cannot: kSmallMax holds the largest) still has a value, different from every image that did.
   return ok ? o3sdk::formats::crc32(g_small, w.size()) : 0u;
 }
@@ -504,7 +505,7 @@ void Encoder::begin(const ProjectState& s, const seq::Bank& bank, std::uint8_t* 
   body_ = 0;
   crc_at_ = 0;
   s_ = &s;
-  stage_ = (write_head_gen(w_, s) && write_pats_header(w_)) ? Stage::Patterns : Stage::Failed;
+  stage_ = (write_head_gen(w_, s, s.save_count) && write_pats_header(w_)) ? Stage::Patterns : Stage::Failed;
 }
 
 bool Encoder::step(unsigned patterns, std::size_t crc_bytes) noexcept {

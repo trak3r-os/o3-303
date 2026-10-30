@@ -1,37 +1,55 @@
-# Tempo and swing get permanent places (docs/M3B-PLAN.md R7): a tap of Master latches TEMPO on the encoder, Shift +
-# a tap latches SWING; hold Master and turn for a tempo nudge of 1 % a detent, at most 3 %, that snaps back at the release.
+# The tempo after M1 (docs/UX-303.md 2.1, 2.6, 5.6, D5): a tap of Master opens MASTER at the release with the encoder on TEMPO; hold Master and turn for a
+# tempo nudge of 1 % a detent, at most 3 %, that snaps back at the release, on whatever screen is up and without changing it; Shift + Master taps the tempo;
+# Shift + Play restarts the pattern; the swing is PATTERN SETUP's F2 (the pattern is per-pattern, so is its swing).
 wait 300
 tap play
 wait 300
+# A tap of Master: MASTER opens, the encoder on TEMPO.
 tap master
 wait 100
-snap 01_tempo_latched
+snap 01_master_opened
 turn 6
 wait 100
 snap 02_tempo_3_bpm_up
-# Still the tempo.
-turn -4
-wait 100
-snap 03_tempo_still_latched
-press shift
-tap master
-release shift
+# The swing is on PATTERN SETUP: Pattern (HOME), Pattern again (SETUP), F2, turn.
+tap pattern
+tap pattern
+tap f2
 turn 5
 wait 100
-snap 04_swing_latched
-# An F key gives the encoder back to the page.
-tap f1
+snap 03_swing_on_setup
+# The nudge on HOME, held: the status line says it, the header's tempo is 3 % up while it is held; the screen does not change.
+tap pattern
 wait 100
-snap 05_page_again
-# The nudge: hold Master, turn clockwise three detents: +3 %; the header's tempo is 3 % up while it is held.
 press master
 turn 3
 wait 200
-snap 06_nudge_up
+snap 04_nudge_up_on_home
 turn -5
 wait 200
-snap 07_nudge_down
+snap 05_nudge_down
 release master
 wait 200
-snap 08_nudge_released
+snap 06_nudge_released_still_home
+# Shift + Master taps the tempo from HOME: five taps half a second apart, 120 BPM; the screen does not change and MASTER does not open.
+press shift
+tap master 30
+wait 470
+tap master 30
+wait 470
+tap master 30
+wait 470
+tap master 30
+wait 470
+tap master 30
+release shift
+wait 100
+snap 07_tap_tempo_120
+# Shift + Play restarts the pattern from step 1 (and no longer taps the tempo).
+wait 700
+press shift
+tap play
+release shift
+wait 100
+snap 08_restarted
 tap play

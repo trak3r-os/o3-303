@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "vault_screen.h"
 
+#include "frame.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/core/param.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/step_model.h>
+
+#include <cstring>
 
 namespace o3_303 {
 
@@ -20,12 +23,12 @@ using ui::Face;
 using ui::Rect;
 
 constexpr int kInfoH = 34;
-constexpr int kTopY = 40;     // the banks, the grid and the details start here (area-relative)
+constexpr int kTopY = frame::kStatusH + 40;  // the banks, the grid and the details start here (area-relative)
 constexpr int kRowH = 19;     // 8 rows
 constexpr int kTopH = 8 * kRowH;
-constexpr int kHeroH = 184;
+constexpr int kHeroH = 176;
+constexpr unsigned kToastMs = 2500;
 
-constexpr const char* kLoadNames[3] = {"BOTH", "PATTERN", "SOUND"};
 constexpr const char* kDistNames[5] = {"GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
 
 void append(char* out, unsigned cap, const char* s) noexcept {
@@ -65,9 +68,36 @@ void add_field(char* line, unsigned cap, const char* label, unsigned value) noex
 
 }  // namespace
 
-void VaultScreen::init(Rig& rig, MainScreen& main) noexcept {
+const char* load_what_name(LoadWhat what) noexcept {
+  switch (what) {
+    case LoadWhat::Both: return "BOTH";
+    case LoadWhat::Pattern: return "LINE";
+    case LoadWhat::Sound: return "SOUND";
+  }
+  return "BOTH";
+}
+
+unsigned library_pads_text(unsigned bank, char* out, unsigned cap) noexcept {
+  if (cap == 0u) {
+    return 0;
+  }
+  out[0] = '\0';
+  append(out, cap, "SLOTS 0-47 OF ");
+  append(out, cap, seq::gen::bank_name(bank % seq::gen::kBanks));
+  append(out, cap, " . TAP = LOAD . INSERT = LOAD THE SLOT SHOWN");
+  unsigned n = 0;
+  while (out[n] != '\0') {
+    ++n;
+  }
+  return n;
+}
+
+void VaultScreen::init(Rig& rig) noexcept {
   rig_ = &rig;
-  main_ = &main;
+  toast_[0] = '\0';
+  toast_until_ms_ = 0;
+  saving_ = false;
+  seen_notice_ = rig.project.notice_seq;
   bank_ = 0;
   slot_ = 0;
   seed_ = 0;
@@ -85,7 +115,35 @@ void VaultScreen::refresh() noexcept {
 
 void VaultScreen::enter(app::Context& ctx) noexcept {
   refresh();
+  toast_[0] = '\0';
+  seen_notice_ = rig_->project.notice_seq;
   ctx.redraw();
+}
+
+void VaultScreen::say(app::Context& ctx, const char* text) noexcept {
+  unsigned n = 0;
+  for (; text[n] != '\0' && n + 1u < sizeof toast_; ++n) {
+    toast_[n] = text[n];
+  }
+  toast_[n] = '\0';
+  toast_until_ms_ = ctx.uptime_ms() + kToastMs;
+  ctx.redraw();
+}
+
+void VaultScreen::update(app::Context& ctx) noexcept {
+  if (toast_[0] != '\0' && ctx.uptime_ms() >= toast_until_ms_) {
+    toast_[0] = '\0';
+    ctx.redraw();
+  }
+  // A SAVE from here (Shift + File) says SAVING until both files are written, then what became of it.
+  if (rig_->project.saving != saving_) {
+    saving_ = rig_->project.saving;
+    ctx.redraw();
+  }
+  if (rig_->project.notice_seq != seen_notice_) {
+    seen_notice_ = rig_->project.notice_seq;
+    say(ctx, rig_->project.notice);
+  }
 }
 
 void VaultScreen::move_slot(int by) noexcept {
@@ -94,30 +152,34 @@ void VaultScreen::move_slot(int by) noexcept {
   refresh();
 }
 
-void VaultScreen::load_and_return(app::Context& ctx) noexcept {
-  load_preset(ctx.engine(), *rig_, preview_, what_);
+void VaultScreen::load_slot(app::Context& ctx) noexcept {
+  load_preset(ctx.engine(), *rig_, preview_, what_);  // one UNDO; the level and master are not part of a preset
   char text[40] = "LOADED ";
   append(text, sizeof text, preview_.name);
-  main_->toast(ctx, text);
-  ctx.show(*main_);
+  say(ctx, text);
 }
 
 void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
-  if (in.pad_press()) {
-    const unsigned s = in.pad() + (in.shift ? 16u : 0u);
-    if (s < seq::gen::kSlots) {
-      slot_ = s;
+  if (in.pad_press()) {  // a pad is a slot of the bank (0..47) and loads it
+    if (in.pad() < seq::gen::kSlots) {
+      slot_ = in.pad();
       refresh();
-      ctx.redraw();
+      load_slot(ctx);
     }
     return;
   }
   if (in.turn()) {
     if (in.shift) {
-      const int d = in.delta();
-      const std::uint32_t s = seed_ + static_cast<std::uint32_t>(d);  // wraps: a seed is a number, 0 is the vault's own
+      const std::uint32_t s = seed_ + static_cast<std::uint32_t>(in.delta());  // wraps: a seed is a number, 0 is the vault's own
       seed_ = s;
       refresh();
+      char text[24] = "SEED BY HAND ";
+      if (seed_ == 0u) {
+        append(text, sizeof text, "VAULT");
+      } else {
+        append_uint(text, sizeof text, seed_ % 10000u);
+      }
+      say(ctx, text);
     } else {
       move_slot(in.delta());
     }
@@ -129,8 +191,19 @@ void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
   }
   unsigned k = 0;
   if (in.fkey_press(k)) {
-    bank_ = k;
-    refresh();
+    if (!in.shift) {
+      bank_ = k;
+      refresh();
+    } else if (k == 0u) {  // NEW SEED: another take of this slot, different from boot to boot too
+      seed_ = seed_ * 1664525u + 1013904223u + static_cast<std::uint32_t>(ctx.uptime_ms()) * 2654435761u + 1u;
+      seed_ = seed_ == 0u ? 1u : seed_;
+      refresh();
+    } else if (k == 1u) {  // LOAD what
+      what_ = what_ == LoadWhat::Both ? LoadWhat::Pattern : (what_ == LoadWhat::Pattern ? LoadWhat::Sound : LoadWhat::Both);
+      char text[24] = "LOAD ";
+      append(text, sizeof text, load_what_name(what_));
+      say(ctx, text);
+    }
     ctx.redraw();
     return;
   }
@@ -147,24 +220,22 @@ void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
     case Button::Down:
       move_slot(8);
       break;
-    case Button::Rec:  // GEN: a new seed for this slot, different from boot to boot too
-      seed_ = seed_ * 1664525u + 1013904223u + static_cast<std::uint32_t>(ctx.uptime_ms()) * 2654435761u + 1u;
-      seed_ = seed_ == 0u ? 1u : seed_;
-      refresh();
+    case Button::Insert:
+      load_slot(ctx);
       break;
-    case Button::Params:
-      what_ = what_ == LoadWhat::Both ? LoadWhat::Pattern : (what_ == LoadWhat::Pattern ? LoadWhat::Sound : LoadWhat::Both);
-      break;
-    case Button::File:
-      load_and_return(ctx);
-      return;
     default:
       return;
   }
   ctx.redraw();
 }
 
-void VaultScreen::soft_keys(app::Context&, app::SoftKeys& out) noexcept {
+void VaultScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
+  if (ctx.panel().shift()) {  // the Shift row: NEW SEED and LOAD what, the rest empty
+    out.label[0] = "NEW SEED";
+    static constexpr const char* kLoadKeys[3] = {"LOAD BOTH", "LOAD LINE", "LOAD SOUND"};
+    out.label[1] = kLoadKeys[static_cast<unsigned>(what_)];
+    return;
+  }
   // The bank names, "OFF WORLD" shortened to fit a key.
   static constexpr const char* kKeyNames[seq::gen::kBanks] = {"AMBER", "SUB", "NEON", "ACID", "BLADE", "ROOFTOP", "OFF WRLD", "LAST"};
   for (unsigned i = 0; i < seq::gen::kBanks; ++i) {
@@ -174,23 +245,26 @@ void VaultScreen::soft_keys(app::Context&, app::SoftKeys& out) noexcept {
 }
 
 void VaultScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
-  const unsigned base = ctx.panel().shift() ? 16u : 0u;
-  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
-    const unsigned s = pad + base;
-    if (s >= seq::gen::kSlots) {
-      continue;
-    }
-    leds.set(pad, s == slot_ ? app::kLedOn : (s % 8u == 0u ? app::kLedLow : app::kLedDim));
+  (void)ctx;
+  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {  // slots 0..47: slot 48..63 has no pad
+    leds.set(pad, pad == slot_ ? app::kLedOn : (pad % 8u == 0u ? app::kLedLow : app::kLedDim));
   }
 }
 
 void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
-  (void)ctx;
   const ui::Theme& theme = r.theme();
   const seq::gen::Preset& pr = preview_;
 
+  // ---- The status line: the encoder's owner (the seed while Shift is held), the toast, a failed autosave ----
+  frame::StatusView status;
+  status.keys = false;
+  std::strcpy(status.enc, ctx.panel().shift() ? "SEED" : "SLOT");
+  status.save_failed = rig_->project.failed;
+  status.toast = toast_[0] != '\0' ? toast_ : (saving_ ? "SAVING" : "");
+  frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
+
   // ---- The strip: the bank's letter large, then bank, slot, seed and what a load takes ----
-  const Rect strip{area.x, area.y, area.w, kInfoH};
+  const Rect strip{area.x, area.y + frame::kStatusH, area.w, kInfoH};
   ui::strip(r, strip, ui::Edge::Bottom);
   const char letter[2] = {seq::gen::bank_letter(bank_), '\0'};
   r.text(10, ui::caps_y(theme, Face::Display, strip.y, strip.h), letter, Color::ChromeText, Face::Display);
@@ -206,7 +280,7 @@ void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noe
   row.field("SEED", Face::Data, seed_text, Color::ChromeDim, seed_ != 0u ? Color::Sel : Color::Chrome,
             seed_ != 0u ? Color::SelText : Color::ChromeText);
   char load[16] = "LOAD ";
-  append(load, sizeof load, kLoadNames[static_cast<unsigned>(what_)]);
+  append(load, sizeof load, load_what_name(what_));
   const int lw = r.text_width(load, Face::Label) + 2 * theme.metrics.gap;
   ui::FieldRow lrow(r, ui::kScreenW - 8 - lw, strip.y + 23);
   lrow.chip(Face::Label, load, Color::ChromeText, Color::Chrome);
@@ -280,21 +354,13 @@ void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noe
     hi = 48;
   }
   view::Marks m;
-  m.window = range_window(lo, hi, view::lane_height(hero.h, false));
+  m.window = range_window(lo, hi, view::lane_height(hero.h));
   view::draw_steps(r, hero, pr.pattern, m);
 
-  // ---- What the keys do: one line, the keys bright and what they do dim ----
-  static constexpr const char* kHelp[][2] = {{"F1-F8", "BANK"}, {"ENC", "SLOT"},  {"SHIFT+ENC", "SEED"}, {"PADS", "SLOT"},
-                                            {"REC", "GEN"},    {"PARAMS", "WHAT"}, {"FILE", "LOAD"},      {"PATTERN", "BACK"}};
-  const int hy = area.y + area.h - 20;
-  r.rule(area.x, hy - 3, area.w, ui::Axis::Horizontal, Color::Empty);
-  int hx = 10;
-  for (const auto& pair : kHelp) {
-    r.text(hx, hy, pair[0], Color::Text, Face::Label);
-    hx += r.text_width(pair[0], Face::Label) + 8;
-    r.text(hx, hy, pair[1], Color::TextDim, Face::Label);
-    hx += r.text_width(pair[1], Face::Label) + 16;
-  }
+  // ---- The PADS line ----
+  char pads[80];
+  (void)library_pads_text(bank_, pads, sizeof pads);
+  frame::draw_pads_line(r, Rect{area.x, area.y + area.h - frame::kPadsLineH, area.w, frame::kPadsLineH}, pads);
 }
 
 }  // namespace o3_303

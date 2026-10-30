@@ -5,18 +5,21 @@
 // (the 303 screen, with the pattern grid it shows while Pattern is held) and vault_screen.cpp (File: GEN and the vault). This file wires
 // them and owns the global keys:
 //
-//   PLAY          play / stop at the press (Shift: tap tempo)
+//   PLAY          play / stop at the press (Shift: restart from step 1)
 //   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
 //   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS MORE DEEP); the pads are the home map's, HOME's own
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
-//   FILE          the GEN vault (on it: load the slot shown); Shift + FILE: SAVE the project (project_service.h)
+//   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
+//   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
+#include "file_screen.h"
 #include "instrument_screen.h"
 #include "live_actions.h"
 #include "main_screen.h"
+#include "master_screen.h"
 #include "perform_screen.h"
 #include "project_service.h"
 #include "rig.h"
@@ -38,6 +41,7 @@
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cstdint>
+#include <cstring>
 
 namespace {
 
@@ -59,8 +63,7 @@ O3SDK_BIG FreezeRing g_freeze_l;
 O3SDK_BIG FreezeRing g_freeze_r;
 
 constexpr std::uint32_t kDefaultTempoMilli = 125'000;  // Replicant's default
-constexpr std::uint64_t kTapResetMs = 2000;            // a longer gap between two taps starts a new measure
-constexpr unsigned kTaps = 4;
+constexpr std::uint64_t kSavingToastMs = 1000;         // the SAVING toast is said again this often (a toast lasts a little longer)
 
 class O3_303App final : public app::App {
  public:
@@ -71,7 +74,6 @@ class O3_303App final : public app::App {
 
   void setup(app::Context& ctx) noexcept override {
     dsp::Engine& e = ctx.engine();
-    tap_count_ = 0;
     rig_.wiring = o3_303::Wiring{};
     rig_.sound_keys = o3_303::PageKeys{};  // the global table's page SOUND, F1 latched
     rig_.sound_keys.set_page(o3_303::kPageSound);
@@ -128,16 +130,37 @@ class O3_303App final : public app::App {
     main_.init(rig_);
     perform_.init(rig_, main_);
     instrument_.init(rig_, main_.home_map());  // the home map HOME has: one cursor, one keyboard, one Rec
-    vault_.init(rig_, main_);
+    master_.init(rig_, main_.home_map());  // the home map HOME has, as INSTRUMENT
+    vault_.init(rig_);
+    file_.init(rig_, project_, vault_);
     project_.init(rig_, e);  // last: it records the session as setup leaves it, so that a project loaded from the card knows if the player has edited
+    saving_ = false;
+    save_asked_ = false;
+    saving_toast_ms_ = 0;
     ctx.show(main_);
   }
 
   bool input(app::Context& ctx, const app::Input& in) noexcept override {
     dsp::Engine& e = ctx.engine();
+    // MASTER (UX-303 2.6, D5): the button and, while it is down, the encoder are the app's from every screen, so that none sees them. Another press
+    // while it is down (a chord) makes its release no tap.
+    if (master_.master_down() && in.type == app::Input::Type::Press && !in.is(Button::Master)) {
+      master_.master_chord();
+    }
+    if (in.turn() && master_.master_turn(ctx, in.delta())) {  // hold + turn: the tempo nudge
+      return true;
+    }
+    if (in.press(Button::Master)) {
+      master_.master_press(ctx, in.shift);  // Shift: a tap of the tap tempo; otherwise MASTER opens at the release of a tap
+      return true;
+    }
+    if (in.release(Button::Master)) {
+      master_.master_release(ctx);
+      return true;
+    }
     if (in.press(Button::Play)) {
       if (in.shift) {
-        tap_tempo(ctx);
+        (void)e.play();  // restart from step 1 (resync): play() from the top, the sequencer starts the pattern again while it runs
       } else {
         (void)(e.playing() ? e.stop() : e.play());
       }
@@ -158,8 +181,8 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // PARAMS: INSTRUMENT on VOICE, and on it the next page (UX-303 2.1, D21); the vault keeps the key until F3's FILE screen takes it over. Shift changes nothing.
-    if (in.press(Button::Params) && ctx.screen() != &vault_) {
+    // PARAMS: INSTRUMENT on VOICE, and on it the next page (UX-303 2.1, D21), from every screen. Shift changes nothing.
+    if (in.press(Button::Params)) {
       if (ctx.screen() == &instrument_) {
         instrument_.next_page();
         ctx.redraw();
@@ -169,14 +192,19 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // SAVE everywhere but on the vault, where Shift + File still loads the shifted slot (until F3's FILE screen takes the key over).
-    if (in.press(Button::File) && in.shift && ctx.screen() != &vault_) {  // (UX-303 8.5): live.o3a and project.o3a, "SAVED"
-      project_.save();
+    // FILE (UX-303 2.1): Shift + File is SAVE from every screen (live.o3a and project.o3a, "SAVED", 8.5); File opens FILE PROJECTS, again FILE LIBRARY, again PROJECTS.
+    if (in.press(Button::File)) {
+      if (in.shift) {
+        project_.save();
+        save_asked_ = true;  // the press always gets an answer (update()): SAVING then SAVED, or at once why not
+        notice_at_press_ = rig_.project.notice_seq;
+      } else if (ctx.screen() == &file_) {
+        file_.close_keyboard();  // File while the name is being typed drops it, as Cancel does
+        ctx.show(vault_);
+      } else {
+        ctx.show(file_);  // from the LIBRARY and from every other screen
+      }
       ctx.redraw();
-      return true;
-    }
-    if (in.press(Button::File) && (ctx.screen() == &main_ || ctx.screen() == &instrument_)) {
-      ctx.show(vault_);
       return true;
     }
     return false;
@@ -184,8 +212,24 @@ class O3_303App final : public app::App {
 
   void update(app::Context& ctx) noexcept override {
     sequencer_.update();
+    master_.service(ctx);  // a tempo restore that the command ring refused
     live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
     project_.update(ctx);  // the project on the card: the boot load, autosave, SAVE (after the actions, so a morph's last value is the one it sees)
+    // A SAVE (Shift + File) says SAVING from the press, also while it waits for an autosave that is on, until both files are written; then SAVED, or why not. A
+    // press the service refuses within the same pass (no card, a card that is not Ready) never shows SAVING: its answer is the reason, at once. The screens with
+    // the home map (HOME, INSTRUMENT, MASTER, PERFORM) show the toast; FILE and the LIBRARY say it on their own lines.
+    const bool saving = project_.saving_explicit();
+    if (saving && ctx.uptime_ms() >= saving_toast_ms_) {
+      main_.toast(ctx, "SAVING");
+      saving_toast_ms_ = ctx.uptime_ms() + kSavingToastMs;
+    } else if (save_asked_ && !saving) {
+      const bool said = rig_.project.notice_seq != notice_at_press_;  // never a notice left over from before the press
+      const char* text = said ? rig_.project.notice : "NOT SAVED";
+      main_.toast(ctx, text, !said || std::strcmp(text, "SAVED") != 0);
+      saving_toast_ms_ = 0;
+      save_asked_ = false;
+    }
+    saving_ = saving;
     // The 303 screen's bookkeeping (the follow of the playing pattern) goes on while another screen is up; when it is the current screen the
     // runtime calls its update() itself.
     if (ctx.screen() != nullptr && ctx.screen() != &main_) {
@@ -197,29 +241,6 @@ class O3_303App final : public app::App {
   o3_303::ProjectService& project() noexcept { return project_; }
 
  private:
-  // Shift + Play: the tempo from the gaps between the last taps (the last four), 20..300 BPM.
-  void tap_tempo(app::Context& ctx) noexcept {
-    const std::uint64_t now = ctx.uptime_ms();
-    if (tap_count_ != 0u && now - tap_ms_[(tap_count_ - 1u) % kTaps] > kTapResetMs) {
-      tap_count_ = 0;
-    }
-    tap_ms_[tap_count_ % kTaps] = now;
-    ++tap_count_;
-    if (tap_count_ < 2u) {
-      return;
-    }
-    const unsigned n = tap_count_ < kTaps ? tap_count_ : kTaps;
-    const std::uint64_t first = tap_ms_[(tap_count_ - n) % kTaps];
-    const std::uint64_t span = now - first;
-    if (span == 0u) {
-      return;
-    }
-    // n taps are n - 1 gaps: a gap is span / (n - 1) ms, a tempo 60000 / gap BPM, in milli-BPM.
-    std::uint64_t mbpm = 60'000'000ull * (n - 1u) / span;
-    mbpm = mbpm < dsp::kMinTempoMilliBpm ? dsp::kMinTempoMilliBpm : (mbpm > dsp::kMaxTempoMilliBpm ? dsp::kMaxTempoMilliBpm : mbpm);
-    (void)ctx.engine().set_tempo(static_cast<std::uint32_t>(mbpm));
-  }
-
   o3_303::AcidVoice voice_;
   o3_303::Distortion dist_;
   units::Delay delay_{g_delay_l, g_delay_r, kDelayCapacity};
@@ -231,10 +252,14 @@ class O3_303App final : public app::App {
   o3_303::MainScreen main_;
   o3_303::PerformScreen perform_;
   o3_303::InstrumentScreen instrument_;
+  o3_303::MasterScreen master_;
   o3_303::VaultScreen vault_;
+  o3_303::FileScreen file_;
   o3_303::ProjectService project_;
-  std::uint64_t tap_ms_[kTaps] = {};
-  unsigned tap_count_ = 0;
+  bool saving_ = false;                // a SAVE was on at the last pass
+  bool save_asked_ = false;            // Shift + File was pressed and its answer (the toast) is still due
+  std::uint32_t notice_at_press_ = 0;  // Rig::project.notice_seq at that press
+  std::uint64_t saving_toast_ms_ = 0;  // when SAVING may be said again
 };
 
 }  // namespace

@@ -1,16 +1,21 @@
 # Step editing of M3b (docs/M3B-PLAN.md R3 layer rotate, R4 ratchets and the step's octave, R5 trig conditions) on the factory line in A01.
-# The step view does not draw ratchets and conditions yet (the step-view round does); the evidence here is the info strip's line (STEP n RATCHET xn,
-# STEP n COND ...), INSTRUMENT MORE's knobs and the note and accent rows moving. Step pads: steps 1..8 are pads 0..7, steps 9..16 pads 12..19.
+# The evidence here is the PLAYS row of the drawer and the STEP box (STEP n: ... x3, 1:2 ...), the toast (STEP n RATCHET xn, STEP n COND ...), INSTRUMENT
+# MORE's knobs and the note and accent rows moving. Step pads: steps 1..8 are pads 0..7, steps 9..16 pads 12..19.
 wait 300
-# Hold step 4 and tap OCT+ (pad 21) twice: its ratchet is x3. OCT- (pad 20) takes one back. The keyboard's octave does not move.
+# The Vol button puts the PLAYS row on the encoder (UX-303 2.3, D8). Hold step 4 and turn twice: its ratchet is x3; one back is x2. OCT+ and OCT- (pads 21
+# and 20) are the keyboard's octave only now, even with a step held: the old gesture (hold a step + OCT+) is cut (D24).
+tap vol
 paddown 3
-pad 21
-pad 21
+turn 2
 wait 100
 snap 01_ratchet_x3
-pad 20
+turn -1
 wait 100
 snap 02_ratchet_x2
+pad 21
+wait 100
+snap 02b_oct_plus_is_the_keyboards
+pad 20
 padup 3
 # Hold step 6 and tap the up arrow with Shift: that step's note moves an octave (up / down alone are one semitone).
 paddown 5

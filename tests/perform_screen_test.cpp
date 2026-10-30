@@ -80,10 +80,11 @@ TEST_CASE("Perform opens PERFORM, again PERFORM SETUP, again PERFORM; from any o
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
-  t.tap(Button::File);  // the vault is not reached from PERFORM today; Pattern is the way back
+  t.tap(Button::File);  // File opens FILE PROJECTS from every screen (UX-303 2.1)
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
   t.to_home();
   t.tap(Button::File);
-  CHECK(std::strcmp(t.title(), "VAULT") == 0);
+  CHECK(std::strcmp(t.title(), "FILE PROJECTS") == 0);
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
 }
@@ -189,14 +190,19 @@ TEST_CASE("leaving PERFORM: the momentary actions end, the latched ones stay on,
   CHECK(lamp(t, action_pad(PerfAction::Mute)) == app::kLedDim);
   t.pad(action_pad(PerfAction::Freeze), 10);
   CHECK(freeze_active(t) == 0.0f);
-  // A colour button held on the 303 screen ends there too.
-  t.to_home();
+  // A colour button held on PERFORM ends when the screen goes.
   t.press(Button::Note);
   CHECK(seqr().perf() == seq::kPerfMute);
-  t.to_perform();
+  t.to_home();
   CHECK(seqr().perf() == 0);
   t.release(Button::Note);
   CHECK(seqr().perf() == 0);
+  // On the 303 screen the same buttons are the drawer's rows (H3): no action starts, held or with Shift.
+  t.press(Button::Note);
+  CHECK(seqr().perf() == 0);
+  t.release(Button::Note);
+  t.shift_tap(Button::Fx);
+  CHECK(freeze_active(t) == 0.0f);
 }
 
 TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift latches, and ALL OFF unlatches them too") {
@@ -216,9 +222,10 @@ TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift la
   CHECK(freeze_active(t) == 1.0f);
   t.pad(action_pad(PerfAction::Freeze), 10);  // the pad of a latched action lets it go whoever latched it
   CHECK(freeze_active(t) == 0.0f);
-  // The 303 screen's buttons are the same state: a latch there is on here.
-  t.to_home();
+  // A latch stays on across the change of screen, and its pad is lit on return.
   t.shift_tap(Button::Note);
+  t.to_home();
+  CHECK(seqr().perf() == seq::kPerfMute);
   t.to_perform();
   CHECK(seqr().perf() == seq::kPerfMute);
   CHECK(lamp(t, action_pad(PerfAction::Mute)) == app::kLedOn);
@@ -597,20 +604,18 @@ TEST_CASE("every frame of PERFORM, its setup page and the 303 screen fits well u
   t.tap(Button::Play);
 }
 
-TEST_CASE("Shift + a colour button lets go of an action latched on a PERFORM pad, from the 303 screen too") {
+TEST_CASE("Shift + a colour button lets go of an action latched on a PERFORM pad") {
   Hands t;
   t.to_perform();
   shift_pad(t, action_pad(PerfAction::Mute));  // Note carries MUTE
   CHECK(seqr().perf() == seq::kPerfMute);
-  t.to_home();
   t.shift_tap(Button::Note);  // not a second latch on the button: the action goes
   CHECK(seqr().perf() == 0);
   t.shift_tap(Button::Note);  // now it is the button's own latch
   CHECK(seqr().perf() == seq::kPerfMute);
   t.shift_tap(Button::Note);
   CHECK(seqr().perf() == 0);
-  // The same from PERFORM, with a pad latch and a button latch on one action: both go.
-  t.to_perform();
+  // The same with a pad latch and a button latch on Freeze: both go.
   shift_pad(t, action_pad(PerfAction::Freeze));
   CHECK(freeze_active(t) == 1.0f);
   t.shift_tap(Button::Fx);

@@ -17,6 +17,9 @@
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
 
+#include "../app/src/home_map.h"
+#include "../app/src/main_screen.h"
+
 #include <cstring>
 
 using namespace hands;
@@ -71,17 +74,22 @@ TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOI
   CHECK(is_title(t, "INSTRUMENT VOICE"));
 }
 
-TEST_CASE("on the vault Params stays the vault's, and File opens the vault from INSTRUMENT") {
+TEST_CASE("Params is INSTRUMENT from FILE and from the library, and File opens FILE PROJECTS from INSTRUMENT") {
   Hands t;
   t.tap(Button::File);
-  CHECK(is_title(t, "VAULT"));
-  t.tap(Button::Params);  // what a load takes: no screen change
-  CHECK(is_title(t, "VAULT"));
+  CHECK(is_title(t, "FILE PROJECTS"));
+  t.tap(Button::Params);
+  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  t.tap(Button::File);
+  t.tap(Button::File);
+  CHECK(is_title(t, "FILE LIBRARY"));
+  t.tap(Button::Params);  // no longer the library's key
+  CHECK(is_title(t, "INSTRUMENT VOICE"));
   t.tap(Button::Pattern);
   CHECK_FALSE(on_instrument(t));
   t.to_instrument(kInstFx);
   t.tap(Button::File);
-  CHECK(is_title(t, "VAULT"));
+  CHECK(is_title(t, "FILE PROJECTS"));
 }
 
 TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX, MODS and MORE each keep their own") {
@@ -202,25 +210,29 @@ TEST_CASE("a held step + a turn locks the latched knob of the page on that step,
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 1));
 }
 
-TEST_CASE("the colour buttons are HOME's actions here too, and leaving INSTRUMENT ends the ones held") {
+TEST_CASE("the colour buttons are the drawer's rows here, not live actions: nothing freezes, and Params gives the encoder back to the knob") {
   Hands t;
+  HomeMap& home = static_cast<MainScreen*>(t.h->runtime().context().screen())->home_map();
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
   t.to_instrument(kInstMods);
-  t.press(Button::Fx);  // FREEZE by default
-  t.wait(20);
-  CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
-  t.tap(Button::Params);  // a page change goes on holding it
-  t.wait(20);
-  CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
-  t.release(Button::Fx);
+  t.press(Button::Fx);  // FREEZE on PERFORM; here the LOCK row
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
-  t.press(Button::Fx);
-  t.wait(20);
-  t.tap(Button::Pattern);  // leaving ends it: its release would reach another screen
-  t.wait(20);
-  CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
+  CHECK(home.row() == DrawerRow::Lock);
   t.release(Button::Fx);
+  t.tap(Button::Vol);
+  CHECK(home.row() == DrawerRow::Plays);
+  t.tap(Button::Params);  // the page has its own knobs: the encoder is the knob's again
+  CHECK(home.row() == DrawerRow::None);
+  t.tap(Button::Instr);
+  CHECK(home.row() == DrawerRow::Gate);
+  t.tap(Button::F1);  // an F key gives it back
+  CHECK(home.row() == DrawerRow::None);
+  t.tap(Button::Note);
+  t.shift_tap(Button::Vol);  // Shift + a colour button is the button alone (D22)
+  CHECK(home.row() == DrawerRow::Plays);
+  t.tap(Button::Pattern);  // leaving: HOME's encoder is the knob's
+  CHECK(home.row() == DrawerRow::None);
 }
 
 TEST_CASE("the Shift row is empty: Shift + F does nothing, and its release is not the page's") {
@@ -274,10 +286,11 @@ TEST_CASE("VOICE's latch is PERFORM's, not HOME's: HOME still has its own until 
 
 // ---- What leaving does to the live actions -------------------------------------------------------------------------------------------------------
 
-TEST_CASE("Params ends the momentary live actions held on HOME or PERFORM and leaves the latched ones on (D4)") {
+TEST_CASE("Params ends the momentary live actions held on PERFORM and leaves the latched ones on (D4)") {
   Hands t;
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
-  t.press(Button::Fx);  // FREEZE, held on HOME
+  t.to_perform();
+  t.press(Button::Fx);  // FREEZE, held on PERFORM
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
   t.tap(Button::Params);  // the screen changes: the hold ends
@@ -285,7 +298,6 @@ TEST_CASE("Params ends the momentary live actions held on HOME or PERFORM and le
   CHECK(on_instrument(t));
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
   t.release(Button::Fx);
-  t.to_home();
 
   t.to_perform();  // held on PERFORM's own pad
   t.down(app::pad_at(0, perform_action_pad(PerfAction::Freeze)));
@@ -296,15 +308,19 @@ TEST_CASE("Params ends the momentary live actions held on HOME or PERFORM and le
   CHECK(on_instrument(t));
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
   t.up(app::pad_at(0, perform_action_pad(PerfAction::Freeze)));
-  t.to_home();
 
-  t.shift_tap(Button::Fx);  // latched: it stays on across the change, and Shift + Fx here puts it out
+  t.to_perform();
+  t.shift_tap(Button::Fx);  // latched: it stays on across the change; here Shift + Fx is the LOCK row, so PERFORM puts it out
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
   t.tap(Button::Params);
   t.wait(20);
   CHECK(on_instrument(t));
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
+  t.shift_tap(Button::Fx);
+  t.wait(20);
+  CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
+  t.to_perform();
   t.shift_tap(Button::Fx);
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));

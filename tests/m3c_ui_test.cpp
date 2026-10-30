@@ -80,7 +80,7 @@ TEST_CASE("the wiring: the first four unit ids are as they were, the growl is th
 TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; latched with Shift it stays until the next Shift + tap; HOME's pads stay keys") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Fx, PerfAction::Wobble);
+  t.assign_perf(Button::Fx, PerfAction::Wobble, true);  // on PERFORM, where the colour buttons are the live actions
   CHECK_FALSE(s.wobble().on);
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
 
@@ -90,11 +90,6 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
   CHECK(s.wobble().rate == seq::kWobble1_8);
   CHECK(s.wobble().target.target == o3_303::kLaneVoice);
   CHECK(s.wobble().target.id == o3_303::AcidVoice::Cutoff);
-  CHECK(s.wobble_rate_now() == seq::kWobble1_8);
-  CHECK(t.led(bottom(2)) == app::kLedDim);  // the keyboard's: no picker over it
-  t.pad(bottom(2));                          // a key here: no rate is picked
-  t.wait(30);
-  CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
   CHECK(s.wobble_rate_now() == seq::kWobble1_8);
 
   t.release(Button::Fx);
@@ -107,24 +102,33 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
   t.wait(30);
   CHECK(s.wobble().on);
   CHECK(s.wobble_rate_now() == seq::kWobble1_8);
+  // HOME's pads stay keys while it runs (a latched action stays on across the change): no picker over them.
+  t.to_home();
+  CHECK(s.wobble().on);
+  CHECK(t.led(bottom(2)) == app::kLedDim);
+  t.pad(bottom(2));  // a key here: no rate is picked
+  t.wait(30);
+  CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
+  CHECK(s.wobble_rate_now() == seq::kWobble1_8);
+  t.to_perform();
   t.shift_tap(Button::Fx);
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
 }
 
-TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (the hold goes on across its pages), and the Vowel is a growl target") {
+TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (a latched wobble goes on across its pages), and the Vowel is a growl target") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Fx, PerfAction::Wobble);
+  t.assign_perf(Button::Fx, PerfAction::Wobble, true);
+  t.shift_tap(Button::Fx);  // latched on PERFORM: the colour buttons are the drawer's rows on INSTRUMENT, a hold cannot cross the change
   t.to_instrument(o3_303::kInstDeep);
-  t.press(Button::Fx);  // the colour buttons are the home map's: held here as on HOME
   t.tap(Button::F4);    // WOB RESET off
   t.turn(-1);
   t.wait(10);
   CHECK(s.wobble().on);
   CHECK_FALSE(s.wobble().reset_on_note);
-  t.tap(Button::Params);  // VOICE, FX, MODS: the hold stays
+  t.tap(Button::Params);  // VOICE, FX, MODS: the latch stays
   t.tap(Button::Params);
   t.tap(Button::Params);
   CHECK(s.wobble().on);
@@ -138,12 +142,15 @@ TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (the hold go
   t.turn(2);          // 1/8 -> 1/16
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_16);
-  t.release(Button::Fx);
+  t.to_perform();
+  t.shift_tap(Button::Fx);
   t.wait(10);
   CHECK_FALSE(s.wobble().on);
   // Changed with the wobble off: the settings wait for the next hold.
+  t.to_instrument(o3_303::kInstMods);  // (WOB RATE, F5, is still the latched key of that page)
   t.turn(-2);
   CHECK_FALSE(s.wobble().on);
+  t.to_perform();
   t.press(Button::Fx);
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_8);
@@ -159,7 +166,7 @@ TEST_CASE("ROLL, STOP and REV: each writes the freeze's Mode, then Active, while
   Hands t;
   t.assign_perf(Button::Note, PerfAction::Roll);
   t.assign_perf(Button::Instr, PerfAction::Stop);
-  t.assign_perf(Button::Vol, PerfAction::Reverse);
+  t.assign_perf(Button::Vol, PerfAction::Reverse, true);
   CHECK(freeze_mode(t) == doctest::Approx(0.0f));
   CHECK(freeze_active(t) == 0.0f);
 
@@ -206,7 +213,7 @@ TEST_CASE("ROLL, STOP and REV: each writes the freeze's Mode, then Active, while
   // Leaving the screen lets go of a held one.
   t.press(Button::Vol);
   CHECK(freeze_active(t) == 1.0f);
-  t.tap(Button::File);
+  t.tap(Button::Params);  // INSTRUMENT
   t.wait(10);
   CHECK(freeze_active(t) == 0.0f);
   t.release(Button::Vol);
@@ -216,7 +223,7 @@ TEST_CASE("ROLL, STOP and REV: each writes the freeze's Mode, then Active, while
 TEST_CASE("FREEZE after a ROLL is a FREEZE again: it writes its own Mode at the entry") {
   Hands t;
   t.assign_perf(Button::Note, PerfAction::Roll);
-  t.assign_perf(Button::Vol, PerfAction::Freeze);
+  t.assign_perf(Button::Vol, PerfAction::Freeze, true);
   t.press(Button::Note);
   t.release(Button::Note);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));
@@ -226,7 +233,7 @@ TEST_CASE("FREEZE after a ROLL is a FREEZE again: it writes its own Mode at the 
   t.release(Button::Vol);
   CHECK(freeze_active(t) == 0.0f);
   // The two buttons carry the same action: it is on while either is (as before).
-  t.assign_perf(Button::Instr, PerfAction::Freeze);
+  t.assign_perf(Button::Instr, PerfAction::Freeze, true);
   t.press(Button::Instr);
   t.press(Button::Vol);
   t.release(Button::Instr);

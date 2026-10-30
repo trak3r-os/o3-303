@@ -1,0 +1,82 @@
+# FILE PROJECTS (docs/UX-303.md 5.8 and 8.5, docs/UX-PLAN.md F3): the projects on the card, SAVE AS and NEW on the kit's keyboard (the 48 pads), LOAD, REVERT and
+# DELETE (twice; never the current project).
+#
+#   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/file.txt --card <card> --out <dir>
+#
+# Start from an empty card directory. The card ends up with Apps/o3_303/jam/ and Apps/o3_303/two/ (marked deleted) and last.txt saying "jam". The pictures:
+# 03 the keyboard, 05 the list with jam current, 09 LOAD brought jam's cutoff back, 12 REVERT brought the saved cutoff back, 14 DELETE armed, 16 the
+# current project refused. Without --card (the scenarios test runs it so) every key says NO CARD and nothing is written: that is the NO CARD state, picture 01.
+# The pad keys of the keyboard: j 30, a 24, m 42, t 16, w 13, o 20. F1 CUTOFF is SOUND's first knob; the encoder turns the latched one.
+wait 300
+tap file
+wait 300
+snap 01_projects_empty
+tap f3
+wait 50
+pad 30
+pad 24
+pad 42
+snap 03_keyboard_jam
+tap f7
+wait 500
+snap 05_jam_saved_as
+# Edit the sound, back to FILE: NEW autosaves jam first, then the factory line under "two".
+tap pattern
+tap f1 5
+turn -9
+wait 100
+tap file
+tap f4
+wait 50
+pad 16
+pad 13
+pad 20
+snap 06_keyboard_two
+tap f7
+wait 800
+snap 07_new_two
+tap pattern
+snap 08_home_two_factory
+# LOAD jam: its cutoff (turned down above) is back.
+tap file
+wait 300
+turn -1
+snap 08b_jam_selected
+tap f1
+wait 800
+tap pattern
+snap 09_home_jam_loaded
+# SAVE, change, REVERT twice: the saved cutoff is back.
+press shift
+tap file 40
+release shift
+wait 500
+tap f1 5
+turn 12
+wait 100
+snap 10_cutoff_changed
+tap file
+wait 300
+tap f5
+snap 11_revert_armed
+tap f5
+wait 800
+tap pattern
+snap 12_home_reverted
+# DELETE two (twice), then the current project: refused.
+tap file
+wait 300
+turn 1
+snap 13_two_selected
+tap f6
+snap 14_delete_armed
+tap f6
+wait 500
+snap 15_two_deleted
+tap f6
+snap 16_current_refused
+# FILE again is the library, again the projects.
+tap file
+snap 17_library
+tap file
+snap 18_projects_again

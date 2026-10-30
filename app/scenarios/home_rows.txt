@@ -1,0 +1,113 @@
+# The drawer rows (docs/UX-303.md 2.3 and 5.1, slice H3): Note, Instr, Vol and Fx latch the NOTE, GATE, PLAYS and LOCK rows of the drawer on the encoder
+# (the ENC text and the highlighted caption say which), an F key gives it back to the knob, and Shift + a colour button is the button alone. The rows edit
+# the held steps, else the cursor's: NOTE a semitone (Shift an octave), GATE the list REST NOTE ACC SLD ACC+SLD TIE, PLAYS the list x1..x4, 75 / 50 / 25 %,
+# 1:2 .. 4:4, FILL, !FILL, FIRST, !FIRST (a ratchet or a condition, one at a time), LOCK the lock of the latched knob (below its minimum: "--", no lock).
+# The STEP box on the info line shows the selected step whole. The live actions of these buttons are PERFORM's (perform.txt). Step pads: steps 1..8 are
+# pads 0..7, steps 9..16 pads 12..19. The WAV: the line with a ratchet, a condition and a lock written with the rows.
+wait 300
+# Step 5 is the cursor.
+pad 4
+wait 100
+snap 01_plain
+# NOTE: two semitones up on step 5, then the octave with Shift.
+tap note
+turn 2
+wait 100
+snap 02_note_row
+press shift
+turn -1
+release shift
+wait 100
+snap 03_note_octave_down
+# GATE: step 5 is a slide; one place on is ACC+SLD, then back to ACC alone.
+tap instr
+turn 1
+wait 100
+snap 04_gate_row
+turn -2
+wait 100
+snap 04b_gate_acc
+# PLAYS: step 5 gets a ratchet x3, then, held step 9 too, the condition 1:2 (seven places along the list) on both.
+tap vol
+turn 2
+wait 100
+snap 05_plays_ratchet_x3
+paddown 12
+turn 7
+padup 12
+wait 100
+snap 06_plays_condition
+# LOCK: the cutoff (F1, latched at boot) locked on step 5, then on step 9 with it held; step 5's turned below its minimum is "--" again.
+tap fx
+turn 12
+wait 100
+snap 07_lock_row
+paddown 12
+turn -20
+wait 100
+snap 08_lock_held_step_9
+padup 12
+turn -100
+turn -100
+turn -1
+wait 100
+snap 09_lock_below_minimum_is_no_lock
+turn 15
+# An F key gives the encoder back to the knob: DECAY is latched and its row has no locks.
+tap f4
+wait 100
+snap 10_f_key_gives_back
+# PATTERN SETUP and INSTRUMENT have the same rows.
+tap pattern
+tap vol
+turn 1
+wait 100
+snap 11_setup_plays
+tap pattern
+tap params
+tap instr
+turn 1
+wait 100
+snap 12_instrument_gate
+# A ninth lane: INSTRUMENT FX, the knobs the default lanes do not drive (DRIVE TONE MIX, DLY TIME FB SEND TONE) take seven lanes with the cutoff's one; the
+# VOWEL of MODS finds none and the toast says so.
+tap params
+tap f1
+tap fx
+turn 5
+tap f2
+tap fx
+turn 5
+tap f3
+tap fx
+turn 5
+tap f5
+tap fx
+turn 5
+tap f6
+tap fx
+turn 5
+tap f7
+tap fx
+turn 5
+tap f8
+tap fx
+turn 5
+wait 100
+snap 13_seven_more_lanes
+tap params
+tap f1
+tap fx
+turn 5
+wait 100
+snap 14_ninth_lane
+# HOME with the rows' marks, playing: the WAV.
+tap pattern
+tap f1
+record on
+tap play
+wait 2400
+snap 15_playing
+tap play
+wait 300
+wav home_rows

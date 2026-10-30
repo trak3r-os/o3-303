@@ -6,10 +6,10 @@
 // PATTERN SETUP, its second page (a tap of Pattern): the same drawer and pads, the pattern's LENGTH / SWING / GATE / TRANSP and the generator's settings on
 // F1..F8 (the screen's own PageKeys, so its latch is its own, UX-303 D3), and its own Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, UNDO).
 //
-// The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons are the home map's (home_map.h): this screen forwards them to its HomeMap
-// and draws what it reads from it. It is one class in three files: main_screen.cpp (the pages, the tools, the drawing), main_screen_perf.cpp (the Master
-// gestures) and main_screen_snap.cpp (the SNAP page, the RANDOM popup). What the four assignable performance buttons do and the snapshots themselves
-// are LiveActions' (live_actions.h), shared with PERFORM.
+// The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons (the drawer rows: Note, Instr, Vol, Fx latch NOTE, GATE, PLAYS, LOCK on the
+// encoder; an F key gives it back) are the home map's (home_map.h): this screen forwards them to its HomeMap and draws what it reads from it. It is one class in three files: main_screen.cpp (the pages, the tools, the drawing), main_screen_perf.cpp (the Master
+// gestures) and main_screen_snap.cpp (the SNAP page, the RANDOM popup). What the four colour buttons do as live actions and the snapshots themselves
+// are LiveActions' (live_actions.h), PERFORM's.
 
 #include "home_map.h"
 #include "knob_strip.h"

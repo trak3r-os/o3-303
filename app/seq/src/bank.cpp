@@ -147,8 +147,11 @@ int Bank::redo() noexcept {
 
 // ---- Named edits --------------------------------------------------------------------------------------------------------------
 
-bool Bank::set_note(unsigned index, unsigned step, unsigned note) noexcept {
-  return edit(index, [&](Pattern& p) { seq::set_note(p, step, note); }, kKeyNote | (step & 0xFFu));
+// The step byte of a coalescing key: the step itself, or the gesture's own value (Bank::kJoinOwn).
+static constexpr std::uint32_t step_byte(unsigned step, unsigned join) noexcept { return (join == Bank::kJoinOwn ? step : join) & 0xFFu; }
+
+bool Bank::set_note(unsigned index, unsigned step, unsigned note, unsigned join) noexcept {
+  return edit(index, [&](Pattern& p) { seq::set_note(p, step, note); }, kKeyNote | step_byte(step, join));
 }
 
 bool Bank::toggle_flag(unsigned index, unsigned step, std::uint8_t flag) noexcept {
@@ -245,12 +248,12 @@ bool Bank::resize(unsigned index, unsigned length) noexcept {
   return edit(index, [&](Pattern& p) { return seq::resize(p, length); });
 }
 
-bool Bank::set_gate_list(unsigned index, unsigned step, unsigned entry) noexcept {
-  return edit(index, [&](Pattern& p) { return seq::set_gate_list(p, step, entry); }, kKeyGateList | (step & 0xFFu));
+bool Bank::set_gate_list(unsigned index, unsigned step, unsigned entry, unsigned join) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::set_gate_list(p, step, entry); }, kKeyGateList | step_byte(step, join));
 }
 
-bool Bank::set_plays(unsigned index, unsigned step, unsigned entry) noexcept {
-  return edit(index, [&](Pattern& p) { return seq::set_plays(p, step, entry); }, kKeyPlays | (step & 0xFFu));
+bool Bank::set_plays(unsigned index, unsigned step, unsigned entry, unsigned join) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::set_plays(p, step, entry); }, kKeyPlays | step_byte(step, join));
 }
 
 int Bank::claim_lane(unsigned index, std::uint8_t target, std::uint8_t id) noexcept {
@@ -263,16 +266,16 @@ int Bank::claim_lane(unsigned index, std::uint8_t target, std::uint8_t id) noexc
   return lane;
 }
 
-int Bank::lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, std::uint8_t value) noexcept {
+int Bank::lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, std::uint8_t value, unsigned join) noexcept {
   if (value == kNoLock) {
     const int lane = seq::find_lane(pattern(index), target, id);
     if (lane >= 0) {
-      unlock_step(index, target, id, step);
+      unlock_step(index, target, id, step, join);
     }
     return lane;
   }
   int lane = -1;
-  const std::uint32_t key = kKeyLockTarget | ((target & 0xFu) << 16) | (static_cast<std::uint32_t>(id) << 8) | (step & 0xFFu);
+  const std::uint32_t key = kKeyLockTarget | ((target & 0xFu) << 16) | (static_cast<std::uint32_t>(id) << 8) | step_byte(step, join);
   edit(index,
        [&](Pattern& p) {
          lane = seq::claim_lane(p, target, id);
@@ -286,12 +289,12 @@ int Bank::lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsign
   return lane;
 }
 
-bool Bank::unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step) noexcept {
+bool Bank::unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, unsigned join) noexcept {
   const int lane = seq::find_lane(pattern(index), target, id);
   if (lane < 0) {
     return false;
   }
-  const std::uint32_t key = kKeyLockTarget | ((target & 0xFu) << 16) | (static_cast<std::uint32_t>(id) << 8) | (step & 0xFFu);
+  const std::uint32_t key = kKeyLockTarget | ((target & 0xFu) << 16) | (static_cast<std::uint32_t>(id) << 8) | step_byte(step, join);
   return edit(
       index,
       [&](Pattern& p) {
