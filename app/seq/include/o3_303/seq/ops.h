@@ -161,4 +161,67 @@ void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // re-rolled accent or slide.
 void mutate(Pattern& p, const GenParams& g, std::uint32_t seed, unsigned amount_pct) noexcept;
 
+// ---- The UX operations (docs/UX-303.md 2.3, 5.1, 5.2, decisions D2 and D8): pure logic the screens only wire up ---------------------
+
+// RHYTHM: keeps every pitch (a rest and a tie keep the one under them), the ratchets and the conditions, and redraws, over the length,
+// whether each step is a rest, a tie, an accent or a slide, from `g.density`, `g.accent_pct` and `g.slide_pct`: step 0 always sounds, the
+// others sound with the density, a sounding step is accented and slides with the percentages (as random_fill does; no ties are drawn, so
+// the old ones go). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
+bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
+// NOTES: keeps the rhythm, every flag, ratchet and condition, and redraws the pitch of every sounding step (not a rest, not a tie: those
+// keep theirs) over the length from the scale and the range of `g` (`scale`, `root`, `low`, `high`), with random_fill's draw (a repeated
+// note now and then). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
+bool regen_notes(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
+
+// The PLAYS list of a step (D8): one list that holds a ratchet or a condition, never both. The 17 entries, in the order the encoder walks:
+//   0..3   x1 x2 x3 x4      the ratchet 0..3, no condition
+//   4..6   75% 50% 25%      a probability
+//   7..12  1:2 2:2 1:4 2:4 3:4 4:4
+//   13..16 FILL, NOT FILL, FIRST, NOT FIRST
+inline constexpr unsigned kPlaysCount = 17;
+struct PlaysEntry {
+  std::uint8_t ratchet;  // 0..kMaxRatchet
+  std::uint8_t cond;     // kCondAlways, a probability, cond_ratio(), kCondFill ..
+};
+PlaysEntry plays_at(unsigned index) noexcept;  // an index past the end gives the last entry
+// The entry a step shows: a step with a (valid) condition shows the condition, whatever its ratchet (old data); one without shows its
+// ratchet. A condition that is not on the list is shown by the nearest entry: a probability by the nearest of 75 / 50 / 25 %, an A:B by
+// the entry with the nearest cycle B (2 or 4; B = 3 goes to 2) and then the nearest position A/B. A reserved condition byte plays as
+// always, so it shows the ratchet.
+unsigned plays_index(std::uint8_t flags, std::uint8_t cond) noexcept;
+// false: the stored value is not on the list (a probability of 33 %, a 3:8, a reserved byte): the screen shows it as itself.
+bool plays_exact(std::uint8_t flags, std::uint8_t cond) noexcept;
+// The encoder's walk: the entry `detents` places from the one shown (clamped at both ends). From a stray value the first detent, in either
+// direction, lands on the nearest entry; the rest continue from there. 0 detents give the entry shown.
+unsigned plays_step(std::uint8_t flags, std::uint8_t cond, int detents) noexcept;
+// The step takes entry `index` (past the end gives the last): the ratchet or the condition is set and the other cleared. true: changed.
+bool set_plays(Pattern& p, unsigned step, unsigned index) noexcept;
+
+// The GATE list of a step: what the step does, from the flags (the ratchet bits are not part of it).
+//   0 REST (rest)   1 NOTE (none)   2 ACC (accent)   3 SLD (slide)   4 ACC+SLD (both)   5 TIE (tie)
+inline constexpr unsigned kGateListCount = 6;
+inline constexpr unsigned kGateRest = 0;
+inline constexpr unsigned kGateNote = 1;
+inline constexpr unsigned kGateAcc = 2;
+inline constexpr unsigned kGateSld = 3;
+inline constexpr unsigned kGateAccSld = 4;
+inline constexpr unsigned kGateTie = 5;
+// The entry the flags show: a rest shows REST (it wins over a stray tie bit), then a tie shows TIE, then accent and slide.
+unsigned gate_list_index(std::uint8_t flags) noexcept;
+// The kStep* bits of an entry (a rest and a tie carry no accent or slide); an index past the end gives the last entry's (TIE).
+std::uint8_t gate_list_flags(unsigned index) noexcept;
+// The step takes entry `index`: its accent, slide, tie and rest bits are replaced by the entry's; the ratchet, note and condition stay.
+// true: changed.
+bool set_gate_list(Pattern& p, unsigned step, unsigned index) noexcept;
+
+// D2: the lane of `p` that drives (target, id) if there is one (find_lane); else the first lane with no motion point, re-pointed at
+// (target, id); else -1 (all eight in use). Changes the pattern only in the second case.
+int claim_lane(Pattern& p, std::uint8_t target, std::uint8_t id) noexcept;
+
+// The length of the pattern, 8, 16, 32 or 64 (false, unchanged, for anything else or the length it has). Growing copies the steps below the
+// old length, with their motion, over and over into the new part (8 to 32: the 8 steps three more times; 16 to 32 is double_length());
+// shrinking truncates: the cut steps become rests (no note, ratchet or condition) and their motion points are cleared, so a lock above the
+// new length cannot keep a lane in use. Swing, gate, transpose and the lanes stay. true: changed.
+bool resize(Pattern& p, unsigned length) noexcept;
+
 }  // namespace o3_303::seq

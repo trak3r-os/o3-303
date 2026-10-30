@@ -668,4 +668,216 @@ void mutate(Pattern& p, const GenParams& g, std::uint32_t seed, unsigned amount_
   }
 }
 
+// ---- The UX operations ------------------------------------------------------------------------------------------------------
+
+bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
+  Rng rng(seed);
+  const float density = percent(g.density);
+  const float accent = percent(g.accent_pct);
+  const float slide = percent(g.slide_pct);
+  const unsigned n = length_of(p);
+  bool changed = false;
+  for (unsigned i = 0; i < n; ++i) {
+    Step& s = p.steps[i];
+    unsigned flags = 0;
+    if (i == 0u || rng.chance(density)) {
+      if (rng.chance(accent)) {
+        flags |= kStepAccent;
+      }
+      if (rng.chance(slide)) {
+        flags |= kStepSlide;
+      }
+    } else {
+      flags = kStepRest;
+    }
+    const auto next = static_cast<std::uint8_t>(flags | (s.flags & kStepRatchetMask));  // the ratchet is not part of the rhythm
+    changed = changed || next != s.flags;
+    s.flags = next;
+  }
+  return changed;
+}
+
+bool regen_notes(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
+  std::uint8_t notes[128];
+  const unsigned count = scale_notes(g, notes);
+  Rng rng(seed);
+  const unsigned n = length_of(p);
+  int previous = notes[0];
+  bool changed = false;
+  for (unsigned i = 0; i < n; ++i) {
+    Step& s = p.steps[i];
+    if (!is_playing(s)) {
+      continue;
+    }
+    int note = notes[rng.next_int(0, static_cast<int>(count) - 1)];
+    if (rng.chance(0.12f)) {  // a repeated note, as random_fill draws it
+      note = previous;
+    }
+    previous = note;
+    changed = changed || s.note != note;
+    s.note = static_cast<std::uint8_t>(note);
+  }
+  return changed;
+}
+
+namespace {
+
+constexpr PlaysEntry kPlays[kPlaysCount] = {
+    {0, kCondAlways},      {1, kCondAlways},      {2, kCondAlways},      {3, kCondAlways},  // x1 .. x4
+    {0, 75},               {0, 50},               {0, 25},                                    // 75% 50% 25%
+    {0, cond_ratio(1, 2)}, {0, cond_ratio(2, 2)}, {0, cond_ratio(1, 4)}, {0, cond_ratio(2, 4)},
+    {0, cond_ratio(3, 4)}, {0, cond_ratio(4, 4)},                                             // 1:2 .. 4:4
+    {0, kCondFill},        {0, kCondNotFill},     {0, kCondFirst},       {0, kCondNotFirst},
+};
+constexpr unsigned kPlaysProbFirst = 4;
+constexpr unsigned kPlaysRatioFirst = 7;
+constexpr unsigned kPlaysNamedFirst = 13;
+static_assert(kPlays[kPlaysProbFirst].cond == 75 && kPlays[kPlaysRatioFirst].cond == cond_ratio(1, 2) &&
+                  kPlays[kPlaysNamedFirst].cond == kCondFill && kPlays[kPlaysCount - 1].cond == kCondNotFirst,
+              "the PLAYS list is x1..x4, 3 probabilities, 6 ratios, 4 named");
+
+unsigned abs_diff(unsigned a, unsigned b) noexcept { return a > b ? a - b : b - a; }
+
+}  // namespace
+
+PlaysEntry plays_at(unsigned index) noexcept { return kPlays[index < kPlaysCount ? index : kPlaysCount - 1u]; }
+
+unsigned plays_index(std::uint8_t flags, std::uint8_t cond) noexcept {
+  const Cond c = decode_cond(cond);  // a reserved byte decodes as Always
+  switch (c.kind) {
+    case CondKind::Always:
+      return ratchet_of(flags);
+    case CondKind::Probability: {
+      unsigned best = kPlaysProbFirst;
+      for (unsigned i = kPlaysProbFirst + 1u; i < kPlaysRatioFirst; ++i) {
+        if (abs_diff(c.a, kPlays[i].cond) < abs_diff(c.a, kPlays[best].cond)) {
+          best = i;
+        }
+      }
+      return best;
+    }
+    case CondKind::Ratio: {
+      unsigned best = kPlaysRatioFirst;
+      unsigned best_cost = ~0u;
+      for (unsigned i = kPlaysRatioFirst; i < kPlaysNamedFirst; ++i) {
+        const Cond e = decode_cond(kPlays[i].cond);
+        // The nearest cycle first, then the nearest position a / b (cross-multiplied, so no division); the first of equals wins.
+        const unsigned cost = abs_diff(c.b, e.b) * 1000u + abs_diff(c.a * e.b, e.a * c.b);
+        if (cost < best_cost) {
+          best_cost = cost;
+          best = i;
+        }
+      }
+      return best;
+    }
+    case CondKind::Fill:
+      return kPlaysNamedFirst;
+    case CondKind::NotFill:
+      return kPlaysNamedFirst + 1u;
+    case CondKind::First:
+      return kPlaysNamedFirst + 2u;
+    case CondKind::NotFirst:
+      break;
+  }
+  return kPlaysNamedFirst + 3u;
+}
+
+bool plays_exact(std::uint8_t flags, std::uint8_t cond) noexcept {
+  const PlaysEntry e = plays_at(plays_index(flags, cond));
+  return e.cond == cond;  // with no condition the index is the ratchet itself; with one, the ratchet is not shown
+}
+
+unsigned plays_step(std::uint8_t flags, std::uint8_t cond, int detents) noexcept {
+  const unsigned shown = plays_index(flags, cond);
+  int d = detents < -static_cast<int>(kPlaysCount) ? -static_cast<int>(kPlaysCount)
+          : detents > static_cast<int>(kPlaysCount)  ? static_cast<int>(kPlaysCount)
+                                                     : detents;  // the walk is clamped anyway: keep shown + d from overflowing
+  if (d != 0 && !plays_exact(flags, cond)) {
+    d += d > 0 ? -1 : 1;  // the first detent lands on the nearest entry
+  }
+  const int target = static_cast<int>(shown) + d;
+  if (target < 0) {
+    return 0;
+  }
+  return target >= static_cast<int>(kPlaysCount) ? kPlaysCount - 1u : static_cast<unsigned>(target);
+}
+
+bool set_plays(Pattern& p, unsigned step, unsigned index) noexcept {
+  Step& s = p.steps[clamp_step(step)];
+  const PlaysEntry e = plays_at(index);
+  const std::uint8_t flags = with_ratchet(s.flags, e.ratchet);
+  const bool changed = flags != s.flags || e.cond != s.cond;
+  s.flags = flags;
+  s.cond = e.cond;
+  return changed;
+}
+
+unsigned gate_list_index(std::uint8_t flags) noexcept {
+  if ((flags & kStepRest) != 0u) {
+    return kGateRest;
+  }
+  if ((flags & kStepTie) != 0u) {
+    return kGateTie;
+  }
+  const bool acc = (flags & kStepAccent) != 0u;
+  const bool sld = (flags & kStepSlide) != 0u;
+  return acc ? (sld ? kGateAccSld : kGateAcc) : (sld ? kGateSld : kGateNote);
+}
+
+std::uint8_t gate_list_flags(unsigned index) noexcept {
+  switch (index < kGateListCount ? index : kGateListCount - 1u) {  // past the end: the last entry, as plays_at()
+    case kGateRest:
+      return kStepRest;
+    case kGateNote:
+      return 0;
+    case kGateAcc:
+      return kStepAccent;
+    case kGateSld:
+      return kStepSlide;
+    case kGateAccSld:
+      return kStepAccent | kStepSlide;
+    default:
+      break;
+  }
+  return kStepTie;
+}
+
+bool set_gate_list(Pattern& p, unsigned step, unsigned index) noexcept {
+  std::uint8_t& f = p.steps[clamp_step(step)].flags;
+  const auto next = static_cast<std::uint8_t>(gate_list_flags(index) | (f & kStepRatchetMask));
+  const bool changed = next != f;
+  f = next;
+  return changed;
+}
+
+int claim_lane(Pattern& p, std::uint8_t target, std::uint8_t id) noexcept {
+  const int found = find_lane(p, target, id);
+  if (found >= 0) {
+    return found;
+  }
+  for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
+    if (!lane_has_motion(p, lane)) {
+      p.lanes[lane] = LaneRef{target, id};
+      return static_cast<int>(lane);
+    }
+  }
+  return -1;
+}
+
+bool resize(Pattern& p, unsigned length) noexcept {
+  if (!valid_length(length) || p.length == length) {
+    return false;
+  }
+  const unsigned n = length_of(p);
+  for (unsigned j = n; j < length; ++j) {  // growing: the old part over and over (a no-op when shrinking)
+    p.steps[j] = p.steps[j % n];
+    copy_points(p, j, j % n);
+  }
+  for (unsigned j = length; j < n; ++j) {  // shrinking: the cut part goes, its locks too (a lock above the length would keep a lane in use)
+    make_rest(p, j);
+  }
+  p.length = static_cast<std::uint8_t>(length);
+  return true;
+}
+
 }  // namespace o3_303::seq

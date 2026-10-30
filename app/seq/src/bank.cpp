@@ -17,6 +17,9 @@ constexpr std::uint32_t kKeyGate = 0x04000000u;
 constexpr std::uint32_t kKeyTranspose = 0x05000000u;
 constexpr std::uint32_t kKeyRatchet = 0x08000000u;  // (0x07 is the sequencer's motion recording)
 constexpr std::uint32_t kKeyCond = 0x09000000u;
+constexpr std::uint32_t kKeyGateList = 0x0A000000u;
+constexpr std::uint32_t kKeyPlays = 0x0B000000u;
+constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
 // Word accesses, not bytes: the patterns are 4-byte aligned and a multiple of 4 long (bank.h), and a write window over the SDRAM stays
 // as short as it can. (memcpy of one word compiles to a load and a store.)
@@ -228,6 +231,78 @@ bool Bank::random_fill(unsigned index, const GenParams& g, std::uint32_t seed) n
 
 bool Bank::mutate(unsigned index, const GenParams& g, std::uint32_t seed, unsigned amount_pct) noexcept {
   return edit(index, [&](Pattern& p) { seq::mutate(p, g, seed, amount_pct); });
+}
+
+bool Bank::regen_rhythm(unsigned index, const GenParams& g, std::uint32_t seed) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::regen_rhythm(p, g, seed); });
+}
+
+bool Bank::regen_notes(unsigned index, const GenParams& g, std::uint32_t seed) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::regen_notes(p, g, seed); });
+}
+
+bool Bank::resize(unsigned index, unsigned length) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::resize(p, length); });
+}
+
+bool Bank::set_gate_list(unsigned index, unsigned step, unsigned entry) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::set_gate_list(p, step, entry); }, kKeyGateList | (step & 0xFFu));
+}
+
+bool Bank::set_plays(unsigned index, unsigned step, unsigned entry) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::set_plays(p, step, entry); }, kKeyPlays | (step & 0xFFu));
+}
+
+int Bank::claim_lane(unsigned index, std::uint8_t target, std::uint8_t id) noexcept {
+  int lane = -1;
+  edit(index, [&](Pattern& p) {
+    const bool existed = seq::find_lane(p, target, id) >= 0;
+    lane = seq::claim_lane(p, target, id);
+    return lane >= 0 && !existed;  // only a re-pointed lane is a change
+  });
+  return lane;
+}
+
+int Bank::lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, std::uint8_t value) noexcept {
+  if (value == kNoLock) {
+    const int lane = seq::find_lane(pattern(index), target, id);
+    if (lane >= 0) {
+      unlock_step(index, target, id, step);
+    }
+    return lane;
+  }
+  int lane = -1;
+  const std::uint32_t key = kKeyLockTarget | ((target & 0xFu) << 16) | (static_cast<std::uint32_t>(id) << 8) | (step & 0xFFu);
+  edit(index,
+       [&](Pattern& p) {
+         lane = seq::claim_lane(p, target, id);
+         if (lane < 0) {
+           return false;
+         }
+         seq::set_plock(p, static_cast<unsigned>(lane), step, value);
+         return true;
+       },
+       key);
+  return lane;
+}
+
+bool Bank::unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step) noexcept {
+  const int lane = seq::find_lane(pattern(index), target, id);
+  if (lane < 0) {
+    return false;
+  }
+  const std::uint32_t key = kKeyLockTarget | ((target & 0xFu) << 16) | (static_cast<std::uint32_t>(id) << 8) | (step & 0xFFu);
+  return edit(
+      index,
+      [&](Pattern& p) {
+        bool had = false;  // (a joined edit reports fn's answer, so say what really changed)
+        for (unsigned q = 0; q < kMotionPointsPerStep; ++q) {
+          had = had || p.motion[lane][(step < kMaxSteps ? step : kMaxSteps - 1u) * kMotionPointsPerStep + q] != kNoLock;
+        }
+        seq::clear_plock(p, static_cast<unsigned>(lane), step);
+        return had;
+      },
+      key);
 }
 
 bool Bank::set_motion_point(unsigned index, unsigned lane, unsigned step, unsigned point, std::uint8_t value) noexcept {

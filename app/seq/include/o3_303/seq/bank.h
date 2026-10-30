@@ -107,6 +107,23 @@ class Bank {
   bool clear_step_motion(unsigned index, unsigned step) noexcept;
   bool clear_lane_motion(unsigned index, unsigned lane) noexcept;
   bool clear_motion(unsigned index) noexcept;
+  // The UX operations (ops.h), one undoable edit each. regen_rhythm / regen_notes: RHYTHM and NOTES of HOME's Shift row. resize: the LENGTH
+  // of PATTERN SETUP (a step up copies the steps and their motion into the new part, a step down truncates; one undo step).
+  bool regen_rhythm(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;
+  bool regen_notes(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;
+  bool resize(unsigned index, unsigned length) noexcept;
+  // The step's GATE and PLAYS rows (an entry of the list in ops.h): consecutive turns on one step's row are one undo step.
+  bool set_gate_list(unsigned index, unsigned step, unsigned entry) noexcept;
+  bool set_plays(unsigned index, unsigned step, unsigned entry) noexcept;
+  // D2: the lane that drives (target, id), claiming one if none does (ops.h claim_lane); returns it, -1 when all eight are in use. The
+  // claim is one undoable edit (nothing is recorded when the lane already existed).
+  int claim_lane(unsigned index, std::uint8_t target, std::uint8_t id) noexcept;
+  // The LOCK row: the parameter lock of (target, id) on `step`, its lane claimed first, all in ONE edit (one undo removes both). Returns
+  // the lane, -1 when no lane is free (nothing changes). Consecutive turns on one step and parameter are one undo step. A value of kNoLock
+  // ("--") is unlock_step() and claims nothing (it returns the lane that drives the target, -1 if none).
+  int lock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step, std::uint8_t value) noexcept;
+  // Removes the lock of (target, id) on `step`; the lane keeps its target (it is free once its last lock goes). true: a lock was removed.
+  bool unlock_step(unsigned index, std::uint8_t target, std::uint8_t id, unsigned step) noexcept;
   // Replaces the pattern with `src` (a preset from the generator, a pasted pattern).
   bool replace(unsigned index, const Pattern& src) noexcept;
 
