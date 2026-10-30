@@ -415,7 +415,6 @@ void MasterScreen::input(app::Context& ctx, const Input& in) noexcept {
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
-  home_->sync_step_focus();
 }
 
 void MasterScreen::turn_input(app::Context& ctx, const Input& in) noexcept {

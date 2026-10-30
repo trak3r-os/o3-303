@@ -74,8 +74,10 @@ at a time; a switch (the wave, the distortion's model, the delay's time and mode
 the engine stores the blend when the glide is over. SNAP is the last page of the PARAMS cycle and what Shift + Params gives; Shift + Params
 again goes back to the page it came from. Shift + F stores here, so there is no tools row on this page.
 
-With Shift held (and the encoder still for 600 ms) the knob strip becomes the pattern tools: F1 RANDOM (the popup), F2 MUTATE, F3 REVERSE,
-F4 INVERT, F5 DOUBLE (length × 2, copied), F6 CLEAR, F7 REDO, F8 UNDO; they work from the press of Shift.
+With Shift held (and the encoder still for 600 ms) the knob strip became the pattern tools: F1 RANDOM (the popup), F2 MUTATE, F3 REVERSE,
+F4 INVERT, F5 DOUBLE (length × 2, copied), F6 CLEAR, F7 REDO, F8 UNDO; they worked from the press of Shift. **Superseded (UX-303 5.1, 5.2 and 7, slice
+H4):** HOME has no pages and no SNAP page; Shift held changes the eight soft-key labels at once to NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR, REDO, UNDO (no
+popup, no wait), each one UNDO step; DOUBLE is PATTERN SETUP's LENGTH up and INVERT is cut.
 
 ## 4. The other buttons
 

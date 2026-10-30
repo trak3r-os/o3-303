@@ -51,7 +51,7 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "home_rows", "project", "file", "library", "long"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }

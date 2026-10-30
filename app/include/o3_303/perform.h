@@ -4,7 +4,7 @@
 // The pure parts of the performance gestures (docs/M3B-PLAN.md C4, R1, R7, R8): what the four performance buttons can be assigned to
 // and which actions are on for a state of the buttons, the filter ladders' positions, the tempo nudge, the scale lock of the keyboard
 // and the text of a trig condition; and, for the PERFORM screen (P1), the pad map and which actions are on for buttons and pads. No engine, no
-// screen: tests/perform_test.cpp checks them, live_actions.cpp, main_screen_perf.cpp and perform_screen.cpp apply them.
+// screen: tests/perform_test.cpp checks them, live_actions.cpp, home_map.cpp, master_screen.cpp and perform_screen.cpp apply them.
 
 #include <o3sdk/app/panel.h>
 #include <o3sdk/core/scales.h>

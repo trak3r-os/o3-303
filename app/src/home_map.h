@@ -139,8 +139,6 @@ class HomeMap {
     clamp_cursor();
     view_page_ = cursor_ / 16;
   }
-  // The step the RATCHET and COND entries show and edit: the first held step, else the cursor's.
-  void sync_step_focus() noexcept;
   // The lane of `p` that drives what `entry` shows, -1 when the entry is not a lane target or no lane points at it.
   int lane_of(const Entry& entry, const Pattern& p) const noexcept;
 
@@ -154,7 +152,6 @@ class HomeMap {
   void step_press(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void modifier_tap(o3sdk::app::Context& ctx, PadRole role) noexcept;
   void toggle_flag_on_held_or_cursor(o3sdk::app::Context& ctx, std::uint8_t flag) noexcept;
-  void step_entry_turn(o3sdk::app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept;
   bool lock_turn(o3sdk::app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept;
   // The steps a row edits: the held ones, else the cursor's (into `out`, the count).
   unsigned row_steps(unsigned (&out)[kPageSteps]) noexcept;

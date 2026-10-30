@@ -2,7 +2,7 @@
 # live actions (held while the pad is down; Shift latches; ALL OFF lets the latched ones go); row 2: snapshots 1..8 (a tap recalls and the encoder
 # becomes MORPH, Shift stores) then NEW, VARY, UNDO, REDO; row 3: the ladder of the latched sound knob (the wobble's rate while WOBBLE is on);
 # row 4: the keys (here first transposing the running pattern, TRNSP being on, then, after TRNSP off on the 303 screen, playing the voice). Perform again is
-# PERFORM SETUP, today's PERF page. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
+# PERFORM SETUP (5.4). Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
 wait 148
 pad 22
 tap performance
@@ -133,7 +133,7 @@ tap performance
 wait 100
 pad 11
 tap rec
-# PERFORM SETUP is the PERF page; Perform from another screen always opens page 1.
+# PERFORM SETUP is its own page; Perform from another screen always opens page 1.
 tap performance
 wait 100
 snap 20_setup

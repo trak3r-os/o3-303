@@ -7,21 +7,25 @@
 //
 //   PLAY          play / stop at the press (Shift: restart from step 1)
 //   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
-//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS MORE DEEP); the pads are the home map's, HOME's own
+//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS DEEP); the pads are the home map's, HOME's own
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
+//   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master or the input to Samples/; Shift + REC arms and stops a take from every screen
+//   SAMPLE LOAD / PLAY / EDIT   HOOKS, the placeholder until M4 (hooks_screen.h)
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
 #include "file_screen.h"
+#include "hooks_screen.h"
 #include "instrument_screen.h"
 #include "live_actions.h"
 #include "main_screen.h"
 #include "master_screen.h"
 #include "perform_screen.h"
 #include "project_service.h"
+#include "record_screen.h"
 #include "rig.h"
 #include "vault_screen.h"
 
@@ -131,6 +135,8 @@ class O3_303App final : public app::App {
     perform_.init(rig_, main_);
     instrument_.init(rig_, main_.home_map());  // the home map HOME has: one cursor, one keyboard, one Rec
     master_.init(rig_, main_.home_map());  // the home map HOME has, as INSTRUMENT
+    record_.init(rig_, main_.home_map());  // the home map HOME has, as MASTER
+    hooks_.init(rig_);
     vault_.init(rig_);
     file_.init(rig_, project_, vault_);
     project_.init(rig_, e);  // last: it records the session as setup leaves it, so that a project loaded from the card knows if the player has edited
@@ -192,6 +198,24 @@ class O3_303App final : public app::App {
       }
       return true;
     }
+    // RECORD and HOOKS (UX-303 2.1, 5.10, 5.11): the Sample Recorder button opens RECORD, the other three Sample buttons the HOOKS placeholder; Shift + Rec is RECORD's F1 from every
+    // screen, with no change of screen (the plain Rec stays the home map's step record).
+    if (in.press(Button::SampleRec)) {
+      if (ctx.screen() != &record_) {
+        ctx.show(record_);
+      }
+      return true;
+    }
+    if (in.press(Button::SampleLoad) || in.press(Button::SamplePlay) || in.press(Button::SampleEdit)) {
+      if (ctx.screen() != &hooks_) {
+        ctx.show(hooks_);
+      }
+      return true;
+    }
+    if (in.press(Button::Rec) && in.shift) {
+      record_.shift_rec(ctx);
+      return true;
+    }
     // FILE (UX-303 2.1): Shift + File is SAVE from every screen (live.o3a and project.o3a, "SAVED", 8.5); File opens FILE PROJECTS, again FILE LIBRARY, again PROJECTS.
     if (in.press(Button::File)) {
       if (in.shift) {
@@ -214,7 +238,11 @@ class O3_303App final : public app::App {
     sequencer_.update();
     master_.service(ctx);  // a tempo restore that the command ring refused
     live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
+    record_.settle(ctx);   // a WAV job that ended: its result is read before the project's next job can replace it in the files service
     project_.update(ctx);  // the project on the card: the boot load, autosave, SAVE (after the actions, so a morph's last value is the one it sees)
+    // The audio take: its chip and messages, its end, its WAV, whatever screen is up. AFTER the project service on purpose: both use the one files service and a job reads its result
+    // when the card is free again, so the project settles (and issues) its own first, and the WAV is started only on a pass in which no job runs.
+    record_.service(ctx);
     // A SAVE (Shift + File) says SAVING from the press, also while it waits for an autosave that is on, until both files are written; then SAVED, or why not. A
     // press the service refuses within the same pass (no card, a card that is not Ready) never shows SAVING: its answer is the reason, at once. The screens with
     // the home map (HOME, INSTRUMENT, MASTER, PERFORM) show the toast; FILE and the LIBRARY say it on their own lines.
@@ -237,6 +265,9 @@ class O3_303App final : public app::App {
     }
   }
 
+  // A firmware update waits for a take that is recording, armed or being written to the card.
+  const char* update_blocker(const app::Context& ctx) const noexcept override { return record_.blocker(ctx); }
+
   o3_303::seq::Sequencer& sequencer() noexcept { return sequencer_; }
   o3_303::ProjectService& project() noexcept { return project_; }
 
@@ -253,6 +284,8 @@ class O3_303App final : public app::App {
   o3_303::PerformScreen perform_;
   o3_303::InstrumentScreen instrument_;
   o3_303::MasterScreen master_;
+  o3_303::RecordScreen record_;
+  o3_303::HooksScreen hooks_;
   o3_303::VaultScreen vault_;
   o3_303::FileScreen file_;
   o3_303::ProjectService project_;

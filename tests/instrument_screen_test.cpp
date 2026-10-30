@@ -9,6 +9,7 @@
 
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/units/delay/delay.h>
+#include <o3_303/app_access.h>
 #include <o3_303/pattern.h>
 #include <o3_303/perform.h>
 #include <o3_303/seq/ops.h>
@@ -18,6 +19,7 @@
 #include <o3_303/units/growl/growl.h>
 
 #include "../app/src/home_map.h"
+#include "../app/src/instrument_screen.h"
 #include "../app/src/main_screen.h"
 
 #include <cstring>
@@ -43,7 +45,7 @@ bool key_moves(Hands& t, unsigned k, dsp::UnitId unit, unsigned id) {
 
 }  // namespace
 
-TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX MODS MORE DEEP and wraps") {
+TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX MODS DEEP and wraps") {
   Hands t;
   CHECK_FALSE(on_instrument(t));
   t.tap(Button::Params);
@@ -52,8 +54,6 @@ TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOI
   CHECK(is_title(t, "INSTRUMENT FX"));
   t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT MODS"));
-  t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT MORE"));
   t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT DEEP"));
   t.tap(Button::Params);
@@ -92,7 +92,7 @@ TEST_CASE("Params is INSTRUMENT from FILE and from the library, and File opens F
   CHECK(is_title(t, "FILE PROJECTS"));
 }
 
-TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX, MODS and MORE each keep their own") {
+TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX and MODS each keep their own") {
   Hands t;
   const float decay0 = t.param(kVoice, AcidVoice::Decay);
   const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
@@ -117,15 +117,14 @@ TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX, MODS and MORE each kee
   t.turn(5);
   CHECK(t.param(kGrowl, Growl::Vowel) != vowel0);
   t.tap(Button::Params);
-  t.tap(Button::Params);
-  t.tap(Button::Params);  // VOICE (through MORE and DEEP)
+  t.tap(Button::Params);  // VOICE (through DEEP)
   t.tap(Button::Params);  // FX again: DLY FB is still the latched key
   const float fb0 = t.param(kDelay, units::Delay::Feedback);
   t.turn(-5);
   CHECK(t.param(kDelay, units::Delay::Feedback) != fb0);
 }
 
-TEST_CASE("every key of FX, MODS, MORE and DEEP reaches its parameter") {
+TEST_CASE("every key of FX, MODS and DEEP reaches its parameter") {
   Hands t;
   t.to_instrument(kInstFx);
   CHECK(key_moves(t, 0, kDist, Distortion::Drive));
@@ -146,25 +145,27 @@ TEST_CASE("every key of FX, MODS, MORE and DEEP reaches its parameter") {
   CHECK(key_moves(t, 2, kGrowl, Growl::Mix));
   CHECK(key_moves(t, 3, kGrowl, Growl::CombMix));
 
-  t.tap(Button::Params);  // MORE
-  const std::uint32_t tempo0 = t.h->engine().tempo();
-  t.tap(Button::F1);
-  t.turn(4);
-  CHECK(t.h->engine().tempo() != tempo0);
-  const unsigned gate0 = t.pat().gate;
-  t.tap(Button::F4);
-  t.turn(-2);
-  CHECK(t.pat().gate != gate0);
-  const std::int8_t tr0 = t.pat().transpose;
-  t.tap(Button::F5);
-  t.turn(2);
-  CHECK(t.pat().transpose != tr0);
-
   t.tap(Button::Params);  // DEEP
   CHECK(key_moves(t, 0, kGrowl, Growl::FormantMix));
   CHECK(key_moves(t, 1, kGrowl, Growl::CombTune));
   CHECK(key_moves(t, 2, kGrowl, Growl::CombFeedback));
   CHECK(key_moves(t, 4, kDelay, units::Delay::Mode));
+}
+
+TEST_CASE("every label of the pages' knobs fits the knob strip's nine characters (U3: WOB TARGET showed as WOB TARGE)") {
+  Hands t;
+  for (unsigned page = kInstFx; page < kInstrumentPageCount; ++page) {
+    t.to_instrument(page);
+    const InstrumentScreen& screen = *static_cast<InstrumentScreen*>(t.h->runtime().context().screen());
+    const Page& pg = screen.page_table();
+    for (unsigned k = 0; k < kKeys; ++k) {
+      if (pg.entry[k].item != Item::Blank && pg.entry[k].label != nullptr) {
+        INFO(pg.name << " F" << (k + 1) << " " << pg.entry[k].label);
+        CHECK(std::strlen(pg.entry[k].label) <= 9);  // the strip: (box 94 - 22) / 8 = 9 characters; the large box has room for ten
+      }
+    }
+    t.to_home();
+  }
 }
 
 TEST_CASE("the pads, Rec and the cursor are HOME's own: the same home map") {
@@ -198,15 +199,15 @@ TEST_CASE("a held step + a turn locks the latched knob of the page on that step,
   t.up(step_pad_of(3));
   CHECK(t.pat().lanes[0].target == kLaneDist);  // the first lane with no motion
   CHECK(seq::lane_has_motion(t.pat(), 0));
-  // A key no lane can drive moves the knob and writes no motion (MORE's TEMPO).
+  // A key no lane can drive moves the knob and writes no motion (DEEP's WOB RESET).
   t.to_home();
-  t.to_instrument(kInstMore);
-  const std::uint32_t tempo0 = t.h->engine().tempo();
-  t.tap(Button::F1);
+  t.to_instrument(kInstDeep);
+  CHECK(app_sequencer().wobble().reset_on_note);
+  t.tap(Button::F4);
   t.down(step_pad_of(5));
-  t.turn(5);
+  t.turn(-5);
   t.up(step_pad_of(5));
-  CHECK(t.h->engine().tempo() != tempo0);
+  CHECK_FALSE(app_sequencer().wobble().reset_on_note);
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 1));
 }
 
@@ -237,16 +238,16 @@ TEST_CASE("the colour buttons are the drawer's rows here, not live actions: noth
 
 TEST_CASE("the Shift row is empty: Shift + F does nothing, and its release is not the page's") {
   Hands t;
-  t.to_instrument(kInstMore);
+  t.to_instrument(kInstFx);
   const Pattern before = t.pat();
-  t.tap(Button::F4);  // GATE
-  const unsigned gate0 = t.pat().gate;
+  t.tap(Button::F1);  // DRIVE
+  const float drive0 = t.param(kDist, Distortion::Drive);
   t.shift_tap(Button::F6);  // would be CLEAR on the 303 screen
   t.shift_tap(Button::F8);  // ... and UNDO
   CHECK(t.pat().steps[0].note == before.steps[0].note);
   CHECK(t.pat().steps[0].flags == before.steps[0].flags);
-  t.turn(-2);  // the latch is still GATE, not F6 or F8
-  CHECK(t.pat().gate != gate0);
+  t.turn(-5);  // the latch is still DRIVE, not F6 or F8
+  CHECK(t.param(kDist, Distortion::Drive) != drive0);
 }
 
 TEST_CASE("every page of INSTRUMENT fits the display list, stopped, playing and with Shift held") {
@@ -272,16 +273,15 @@ TEST_CASE("every page of INSTRUMENT fits the display list, stopped, playing and 
 
 // ---- Today's latches --------------------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("VOICE's latch is PERFORM's, not HOME's: HOME still has its own until H4 (D3), and a latch made there does not reach INSTRUMENT") {
+TEST_CASE("VOICE's latch is HOME's and PERFORM's: one SOUND latch on Rig::sound_keys (D3)") {
   Hands t;
-  t.tap(Button::F4);  // HOME's own page keys: DECAY latched on the 303 screen
+  t.tap(Button::F4);  // DECAY latched on the 303 screen (HOME has no latch of its own since H4)
   t.to_instrument(kInstVoice);
   const float decay0 = t.param(kVoice, AcidVoice::Decay);
   const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
-  t.turn(5);  // VOICE has Rig::sound_keys: F1 CUTOFF, as PERFORM has it
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff0);
-  CHECK(t.param(kVoice, AcidVoice::Decay) == decay0);
-  // (When H4 gives HOME the shared latch, this is the test that changes: DECAY would be the latched key here.)
+  t.turn(5);  // VOICE has Rig::sound_keys: F4 DECAY, as HOME and PERFORM have it
+  CHECK(t.param(kVoice, AcidVoice::Decay) != decay0);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == cutoff0);
 }
 
 // ---- What leaving does to the live actions -------------------------------------------------------------------------------------------------------
@@ -446,8 +446,6 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[1].title, "DISTORTION") == 0);
   CHECK(std::strcmp(v.section[2].title, "DELAY") == 0);
 
-  fill_sections(e, c, false, kInstMore, v);
-  CHECK(v.sections == 3);
   fill_sections(e, c, false, kInstDeep, v);
   CHECK(v.sections == 3);
   fill_sections(e, c, false, kInstrumentPageCount, v);  // a page that does not exist: no sections

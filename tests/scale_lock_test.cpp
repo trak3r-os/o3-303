@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The scale-locked keyboard (docs/M3B-PLAN.md R8): with a scale set, the keyboard pads out of it go dark and are skipped (a press does
 // nothing: no note, no entry). A boot has the generator's default scale without it being a choice, so the keyboard is chromatic until the
-// RANDOM popup's Scale is touched; "No scale" and "Chromatic" unlock it again.
+// generator's Scale (PATTERN SETUP's F5) is touched; "No scale" and "Chromatic" unlock it again.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -16,19 +16,10 @@ using namespace o3_303;
 
 namespace {
 
-// The RANDOM popup's F1 is Scale: 0 No scale, 1 Chromatic, 2 Minor, 3 Major ... 18 Penta Min (the default), 39. The encoder moves a place a
-// detent (there are 40): down to the first, then up to `to`. (A turn that leaves the value where it is, the default 18 chosen from 18, is
+// PATTERN SETUP's F5 is Scale (Hands::choose_scale): 0 No scale, 1 Chromatic, 2 Minor, 3 Major ... 18 Penta Min (the default), 39. The encoder moves a
+// place a detent (there are 40): down to the first, then up to `to`. (A turn that leaves the value where it is, the default 18 chosen from 18, is
 // no choice: the lock follows a choice the player made.)
-void choose_scale(Hands& t, int to) {
-  t.random_popup();  // Shift + F1: Scale is the popup's F1
-  t.tap(Button::F1);
-  t.turn(-40);
-  if (to != 0) {
-    t.turn(to);
-  }
-  t.random_popup();  // and again closes it
-  t.wait(40);
-}
+void choose_scale(Hands& t, int to) { t.choose_scale(to); }
 
 }  // namespace
 

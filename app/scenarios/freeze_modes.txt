@@ -1,6 +1,6 @@
 # ROLL, STOP and REV (docs/M3C-PLAN.md R) through the performance actions: Note, Instr and Vol are given ROLL, STOP and REV on PERFORM SETUP (F1..F3),
-# and F6, F7 and F8 there are the roll rate (1/8 .. 1/64), the accelerate (OFF, BEAT, BAR) and the stop time. Held, an action puts the freeze unit in
-# its mode and turns it on; the release turns it off and leaves the mode. ROLL holds the last 1/16 note and repeats it (here with ACCELERATE on BEAT:
+# and F7 there is ROLL (1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR: the rate and the accelerate in one list) and F8 the stop time. Held, an action puts the freeze unit in
+# its mode and turns it on; the release turns it off and leaves the mode. ROLL holds the last note value and repeats it (here BLD BEAT, which starts at 1/8:
 # each beat the loop halves, the build-up roll), STOP is the tape stop (1/2 bar, then the spin-up back at the release), REV plays the ring backwards.
 # The WAV is the evidence; the freeze unit's own tests check the sound (units/freeze/tests).
 wait 300
@@ -18,14 +18,14 @@ tap f3
 turn -16
 turn 10
 tap f7
-turn 1
+turn 3
 wait 100
 snap 01_perf_roll_stop_rev
 tap performance
 wait 248
 tap play
 wait 2100
-# ROLL held for two beats and a half with ACCELERATE on BEAT.
+# ROLL held for two beats and a half with BLD BEAT.
 press note
 wait 1300
 snap 02_roll_held

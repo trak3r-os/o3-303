@@ -294,18 +294,6 @@ void HomeMap::move_cursor(app::Context& ctx, int to) noexcept {
   ctx.redraw();
 }
 
-// The step the RATCHET and COND entries show and edit: the first held step, else the cursor's.
-void HomeMap::sync_step_focus() noexcept {
-  int s = cursor_;
-  for (int h : held_step_) {
-    if (h >= 0) {
-      s = h;
-      break;
-    }
-  }
-  rig_->wiring.step_focus = static_cast<unsigned>(s < 0 ? 0 : s);
-}
-
 void HomeMap::toast(app::Context& ctx, const char* text, bool off) noexcept {
   cut(text, sizeof toast_ - 1u, toast_, sizeof toast_);
   toast_off_ = off;
@@ -313,7 +301,7 @@ void HomeMap::toast(app::Context& ctx, const char* text, bool off) noexcept {
   ctx.redraw();
 }
 
-// With a scale chosen on the SEQ page the keyboard keeps to it: the other pads are dark and do nothing. Until the player chooses one
+// With a scale chosen on PATTERN SETUP the keyboard keeps to it: the other pads are dark and do nothing. Until the player chooses one
 // (the generator's default scale is not a choice) the keyboard is chromatic as it always was; "No scale" and "Chromatic" have every note.
 bool HomeMap::scale_locked() const noexcept {
   const Wiring& w = rig_->wiring;
@@ -378,7 +366,6 @@ void HomeMap::update(app::Context& ctx) noexcept {
   if (toast_[0] != '\0' && ctx.uptime_ms() >= toast_until_ms_) {
     toast_[0] = '\0';
   }
-  sync_step_focus();
 }
 
 // ---- The keyboard -----------------------------------------------------------------------------------------------------------
@@ -689,25 +676,6 @@ void HomeMap::pad_input(app::Context& ctx, const Input& in) noexcept {
 
 // ---- Turns ------------------------------------------------------------------------------------------------------------------
 
-// Hold a step + the encoder on the RATCHET or COND entry: every held step moves by the detents from where it stands (a ratchet along x1 .. x4, a
-// condition along the encoder's walk, seq::step_cond); one undo step for a run of turns on a step (the Bank joins them).
-void HomeMap::step_entry_turn(app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept {
-  mark_held_used();
-  for (int s : held_step_) {
-    if (s >= 0) {
-      controls_->step_at(ctx.engine(), entry, static_cast<unsigned>(s), detents, coarse);
-    }
-  }
-  const unsigned first = rig_->wiring.step_focus;
-  char text[24] = "STEP ";
-  append_uint(text, sizeof text, first + 1u);
-  append(text, sizeof text, entry.item == Item::Ratchet ? " RATCHET " : " COND ");
-  char value[16];
-  (void)controls_->format(ctx.engine(), entry, value, sizeof value);
-  append(text, sizeof text, value);
-  toast(ctx, text);
-}
-
 // The lock of `entry` on each of `steps`, moved `detents` from where it stands (the knob's own value when the step has none), its lane claimed first
 // (D2: one undoable edit), scaled with the target's own descriptor (a unit's parameter) or range (the mixer). Turned below the minimum, a lock is removed
 // ("--"); a step with none stays without.
@@ -924,10 +892,6 @@ bool HomeMap::turn(app::Context& ctx, int detents, bool coarse, const Entry& kno
   if (!any_step_held()) {
     return false;
   }
-  if (Controls::is_step_entry(knob)) {  // hold a step + the encoder on RATCHET or COND
-    step_entry_turn(ctx, knob, detents, coarse);
-    return true;
-  }
   return lock_turn(ctx, knob, detents, coarse);  // hold a step + the encoder: the lock of the knob, on the lane that drives it
 }
 
@@ -1065,7 +1029,6 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
   playing_ = ctx.engine().playing();
   if (in.kind == core::InputKind::Pad) {
     pad_input(ctx, in);
-    sync_step_focus();
     return true;
   }
   if (in.kind != core::InputKind::Button) {
@@ -1133,9 +1096,6 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
         taken = false;
         break;
     }
-  }
-  if (taken) {
-    sync_step_focus();
   }
   return taken;
 }
@@ -1295,7 +1255,6 @@ view::Marks HomeMap::drawer(app::Context& ctx) const noexcept {
       cut(text, view::kLockChars - 1u, m.lock[k], view::kLockChars);
     }
   }
-  m.focus = Controls::is_step_entry(knob_) ? static_cast<int>(rig_->wiring.step_focus) : -1;  // the step RATCHET / COND edit
   return m;
 }
 
@@ -1327,6 +1286,7 @@ void HomeMap::status(frame::StatusView& out) const noexcept {
   out.trnsp = live_->trnsp();
   out.octave = octave_;
   out.rec = rec_;
+  fill_take_status(*rig_, out);
   out.actions = live_->on();
   out.toast = toast_;
   out.toast_off = toast_off_;
@@ -1347,8 +1307,6 @@ void HomeMap::pads_line(app::Context& ctx, char* out, unsigned cap) const noexce
   if (s.step_held != 0u) {
     if (row_ != DrawerRow::None) {
       row_text(ctx, turn, sizeof turn);
-    } else if (Controls::is_step_entry(knob_)) {
-      cut(knob_.item == Item::Ratchet ? "RATCHET" : "COND", 7, turn, sizeof turn);
     } else {
       LaneRef ref{kLaneNone, 0};
       if (controls_->lane_ref(knob_, ref)) {

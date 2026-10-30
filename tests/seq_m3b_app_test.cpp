@@ -98,7 +98,7 @@ TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: 
   CHECK(e.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(1000.0f));
 }
 
-TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is INSTRUMENT MORE's F6; the demo line's FILL conditions follow it") {
+TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is PERFORM SETUP's F5; the demo line's FILL conditions follow it") {
   Hands hands;
   seq::Sequencer& s = app_sequencer();
   load_demo_line();
@@ -106,12 +106,11 @@ TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is I
   CHECK(seq::get_ratchet(p, 2) == 1);
   CHECK(seq::get_cond(p, 11) == kCondFill);
 
-  // The variant: INSTRUMENT MORE (the fourth page) F6; MUTATE, OCT UP, RATCHET, ACC ROT.
+  // The variant: PERFORM SETUP's F5; MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  for (unsigned i = 0; i <= kInstMore; ++i) {
-    hands.tap(Button::Params);
-  }
-  hands.tap(Button::F6);
+  hands.tap(Button::Performance);
+  hands.tap(Button::Performance);  // PERFORM SETUP
+  hands.tap(Button::F5);
   hands.h->turn(1);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::OctUp);
@@ -121,7 +120,7 @@ TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is I
   hands.h->turn(-3);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  hands.tap(Button::Performance);  // PERFORM: the Vol button is FILL there (on the 303 screen it is the PLAYS row)
+  hands.tap(Button::Performance);  // PERFORM again: the Vol button is FILL there (on the 303 screen it is the PLAYS row)
 
   hands.tap(Button::Play);
   hands.h->run_ms(300);

@@ -7,6 +7,7 @@
 #include "hands.h"
 
 #include <o3sdk/core/param.h>
+#include <o3_303/app_access.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
@@ -126,13 +127,13 @@ TEST_CASE("a lock on DRIVE is scaled with the distortion's descriptor on its cla
 
 TEST_CASE("a key no lane can drive is not locked: hold a step + the encoder moves the knob, and writes no motion") {
   Hands t;
-  t.to_instrument(kInstMore);
-  t.tap(Button::F1);  // TEMPO
-  const std::uint32_t tempo0 = t.h->engine().tempo();
+  t.to_instrument(kInstDeep);
+  t.tap(Button::F4);  // WOB RESET: a setting of the wobble, no lane's
+  CHECK(app_sequencer().wobble().reset_on_note);
   t.down(step_pad_of(3));
-  t.turn(5);
+  t.turn(-5);
   t.up(step_pad_of(3));
-  CHECK(t.h->engine().tempo() != tempo0);
+  CHECK_FALSE(app_sequencer().wobble().reset_on_note);
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
     CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }

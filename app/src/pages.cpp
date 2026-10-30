@@ -34,7 +34,6 @@ constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entr
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 constexpr Entry perf(unsigned button, const char* label) noexcept { return Entry{Item::Perf, static_cast<std::uint16_t>(button), label}; }
-constexpr Entry snap(unsigned slot, const char* label) noexcept { return Entry{Item::Snap, static_cast<std::uint16_t>(slot), label}; }
 
 constexpr Page kPages[kPageCount] = {
     {"SOUND",
@@ -54,19 +53,11 @@ constexpr Page kPages[kPageCount] = {
     {"WOBBLE",
      {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleReset, "RESET"),
       wobble(kWobbleTarget, "TARGET"), Entry{}, Entry{}, Entry{}}},
-    // The transport and the step: the generator's settings are the RANDOM popup's (random_entry, Shift + F1). F6..F8 were the PERF page's.
-    {"SEQ",
-     {app_item(Item::Tempo), app_item(Item::Swing), app_item(Item::Length), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"),
-      app_item(Item::FillVariant, "FILL"), app_item(Item::Ratchet), app_item(Item::Cond)}},
-    // The performance buttons' assignments (C4), the beat freeze's length and the roll rate, accelerate and stop time of ROLL and STOP (M3c R), until
-    // the kit's system Config exists. F1..F4: the button's name, its action as the value.
-    {"PERF",
-     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), freeze(Freeze::Length, "FRZ LEN"), freeze(Freeze::RollRate, "ROLL RT"),
-      freeze(Freeze::Accelerate, "ROLL ACC"), freeze(Freeze::StopTime, "STP TIME")}},
-    // The snapshots (R2): the keys recall and (with Shift) store, the encoder morphs; the page's own strip draws them.
-    {"SNAP",
-     {snap(0, "SNAP 1"), snap(1, "SNAP 2"), snap(2, "SNAP 3"), snap(3, "SNAP 4"), snap(4, "SNAP 5"), snap(5, "SNAP 6"), snap(6, "SNAP 7"),
-      snap(7, "SNAP 8")}},
+    // PERFORM SETUP (UX-303 5.4): F1..F4 the colour buttons' assignments (the button's name, its action as the value), F5 what FILL plays, F6 the beat
+    // freeze's length, F7 the ROLL mode (the rate and the accelerate in one list), F8 STOP's time.
+    {"PERF SETUP",
+     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), app_item(Item::FillVariant, "FILL"), freeze(Freeze::Length, "FREEZE"),
+      app_item(Item::RollMode, "ROLL"), freeze(Freeze::StopTime, "STOP")}},
 };
 
 // PATTERN SETUP (UX-303 5.2): this pattern's four, then the generator's four (project-wide, D1).
@@ -74,15 +65,14 @@ constexpr Page kSetupPage = {"SETUP",
                              {app_item(Item::Length), app_item(Item::Swing), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"), app_item(Item::Scale),
                               app_item(Item::Density), app_item(Item::AccPct), app_item(Item::SldPct)}};
 
-constexpr Entry kRandomEntries3[kRandomEntries] = {app_item(Item::Scale), app_item(Item::Density), app_item(Item::AccSlide, "ACC/SLD")};
-
 // What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
-// delay's four, the level and the send.
+// delay's four, the level and the send, then (P2) the growl's four: append, never insert (a saved project's SNAP is read by position).
 constexpr Entry kSnapTargets[kSnapTargetCount] = {
     voice(AcidVoice::Cutoff), voice(AcidVoice::Reso), voice(AcidVoice::EnvMod), voice(AcidVoice::Decay), voice(AcidVoice::Accent), voice(AcidVoice::Wave), voice(AcidVoice::Tune),
     dist(Distortion::Active), dist(Distortion::Type), dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix),
     delay(units::Delay::Time, nullptr), delay(units::Delay::Feedback, nullptr), delay(units::Delay::Tone, nullptr), delay(units::Delay::Mode, nullptr),
-    app_item(Item::Level, "VOLUME"), app_item(Item::SendA)};
+    app_item(Item::Level, "VOLUME"), app_item(Item::SendA),
+    growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX")};
 
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
 // curve, flags, page) ---------------------------------------------------------------------------------------------------------
@@ -109,7 +99,6 @@ constexpr core::ParamDesc kScale = {"SCALE", "", kScaleNamePtrs.p, nullptr, 0.0f
                                     static_cast<std::uint16_t>(core::kScaleCount - 1u), 4, static_cast<std::uint8_t>(core::kScaleCount),
                                     ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kDensity = {"DENSITY", "%", nullptr, nullptr, 0.0f, 100.0f, 75.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kAccSlide = {"ACC/SLIDE", "%", nullptr, nullptr, 0.0f, 100.0f, 25.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kAccPct = {"ACC %", "%", nullptr, nullptr, 0.0f, 100.0f, 25.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSldPct = {"SLD %", "%", nullptr, nullptr, 0.0f, 100.0f, 20.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSendA = {"DLY SEND", "%", nullptr, nullptr, 0.0f, 100.0f, 30.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
@@ -120,16 +109,17 @@ constexpr core::ParamDesc kMaster = {"MASTER", "%", nullptr, nullptr, 0.0f, 150.
 
 constexpr const char* kFillNames[seq::kFillVariantCount] = {"MUTATE", "OCT UP", "RATCHET", "ACC ROT"};
 constexpr core::ParamDesc kFillVariant = {"FILL", "", kFillNames, nullptr, 0.0f, 3.0f, 0.0f, 3, 1, seq::kFillVariantCount, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+// ROLL on PERFORM SETUP: the freeze's Roll Rate and Accelerate as one list. 0..3 are the rates with the accelerate off; the two BUILD places roll
+// from 1/8 and halve the rate every beat or bar (Freeze::Accelerate). "BLD" because a value is eight characters wide in the knob box.
+constexpr unsigned kRollModeCount = 6;
+constexpr unsigned kRollBuildBeat = 4;  // the places 4 and 5 are BUILD BEAT and BUILD BAR
+constexpr const char* kRollModeNames[kRollModeCount] = {"1/8", "1/16", "1/32", "1/64", "BLD BEAT", "BLD BAR"};
+constexpr core::ParamDesc kRollMode = {"ROLL", "", kRollModeNames, nullptr, 0.0f, static_cast<float>(kRollModeCount - 1u), 1.0f,
+                                       static_cast<std::uint16_t>(kRollModeCount - 1u), 1, static_cast<std::uint8_t>(kRollModeCount), ParamUnit::Enum,
+                                       ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr, 0.0f, static_cast<float>(kPerfActionCount - 1u), 0.0f,
                                          static_cast<std::uint16_t>(kPerfActionCount - 1u), 1, static_cast<std::uint8_t>(kPerfActionCount),
                                          ParamUnit::Enum, ParamCurve::Linear, 0, 0};
-constexpr const char* kRatchetNames[kMaxRatchet + 1u] = {"x1", "x2", "x3", "x4"};
-constexpr core::ParamDesc kRatchet = {"RATCHET", "", kRatchetNames, nullptr, 0.0f, static_cast<float>(kMaxRatchet), 0.0f, kMaxRatchet, 1,
-                                      kMaxRatchet + 1u, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
-// The condition is a place on the encoder's walk (ops.h step_cond): 0 always, 1..9 the 10..90 %, 10..44 the ratios, 45..48 FILL .. NOT FIRST.
-// Its text is cond_text(), not the descriptor's.
-constexpr core::ParamDesc kCond = {"COND", "", nullptr, nullptr, 0.0f, static_cast<float>(seq::kCondStepCount - 1u), 0.0f,
-                                   static_cast<std::uint16_t>(seq::kCondStepCount - 1u), 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 
 // The wobble's settings (M3c W); the order is WobbleField's. Rate and shape are the sequencer's own tables (seq/wobble.h).
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
@@ -144,9 +134,6 @@ constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
     {"TARGET", "", kWobbleTargetNames, nullptr, 0.0f, static_cast<float>(kWobbleTargetCount - 1u), 0.0f, static_cast<std::uint16_t>(kWobbleTargetCount - 1u), 1,
      static_cast<std::uint8_t>(kWobbleTargetCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
 };
-
-constexpr const char* kSnapNames[] = {"EMPTY", "SET"};
-constexpr core::ParamDesc kSnapSlot = {"SNAP", "", kSnapNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 
 constexpr unsigned kLengthCount = sizeof(kLengths) / sizeof(kLengths[0]);
 
@@ -165,7 +152,6 @@ int round_to_int(float v) noexcept { return static_cast<int>(v < 0.0f ? v - 0.5f
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
 const Page& setup_page() noexcept { return kSetupPage; }
-const Entry& random_entry(unsigned index) noexcept { return kRandomEntries3[index < kRandomEntries ? index : 0u]; }
 const Entry& snap_target(unsigned index) noexcept { return kSnapTargets[index < kSnapTargetCount ? index : 0u]; }
 
 // ---- Controls ---------------------------------------------------------------------------------------------------------------
@@ -192,8 +178,6 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kScale;
     case Item::Density:
       return &kDensity;
-    case Item::AccSlide:
-      return &kAccSlide;
     case Item::AccPct:
       return &kAccPct;
     case Item::SldPct:
@@ -208,16 +192,12 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kDistMode;
     case Item::Freeze:
       return e.param_desc(w_->freeze, entry.id);
-    case Item::Ratchet:
-      return &kRatchet;
-    case Item::Cond:
-      return &kCond;
     case Item::FillVariant:
       return &kFillVariant;
     case Item::Perf:
       return entry.id < kPerfButtons ? &kPerfAssign : nullptr;
-    case Item::Snap:
-      return entry.id < kSnapSlots ? &kSnapSlot : nullptr;
+    case Item::RollMode:
+      return &kRollMode;
     case Item::Growl:
       return e.param_desc(w_->growl, entry.id);
     case Item::Wobble:
@@ -251,7 +231,6 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return static_cast<float>(w_->gen.scale);
     case Item::Density:
       return static_cast<float>(w_->gen.density);
-    case Item::AccSlide:
     case Item::AccPct:
       return static_cast<float>(w_->gen.accent_pct);
     case Item::SldPct:
@@ -267,16 +246,18 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return e.param(w_->dist, Distortion::Active) < 0.5f ? 0.0f : 1.0f + std::floor(e.param(w_->dist, Distortion::Type) + 0.5f);
     case Item::Freeze:
       return e.param(w_->freeze, entry.id);
-    case Item::Ratchet:
-      return static_cast<float>(w_->bank->get_ratchet(w_->bank->selected(), w_->step_focus));
-    case Item::Cond:
-      return static_cast<float>(seq::cond_index(w_->bank->get_cond(w_->bank->selected(), w_->step_focus)));
     case Item::FillVariant:
       return w_->seq != nullptr ? static_cast<float>(w_->seq->fill_variant()) : 0.0f;
     case Item::Perf:
       return entry.id < kPerfButtons ? static_cast<float>(w_->perf[entry.id]) : 0.0f;
-    case Item::Snap:
-      return w_->snaps.used(entry.id) ? 1.0f : 0.0f;
+    case Item::RollMode: {
+      const int accel = round_to_int(e.param(w_->freeze, Freeze::Accelerate));
+      if (accel > 0) {  // BUILD BEAT (Accelerate BEAT) or BUILD BAR
+        return static_cast<float>(kRollBuildBeat + static_cast<unsigned>(accel > 2 ? 1 : accel - 1));
+      }
+      const int rate = round_to_int(e.param(w_->freeze, Freeze::RollRate));
+      return static_cast<float>(rate < 0 ? 0 : (rate > 3 ? 3 : rate));
+    }
     case Item::Growl:
       return e.param(w_->growl, entry.id);
     case Item::Wobble:
@@ -340,12 +321,6 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
     case Item::Density:
       w_->gen.density = static_cast<std::uint8_t>(round_to_int(v));
       break;
-    case Item::AccSlide: {
-      const int acc = round_to_int(v);
-      w_->gen.accent_pct = static_cast<std::uint8_t>(acc);
-      w_->gen.slide_pct = static_cast<std::uint8_t>(acc * 4 / 5);
-      break;
-    }
     case Item::AccPct:
       w_->gen.accent_pct = static_cast<std::uint8_t>(round_to_int(v));
       break;
@@ -374,12 +349,6 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
     case Item::Freeze:
       (void)e.set_param(w_->freeze, entry.id, v);
       break;
-    case Item::Ratchet:
-      (void)w_->bank->set_ratchet(sel, w_->step_focus, static_cast<unsigned>(round_to_int(v)));
-      break;
-    case Item::Cond:
-      (void)w_->bank->set_cond(sel, w_->step_focus, seq::cond_at(static_cast<unsigned>(round_to_int(v))));
-      break;
     case Item::FillVariant:
       if (w_->seq != nullptr) {
         w_->seq->set_fill_variant(static_cast<seq::FillVariant>(round_to_int(v)));
@@ -390,6 +359,17 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
         w_->perf[entry.id] = static_cast<std::uint8_t>(round_to_int(v));
       }
       break;
+    case Item::RollMode: {
+      const unsigned mode = static_cast<unsigned>(round_to_int(v));
+      if (mode >= kRollBuildBeat) {  // BUILD starts at 1/8 and speeds up every beat or bar
+        (void)e.set_param(w_->freeze, Freeze::RollRate, static_cast<float>(Freeze::kRoll8));
+        (void)e.set_param(w_->freeze, Freeze::Accelerate, static_cast<float>(mode == kRollBuildBeat ? Freeze::kAccelBeat : Freeze::kAccelBar));
+      } else {
+        (void)e.set_param(w_->freeze, Freeze::RollRate, static_cast<float>(mode));
+        (void)e.set_param(w_->freeze, Freeze::Accelerate, static_cast<float>(Freeze::kAccelOff));
+      }
+      break;
+    }
     case Item::Growl:
       (void)e.set_param(w_->growl, entry.id, v);
       break;
@@ -424,7 +404,6 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       }
       break;
     }
-    case Item::Snap:  // a snapshot is recalled and stored by the screen's keys, not set
     case Item::Blank:
       break;
   }
@@ -443,27 +422,8 @@ void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse
     (void)e.step_param(unit, entry.id, detents, coarse);
     return;
   }
-  if (is_step_entry(entry)) {
-    step_at(e, entry, w_->step_focus, detents, coarse);
-    return;
-  }
   const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
   set(e, entry, core::param_step(*d, get(e, entry), n));
-}
-
-void Controls::step_at(dsp::Engine& e, const Entry& entry, unsigned step, int detents, bool coarse) noexcept {
-  const core::ParamDesc* d = desc(e, entry);
-  if (d == nullptr || detents == 0 || !is_step_entry(entry)) {
-    return;
-  }
-  const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
-  const unsigned sel = w_->bank->selected();
-  if (entry.item == Item::Ratchet) {
-    const int r = static_cast<int>(w_->bank->get_ratchet(sel, step)) + n;
-    (void)w_->bank->set_ratchet(sel, step, static_cast<unsigned>(r < 0 ? 0 : (r > static_cast<int>(kMaxRatchet) ? static_cast<int>(kMaxRatchet) : r)));
-  } else {
-    (void)w_->bank->set_cond(sel, step, seq::step_cond(w_->bank->get_cond(sel, step), n));
-  }
 }
 
 unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, unsigned cap) const noexcept {
@@ -473,38 +433,6 @@ unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, u
       out[0] = '\0';
     }
     return 0;
-  }
-  if (entry.item == Item::AccSlide && cap >= 8u) {
-    // "25/20": the accent chance and the slide chance it brings.
-    unsigned n = 0;
-    const unsigned acc = w_->gen.accent_pct;
-    const unsigned sld = w_->gen.slide_pct;
-    if (acc >= 100u) {
-      out[n++] = '1';
-      out[n++] = '0';
-      out[n++] = '0';
-    } else {
-      if (acc >= 10u) {
-        out[n++] = static_cast<char>('0' + acc / 10u);
-      }
-      out[n++] = static_cast<char>('0' + acc % 10u);
-    }
-    out[n++] = '/';
-    if (sld >= 100u) {
-      out[n++] = '1';
-      out[n++] = '0';
-      out[n++] = '0';
-    } else {
-      if (sld >= 10u) {
-        out[n++] = static_cast<char>('0' + sld / 10u);
-      }
-      out[n++] = static_cast<char>('0' + sld % 10u);
-    }
-    out[n] = '\0';
-    return n;
-  }
-  if (entry.item == Item::Cond) {
-    return cond_text(w_->bank->get_cond(w_->bank->selected(), w_->step_focus), out, cap);
   }
   return core::param_format(*d, get(e, entry), out, cap);
 }
@@ -681,7 +609,6 @@ void PageKeys::set_table(const Page* table, unsigned count) noexcept {
   table_ = count != 0u ? table : nullptr;
   count_ = count;
   page_ = 0;
-  snap_from_ = 0;
   latched_ = 0;
   before_hold_ = 0;
   held_ = 0;

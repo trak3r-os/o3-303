@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The live actions and the snapshots, moved out of MainScreen (main_screen_perf.cpp and main_screen_snap.cpp held them as its second and third
-// part) so that PERFORM runs the same state. The pure parts (which actions are on, the freeze's owner, the snapshots' blend) are in
+// The live actions and the snapshots, moved out of MainScreen (its second and third file held them until H4 deleted both) so that PERFORM runs the same state. The pure parts (which actions are on, the freeze's owner, the snapshots' blend) are in
 // o3_303/perform.h and o3_303/snapshot.h and tested alone; what is here puts them on the engine and the sequencer.
 
 #include "live_actions.h"
@@ -210,7 +209,7 @@ void LiveActions::apply(app::Context& ctx) noexcept {
   ctx.redraw();
 }
 
-// A button the PERF page gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a
+// A button PERFORM SETUP gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a
 // held one goes on, now with the new action.
 void LiveActions::sync_assignments(app::Context& ctx) noexcept {
   bool changed = false;

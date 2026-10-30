@@ -68,7 +68,7 @@ TEST_CASE("every frame of a session fits the display list") {
   t.select_pattern(5);
   t.tap(Button::Rec);
   t.pad(key_pad(50));
-  t.shift_tap(Button::F1);
+  t.shift_tap(Button::F1);  // NEW (HOME's Shift row, at once)
   t.tap(Button::Play);
   t.wait(1500);
   for (unsigned p = kInstVoice; p < kInstrumentPageCount; ++p) {  // every page of INSTRUMENT, playing
@@ -77,8 +77,6 @@ TEST_CASE("every frame of a session fits the display list") {
     CHECK(t.h->display().peak_frame_words() < 1800u);
     t.to_home();
   }
-  t.to_instrument(kInstMore);
-  t.to_home();
   t.press(Button::Pattern);
   t.wait(400);
   t.release(Button::Pattern);
@@ -108,16 +106,11 @@ TEST_CASE("CONFIG opens the kit's system screen, and its DISPLAY section changes
 TEST_CASE("worst cases for the display list: a full 64-step line, every ramp, all the locks, 48 patterns and a chain of 16") {
   Hands t;
   // The generator at full density with every accent and slide chance, over 64 steps.
-  t.to_instrument(kInstMore);  // F7 RATCHET and F8 COND of the step in focus
-  t.tap(Button::F7);
-  t.turn(100);
-  t.tap(Button::F8);
-  t.turn(100);
-  t.to_home();
-  t.shift_tap(Button::F5);
-  t.shift_tap(Button::F5);
+  t.tap(Button::Vol);  // the PLAYS row on the encoder: x4 on the step in focus
+  t.turn(3);
+  t.length_steps(2);  // PATTERN SETUP's LENGTH: 16 > 32 > 64
   REQUIRE(t.pat().length == 64);
-  t.shift_tap(Button::F1);  // RANDOM over the 64 steps
+  t.shift_tap(Button::F1);  // NEW over the 64 steps
   // Every step of the first page locked on a lane (the latched knob's: F1 CUTOFF), the cursor on the last step of the page.
   t.tap(Button::F1);
   for (unsigned k = 0; k < 16; ++k) {

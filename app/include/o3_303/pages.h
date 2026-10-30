@@ -42,21 +42,18 @@ enum class Item : std::uint8_t {
   Transpose,  // ... transpose
   Scale,      // the generator's scale
   Density,    // ... density
-  AccSlide,   // ... accent chance (the slide chance follows at four fifths of it)
   SendA,      // the voice's level into send A (the delay)
   Master,     // the master level
   Level,      // slot 0's level after the distortion, in dB: the SOUND page's VOLUME (the voice's own volume stays at 0 dB)
   DistMode,   // the distortion's Active and Type as one key: OFF, GRIT, TUBE, HARD, FUZZ, FOLD
   Freeze,     // a parameter of the beat freeze on master insert 0 (id = its parameter id)
-  Ratchet,    // the ratchet of a step: wiring.step_focus (the held step, else the cursor's), x1 .. x4
-  Cond,       // ... its trig condition, as a place on the encoder's walk (seq::step_cond)
   FillVariant,  // what FILL plays (seq::FillVariant)
   Perf,       // the action of a performance button (id 0 Note, 1 Instr, 2 Vol, 3 Fx): a PerfAction
-  Snap,       // a snapshot slot of the SNAP page (id 0..7): its key recalls (Shift: stores) and the encoder morphs, it is never latched
   Growl,      // M3c: a parameter of the growl on slot 0's insert 1 (id = its parameter id)
   Wobble,     // M3c: a setting of the wobble (id = a WobbleField), the sequencer's LFO; the settings are Wiring::wobble
   AccPct,     // H2: the generator's accent chance (project-wide, UX-303 D1); PATTERN SETUP's F7
-  SldPct,     // H2: the generator's slide chance, its own entry (AccSlide's 4/5 rule stays for the RANDOM popup until H4); SETUP's F8
+  SldPct,     // H2: the generator's slide chance, its own entry; SETUP's F8
+  RollMode,   // P2: the roll rate and the accelerate as one list (1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR): PERFORM SETUP's F7 (UX-303 5.4)
 };
 
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
@@ -85,35 +82,29 @@ struct Page {
   Entry entry[kKeys];
 };
 
-// SOUND, FX, GROWL, WOBBLE, SEQ, PERF and SNAP (MODS comes with the voice's extra parameters). GROWL (M3c G) is the growl's seven parameters and
-// WOBBLE (M3c W) the wobble's five settings: rate, shape, depth, reset on note, and target (the voice's Cutoff or the growl's Vowel). PERF is
-// o3-303's own page until the kit's system Config exists (docs/M3B-PLAN.md C4): the four performance buttons' assignments, the beat freeze's
-// length, and the roll rate, accelerate and stop time of ROLL and STOP (M3c R). SEQ is the transport and the step's own
-// settings (tempo, swing, length, gate, transpose, what FILL plays, the ratchet and the trig condition of a step); the generator's settings
-// (scale, density, accent / slide chance) are the RANDOM popup's, `random_entry()` (C3). SNAP (R2) is eight snapshot keys: a tap recalls,
-// Shift + a key stores, the encoder morphs; it is the last of the PARAMS cycle and the Shift + PARAMS page.
-inline constexpr unsigned kPageCount = 7;
-enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageGrowl = 2, kPageWobble = 3, kPageSeq = 4, kPagePerf = 5, kPageSnap = 6 };
+// SOUND, FX, GROWL, WOBBLE and PERF SETUP. GROWL (M3c G) is the growl's seven parameters and
+// WOBBLE (M3c W) the wobble's five settings: rate, shape, depth, reset on note, and target (the voice's Cutoff or the growl's Vowel). PERF SETUP is
+// PERFORM SETUP's page (UX-303 5.4): the four performance buttons' assignments, what FILL plays, the beat freeze's length, the ROLL mode (rate and
+// accelerate in one list) and the STOP time. The transport and the pattern's own
+// settings are MASTER's and PATTERN SETUP's (`setup_page()`, the generator's settings too); a step's ratchet and condition are the PLAYS row (UX-303 D8). HOME has no pages (UX-303 5.1): the table's SOUND page is its
+// eight knobs and the others are the screens' to take (INSTRUMENT, PERFORM SETUP); the SNAP page (R2) is PERFORM's row 2 now.
+inline constexpr unsigned kPageCount = 5;
+enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageGrowl = 2, kPageWobble = 3, kPagePerfSetup = 4 };
 
 const Page& page_at(unsigned index) noexcept;
 
-// PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table), not a place in the PARAMS cycle: F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
+// PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
 // (this pattern's), F5 SCALE, F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). SCALE locks the keyboard (Wiring::scale_set).
 inline constexpr unsigned kSetupPageCount = 1;
 const Page& setup_page() noexcept;
 
-// The RANDOM popup's three settings (Shift + F1): Scale, Density, Acc / Slide %, on its F1..F3. The popup is the app's (main_screen.cpp);
-// setting the Scale through Controls::set() is what engages the keyboard's scale lock.
-inline constexpr unsigned kRandomEntries = 3;
-const Entry& random_entry(unsigned index) noexcept;
-
 // What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
-// SOUND, MODS and FX pages' values). Each is an entry, so a value is in the units the entry shows and steps in.
-inline constexpr unsigned kSnapTargetCount = 18;
+// SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (MODS); the wobble's settings stay out. A project
+// saved with fewer targets loads: the missing ones are filled from the sound (project.cpp). Each is an entry, so a value is in the units the
+// entry shows and steps in.
+inline constexpr unsigned kSnapTargetCount = 22;
 static_assert(kSnapTargetCount <= kSnapValues, "a snapshot has room for its targets");
 const Entry& snap_target(unsigned index) noexcept;
-
-const Page& page_at(unsigned index) noexcept;
 
 // The units and values the entries reach. The app fills it once at setup.
 struct Wiring {
@@ -123,16 +114,15 @@ struct Wiring {
   o3sdk::dsp::UnitId freeze = o3sdk::dsp::kNoUnit;  // master insert 0: the beat freeze (units/freeze, M3b R6)
   o3sdk::dsp::UnitId growl = o3sdk::dsp::kNoUnit;   // slot 0's insert 1: the growl (units/growl, M3c G); attached after the freeze (ids: voice 0, dist 1, delay 2, freeze 3)
   seq::Bank* bank = nullptr;
-  seq::Sequencer* seq = nullptr;  // FILL's variant (the PERF page); null: the entry reads and writes nothing
-  seq::GenParams gen;        // the generator's settings (the SEQ page)
+  seq::Sequencer* seq = nullptr;  // FILL's variant (PERFORM SETUP); null: the entry reads and writes nothing
+  seq::GenParams gen;        // the generator's settings (PATTERN SETUP)
   float send_a_pct = 30.0f;  // the voice's send A level in percent: the base; DELAY THROW raises it for a while
   float level_db = -6.0f;    // slot 0's level in dB (SOUND F8): headroom for the delay's wet signal and the accents
   bool throw_on = false;
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};  // PerfAction of Note, Instr, Vol, Fx
-  bool scale_set = false;    // the player chose a scale (the SEQ page's Scale): the keyboard is locked to it (R8). A boot has the generator's default
+  bool scale_set = false;    // the player chose a scale (PATTERN SETUP's Scale): the keyboard is locked to it (R8). A boot has the generator's default
                              // scale without that, so the keyboard is chromatic until the Scale entry is touched; "No scale" or "Chromatic" unlocks it
-  unsigned step_focus = 0;   // the step the Ratchet and Cond entries show and edit: the screen sets it (a held step, else the cursor)
-  SnapBank snaps;            // the SNAP page's eight snapshots and the morph (RAM only; the screen reads and writes it from the main loop)
+  SnapBank snaps;            // the eight snapshots and the morph (PERFORM's row 2; saved in the project; the screens read and write it from the main loop)
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
 };
 
@@ -173,10 +163,6 @@ class Controls {
   std::uint8_t to_point(const o3sdk::dsp::Engine& e, const Entry& entry, float entry_value) const noexcept;
   float from_point(const o3sdk::dsp::Engine& e, const Entry& entry, std::uint8_t point) const noexcept;
 
-  // The entries that belong to one step (Ratchet, Cond): edited on `step` rather than on wiring.step_focus. `detents` as step() gives them.
-  static bool is_step_entry(const Entry& entry) noexcept { return entry.item == Item::Ratchet || entry.item == Item::Cond; }
-  void step_at(o3sdk::dsp::Engine& e, const Entry& entry, unsigned step, int detents, bool coarse) noexcept;
-
   // The snapshot targets' values now (kSnapTargetCount of them, `out` holds kSnapValues; the rest is zeroed) and whether target `index` is
   // discrete (an enum: it switches, a morph does not glide it).
   void snap_capture(const o3sdk::dsp::Engine& e, float* out) const noexcept;
@@ -206,15 +192,6 @@ class PageKeys {
   void set_table(const Page* table, unsigned count) noexcept;
   void set_page(unsigned index) noexcept;
   void next_page() noexcept { set_page((page_ + 1u) % page_count()); }
-  // Shift + PARAMS: the SNAP page, and from it back to the page it was reached from.
-  void toggle_snap() noexcept {
-    if (page_ == kPageSnap) {
-      set_page(snap_from_);
-    } else {
-      snap_from_ = page_;
-      set_page(kPageSnap);
-    }
-  }
   unsigned page_index() const noexcept { return page_; }
   unsigned page_count() const noexcept { return table_ != nullptr ? count_ : kPageCount; }
   const Page& page() const noexcept { return table_ != nullptr ? table_[page_] : page_at(page_); }
@@ -242,7 +219,6 @@ class PageKeys {
   const Page* table_ = nullptr;  // null: the global table
   unsigned count_ = 0;
   unsigned page_ = 0;
-  unsigned snap_from_ = 0;
   unsigned latched_ = 0;
   unsigned before_hold_ = 0;
   unsigned held_ = 0;

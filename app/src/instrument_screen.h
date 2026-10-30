@@ -6,7 +6,6 @@
 //   VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
 //   MODS    VOWEL FMT Q GRL MIX CMB MIX (the growl), WOB RATE SHAPE DEPTH TARGET (the wobble)
-//   MORE    until PERFORM SETUP (P2) takes FILL, and MASTER, SETUP and PLAYS (H3) exist already: TEMPO MASTER LENGTH GATE TRANSP FILL RATCHET COND
 //   DEEP    until Config DEEP (C1): FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE, which no other page has
 //
 // The eight knobs of the page are drawn large, the sections of the other pages as read-outs, and under them the two lines of the drawer (NOTE and
@@ -31,8 +30,8 @@
 
 namespace o3_303 {
 
-inline constexpr unsigned kInstrumentPageCount = 5;
-enum InstrumentPage : unsigned { kInstVoice = 0, kInstFx = 1, kInstMods = 2, kInstMore = 3, kInstDeep = 4 };
+inline constexpr unsigned kInstrumentPageCount = 4;
+enum InstrumentPage : unsigned { kInstVoice = 0, kInstFx = 1, kInstMods = 2, kInstDeep = 3 };
 
 // A read-out section: a title and up to four "NAME value" lines.
 struct InstrumentSection {
@@ -106,7 +105,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   Controls* controls_ = nullptr;
   LiveActions* live_ = nullptr;
   HomeMap* home_ = nullptr;
-  PageKeys own_[kInstrumentPageCount - 1u];  // FX, MODS, MORE and DEEP each keep their own latch (VOICE has sound_keys)
+  PageKeys own_[kInstrumentPageCount - 1u];  // FX, MODS and DEEP each keep their own latch (VOICE has sound_keys)
   unsigned page_ = kInstVoice;
   std::uint32_t tool_mask_ = 0;  // F keys pressed with Shift (their release is not the keys')
 };

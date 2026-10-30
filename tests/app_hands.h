@@ -92,7 +92,7 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, MORE, DEEP) on page `page` (kInstVoice ...), from any screen but INSTRUMENT.
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, DEEP) on page `page` (kInstVoice ...), from any screen but INSTRUMENT.
   void to_instrument(unsigned page = kInstVoice) {
     tap(Button::Params);
     for (unsigned i = 0; i < page; ++i) {
@@ -101,6 +101,15 @@ struct Hands {
   }
   // Back to the 303 screen (Pattern).
   void to_home() { tap(Button::Pattern); }
+  // HOME's Shift row (UX-303 5.1), at once: F1 NEW, F2 VARY, F3 RHYTHM, F4 NOTES, F5 REVERSE, F6 CLEAR, F7 REDO, F8 UNDO.
+  void new_line() { shift_tap(Button::F1); }
+  // PATTERN SETUP's F1 LENGTH (from HOME: Pattern, a tap): `steps` detents (8 / 16 / 32 / 64: DOUBLE is +1), then back on HOME.
+  void length_steps(int steps) {
+    tap(Button::Pattern);
+    tap(Button::F1);
+    turn(steps);
+    tap(Button::Pattern);
+  }
   // A performance button's action, set on PERFORM SETUP: F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions (to the first,
   // then up). From any screen; it ends on the 303 screen, or on PERFORM with `stay`, where the four buttons are the live actions (on the 303 screen
   // they are the drawer's rows).

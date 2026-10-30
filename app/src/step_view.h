@@ -36,7 +36,6 @@ struct Marks {
   int playpoint = 0;            // the playhead's quarter of its step, for the motion lane
   std::uint32_t held = 0;       // bit k: step pad k of the page is held
   std::uint32_t emphasis = 0;   // bit k: step k of the page is outlined (a held modifier's steps, motion steps)
-  int focus = -1;               // global step whose ratchet and condition the RATCHET / COND keys edit (Wiring::step_focus), -1: none marked
   DrawerRow row = DrawerRow::None;  // the row the encoder owns: its caption is highlighted
   char lock[16][kLockChars] = {};   // the LOCK row: the latched knob's lock on each step of the page ("" none), as the home map formats them
   PitchWindow window;

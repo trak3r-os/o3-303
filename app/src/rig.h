@@ -4,6 +4,8 @@
 // What the screens share: the sequencer and its bank, the units' ids, the pages' controls, the live actions and the SOUND latch. The app owns one and hands every screen a
 // pointer; nothing in it is touched by the render context (the sequencer's own atomics and rings are the way across).
 
+#include "frame.h"
+
 #include <o3sdk/dsp/engine.h>
 #include <o3_303/pages.h>
 #include <o3_303/seq/bank.h>
@@ -44,7 +46,22 @@ struct Rig {
   // The tempo (milli-BPM) a tempo nudge started from, while one is on or its restore is pending, else 0 (MasterScreen writes it, main loop only): the engine holds the
   // nudged tempo then, and a project saved meanwhile (project.cpp gather()) stores this one.
   std::uint32_t tempo_base_mbpm = 0;
+  // The audio take's chip for every screen's status line (RecordScreen::service writes it every pass, the screens copy it into their StatusView): "TAKE ARMED", "TAKE REC 0:05",
+  // "TAKE READY", "TAKE SAVING"; "" when no take is held. Main loop only.
+  char take[20] = "";
+  // What the take last said, for every screen's status line ("8 BARS TOO LONG AT 55.0", "SAVED", "NO CARD"): RecordScreen::say() writes it, service() clears it once `take_msg_until_ms`
+  // (Context::uptime_ms) has passed. `take_msg_off`: it says something did not happen. Main loop only.
+  char take_msg[40] = "";
+  bool take_msg_off = false;
+  std::uint64_t take_msg_until_ms = 0;
 };
+
+// The take's chip and message into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks wherever the player is).
+inline void fill_take_status(const Rig& rig, frame::StatusView& status) noexcept {
+  status.take = rig.take;
+  status.take_msg = rig.take_msg;
+  status.take_msg_off = rig.take_msg_off;
+}
 
 // What a vault load takes from a preset.
 enum class LoadWhat : std::uint8_t {

@@ -224,11 +224,7 @@ TEST_CASE("F6 DENSITY, F7 ACC % and F8 SLD % are the generator's settings, for e
   t.tap(Button::F8);
   t.turn(-100);  // and none slides
   t.tap(Button::Pattern);
-  const auto generate = [&] {
-    t.random_popup();
-    t.tap(Button::F8);  // GENERATE
-    t.random_popup();
-  };
+  const auto generate = [&] { t.new_line(); };  // HOME's Shift + F1 NEW, with the project's generator settings
   generate();
   for (unsigned i = 0; i < 16; ++i) {
     CHECK((t.pat().steps[i].flags & kStepRest) == 0u);

@@ -57,7 +57,7 @@ TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two 
   CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(1.0f));
 }
 
-TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS, MORE, DEEP); the pages reach the whole engine") {
+TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS, DEEP); the pages reach the whole engine") {
   Hands t;
   const float drive0 = t.param(kDist, Distortion::Drive);
   t.to_instrument(kInstFx);
@@ -83,20 +83,6 @@ TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS,
   t.tap(Button::F5);  // the wobble's rate
   t.turn(1);
   CHECK(t.pat().length != 0);
-  t.tap(Button::Params);  // MORE (until MASTER, SETUP and PLAYS exist): the transport, the master and the pattern's own
-  CHECK(std::strcmp(t.title(), "INSTRUMENT MORE") == 0);
-  const std::uint32_t tempo0 = t.h->engine().tempo();
-  t.tap(Button::F1);
-  t.turn(10);
-  CHECK(t.h->engine().tempo() > tempo0);
-  t.tap(Button::F2);  // MASTER
-  t.turn(-20);
-  CHECK(t.h->engine().master_level() < 1.0f);
-  t.tap(Button::F4);
-  t.turn(10);
-  t.tap(Button::F3);
-  t.turn(1);
-  CHECK(t.pat().length == 32);
 
   t.tap(Button::Params);  // DEEP (until Config DEEP): the growl's and the wobble's settings that have no knob on MODS
   CHECK(std::strcmp(t.title(), "INSTRUMENT DEEP") == 0);
@@ -110,11 +96,8 @@ TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS,
   t.turn(3);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff0);
   t.to_home();
-  t.to_instrument(kInstMore);  // Params from another screen always opens VOICE; MORE is three more
-  const std::uint32_t tempo1 = t.h->engine().tempo();
-  t.tap(Button::F1);  // MORE keeps its own latch: F1 is TEMPO
-  t.turn(2);
-  CHECK(t.h->engine().tempo() != tempo1);
+  t.to_instrument(kInstDeep);  // Params from another screen always opens VOICE; DEEP is three more
+  CHECK(std::strcmp(t.title(), "INSTRUMENT DEEP") == 0);
 }
 
 TEST_CASE("hold a step + the encoder p-locks the focused parameter on that step, on the lane that drives it") {

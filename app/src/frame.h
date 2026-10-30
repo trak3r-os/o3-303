@@ -18,7 +18,7 @@ namespace o3_303::frame {
 namespace ui = o3sdk::ui;
 
 inline constexpr int kStatusH = 20;     // the status line, the first line of the screen's area
-inline constexpr int kPadsLineH = view::kKnobTabsH;  // the PADS line takes the place of the knob row's tab line
+inline constexpr int kPadsLineH = view::kKnobStripTopH;  // the PADS line takes the place of the knob row's tab line
 
 // The status line: the encoder's owner, the keyboard's mode and octave, REC, a chip for each live action that is on, a toast, a failed autosave.
 struct StatusView {
@@ -27,6 +27,9 @@ struct StatusView {
   bool trnsp = false;         // the keyboard transposes the pattern (TRNSP), else it plays the voice (KEYS)
   int octave = 0;             // the keyboard's octave shift: 0 is "OCT 2-3"
   bool rec = false;           // write / record mode is on
+  const char* take = "";      // an audio take is armed or under way ("TAKE ARMED", "TAKE REC 0:05", Rig::take), "" none (UX-303 2.2, 5.10)
+  const char* take_msg = "";  // what the take just said ("8 BARS TOO LONG AT 55.0", Rig::take_msg), from every screen; "" none
+  bool take_msg_off = false;  // the message says something did not happen: an outline
   std::uint16_t actions = 0;  // a bit per PerfAction that is on: one chip each (kPerfActionChips)
   const char* toast = "";     // a short message, "" none
   bool toast_off = false;     // the message says something did not happen: drawn as an outline

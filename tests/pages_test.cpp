@@ -66,17 +66,15 @@ struct Rig {
 
 }  // namespace
 
-TEST_CASE("pages: the seven pages and their keys (DESIGN-303 section 3; PERF and SNAP are M3b's, GROWL and WOBBLE M3c's)") {
+TEST_CASE("pages: the five pages and their keys (DESIGN-303 section 3; PERF is M3b's, GROWL and WOBBLE M3c's; the SNAP page went with H4)") {
   Rig rig;
-  CHECK(kPageCount == 7);
+  CHECK(kPageCount == 5);
   CHECK(std::strcmp(page_at(kPageGrowl).name, "GROWL") == 0);
   CHECK(std::strcmp(page_at(kPageWobble).name, "WOBBLE") == 0);
   CHECK(kPageGrowl == kPageFx + 1);  // after FX
-  CHECK(std::strcmp(page_at(kPageSnap).name, "SNAP") == 0);
-  CHECK(std::strcmp(page_at(kPagePerf).name, "PERF") == 0);
+  CHECK(std::strcmp(page_at(kPagePerfSetup).name, "PERF SETUP") == 0);
   CHECK(std::strcmp(page_at(kPageSound).name, "SOUND") == 0);
   CHECK(std::strcmp(page_at(kPageFx).name, "FX") == 0);
-  CHECK(std::strcmp(page_at(kPageSeq).name, "SEQ") == 0);
   // Every key has a descriptor and a label that fits the F-key row (eight characters between two boxes).
   for (unsigned p = 0; p < kPageCount; ++p) {
     for (unsigned k = 0; k < kKeys; ++k) {
@@ -123,9 +121,9 @@ TEST_CASE("pages: the entries a motion lane can drive are the voice's, the disto
   CHECK(ref.id == kMixerSendA);
   CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageFx, 6), ref));
   CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageFx, 7), ref));
-  for (unsigned k = 0; k < kKeys; ++k) {  // the SEQ and PERF pages are no lane's target
-    CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageSeq, k), ref));
-    CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPagePerf, k), ref));
+  for (unsigned k = 0; k < kKeys; ++k) {  // PERFORM SETUP and PATTERN SETUP are no lane's target
+    CHECK_FALSE(rig.controls.lane_ref(setup_page().entry[k], ref));
+    CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPagePerfSetup, k), ref));
   }
   // lane_entry is the way back, and the default lanes are the SOUND page.
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
@@ -174,19 +172,19 @@ TEST_CASE("pages: a motion point is scaled with the target's own descriptor: a u
   CHECK(p0 == mixer_value_to_point(kMixerLevel, 1.0f));
   CHECK(rig.controls.from_point(rig.engine, vol, p0) == doctest::Approx(0.0f).epsilon(0.05));
   // An entry no lane can drive has no point.
-  CHECK(rig.controls.to_point(rig.engine, rig.entry(kPageSeq, 0), 120.0f) == 0);
+  CHECK(rig.controls.to_point(rig.engine, Entry{Item::Tempo, 0, nullptr}, 120.0f) == 0);
 }
 
-TEST_CASE("pages: the PERF page (the four assignments, the freeze's length) and the step keys of SEQ (FILL's variant, ratchet, condition)") {
+TEST_CASE("pages: PERFORM SETUP's page (the four assignments, FILL, the freeze's length) (F5 FILL's variant, F6 the freeze's length)") {
   Rig rig;
   // F1..F4: Note, Instr, Vol, Fx with the defaults of C4.
   const char* const want_label[4] = {"NOTE", "INSTR", "VOL", "FX"};
   const char* const want_text[4] = {"MUTE", "ACC ALL", "FILL", "FREEZE"};
   for (unsigned b = 0; b < 4; ++b) {
-    CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kPagePerf, b)), want_label[b]) == 0);
-    CHECK(rig.text(rig.entry(kPagePerf, b)) == want_text[b]);
+    CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kPagePerfSetup, b)), want_label[b]) == 0);
+    CHECK(rig.text(rig.entry(kPagePerfSetup, b)) == want_text[b]);
   }
-  Entry vol = rig.entry(kPagePerf, 2);
+  Entry vol = rig.entry(kPagePerfSetup, 2);
   rig.controls.step(rig.engine, vol, -1, false);  // FILL -> OCT UP
   CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::OctUp));
   CHECK(rig.text(vol) == "OCT UP");
@@ -195,7 +193,7 @@ TEST_CASE("pages: the PERF page (the four assignments, the freeze's length) and 
   rig.controls.set(rig.engine, vol, 99.0f);  // clamped to the last action
   CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::Reverse));
   // F5: what FILL plays, through the sequencer.
-  const Entry fill = rig.entry(kPageSeq, 5);
+  const Entry fill = rig.entry(kPagePerfSetup, 4);
   CHECK(rig.text(fill) == "MUTATE");
   rig.controls.step(rig.engine, fill, 1, false);
   CHECK(rig.sequencer->fill_variant() == seq::FillVariant::OctUp);
@@ -205,61 +203,35 @@ TEST_CASE("pages: the PERF page (the four assignments, the freeze's length) and 
   CHECK(rig.text(fill) == "ACC ROT");
   rig.controls.set(rig.engine, fill, 7.0f);
   CHECK(rig.sequencer->fill_variant() == seq::FillVariant::AccRotate);  // clamped
-  // PERF F5: the beat freeze's Length, the unit's own parameter.
-  const Entry len = rig.entry(kPagePerf, 4);
+  // PERFORM SETUP's F5 is the same FILL variant (Item::FillVariant), F6 the beat freeze's Length, the unit's own parameter.
+  CHECK(rig.entry(kPagePerfSetup, 4).item == Item::FillVariant);
+  CHECK(rig.text(rig.entry(kPagePerfSetup, 4)) == "ACC ROT");
+  rig.controls.set(rig.engine, rig.entry(kPagePerfSetup, 4), 2.0f);
+  CHECK(rig.sequencer->fill_variant() == seq::FillVariant::Ratchet);
+  const Entry len = rig.entry(kPagePerfSetup, 5);
+  CHECK(len.item == Item::Freeze);
+  CHECK(len.id == Freeze::Length);
   CHECK(rig.engine.param(rig.wiring.freeze, Freeze::Length) == 1.0f);
   rig.controls.step(rig.engine, len, 1, false);
   CHECK(rig.engine.param(rig.wiring.freeze, Freeze::Length) == 2.0f);
   CHECK(rig.controls.get(rig.engine, len) == 2.0f);
-  // SEQ F7 and F8: the ratchet and the condition of the step the screen is on (wiring.step_focus).
-  seq::Bank& bank = *rig.bank;
-  bank.init();
-  const Entry ratchet = rig.entry(kPageSeq, 6);
-  const Entry cond = rig.entry(kPageSeq, 7);
-  rig.wiring.step_focus = 3;
-  CHECK(rig.text(ratchet) == "x1");
-  CHECK(rig.text(cond) == "ALWAYS");
-  rig.controls.step(rig.engine, ratchet, 2, false);
-  CHECK(bank.get_ratchet(0, 3) == 2);
-  CHECK(bank.get_ratchet(0, 2) == 0);  // only that step
-  CHECK(rig.text(ratchet) == "x3");
-  rig.controls.step(rig.engine, ratchet, 9, false);  // clamped at x4
-  CHECK(bank.get_ratchet(0, 3) == 3);
-  rig.controls.step(rig.engine, ratchet, -9, false);
-  CHECK(bank.get_ratchet(0, 3) == 0);
-  rig.controls.step(rig.engine, cond, 1, false);  // the encoder's walk: always, 10 %, 20 % ...
-  CHECK(bank.get_cond(0, 3) == cond_probability(10));
-  CHECK(rig.text(cond) == "10%");
-  rig.controls.step(rig.engine, cond, 9, false);  // ... 90 %, then 1:2
-  CHECK(bank.get_cond(0, 3) == cond_ratio(1, 2));
-  CHECK(rig.text(cond) == "1:2");
-  rig.controls.step(rig.engine, cond, 99, false);  // clamped at NOT FIRST
-  CHECK(bank.get_cond(0, 3) == kCondNotFirst);
-  CHECK(rig.text(cond) == "!FIRST");
-  rig.controls.step(rig.engine, cond, -99, false);
-  CHECK(bank.get_cond(0, 3) == kCondAlways);
-  // Another step through step_at, relative to its own value; coarse moves five places.
-  rig.controls.step_at(rig.engine, cond, 6, 1, true);
-  CHECK(bank.get_cond(0, 6) == seq::cond_at(5));
-  rig.controls.step_at(rig.engine, ratchet, 6, 1, false);
-  CHECK(bank.get_ratchet(0, 6) == 1);
-  CHECK(bank.get_cond(0, 3) == kCondAlways);  // the focus step is untouched
   // Every entry has a descriptor and a label that fits.
   for (unsigned k = 0; k < kKeys; ++k) {
-    CHECK(rig.controls.desc(rig.engine, rig.entry(kPageSeq, k)) != nullptr);
-    CHECK(rig.controls.desc(rig.engine, rig.entry(kPagePerf, k)) != nullptr);  // F5..F8: the freeze's length, roll rate, accelerate, stop time
+    CHECK(rig.controls.desc(rig.engine, setup_page().entry[k]) != nullptr);
+    CHECK(rig.controls.desc(rig.engine, rig.entry(kPagePerfSetup, k)) != nullptr);  // F5..F8: FILL, the freeze's length, ROLL, STOP
   }
 }
 
 TEST_CASE("pages: choosing a scale locks the keyboard to it (the generator's default scale is not a choice)") {
   Rig rig;
   CHECK_FALSE(rig.wiring.scale_set);
-  const Entry scale = random_entry(0);  // the RANDOM popup's F1
+  const Entry scale = setup_page().entry[4];  // PATTERN SETUP's F5
+  REQUIRE(scale.item == Item::Scale);
   rig.controls.set(rig.engine, scale, 3.0f);
   CHECK(rig.wiring.scale_set);
   // The other generator entries do not set it.
   Rig other;
-  other.controls.set(other.engine, random_entry(1), 40.0f);
+  other.controls.set(other.engine, setup_page().entry[5], 40.0f);  // DENSITY
   CHECK_FALSE(other.wiring.scale_set);
 }
 
@@ -351,9 +323,9 @@ TEST_CASE("pages: the FX page: the distortion, the delay, the send and the maste
   CHECK(rig.engine.master_level() == doctest::Approx(1.5f));
 }
 
-TEST_CASE("pages: the SEQ page: the tempo and the fields of the selected pattern") {
+TEST_CASE("pages: the tempo and the fields of the selected pattern (MASTER's and PATTERN SETUP's entries)") {
   Rig rig;
-  const Entry tempo = rig.entry(kPageSeq, 0);
+  const Entry tempo = Entry{Item::Tempo, 0, nullptr};
   rig.controls.set(rig.engine, tempo, 140.0f);
   CHECK(rig.engine.tempo() == 140'000u);
   CHECK(rig.text(tempo) == "140.0BPM");
@@ -368,17 +340,17 @@ TEST_CASE("pages: the SEQ page: the tempo and the fields of the selected pattern
 
   seq::Bank& bank = *rig.bank;
   const unsigned sel = bank.selected();
-  rig.controls.set(rig.engine, rig.entry(kPageSeq, 1), 40.0f);
+  rig.controls.set(rig.engine, setup_page().entry[1], 40.0f);
   CHECK(bank.pattern(sel).swing == 40);
-  rig.controls.set(rig.engine, rig.entry(kPageSeq, 1), 90.0f);
+  rig.controls.set(rig.engine, setup_page().entry[1], 90.0f);
   CHECK(bank.pattern(sel).swing == kMaxSwing);
-  rig.controls.set(rig.engine, rig.entry(kPageSeq, 3), 75.0f);
+  rig.controls.set(rig.engine, setup_page().entry[2], 75.0f);
   CHECK(bank.pattern(sel).gate == 75);
-  rig.controls.set(rig.engine, rig.entry(kPageSeq, 4), -7.0f);
+  rig.controls.set(rig.engine, setup_page().entry[3], -7.0f);
   CHECK(bank.pattern(sel).transpose == -7);
-  CHECK(rig.text(rig.entry(kPageSeq, 4)) == "-7st");
+  CHECK(rig.text(setup_page().entry[3]) == "-7st");
 
-  const Entry length = rig.entry(kPageSeq, 2);
+  const Entry length = setup_page().entry[0];
   CHECK(rig.text(length) == "16");
   rig.controls.step(rig.engine, length, 1, false);
   CHECK(bank.pattern(sel).length == 32);
@@ -392,15 +364,15 @@ TEST_CASE("pages: the SEQ page: the tempo and the fields of the selected pattern
 
   // The pages edit the selected pattern, whichever it is.
   bank.select(7);
-  rig.controls.set(rig.engine, rig.entry(kPageSeq, 1), 12.0f);
+  rig.controls.set(rig.engine, setup_page().entry[1], 12.0f);
   CHECK(bank.pattern(7).swing == 12);
   CHECK(bank.pattern(sel).swing == kMaxSwing);
 }
 
-TEST_CASE("pages: the generator's settings, the RANDOM popup's keys: scale, density and the accent / slide macro") {
+TEST_CASE("pages: the generator's settings, PATTERN SETUP's keys: scale, density, accent and slide chance") {
   Rig rig;
-  CHECK(kRandomEntries == 3);
-  const Entry scale = random_entry(0);
+  const Entry scale = setup_page().entry[4];
+  const Entry density = setup_page().entry[5];
   CHECK(rig.wiring.gen.scale == 18);
   CHECK(rig.text(scale) == "Penta Min");
   rig.controls.set(rig.engine, scale, 3.0f);
@@ -409,19 +381,8 @@ TEST_CASE("pages: the generator's settings, the RANDOM popup's keys: scale, dens
   rig.controls.set(rig.engine, scale, 100.0f);
   CHECK(rig.wiring.gen.scale == 39);
 
-  const Entry density = random_entry(1);
   rig.controls.set(rig.engine, density, 40.0f);
   CHECK(rig.wiring.gen.density == 40);
-
-  const Entry acc = random_entry(2);
-  rig.controls.set(rig.engine, acc, 25.0f);
-  CHECK(rig.text(acc) == "25/20%");  // the slide chance follows at four fifths of the accent chance
-  rig.controls.set(rig.engine, acc, 100.0f);
-  CHECK(rig.wiring.gen.accent_pct == 100);
-  CHECK(rig.wiring.gen.slide_pct == 80);
-  CHECK(rig.text(acc) == "100/80%");
-  rig.controls.set(rig.engine, acc, 0.0f);
-  CHECK(rig.text(acc) == "0/0%");
 }
 
 TEST_CASE("pages: a blank key has no value and does nothing") {
@@ -437,28 +398,22 @@ TEST_CASE("pages: a blank key has no value and does nothing") {
   CHECK(buf[0] == '\0');
 }
 
-TEST_CASE("pages: the SNAP page's keys and what a snapshot holds (R2)") {
+TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4, the snapshots are PERFORM's") {
   Rig rig;
-  for (unsigned k = 0; k < kSnapSlots; ++k) {
-    const Entry e = rig.entry(kPageSnap, k);
-    CHECK(e.item == Item::Snap);
-    CHECK(e.id == k);
-    CHECK(rig.controls.desc(rig.engine, e) != nullptr);
-    CHECK(std::strlen(rig.controls.label(rig.engine, e)) == 6);  // "SNAP 1"
-    CHECK(rig.text(e) == "EMPTY");
-    LaneRef ref{kLaneNone, 0};
-    CHECK_FALSE(rig.controls.lane_ref(e, ref));
-  }
   rig.wiring.snaps.store(2, nullptr);  // a missing buffer stores nothing
   CHECK_FALSE(rig.wiring.snaps.used(2));
   float v[kSnapValues] = {};
   rig.wiring.snaps.store(2, v);
-  CHECK(rig.text(rig.entry(kPageSnap, 2)) == "SET");
-  rig.controls.set(rig.engine, rig.entry(kPageSnap, 2), 0.0f);  // a key is not a value: setting it does nothing
   CHECK(rig.wiring.snaps.used(2));
 
-  // The targets: SOUND's seven, the distortion's five, the delay's four, the level and the send, each a real entry the lanes know.
-  CHECK(kSnapTargetCount == 18);
+  // The targets: SOUND's seven, the distortion's five, the delay's four, the level and the send, then (P2, D29) the growl's VOWEL, FMT Q, GRL MIX and
+  // CMB MIX, each a real entry the lanes know.
+  CHECK(kSnapTargetCount == 22);
+  CHECK(snap_target(18).item == Item::Growl);
+  CHECK(snap_target(18).id == Growl::Vowel);
+  CHECK(snap_target(19).id == Growl::FormantQ);
+  CHECK(snap_target(20).id == Growl::Mix);
+  CHECK(snap_target(21).id == Growl::CombMix);
   unsigned discrete = 0;
   for (unsigned i = 0; i < kSnapTargetCount; ++i) {
     const Entry t = snap_target(i);
@@ -475,7 +430,18 @@ TEST_CASE("pages: the SNAP page's keys and what a snapshot holds (R2)") {
   CHECK(now[0] == doctest::Approx(1200.0f));
   CHECK(now[16] == doctest::Approx(-12.0f));  // the level, in dB
   CHECK(now[17] == doctest::Approx(30.0f));   // the send, in percent
+  // The growl's four are read in the units the MODS page shows (the unit's own: a vowel and the mixes 0..1, the formant's Q 1..20).
+  rig.controls.set(rig.engine, snap_target(18), 0.5f);
+  rig.controls.set(rig.engine, snap_target(19), 12.0f);
+  rig.controls.set(rig.engine, snap_target(20), 0.25f);
+  rig.controls.set(rig.engine, snap_target(21), 0.75f);
+  rig.controls.snap_capture(rig.engine, now);
+  CHECK(now[18] == doctest::Approx(0.5f));
+  CHECK(now[19] == doctest::Approx(12.0f).epsilon(0.02));
+  CHECK(now[20] == doctest::Approx(0.25f));
+  CHECK(now[21] == doctest::Approx(0.75f));
   CHECK(now[kSnapTargetCount] == 0.0f);
+  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for two more targets stays zero
 }
 
 TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the wobble's five settings, PERF the freeze's roll and stop (M3c)") {
@@ -526,17 +492,62 @@ TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the
     CHECK_FALSE(rig.controls.lane_ref(rig.entry(kPageWobble, k), ref));
   }
 
-  // PERF: F5 the freeze's length, F6..F8 the roll rate, accelerate and stop time (the unit's ids 4, 5, 6).
-  CHECK(rig.entry(kPagePerf, 5).item == Item::Freeze);
-  CHECK(rig.entry(kPagePerf, 5).id == Freeze::RollRate);
-  CHECK(rig.entry(kPagePerf, 6).id == Freeze::Accelerate);
-  CHECK(rig.entry(kPagePerf, 7).id == Freeze::StopTime);
-  CHECK(rig.text(rig.entry(kPagePerf, 5)) == "1/16");
-  rig.controls.step(rig.engine, rig.entry(kPagePerf, 5), 1, false);
-  CHECK(rig.text(rig.entry(kPagePerf, 5)) == "1/32");
-  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::RollRate) == doctest::Approx(2.0f));
-  rig.controls.step(rig.engine, rig.entry(kPagePerf, 7), 1, false);
-  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::StopTime) == doctest::Approx(3.0f));
+  // PERFORM SETUP: F6 the freeze's Length, F7 ROLL (Item::RollMode), F8 STOP's time (the unit's id 6).
+  CHECK(rig.entry(kPagePerfSetup, 5).item == Item::Freeze);
+  CHECK(rig.entry(kPagePerfSetup, 5).id == Freeze::Length);
+  CHECK(rig.entry(kPagePerfSetup, 6).item == Item::RollMode);
+  CHECK(rig.entry(kPagePerfSetup, 7).item == Item::Freeze);
+  CHECK(rig.entry(kPagePerfSetup, 7).id == Freeze::StopTime);
+  CHECK(rig.text(rig.entry(kPagePerfSetup, 7)) == "1/2bar");  // the default: half a bar
+  rig.controls.step(rig.engine, rig.entry(kPagePerfSetup, 7), 9, false);
+  CHECK(rig.engine.param(rig.wiring.freeze, Freeze::StopTime) == doctest::Approx(4.0f));
+  CHECK(rig.text(rig.entry(kPagePerfSetup, 7)) == "2bar");  // clamped at two bars
+  rig.controls.step(rig.engine, rig.entry(kPagePerfSetup, 7), -9, false);
+  CHECK(rig.text(rig.entry(kPagePerfSetup, 7)) == "1/8bar");
+}
+
+TEST_CASE("pages: ROLL is one list, the rate and the accelerate together (Item::RollMode, UX-303 5.4); BUILD starts at 1/8") {
+  Rig rig;
+  const Entry roll = rig.entry(kPagePerfSetup, 6);
+  REQUIRE(roll.item == Item::RollMode);
+  CHECK(std::strcmp(rig.controls.label(rig.engine, roll), "ROLL") == 0);
+  const core::ParamDesc* d = rig.controls.desc(rig.engine, roll);
+  REQUIRE(d != nullptr);
+  CHECK(d->list_count == 6);
+  for (unsigned i = 0; i < 6; ++i) {  // every name fits the knob box's eight characters
+    CHECK(std::strlen(d->names[i]) <= 8);
+  }
+  // The unit's defaults: 1/16, accelerate off.
+  CHECK(rig.text(roll) == "1/16");
+  const char* const want[6] = {"1/8", "1/16", "1/32", "1/64", "BLD BEAT", "BLD BAR"};
+  for (unsigned i = 0; i < 6; ++i) {
+    rig.controls.set(rig.engine, roll, static_cast<float>(i));
+    CHECK(rig.text(roll) == want[i]);
+    CHECK(rig.controls.get(rig.engine, roll) == doctest::Approx(static_cast<float>(i)));
+    if (i < 4) {  // a rate: that rate, the accelerate off
+      CHECK(rig.engine.param(rig.wiring.freeze, Freeze::RollRate) == doctest::Approx(static_cast<float>(i)));
+      CHECK(rig.engine.param(rig.wiring.freeze, Freeze::Accelerate) == doctest::Approx(0.0f));
+    } else {  // BUILD: from 1/8, BEAT or BAR
+      CHECK(rig.engine.param(rig.wiring.freeze, Freeze::RollRate) == doctest::Approx(0.0f));
+      CHECK(rig.engine.param(rig.wiring.freeze, Freeze::Accelerate) == doctest::Approx(static_cast<float>(i - 3)));
+    }
+  }
+  // The encoder walks the list and clamps at both ends; BLD BAR back one place is BLD BEAT, then the rates from 1/64.
+  rig.controls.step(rig.engine, roll, 9, false);
+  CHECK(rig.text(roll) == "BLD BAR");
+  rig.controls.step(rig.engine, roll, -1, false);
+  CHECK(rig.text(roll) == "BLD BEAT");
+  rig.controls.step(rig.engine, roll, -1, false);
+  CHECK(rig.text(roll) == "1/64");
+  rig.controls.step(rig.engine, roll, -9, false);
+  CHECK(rig.text(roll) == "1/8");
+  // A project that saved a rate with an accelerate (the unit's own two parameters, as P1 saved them) reads as BUILD: the accelerate decides.
+  (void)rig.engine.set_param(rig.wiring.freeze, Freeze::RollRate, 2.0f);
+  (void)rig.engine.set_param(rig.wiring.freeze, Freeze::Accelerate, 2.0f);
+  CHECK(rig.text(roll) == "BLD BAR");
+  // No lane drives it and no snapshot holds it.
+  LaneRef ref{kLaneNone, 0};
+  CHECK_FALSE(rig.controls.lane_ref(roll, ref));
 }
 
 TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's four, then the generator's four, and the entries it appends") {
@@ -551,10 +562,7 @@ TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's four, then t
     CHECK(std::strcmp(rig.controls.label(rig.engine, pg.entry[k]), kLabels[k]) == 0);
     CHECK(std::strlen(rig.controls.label(rig.engine, pg.entry[k])) <= 8);  // the F-key row's room
   }
-  // The item ids are append-only: AccPct and SldPct come after everything that shipped (a stored id is its index).
-  CHECK(static_cast<unsigned>(Item::AccPct) == static_cast<unsigned>(Item::Wobble) + 1u);
-  CHECK(static_cast<unsigned>(Item::SldPct) == static_cast<unsigned>(Item::Wobble) + 2u);
-  CHECK(static_cast<unsigned>(Item::AccSlide) == 11u);  // not moved: the RANDOM popup still has it
+  // (No Item value is stored in a project: the chunks hold unit targets and parameter ids, snapshot target indices, PerfAction numbers and LaneRefs.)
   // No lane drives a SETUP entry.
   LaneRef ref{kLaneNone, 0};
   for (unsigned k = 0; k < kKeys; ++k) {
@@ -562,7 +570,7 @@ TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's four, then t
   }
 }
 
-TEST_CASE("pages: ACC % and SLD % are two settings of the generator, project-wide; AccSlide keeps its 4/5 rule for the popup") {
+TEST_CASE("pages: ACC % and SLD % are two settings of the generator, project-wide") {
   Rig rig;
   const Entry acc{Item::AccPct, 0, nullptr};
   const Entry sld{Item::SldPct, 0, nullptr};
@@ -582,7 +590,8 @@ TEST_CASE("pages: ACC % and SLD % are two settings of the generator, project-wid
   rig.controls.set(rig.engine, acc, -9.0f);
   CHECK(rig.wiring.gen.accent_pct == 0);
   // Both read what the generator holds, whichever way it was set.
-  rig.controls.set(rig.engine, Entry{Item::AccSlide, 0, nullptr}, 50.0f);
+  rig.wiring.gen.accent_pct = 50;
+  rig.wiring.gen.slide_pct = 40;
   CHECK(rig.controls.get(rig.engine, acc) == doctest::Approx(50.0f));
   CHECK(rig.controls.get(rig.engine, sld) == doctest::Approx(40.0f));
   // The generator is not the pattern's: the selected pattern changing leaves the settings alone (D1).

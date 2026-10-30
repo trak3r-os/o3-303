@@ -168,6 +168,10 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
     row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
     row.skip(8);
   }
+  if (view.take[0] != '\0') {
+    row.chip(Face::Label, view.take, Color::Rec, Color::SelText);
+    row.skip(8);
+  }
   // Right aligned: the failed autosave, and the toast after it (their room is reserved first: no chip is drawn over them).
   int x = line.x + line.w - 8;
   const auto width_of = [&](const char* s) { return r.text_width(s, Face::Label) + 12 + 8; };
@@ -177,6 +181,9 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   }
   if (view.toast[0] != '\0') {
     reserved += width_of(view.toast);
+  }
+  if (view.take_msg[0] != '\0') {
+    reserved += width_of(view.take_msg);
   }
   (void)draw_action_chips(r, row.x(), x - reserved, baseline, view.actions);
   const auto put_right = [&](const char* s, Color fill, Color ink, bool outline) {
@@ -192,6 +199,9 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   };
   if (view.save_failed) {
     put_right("SAVE FAILED", Color::Rec, Color::SelText, false);
+  }
+  if (view.take_msg[0] != '\0') {  // the audio take's word, from whatever screen asked for it
+    put_right(view.take_msg, Color::Sel, view.take_msg_off ? Color::ChromeText : Color::SelText, view.take_msg_off);
   }
   if (view.toast[0] != '\0') {  // a message that says something did not happen is an outline, as the 303 screen's
     put_right(view.toast, Color::Sel, view.toast_off ? Color::ChromeText : Color::SelText, view.toast_off);

@@ -132,7 +132,7 @@ void PerformScreen::init(Rig& rig, MainScreen& home) noexcept {
   live_ = rig.live;
   home_ = &home;
   setup_keys_ = PageKeys{};
-  setup_keys_.set_page(kPagePerf);
+  setup_keys_.set_page(kPagePerfSetup);
   setup_ = false;
   morph_ = false;
   for (int& n : key_note_) {
@@ -559,6 +559,7 @@ void PerformScreen::fill_status(app::Context& ctx, frame::StatusView& status) co
   status.trnsp = live_->trnsp();
   status.octave = home_->octave();
   status.rec = home_->rec();
+  fill_take_status(*rig_, status);
   status.actions = live_->on();
   status.toast = toast_;
   status.toast_off = toast_off_;
@@ -653,7 +654,7 @@ void PerformScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) n
   }
   if (setup_) {
     r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 8, "PERFORM SETUP", Color::Text, Face::Data);
-    r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 40, "F1-F4 SET WHAT EACH COLOUR BUTTON DOES   F5-F8 THE FREEZE, ROLL AND STOP", Color::TextDim,
+    r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 40, "F1-F4 SET WHAT EACH COLOUR BUTTON DOES   F5 WHAT FILL PLAYS   F6-F8 FREEZE, ROLL, STOP", Color::TextDim,
            Face::Label);
     r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 64, "THE PADS ARE PERFORM'S", Color::TextDim, Face::Label);
   }

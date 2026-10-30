@@ -1,9 +1,9 @@
 # INSTRUMENT (docs/UX-303.md 5.5): Params opens it on VOICE (the sound knobs: F2 latches RESO, hold + turn is for a moment, two held move together),
 # Params again goes to FX (DRIVE TONE MIX MODEL, then the delay: TIME FB SEND TONE), MODS (VOWEL FMT Q GRL MIX CMB MIX, then the wobble: RATE SHAPE DEPTH TARGET),
-# MORE (what has no new home until MASTER, SETUP and PLAYS: TEMPO MASTER LENGTH GATE TRANSP FILL RATCHET COND) and DEEP (until Config DEEP: FMT MIX, CMB TUNE,
-# CMB FB, WOB RESET, DLY MODE), and back to VOICE. The knobs of the page are large; the sections of the other pages are read-outs; under them the two lines of
+# and DEEP (until Config DEEP: FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE), and back to VOICE (the MORE page went with P2: TEMPO and MASTER are MASTER's,
+# LENGTH, GATE and TRANSP are SETUP's, FILL is PERFORM SETUP's, RATCHET and COND are the PLAYS row). The knobs of the page are large; the sections of the other pages are read-outs; under them the two lines of
 # the drawer (NOTE and GATE) of the page of 16 steps, with the cursor and the playhead; the pads are HOME's (hold a step + turn locks the latched knob on it).
-# The Shift row is empty (MIDI learn comes with C1). Choices made here: VOICE is the SOUND latch HOME and PERFORM share; FX, MODS, MORE and DEEP each keep their
+# The Shift row is empty (MIDI learn comes with C1). Choices made here: VOICE is the SOUND latch HOME and PERFORM share; FX, MODS and DEEP each keep their
 # own latch; the pad LEDs and the PADS line are HOME's.
 wait 300
 tap params
@@ -54,27 +54,20 @@ tap f8
 turn 1
 snap 11_mods_edited
 tap params
-snap 12_more
-tap f1
-turn 40
-tap f3
-turn 1
-snap 13_more_edited
-tap params
-snap 14_deep
+snap 12_deep
 tap params
 # Back on VOICE (its latch is the SOUND one): hold step 6 and turn the latched knob: its lock on that step, on the drawer's lane.
 tap f4
 paddown 5
 turn 10
 wait 100
-snap 15_lock_on_a_held_step
+snap 13_lock_on_a_held_step
 padup 5
 # The pattern plays: the playhead runs over the drawer; Rec is the home map's too.
 tap play
 wait 700
 tap rec
-snap 16_playing_and_rec
+snap 14_playing_and_rec
 tap rec
 tap play
 # Params from another screen opens VOICE again; Shift shows no row.
@@ -82,5 +75,5 @@ tap pattern
 tap params
 press shift
 wait 800
-snap 17_shift_row_is_empty
+snap 15_shift_row_is_empty
 release shift

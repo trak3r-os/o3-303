@@ -25,19 +25,23 @@ using ui::Color;
 using ui::Face;
 using ui::Rect;
 
-constexpr std::uint64_t kToolsDelayMs = 600;  // Shift held and the encoder still this long: the tools row
 constexpr int kInfoH = 34;
 constexpr int kHeroY = frame::kStatusH + kInfoH + 4;  // under the status line and the info strip
-constexpr int kHeroH = 236;                           // the motion lane and the PADS line are under it, over the knob strip
+constexpr int kHeroH = 252;                           // the motion lane is under it, over the knob strip (the PADS line is the strip's top line)
 constexpr int kGenH = 22;                             // PATTERN SETUP's second info line (the generator): the drawer is that much shorter
 
-constexpr const char* kToolNames[app::kFKeyCount] = {"RANDOM", "MUTATE", "REVERSE", "INVERT", "DOUBLE", "CLEAR", "REDO", "UNDO"};
-constexpr const char* kToolHints[app::kFKeyCount] = {"new line", "tweak 25%", "backwards", "flip pitch", "length x2", "all rests", "step forward", "step back"};
-// PATTERN SETUP's Shift row (UX-303 5.2): F5..F7 are free.
-constexpr const char* kSetupToolNames[app::kFKeyCount] = {"COPY PAT", "PASTE PAT", "DUP>NEXT", "CLEAR LOCKS", "-", "-", "-", "UNDO"};
-constexpr const char* kSetupToolHints[app::kFKeyCount] = {"to the clipboard", "over this one", "into the next", "keep the notes", "", "", "", "step back"};
-// (the F key row has room for eight characters; the tools strip says them whole)
+// The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters).
+constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
+// PATTERN SETUP's: F5..F7 are free.
 constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "-", "-", "-", "UNDO"};
+constexpr unsigned kToolNew = 0;
+constexpr unsigned kToolVary = 1;
+constexpr unsigned kToolRhythm = 2;
+constexpr unsigned kToolNotes = 3;
+constexpr unsigned kToolReverse = 4;
+constexpr unsigned kToolClear = 5;
+constexpr unsigned kToolRedo = 6;
+constexpr unsigned kVaryPct = 25;  // VARY: today's MUTATE at 25 % (UX-303 7)
 constexpr unsigned kToolCopyPat = 0;
 constexpr unsigned kToolPastePat = 1;
 constexpr unsigned kToolDupNext = 2;
@@ -97,8 +101,6 @@ void MainScreen::init(Rig& rig) noexcept {
   controls_ = &rig.controls;
   live_ = rig.live;
   home_.init(rig);
-  keys_ = PageKeys{};
-  keys_.set_page(kPageSound);
   setup_ = false;
   setup_keys_ = PageKeys{};
   setup_keys_.set_table(&setup_page(), kSetupPageCount);
@@ -106,18 +108,7 @@ void MainScreen::init(Rig& rig) noexcept {
   win_pattern_ = -1;
   win_lo_ = 0;
   win_hi_ = 0;
-  enc_latch_ = EncLatch::None;
-  master_down_ = false;
-  master_used_ = false;
-  master_shift_ = false;
-  master_down_ms_ = 0;
-  nudge_pct_ = 0;
-  nudge_base_ = 0;
   tool_mask_ = 0;
-  shift_ms_ = 0;
-  last_turn_ms_ = 0;
-  random_open_ = false;
-  random_focus_ = 0;
 }
 
 const char* MainScreen::title() const noexcept {
@@ -131,18 +122,13 @@ void MainScreen::enter(app::Context& ctx) noexcept {
   home_.enter(ctx);
   setup_ = false;  // Pattern from another screen goes HOME (UX-303 D6)
   setup_keys_.release_all();
-  master_down_ = false;
 }
 
 void MainScreen::leave(app::Context& ctx) noexcept {
   home_.leave(ctx);
-  keys_.release_all();
+  rig_->sound_keys.release_all();  // the shared SOUND latch stays, the keys held let go (their releases would reach another screen)
   setup_keys_.release_all();
-  enc_latch_ = EncLatch::None;  // Master's latch of TEMPO / SWING ends with the screen: back again, the encoder is the page's
   live_->snap_finish(ctx, true);
-  random_open_ = false;
-  nudge_end(ctx);  // a tempo nudge ends with the screen: its release would reach another one
-  master_down_ = false;
   live_->leave(ctx);  // the actions held end with the screen (their releases would reach another one)
   tool_mask_ = 0;
 }
@@ -166,34 +152,15 @@ void MainScreen::input(app::Context& ctx, const Input& in) noexcept {
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
-  home_.sync_step_focus();
 }
 
 void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   if (in.delta() == 0) {
     return;
   }
-  last_turn_ms_ = ctx.uptime_ms();
-  if (master_down_) {  // hold Master + turn: the tempo nudge (R7)
-    master_turn(ctx, in.delta());
-    return;
-  }
   const Entry& focused = fkeys().focused();
   if (home_.turn(ctx, in.delta(), in.shift, focused)) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
     fkeys().mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
-    return;
-  }
-  if (enc_latch_ != EncLatch::None && fkeys().held() == 0u) {  // Master's tap latched TEMPO or SWING on the encoder
-    latch_turn(ctx, in.delta(), in.shift);
-    return;
-  }
-  if (random_open_) {  // the RANDOM popup has the encoder: the setting its key latched
-    controls_->step(ctx.engine(), random_entry(random_focus_), in.delta(), in.shift);
-    ctx.redraw();
-    return;
-  }
-  if (on_snap_page()) {  // the SNAP page's encoder is the morph
-    snap_turn(ctx, in.delta(), in.shift);
     return;
   }
   PageKeys& fk = fkeys();
@@ -210,36 +177,41 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   }
 }
 
+// The Shift row, at the press of Shift + F: PATTERN SETUP's own on SETUP (UNDO is the same on both), HOME's otherwise.
 void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
-  if (setup_ && index != kToolUndo) {  // (UNDO is the same on both rows: it falls through to the switch below)
+  if (setup_ && index != kToolUndo) {
     setup_tool(ctx, index);
     return;
   }
+  home_tool(ctx, index);
+}
+
+// HOME's Shift row (UX-303 5.1 and 7): NEW VARY RHYTHM NOTES REVERSE CLEAR REDO UNDO. Each edit is one UNDO step of the pattern shown (Bank::edit); one that
+// changes nothing (REVERSE of a palindrome, NOTES of a line with nothing sounding, CLEAR of an empty one) says so and leaves no step. RHYTHM of an empty line
+// draws a one-pitch line and is a step: RHYTHM then NOTES starts a line from nothing.
+void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
+  const seq::GenParams& gen = rig_->wiring.gen;
   switch (index) {
-    case 0:  // the RANDOM popup (C3): its F8 makes the line
-      random_toggle(ctx);
+    case kToolNew:  // a new line over the length with the project's generator settings and a new seed
+      toast(ctx, bank.random_fill(sel(), gen, next_seed(ctx)) ? "NEW LINE" : "NO CHANGE", false);
       break;
-    case 1:
-      (void)bank.mutate(sel(), rig_->wiring.gen, next_seed(ctx), 25);
-      toast(ctx, "MUTATED");
+    case kToolVary:
+      toast(ctx, bank.mutate(sel(), gen, next_seed(ctx), kVaryPct) ? "VARIED" : "NO CHANGE", false);
       break;
-    case 2:
-      (void)bank.reverse(sel());
-      toast(ctx, "REVERSED");
+    case kToolRhythm:  // the pitches stay, the rests, accents and slides are drawn again
+      toast(ctx, bank.regen_rhythm(sel(), gen, next_seed(ctx)) ? "NEW RHYTHM" : "NO CHANGE", false);
       break;
-    case 3:
-      (void)bank.invert(sel());
-      toast(ctx, "INVERTED");
+    case kToolNotes:  // the rhythm and the flags stay, the pitches are drawn again in the scale
+      toast(ctx, bank.regen_notes(sel(), gen, next_seed(ctx)) ? "NEW NOTES" : "NO CHANGE", false);
       break;
-    case 4:
-      toast(ctx, bank.double_length(sel()) ? "DOUBLED" : "ALREADY 64 STEPS");
+    case kToolReverse:
+      toast(ctx, bank.reverse(sel()) ? "REVERSED" : "NO CHANGE", false);
       break;
-    case 5:
-      (void)bank.clear_pattern(sel());
-      toast(ctx, "PATTERN CLEARED");
+    case kToolClear:
+      toast(ctx, bank.clear_pattern(sel()) ? "PATTERN CLEARED" : "NO CHANGE", false);
       break;
-    case 6: {
+    case kToolRedo: {
       const int i = bank.redo();
       if (i >= 0) {
         bank.select(static_cast<unsigned>(i));
@@ -261,14 +233,10 @@ void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
 
 // ---- PATTERN SETUP ----------------------------------------------------------------------------------------------------------
 
-// A tap of Pattern: HOME and PATTERN SETUP trade places. The F keys held let go (their releases would reach the other page), a snapshot being morphed
-// is finished, the RANDOM popup closes; the encoder's latch of the page being left stays as it was.
+// A tap of Pattern: HOME and PATTERN SETUP trade places. The F keys held let go (their releases would reach the other page); the encoder's latch of the
+// page being left stays as it was.
 void MainScreen::setup_toggle(app::Context& ctx) noexcept {
-  if (!setup_ && on_snap_page()) {
-    live_->snap_finish(ctx, true);
-  }
   fkeys().release_all();
-  random_open_ = false;
   setup_ = !setup_;
   fkeys().release_all();
   ctx.redraw();
@@ -322,25 +290,10 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {
-      if (in.shift) {  // Shift + F: the tools row; on the SNAP page it stores the snapshot
+      if (in.shift) {  // Shift + F: the Shift row, at once; the key's release is not the page's
         tool_mask_ |= 1u << k;
-        if (on_snap_page() && !random_open_) {
-          snap_press(ctx, k, true);
-        } else {
-          tool(ctx, k);
-        }
+        tool(ctx, k);
         ctx.redraw();
-        return;
-      }
-      enc_latch_ = EncLatch::None;  // the encoder is the page's again (Master's tap had it on TEMPO or SWING)
-      if (random_open_ || on_snap_page()) {  // the popup's keys and the snapshots are not the pages' latches
-        home_.release_row();  // but the encoder is theirs (the setting, the morph), not a drawer row's
-        tool_mask_ |= 1u << k;
-        if (random_open_) {
-          random_press(ctx, k);
-        } else {
-          snap_press(ctx, k, false);
-        }
         return;
       }
       if (fkeys().page().entry[k].item != Item::Blank) {
@@ -361,79 +314,27 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     setup_toggle(ctx);  // a tap on the screen's own button: HOME and PATTERN SETUP
   }
   if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows), Pattern
-    if (home_.row() != DrawerRow::None) {  // a row has the encoder: it is not Master's latch nor the popup's
-      enc_latch_ = EncLatch::None;
-      random_open_ = false;
-    }
     return;
   }
-
-  if (in.type == Input::Type::Release) {
-    if (in.which() == Button::Master) {
-      master_release(ctx);
-    }
-    return;
-  }
-
-  switch (in.which()) {
-    case Button::Params:
-      if (random_open_) {  // the popup closes first
-        random_open_ = false;
-      } else {
-        const bool was_snap = on_snap_page();
-        if (in.shift) {  // the SNAP page, and back from it
-          keys_.toggle_snap();
-        } else {
-          keys_.next_page();
-        }
-        if (was_snap && !on_snap_page()) {
-          live_->snap_finish(ctx, true);
-        }
-        if (on_snap_page()) {
-          home_.release_row();  // the SNAP page's encoder is the morph
-        }
-      }
-      ctx.redraw();
-      break;
-    case Button::Master:
-      master_press(ctx, in.shift);
-      break;
-    case Button::Shift:
-      shift_ms_ = ctx.uptime_ms();
-      ctx.redraw();
-      break;
-    default:
-      break;
+  if (in.which() == Button::Shift) {  // the soft keys change with it
+    ctx.redraw();
   }
 }
 
 // ---- Soft keys and LEDs -----------------------------------------------------------------------------------------------------
 
-// The tools row (and its labels on the F keys) shows while Shift is held and the encoder is still: a coarse Shift + turn keeps the name
-// and the value of the parameter on the screen. The tools themselves work from the moment Shift is down.
-bool MainScreen::tools_visible(const app::Context& ctx) const noexcept {
-  if (!ctx.panel().shift() || on_snap_page()) {  // Shift + F on the SNAP page stores: no tools row there
-    return false;
-  }
-  const std::uint64_t since = shift_ms_ > last_turn_ms_ ? shift_ms_ : last_turn_ms_;
-  return ctx.uptime_ms() - since >= kToolsDelayMs;
-}
-
+// While Shift is held the eight soft keys are the Shift row, at once (UX-303 2.4): the knob strip stays up, so a coarse Shift + turn keeps its values.
 void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
-  if (tools_visible(ctx)) {
-    for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-      out.label[k] = setup_ ? kSetupKeyLabels[k] : kToolNames[k];
-      if (tool_dim(k)) {
-        out.dim = static_cast<std::uint8_t>(out.dim | (1u << k));
-      }
-    }
-    return;
+  if (!ctx.panel().shift()) {
+    return;  // no labels: the knob strip's boxes carry the F-number and the name, so the key row is the keys alone
   }
-  // No labels: the knob strip's boxes carry the F-number and the name (S2), so the key row is the keys alone and there is no second label row.
+  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    out.label[k] = setup_ ? kSetupKeyLabels[k] : kHomeKeyLabels[k];
+    if (tool_dim(k)) {
+      out.dim = static_cast<std::uint8_t>(out.dim | (1u << k));
+    }
+  }
 }
-
-const char* MainScreen::tool_name(unsigned k) const noexcept { return (setup_ ? kSetupToolNames : kToolNames)[k]; }
-const char* MainScreen::tool_hint(unsigned k) const noexcept { return (setup_ ? kSetupToolHints : kToolHints)[k]; }
 
 // A tool that has nothing to do now: REDO / UNDO with nothing to step to, PASTE PAT with nothing copied, and the free keys of SETUP's row.
 bool MainScreen::tool_dim(unsigned k) const noexcept {
@@ -441,28 +342,18 @@ bool MainScreen::tool_dim(unsigned k) const noexcept {
   if (setup_) {
     return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k > kToolClearLocks && k < kToolUndo));
   }
-  return (k == 6u && !bank.can_redo()) || (k == 7u && !bank.can_undo());
+  return (k == kToolRedo && !bank.can_redo()) || (k == kToolUndo && !bank.can_undo());
 }
 
 void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_.leds(ctx, leds); }
 
 // ---- Drawing ----------------------------------------------------------------------------------------------------------------
 
-// What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): a row of the drawer, the F key latched (or held), a latch of Master, the popup's setting, the morph.
+// What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): a row of the drawer, or the F key latched (or held).
 void MainScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
-  if (master_down_) {
-    append(out, cap, "TEMPO NUDGE");
-  } else if (home_.row() != DrawerRow::None) {
+  if (home_.row() != DrawerRow::None) {
     home_.row_text(ctx, out, cap);
-  } else if (enc_latch_ != EncLatch::None) {
-    append(out, cap, enc_latch_ == EncLatch::Tempo ? "TEMPO" : "SWING");
-  } else if (random_open_) {
-    char fk[4] = {'F', static_cast<char>('1' + random_focus_), ' ', '\0'};
-    append(out, cap, fk);
-    append(out, cap, controls_->label(ctx.engine(), random_entry(random_focus_)));
-  } else if (on_snap_page()) {
-    append(out, cap, "MORPH");
   } else {
     char fk[4] = {'F', static_cast<char>('1' + fkeys().focus()), ' ', '\0'};
     append(out, cap, fk);
@@ -498,7 +389,7 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   g[n++] = '%';
   g[n] = '\0';
   row.field("GATE", Face::Data, g, Color::ChromeDim, Color::ChromeText);
-  // The pattern's playback transpose (the SEQ page's TRANSP).
+  // The pattern's playback transpose (PATTERN SETUP's TRANSP).
   char tr[8];
   n = 0;
   tr[n++] = p.transpose < 0 ? '-' : '+';
@@ -569,65 +460,18 @@ void MainScreen::draw_info_generator(app::Context& ctx, ui::Renderer& r, const R
   }
 }
 
-// The page tabs in the corner (the page the F keys are on, and the others one PARAMS away), a hint after them, and the state chips.
-void MainScreen::draw_tabs(app::Context& ctx, ui::Renderer& r, const Rect& area, const char* hint) noexcept {
-  r.panel(area, Color::Pane);
-  r.rule(area.x, area.y, area.w, ui::Axis::Horizontal, Color::Empty);
-  int tx = area.x + 6;
-  if (setup_ && hint == nullptr) {  // PATTERN SETUP has the one page
-    const char* nm = setup_page().name;
-    r.text(tx, area.y + 3, "PATTERN", Color::Empty, Face::Micro);
-    r.text(tx + r.text_width("PATTERN", Face::Micro) + 6, area.y + 3, nm, Color::Text, Face::Micro);
-    r.rule(tx + r.text_width("PATTERN", Face::Micro) + 6, area.y + 14, r.text_width(nm, Face::Micro), ui::Axis::Horizontal, Color::Sel);
-    draw_state_chips(ctx, r, area);
-    return;
-  }
-  for (unsigned i = 0; i < kPageCount; ++i) {
-    const char* nm = page_at(i).name;
-    const int w = r.text_width(nm, Face::Micro);
-    const bool cur = hint == nullptr && i == keys_.page_index();
-    r.text(tx, area.y + 3, nm, cur ? Color::Text : Color::Empty, Face::Micro);
-    if (cur) {
-      r.rule(tx, area.y + 14, w, ui::Axis::Horizontal, Color::Sel);
-    }
-    tx += w + 12;
-  }
-  if (hint != nullptr) {
-    r.text(tx + 4, area.y + 3, hint, Color::TextDim, Face::Micro);
-  }
-  draw_state_chips(ctx, r, area);
-}
-
-// The knob of an entry: its name, value and unit as the page shows them, the value as the fill.
-void MainScreen::fill_knob(app::Context& ctx, unsigned k, const Entry& entry, view::Knob& out) noexcept {
-  static constexpr const char* kFKeys[kKeys] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
-  dsp::Engine& e = ctx.engine();
-  const core::ParamDesc* d = controls_->desc(e, entry);
-  out = view::Knob{};
-  out.fkey = kFKeys[k];
-  if (d == nullptr) {
-    out.blank = true;
-    return;
-  }
-  out.label = controls_->label(e, entry);
-  (void)controls_->format(e, entry, out.value, sizeof out.value);
-  out.unit = controls_->unit_text(e, entry);
-  out.norm = core::param_norm(*d, controls_->get(e, entry));
-}
-
 void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   const PageKeys& fk = fkeys();
   const Page& pg = fk.page();
-  draw_tabs(ctx, r, area, nullptr);
   view::Knob knobs[view::kKnobs];
   char label[16];
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
     view::Knob& kn = knobs[k];
-    fill_knob(ctx, k, pg.entry[k], kn);
+    frame::fill_knob(ctx, *controls_, k, pg.entry[k], kn);
     if (kn.blank) {
       continue;
     }
-    kn.focus = enc_latch_ == EncLatch::None && (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus();
+    kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus();
     kn.held = (fk.held() >> k & 1u) != 0u;
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];
@@ -644,25 +488,6 @@ void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area
   view::draw_knobs(r, area, knobs);
 }
 
-void MainScreen::draw_tools(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
-  (void)ctx;
-  const int cell_w = area.w / static_cast<int>(app::kFKeyCount);
-  r.panel(area, Color::Pane);
-  r.rule(area.x, area.y, area.w, ui::Axis::Horizontal, Color::Empty);
-  r.text(area.x + 6, area.y + 3, "TOOLS", Color::Text, Face::Micro);
-  r.text(area.x + 56, area.y + 3, "SHIFT + F1..F8", Color::Empty, Face::Micro);
-  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    const Rect cell{area.x + static_cast<int>(k) * cell_w, area.y + 1, cell_w, area.h - 1};
-    if (k != 0u) {
-      r.rule(cell.x, cell.y + 16, cell.h - 20, ui::Axis::Vertical, Color::Empty);
-    }
-    const bool none = tool_dim(k);
-    const Rect box{cell.x + 3, cell.y + 16, cell.w - 6, cell.h - 18};
-    r.panel(box, Color::Empty);
-    r.text(box.x + 4, box.y + 1, tool_name(k), none ? Color::TextDim : Color::Text, Face::Label);
-    r.text(box.x + 4, box.y + 22, tool_hint(k), Color::TextDim, Face::Micro);
-  }
-}
 void MainScreen::draw_grid(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   (void)ctx;
   const ui::Theme& theme = r.theme();
@@ -786,11 +611,11 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
   draw_info(ctx, r, Rect{area.x, area.y + frame::kStatusH, area.w, kInfoH});
   const Rect strip_area{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};
-  const Rect pads_area{area.x, strip_area.y - frame::kPadsLineH, area.w, frame::kPadsLineH};
+  const Rect pads_area{strip_area.x, strip_area.y, strip_area.w, frame::kPadsLineH};  // the knob row's top line, as on every screen with a knob row
 
   const int hero_y = area.y + kHeroY + (setup_ ? kGenH : 0);  // PATTERN SETUP's second info line takes the drawer's top
   if (home_.overlay()) {
-    draw_grid(ctx, r, Rect{area.x, hero_y, area.w, pads_area.y - hero_y - 2});
+    draw_grid(ctx, r, Rect{area.x, hero_y, area.w, strip_area.y - hero_y - 2});
   } else {
     // The pitch window: the notes of the pattern, remembered while they are entered.
     int lo = 36;
@@ -833,15 +658,7 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
   char line[128];
   home_.pads_line(ctx, line, sizeof line);
   frame::draw_pads_line(r, pads_area, line);
-  if (tools_visible(ctx)) {
-    draw_tools(ctx, r, strip_area);
-  } else if (random_open_) {
-    draw_random(ctx, r, strip_area);
-  } else if (on_snap_page()) {
-    draw_snap(ctx, r, strip_area);
-  } else {
-    draw_strip(ctx, r, strip_area);
-  }
+  draw_strip(ctx, r, strip_area);
 }
 
 }  // namespace o3_303

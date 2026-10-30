@@ -1,0 +1,22 @@
+# HOOKS (docs/UX-303.md 5.11): the placeholder the three Sample buttons open until M4 (the Sample Recorder button is RECORD's, record.txt): the 4 x 12 grid of empty cells, the
+# line "HOOKS ARRIVES WITH M4 . SAMPLE RECORDER WORKS NOW", an empty F row, "ENC > -", dark pads. Each of the three buttons opens the same screen; the pads, the encoder and the F keys
+# do nothing there.
+wait 300
+tap sampleload
+wait 100
+snap 01_hooks
+# The other two buttons open the same screen; a pad, a turn and an F key change nothing.
+tap sampleplay
+tap sampleedit
+paddown 30
+turn 3
+tap f1
+wait 100
+padup 30
+snap 02_nothing_changes
+# Back to HOME, and to HOOKS again from there.
+tap pattern
+wait 100
+tap sampleedit
+wait 100
+snap 03_again

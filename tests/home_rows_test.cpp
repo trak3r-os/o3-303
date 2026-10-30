@@ -356,35 +356,28 @@ TEST_CASE("the rows work on PATTERN SETUP and on INSTRUMENT; the LOCK row keeps 
   CHECK(t.h->display().peak_frame_words() < 1800u);
 }
 
-TEST_CASE("a latched row gives the encoder to the RANDOM popup when it opens: the turn is the popup's, not the cursor step's") {
+TEST_CASE("the Shift row does not take the encoder from a latched row; an F key gives it back to its knob (H3's release, kept by H4)") {
   Hands t;
   line(t);
   HomeMap& home = home_of(t);
   t.pad(step_pad_of(4));
   t.tap(Button::Note);
   REQUIRE(home.row() == DrawerRow::Note);
-  const Pattern before = t.pat();
-  t.random_popup();  // Shift + F1
-  CHECK(home.row() == DrawerRow::None);
-  t.turn(3);
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == before.steps[i].note);  // no note moved
-  }
-  // A colour button while the popup is open closes it and takes the encoder (one owner at a time).
-  t.tap(Button::Note);
+  t.shift_tap(Button::F5);  // REVERSE: an edit of the pattern, not an owner of the encoder
   CHECK(home.row() == DrawerRow::Note);
+  const Pattern reversed = t.pat();
   t.turn(1);
-  CHECK(t.pat().steps[4].note == before.steps[4].note + 1);
-  // And an F key tapped while the popup is open gives the encoder back to the popup, not to a row.
-  t.random_popup();
-  t.tap(Button::Fx);  // closes the popup and latches LOCK
-  CHECK(home.row() == DrawerRow::Lock);
-  t.random_popup();
+  CHECK(t.pat().steps[4].note == reversed.steps[4].note + 1);  // the row still has the turn
+  t.tap(Button::Fx);
+  REQUIRE(home.row() == DrawerRow::Lock);
+  t.tap(Button::F2);  // an F key: the knob has the encoder, the row is let go
   CHECK(home.row() == DrawerRow::None);
-  t.tap(Button::F2);
-  t.tap(Button::Vol);
-  t.tap(Button::F1);  // the popup's key 1 is the scale: the row is not a row any more
-  CHECK(home.row() == DrawerRow::None);
+  const float reso = t.param(kVoice, AcidVoice::Reso);
+  t.turn(3);
+  CHECK(t.param(kVoice, AcidVoice::Reso) != reso);
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == reversed.steps[i].note + (i == 4 ? 1 : 0));  // no note moved by it
+  }
 }
 
 TEST_CASE("several held steps edited by one turn gesture are ONE undo step, and the history before it survives (NOTE, GATE, PLAYS, LOCK)") {

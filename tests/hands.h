@@ -102,7 +102,7 @@ struct Hands {
   unsigned selected() const { return bank().selected(); }
   const o3_303::Pattern& pat() const { return bank().pattern(bank().selected()); }
 
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, MORE, DEEP) on page `page` (o3_303::kInstVoice ...), from any screen but
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, DEEP) on page `page` (o3_303::kInstVoice ...), from any screen but
   // INSTRUMENT itself. to_home() leaves it.
   void to_instrument(unsigned page = o3_303::kInstVoice) {
     tap(Button::Params);
@@ -113,8 +113,27 @@ struct Hands {
   // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.
   void to_perform() { tap(Button::Performance); }
   void to_home() { tap(Button::Pattern); }
-  // The RANDOM popup (Shift + F1), and the key that sets its three settings up.
-  void random_popup() { shift_tap(Button::F1); }
+  // HOME's Shift row (UX-303 5.1), at once: F1 NEW, F2 VARY, F3 RHYTHM, F4 NOTES, F5 REVERSE, F6 CLEAR, F7 REDO, F8 UNDO.
+  void new_line() { shift_tap(Button::F1); }
+  // PATTERN SETUP's F1 LENGTH on its own latch (from HOME: Pattern, a tap): `steps` detents (8 / 16 / 32 / 64: DOUBLE is +1), then back on HOME.
+  void length_steps(int steps) {
+    tap(Button::Pattern);
+    tap(Button::F1);
+    turn(steps);
+    tap(Button::Pattern);
+  }
+  // The generator's scale (SETUP's F5): the encoder moves a place a detent (there are 40): down to the first (0 No scale, 1 Chromatic, 2 Minor,
+  // 3 Major ... 18 Penta Min, the default), then up to `to`. Back on HOME. (A turn that leaves the value where it is is no choice: the lock follows one.)
+  void choose_scale(int to) {
+    tap(Button::Pattern);
+    tap(Button::F5);
+    turn(-40);
+    if (to != 0) {
+      turn(to);
+    }
+    tap(Button::Pattern);
+    wait(40);
+  }
   // A performance button's action, set on PERFORM SETUP (F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions: down to the first,
   // then up). From any screen; it ends on the 303 screen, or on PERFORM with `stay`, where the four buttons are the live actions (on the 303 screen they
   // are the drawer's rows).

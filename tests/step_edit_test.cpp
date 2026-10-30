@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Step editing of M3b (docs/M3B-PLAN.md R3, R4, R5): the ratchet is the PLAYS row (hold a step + the encoder; the OCT+ / OCT- gesture is cut), hold a step + Shift + up / down its
-// octave (up / down alone are a semitone, on the held step or the cursor's), hold a step + the encoder on INSTRUMENT MORE's RATCHET and COND entries edits them (the condition
-// through seq::step_cond), hold ACC (or SLIDE) + left / right rotates that layer alone. Every edit goes through the Bank, so it is undoable.
+// octave (up / down alone are a semitone, on the held step or the cursor's), the condition is the PLAYS row too (home_rows_test.cpp), hold ACC (or SLIDE) + left / right rotates that layer alone. Every edit goes through the Bank, so it is undoable.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -175,104 +174,7 @@ TEST_CASE("hold a step + Shift + UP / DOWN moves its octave (the note is kept in
   CHECK(t.pat().steps[0].note == before.steps[0].note - 1);
 }
 
-TEST_CASE("hold a step + the encoder on RATCHET (INSTRUMENT MORE's F7) sets that step's ratchet; hold two and both move") {
-  Hands t;
-  set_layers(t);
-  t.to_instrument(kInstMore);
-  t.tap(Button::F7);
-  t.down(step_pad_of(2));
-  t.turn(2);
-  CHECK(seq::get_ratchet(t.pat(), 2) == 2);
-  t.turn(5);  // clamped at x4
-  CHECK(seq::get_ratchet(t.pat(), 2) == 3);
-  t.turn(-1);
-  CHECK(seq::get_ratchet(t.pat(), 2) == 2);
-  // Another step held: both move by the same detents from where each stands (2 -> 1; 0 stays 0 at the bottom).
-  t.down(step_pad_of(11));
-  t.turn(-1);
-  CHECK(seq::get_ratchet(t.pat(), 2) == 1);
-  CHECK(seq::get_ratchet(t.pat(), 11) == 0);
-  t.up(step_pad_of(2));
-  t.up(step_pad_of(11));
-  // The held steps were not selected: the cursor stays on step 0.
-  CHECK(seq::get_ratchet(t.pat(), 0) == 0);
-  // No step held: the encoder edits the cursor step (the entry is "the step the screen is on").
-  t.turn(1);
-  CHECK(seq::get_ratchet(t.pat(), 0) == 1);
-  // A lone tap on a step pad selects it: the entry follows the cursor.
-  t.pad(step_pad_of(6), 10);
-  t.turn(3);
-  CHECK(seq::get_ratchet(t.pat(), 6) == 3);
-  CHECK(seq::get_ratchet(t.pat(), 0) == 1);
-  // Undo takes the whole run on a step back.
-  CHECK(bank().can_undo());
-}
-
-TEST_CASE("hold a step + the encoder on COND walks the conditions with seq::step_cond, each held step from its own") {
-  Hands t;
-  set_layers(t);
-  Pattern p = t.pat();
-  p.steps[9].cond = cond_probability(50);  // a step that starts somewhere else on the walk
-  bank().replace(t.selected(), p);
-  bank().clear_history();
-  t.to_instrument(kInstMore);
-  t.tap(Button::F8);
-  t.down(step_pad_of(3));
-  t.turn(1);
-  CHECK(seq::get_cond(t.pat(), 3) == cond_probability(10));
-  t.turn(1);
-  CHECK(seq::get_cond(t.pat(), 3) == cond_probability(20));
-  t.turn(-2);
-  CHECK(seq::get_cond(t.pat(), 3) == kCondAlways);
-  t.turn(-5);  // the bottom of the list
-  CHECK(seq::get_cond(t.pat(), 3) == kCondAlways);
-  t.turn(10);  // ... 90 %, 1:2
-  CHECK(seq::get_cond(t.pat(), 3) == cond_ratio(1, 2));
-  t.turn(100);  // the top: NOT FIRST
-  CHECK(seq::get_cond(t.pat(), 3) == kCondNotFirst);
-  t.turn(-1);
-  CHECK(seq::get_cond(t.pat(), 3) == kCondFirst);
-  t.turn(-1);
-  CHECK(seq::get_cond(t.pat(), 3) == kCondNotFill);
-  t.turn(-1);
-  CHECK(seq::get_cond(t.pat(), 3) == kCondFill);
-  // Two steps: 3 is on FILL, 9 on 50 %; one detent each from its own value (step_cond's rule: a value that is on the list moves along it).
-  t.down(step_pad_of(9));
-  t.turn(1);
-  CHECK(seq::get_cond(t.pat(), 3) == kCondNotFill);
-  CHECK(seq::get_cond(t.pat(), 9) == cond_probability(60));
-  t.up(step_pad_of(3));
-  t.up(step_pad_of(9));
-  CHECK(seq::get_cond(t.pat(), 4) == kCondAlways);  // nobody else moved
-  // Shift + turn is coarse: five places (the descriptor's coarse step).
-  t.down(step_pad_of(12));
-  t.press(Button::Shift);
-  t.turn(1);
-  t.release(Button::Shift);
-  CHECK(seq::get_cond(t.pat(), 12) == seq::cond_at(5));
-  t.up(step_pad_of(12));
-}
-
-TEST_CASE("a condition edit is undoable and the pattern is otherwise as it was") {
-  Hands t;
-  set_layers(t);
-  const Pattern before = t.pat();
-  t.to_instrument(kInstMore);
-  t.tap(Button::F8);
-  t.down(step_pad_of(3));
-  t.turn(4);
-  t.turn(4);
-  t.up(step_pad_of(3));
-  CHECK(seq::get_cond(t.pat(), 3) == seq::cond_at(8));
-  CHECK(bank().undo() == static_cast<int>(t.selected()));
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].cond == before.steps[i].cond);
-    CHECK(t.pat().steps[i].flags == before.steps[i].flags);
-    CHECK(t.pat().steps[i].note == before.steps[i].note);
-  }
-}
-
-TEST_CASE("hold a step + the encoder on a SOUND key still locks it (the entries of INSTRUMENT MORE did not take the encoder away)") {
+TEST_CASE("hold a step + the encoder on a SOUND key still locks it (the PLAYS row is the drawer's, not a page's entry)") {
   Hands t;
   set_layers(t);
   t.tap(Button::F1);  // CUTOFF on SOUND

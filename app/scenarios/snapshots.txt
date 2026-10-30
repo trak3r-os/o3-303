@@ -69,3 +69,43 @@ wav snapshots
 tap f1
 wait 100
 snap 11_encoder_is_the_knob_again
+# The growl is in the snapshots (P2, UX-303 D29): INSTRUMENT MODS (Params three times from PERFORM: VOICE, FX, MODS) F1 VOWEL, F2 FMT Q, F3 GRL MIX and F4
+# CMB MIX, stored on pad 3 (Shift + pad 14); a recall of pad 1 (stored with the growl at its defaults) takes the growl away again, and pad 3 brings it
+# back. The second WAV is plain, then the growl.
+tap params
+tap params
+tap params
+snap 12_mods_before
+tap f1
+turn 50
+tap f2
+turn 15
+tap f3
+turn 100
+tap f4
+turn 30
+wait 100
+snap 13_mods_growl_on
+tap performance
+press shift
+pad 14 60
+release shift
+wait 100
+pad 12 60
+wait 300
+tap params
+tap params
+tap params
+snap 14_recall_1_growl_off
+tap performance
+record on
+wait 300
+pad 14 60
+wait 300
+tap params
+tap params
+tap params
+snap 15_recall_3_growl_back
+tap performance
+wait 400
+wav snapshots_growl

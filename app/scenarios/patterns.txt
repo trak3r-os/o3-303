@@ -1,17 +1,17 @@
 # Patterns (DESIGN-303 sections 2 and 4, UX-303 5.1 and 5.2): PATTERN SETUP's DUP>NEXT (Shift + F3) duplicates the pattern into the next slot, hold Pattern and the 48 pads are the
 # patterns: stopped, a tap selects; playing, taps queue the next pattern and several taps make a chain.
 wait 300
-# A02 is a copy of A01 with a new line over it, A03 a copy of that, mutated.
+# A02 is a copy of A01 with a new line over it (NEW), A03 a copy of that, varied (VARY).
 tap pattern
 press shift
 tap f3
 release shift
 tap pattern
 press shift
-tap f1
+wait 63    # NEW's seed follows the time of its press: these waits keep the take the WAV of this scenario was made with
+tap f1     # Shift + F1 NEW (HOME's Shift row, at once)
 release shift
-tap f8
-tap f7
+wait 61
 tap pattern
 press shift
 tap f3

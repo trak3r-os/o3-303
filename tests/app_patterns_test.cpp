@@ -56,7 +56,7 @@ TEST_CASE("playing, taps with Pattern held queue the next pattern and several ta
 
 TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the playhead take the page along") {
   Hands t;
-  t.shift_tap(Button::F5);  // DOUBLE: 32 steps
+  t.length_steps(1);  // PATTERN SETUP's LENGTH up (today's DOUBLE): 32 steps
   CHECK(t.pat().length == 32);
   const Pattern p = t.pat();
   // Page 1: the pads are steps 1..16.

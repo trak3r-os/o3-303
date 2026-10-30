@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The snapshots (PERFORM's row 2) and the RANDOM popup against the real app (docs/M3B-PLAN.md R2, C3): a tap recalls, Shift + a pad stores, the encoder morphs
-// from the previous snapshot to the last one recalled through the sequencer's slew, and the blend ends up stored in the engine; the popup has
-// the encoder while it is open and gives it back. The bank itself is tested alone (snapshot_test.cpp).
+// The snapshots (PERFORM's row 2) against the real app (docs/M3B-PLAN.md R2; the RANDOM popup went with H4): a tap recalls, Shift + a pad stores, the encoder morphs
+// from the previous snapshot to the last one recalled through the sequencer's slew, and the blend ends up stored in the engine. The bank itself is tested alone (snapshot_test.cpp).
 #include <doctest/doctest.h>
 
 #include "hands.h"
 
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/growl/growl.h>
 
 using namespace hands;
 using namespace o3_303;
@@ -78,6 +78,42 @@ TEST_CASE("snapshots: store two sounds, recall them, morph between them; the eng
   CHECK(cutoff(t) != before);
 }
 
+TEST_CASE("snapshots: the growl's VOWEL, FMT Q, GRL MIX and CMB MIX are stored and recalled with the rest (D29)") {
+  Hands t;
+  const Growl::Param ids[4] = {Growl::Vowel, Growl::FormantQ, Growl::Mix, Growl::CombMix};  // INSTRUMENT MODS' F1..F4 are this order
+  const auto knobs = [&](int detents) {  // the four MODS knobs, each turned by `detents`
+    t.to_instrument(kInstMods);
+    for (unsigned k = 0; k < 4; ++k) {
+      t.tap(app::fkey(k));
+      t.turn(detents);
+    }
+  };
+  const auto now = [&](float (&v)[4]) {
+    for (unsigned k = 0; k < 4; ++k) {
+      v[k] = t.param(kGrowl, ids[k]);
+    }
+  };
+  knobs(20);
+  float stored[4];
+  now(stored);
+  t.to_perform();
+  store(t, 0);
+  knobs(-40);
+  float changed[4];
+  now(changed);
+  for (unsigned k = 0; k < 4; ++k) {
+    REQUIRE(changed[k] != doctest::Approx(stored[k]));
+  }
+  t.to_perform();
+  t.pad(snap_pad(0), 10);  // the recall glides all four back
+  t.wait(300);
+  float back[4];
+  now(back);
+  for (unsigned k = 0; k < 4; ++k) {
+    CHECK(back[k] == doctest::Approx(stored[k]).epsilon(0.01));
+  }
+}
+
 TEST_CASE("snapshots: before a recall the encoder is the knob's, and leaving PERFORM stores the blend") {
   Hands t;
   const float c0 = cutoff(t);
@@ -92,29 +128,4 @@ TEST_CASE("snapshots: before a recall the encoder is the knob's, and leaving PER
   t.to_home();
   t.wait(300);
   CHECK(cutoff(t) == doctest::Approx(c1).epsilon(0.001));
-}
-
-TEST_CASE("RANDOM popup: it has the encoder while open, F7 closes it, so does leaving the screen, F8 generates") {
-  Hands t;
-  const float c0 = cutoff(t);
-  const Pattern before = t.pat();
-  t.random_popup();
-  t.tap(Button::F2);  // DENSITY
-  t.turn(-4);
-  CHECK(cutoff(t) == doctest::Approx(c0));  // the popup's setting moved, the page's did not
-  t.tap(Button::F8);
-  bool differs = false;
-  for (unsigned i = 0; i < 16; ++i) {
-    differs = differs || t.pat().steps[i].note != before.steps[i].note || t.pat().steps[i].flags != before.steps[i].flags;
-  }
-  CHECK(differs);
-  t.tap(Button::F7);  // closed: the encoder is the page's
-  t.turn(3);
-  CHECK(cutoff(t) != doctest::Approx(c0));
-  const float c1 = cutoff(t);
-  t.random_popup();
-  t.tap(Button::Params);  // Params leaves for INSTRUMENT, and the popup closes with the 303 screen
-  t.to_home();
-  t.turn(3);
-  CHECK(cutoff(t) != doctest::Approx(c1));
 }

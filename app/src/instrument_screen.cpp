@@ -39,7 +39,7 @@ constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entr
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 
-// FX, MODS, MORE and DEEP: the table index is the page's number minus one (VOICE has none).
+// FX, MODS and DEEP: the table index is the page's number minus one (VOICE has none).
 constexpr Page kPages[kInstrumentPageCount - 1u] = {
     {"FX",
      {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"),
@@ -47,11 +47,7 @@ constexpr Page kPages[kInstrumentPageCount - 1u] = {
       delay(units::Delay::Tone, "DLY TONE")}},
     {"MODS",
      {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX"),
-      wobble(kWobbleRate, "WOB RATE"), wobble(kWobbleShape, "WOB SHAPE"), wobble(kWobbleDepth, "WOB DEPTH"), wobble(kWobbleTarget, "WOB TARGET")}},
-    // Temporary (UX-303 5.5): what has no new home yet. SWING stays on Master's latch of the 303 screen, as in the plan.
-    {"MORE",
-     {app_item(Item::Tempo), app_item(Item::Master), app_item(Item::Length), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"),
-      app_item(Item::FillVariant, "FILL"), app_item(Item::Ratchet), app_item(Item::Cond)}},
+      wobble(kWobbleRate, "WOB RATE"), wobble(kWobbleShape, "WOB SHAPE"), wobble(kWobbleDepth, "WOB DEPTH"), wobble(kWobbleTarget, "WOB TGT")}},
     // Temporary: the settings Config DEEP takes in C1 (UX-303 5.12), so that the old GROWL, WOBBLE and Delay settings stay reachable until then.
     {"DEEP",
      {growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB"), wobble(kWobbleReset, "WOB RESET"),
@@ -89,7 +85,6 @@ constexpr unsigned kShown[kInstrumentPageCount] = {
     kSecDist | kSecDelay | kSecMods,  // VOICE
     kSecVoice | kSecMods,             // FX
     kSecVoice | kSecDist | kSecDelay, // MODS
-    kSecDist | kSecDelay | kSecMods,  // MORE
     kSecDist | kSecDelay | kSecMods,  // DEEP
 };
 
@@ -101,7 +96,7 @@ constexpr int kSecH = 100;
 constexpr int kDrawerY = kSecY + kSecH + 8;
 constexpr int kCellRowH = 24;
 
-constexpr const char* kTitles[kInstrumentPageCount] = {"INSTRUMENT VOICE", "INSTRUMENT FX", "INSTRUMENT MODS", "INSTRUMENT MORE", "INSTRUMENT DEEP"};
+constexpr const char* kTitles[kInstrumentPageCount] = {"INSTRUMENT VOICE", "INSTRUMENT FX", "INSTRUMENT MODS", "INSTRUMENT DEEP"};
 
 void cut(const char* s, unsigned max, char* out, unsigned cap) noexcept {
   unsigned n = 0;
@@ -419,7 +414,6 @@ void InstrumentScreen::input(app::Context& ctx, const Input& in) noexcept {
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
-  home_->sync_step_focus();
 }
 
 void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {

@@ -25,7 +25,7 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
   const int cell_w = area.w / kKnobs;
   Rect box[kKnobs];
   for (int k = 0; k < kKnobs; ++k) {
-    box[k] = Rect{area.x + k * cell_w + 3, area.y + kKnobTabsH, cell_w - 6, area.h - kKnobTabsH - 2};
+    box[k] = Rect{area.x + k * cell_w + 3, area.y + kKnobStripTopH, cell_w - 6, area.h - kKnobStripTopH - 2};
   }
 
   // The grounds, then the values as fills of them: the strong one is the key the encoder drives.
@@ -60,8 +60,6 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
       r.frame(box[k], Color::Accent);
     } else if (knobs[k].focus) {
       r.frame(box[k], Color::Instr);
-    } else if (knobs[k].previous) {
-      r.frame(box[k], Color::TextDim);
     }
   }
 

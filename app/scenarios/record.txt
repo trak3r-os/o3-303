@@ -1,0 +1,119 @@
+# RECORD (docs/UX-303.md 5.10, D14): bar-aligned takes of the master into the 30 s take buffer, saved to Samples/take_NNN.wav.
+#
+#   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/record.txt --card <card> --out <dir>
+#
+# Start from an empty card directory: it ends up with Samples/take_001.wav (a 4 bar take, saved by F6) and take_002.wav (1 bar, Shift + Rec). Without --card (the scenarios test runs it so)
+# the same keys say NO CARD and the takes stay until F7 drops them; the pictures are the same but for the card line. The simulator has no codec input unless it is given one
+# (--audio-in), so F2 says NO AUDIO INPUT here: the input sources are the unit's and the audio-in scenarios'.
+# The pictures: 01 idle, 03 and 04 the tempo too slow for 8 bars, 06 armed (waiting for the bar), 07 recording, 08 done, 10 saved, 12 Shift + Rec armed on HOME, 13 the take on HOME, 19 and 20 the take refused on PERFORM and on HOOKS.
+record on
+wait 300
+tap samplerec
+wait 100
+snap 01_idle
+# F2 SOURCE: there is no input to go to.
+tap f2
+wait 50
+snap 02_no_input
+# F3 BARS goes round 4, 8, FREE, 1, 2. The tempo drops to 55 BPM (MASTER, TEMPO on the encoder: half a BPM a detent): 8 bars no longer fit 30 s and F1 refuses them on the screen.
+tap f3
+wait 50
+tap master
+turn -70
+turn -70
+tap samplerec
+wait 100
+snap 03_bars_too_long
+tap f1
+wait 100
+snap 04_refused
+# FREE, 1, 2 and 4 bars: 4 bars fit at 55 BPM (17.5 s). Back to 125 BPM, the line plays, F1 arms a 4 bar take and it starts at the next bar.
+tap f3
+tap f3
+tap f3
+tap f3
+tap master
+turn 70
+turn 70
+tap samplerec
+wait 100
+snap 05_four_bars
+tap play
+wait 700
+tap f1
+wait 100
+snap 06_armed
+wait 2000
+snap 07_recording
+wait 7600
+snap 08_done
+# F6 saves it to Samples/ (with a card; without one it says NO CARD).
+tap f6
+wait 300
+snap 09_saving
+wait 1500
+snap 10_saved
+# F7 DISCARD asks for a second press within 5 s; the second drops the take (nothing to drop after a save: NO TAKE).
+tap f7
+wait 100
+snap 11_nothing_to_discard
+# Shift + Rec from HOME: arms a 1 bar take (F3 first: 1 bar), no change of screen; the status line says TAKE ARMED, then TAKE REC, and the take saves itself when it ends.
+tap f3
+tap f3
+tap f3
+tap pattern
+wait 100
+press shift
+tap rec
+release shift
+wait 100
+snap 12_shift_rec_armed
+wait 1500
+snap 13_shift_rec_recording
+wait 3000
+snap 14_home_after
+# The take F1 stops: FREE take (F3 to FREE), stopped by F1, then dropped with F7 twice.
+tap samplerec
+tap f3
+tap f3
+tap f3
+tap f3
+tap f1
+wait 2400
+snap 15_free
+tap f1
+wait 200
+snap 16_stopped
+tap f7
+wait 100
+snap 17_discard_asked
+tap f7
+wait 100
+snap 18_discarded
+tap play
+wait 100
+wav record
+# The take speaks on every screen, not on RECORD's alone: at 20 BPM 4 bars do not fit (BARS: FREE, 1, 2, 4), and Shift + Rec on PERFORM says so on its status line (picture 19); on
+# HOOKS too (20).
+tap samplerec
+tap f3
+tap f3
+tap f3
+tap master
+turn -70
+turn -70
+turn -70
+tap performance
+wait 3000
+press shift
+tap rec
+release shift
+wait 100
+snap 19_perform_refused
+tap sampleload
+wait 3000
+press shift
+tap rec
+release shift
+wait 100
+snap 20_hooks_refused

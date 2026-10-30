@@ -2,7 +2,7 @@
 // The beat freeze and the one voice in the app (docs/M3B-PLAN.md R6 and C1): the engine has the voice, the distortion, the delay and the
 // freeze (master insert 0) and nothing on the other slots; the freeze is off at boot and invisible while off (the run is the same one
 // without it, bit for bit, outside a freeze); the Fx performance button (the FREEZE action, C4) turns it on while held, Shift + Fx latches
-// it, and PERFORM SETUP's FRZ LEN steps its Length; frozen, the master repeats at the tempo's 1/4, 1/8 or 1/16 of a bar; and the loop
+// it, and PERFORM SETUP's FREEZE (F6) steps its Length; frozen, the master repeats at the tempo's 1/4, 1/8 or 1/16 of a bar; and the loop
 // is latched at entry. The unit itself is tested in units/freeze/tests.
 #include <doctest/doctest.h>
 
@@ -62,13 +62,13 @@ struct Hands {
   }
   // PERFORM, where Note / Instr / Vol / Fx are the live actions (on the 303 screen they are the drawer's rows). From the 303 screen.
   void to_perform() { tap(Button::Performance); }
-  // The beat freeze's Length from PERFORM SETUP (F5, FRZ LEN): from the 303 screen Perform twice, and once more for PERFORM. The encoder walks 1/4, 1/8,
+  // The beat freeze's Length from PERFORM SETUP (F6, FREEZE): from the 303 screen Perform twice, and once more for PERFORM. The encoder walks 1/4, 1/8,
   // 1/16 and stops at the ends.
   void choose_length(Freeze::LengthValue v) {
     tap(Button::Pattern);
     tap(Button::Performance);
     tap(Button::Performance);
-    tap(Button::F5);
+    tap(Button::F6);
     turn(-3);
     turn(static_cast<int>(v));
     tap(Button::Performance);
@@ -77,7 +77,7 @@ struct Hands {
   std::size_t frames() const { return h->audio().size() / 2u; }
 };
 
-// One run of the app at 125 BPM (the factory line A01): the Length chosen on the PERF page (when it is not the default 1/8), Play, 1.5 s,
+// One run of the app at 125 BPM (the factory line A01): the Length chosen on PERFORM SETUP (when it is not the default 1/8), Play, 1.5 s,
 // then Fx held for `hold_ms` (or, with `freeze` false, the same time passing without the key), then 1.2 s more. The interleaved samples
 // and the frames of the key's press and release. The two kinds of run take the same time, so their samples line up.
 struct Run {
@@ -185,7 +185,7 @@ TEST_CASE("freeze: off at boot with the unit's defaults; Fx is FREEZE on PERFORM
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);
   t.shift_tap(Button::Fx);
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
-  // The Length is the PERF page's F6: 1/8 -> 1/16 -> 1/4 -> 1/8, and the freeze never turns on by it.
+  // The Length is PERFORM SETUP's F6: 1/8 -> 1/16 -> 1/4 -> 1/8, and the freeze never turns on by it.
   const float want[] = {2.0f, 0.0f, 1.0f};
   const Freeze::LengthValue pick[] = {Freeze::Sixteenth, Freeze::Quarter, Freeze::Eighth};
   for (unsigned i = 0; i < 3; ++i) {
@@ -224,7 +224,7 @@ TEST_CASE("freeze: off it is invisible; held it loops the master at 1/8 of a bar
   CHECK_FALSE(repeats(frozen.audio, n0 + 800, n1 - 10584u - 400u, 10583));
 }
 
-TEST_CASE("freeze: the Length is 1/4 or 1/16 of a bar after the PERF page's FRZ LEN picks it") {
+TEST_CASE("freeze: the Length is 1/4 or 1/16 of a bar after the PERFORM SETUP's FREEZE (F6) picks it") {
   // 1/16 is 5,292 frames at 125 BPM, 1/4 a whole beat (21,168).
   const Run sixteenth = play_run(true, 900, Freeze::Sixteenth);
   CHECK(repeats(sixteenth.audio, sixteenth.press_frame + 800, sixteenth.release_frame - 5292u - 400u, 5292));

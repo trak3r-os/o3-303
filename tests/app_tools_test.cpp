@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The tools row and the pattern tools end to end: Shift + F1..F8, UNDO / REDO, the RANDOM popup, the first UNDO after boot.
+// The Shift row and the pattern tools end to end: Shift + F1..F8 at once, UNDO / REDO, the first UNDO after boot (UX-303 5.1 and 7; home_tools_test.cpp has
+// each tool alone). The RANDOM popup, INVERT and DOUBLE are gone: NEW acts at once, NOTES covers INVERT, LENGTH up in PATTERN SETUP is DOUBLE.
 // (Split from the former o3_303_app_test.cpp; the hands are in app_hands.h.)
 #include "app_hands.h"
 
@@ -22,79 +23,76 @@ TEST_CASE("the first UNDO does not empty the factory line; the edits after it ca
   CHECK_FALSE(bank().can_undo());
 }
 
-TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO walk them (DESIGN-303 section 3)") {
+TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO walk them (UX-303 5.1)") {
   Hands t;
   const Pattern first = bank().pattern(0);
-  t.shift_tap(Button::F1);  // RANDOM: the popup opens (C3) ...
-  CHECK(t.pat().steps[0].note == first.steps[0].note);
-  t.tap(Button::F8);        // ... and F8 makes the line
-  t.shift_tap(Button::F1);  // Shift + F1 closes the popup
-  const Pattern random = t.pat();
+  t.shift_tap(Button::F1);  // NEW: the line is made at once, no popup
+  const Pattern fresh = t.pat();
   bool differs = false;
   for (unsigned i = 0; i < 16; ++i) {
-    differs = differs || random.steps[i].note != first.steps[i].note || random.steps[i].flags != first.steps[i].flags;
+    differs = differs || fresh.steps[i].note != first.steps[i].note || fresh.steps[i].flags != first.steps[i].flags;
   }
   CHECK(differs);
-  t.shift_tap(Button::F3);  // REVERSE
+  t.shift_tap(Button::F5);  // REVERSE
   for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == random.steps[15 - i].note);
-  }
-  t.shift_tap(Button::F5);  // DOUBLE
-  CHECK(t.pat().length == 32);
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[16 + i].note == t.pat().steps[i].note);
+    CHECK(t.pat().steps[i].note == fresh.steps[15 - i].note);
   }
   t.shift_tap(Button::F6);  // CLEAR
   CHECK(pattern_is_empty(t.pat()));
   t.shift_tap(Button::F8);  // UNDO
   CHECK_FALSE(pattern_is_empty(t.pat()));
-  t.shift_tap(Button::F8);
-  CHECK(t.pat().length == 16);
+  t.shift_tap(Button::F8);  // the REVERSE is undone
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == fresh.steps[i].note);
+  }
   t.shift_tap(Button::F7);  // REDO
-  CHECK(t.pat().length == 32);
-  t.shift_tap(Button::F2);  // MUTATE
-  t.shift_tap(Button::F4);  // INVERT
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == fresh.steps[15 - i].note);
+  }
+  t.shift_tap(Button::F2);  // VARY
+  t.shift_tap(Button::F3);  // RHYTHM
+  t.shift_tap(Button::F4);  // NOTES
+  CHECK(t.pat().length == 16);  // no tool changes the length: that is PATTERN SETUP's LENGTH
   // A tool is not a page key: the pages' latch is where it was.
   const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
   t.turn(3);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff0);
 }
 
-TEST_CASE("Shift shows the tools row only while the encoder is still: a coarse Shift + turn keeps the knob strip; the key row has no names otherwise (they are in the boxes)") {
+TEST_CASE("Shift shows the Shift row on the soft keys at once, a turn does not take it away, and the knob strip is never replaced") {
   Hands t;
-  const auto first_label = [&]() {
+  const auto label = [&](unsigned k) {
     app::SoftKeys keys;
     t.h->runtime().context().screen()->soft_keys(t.h->runtime().context(), keys);
-    return std::string(keys.label[0] != nullptr ? keys.label[0] : "");
+    return std::string(keys.label[k] != nullptr ? keys.label[k] : "");
   };
-  CHECK(first_label().empty());
+  CHECK(label(0).empty());  // no labels: the knob strip's boxes carry the F-numbers and names
   t.press(Button::Shift);
-  t.wait(100);
-  CHECK(first_label().empty());  // not yet: a turn may follow
-  t.wait(700);
-  CHECK(first_label() == "RANDOM");
-  t.turn(3);  // a coarse step: the strip with its names and values comes back
-  CHECK(first_label().empty());
-  t.wait(300);
-  CHECK(first_label().empty());
-  t.wait(700);
-  CHECK(first_label() == "RANDOM");
+  CHECK(label(0) == "NEW");  // at once: no 600 ms wait
+  CHECK(label(1) == "VARY");
+  CHECK(label(2) == "RHYTHM");
+  CHECK(label(3) == "NOTES");
+  CHECK(label(4) == "REVERSE");
+  CHECK(label(5) == "CLEAR");
+  CHECK(label(6) == "REDO");
+  CHECK(label(7) == "UNDO");
+  t.turn(3);  // a coarse step
+  CHECK(label(0) == "NEW");
   t.release(Button::Shift);
-  CHECK(first_label().empty());
+  CHECK(label(0).empty());
 
-  // The tools work from the press of Shift, with or without the row shown.
+  // The tools work from the press of Shift.
   t.press(Button::Shift);
   t.tap(Button::F6);  // CLEAR at once
   t.release(Button::Shift);
   CHECK(pattern_is_empty(t.pat()));
 }
 
-TEST_CASE("RANDOM is not the same line after every boot") {
+TEST_CASE("NEW is not the same line after every boot") {
   Pattern first;
   {
     Hands t;
-    t.shift_tap(Button::F1);  // the popup
-    t.tap(Button::F8);        // GENERATE
+    t.shift_tap(Button::F1);
     first = t.pat();
   }
   Pattern second;
@@ -102,7 +100,6 @@ TEST_CASE("RANDOM is not the same line after every boot") {
     Hands t;
     t.wait(37);  // a hand does not press at the same moment twice
     t.shift_tap(Button::F1);
-    t.tap(Button::F8);
     second = t.pat();
   }
   bool differs = false;

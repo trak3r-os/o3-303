@@ -9,8 +9,8 @@
 //   row 3   the ladder: twelve places of the latched sound knob (while WOBBLE is on: the wobble's rate)
 //   row 4   the keys: one octave, C..B, playing the voice or transposing the pattern
 //
-// The four colour buttons do their assigned actions too. Perform again opens PERFORM SETUP, which until slice P2 is the PERF page as it was: the
-// buttons' assignments and the freeze's settings on F1..F8, over the same pads.
+// The four colour buttons do their assigned actions too. Perform again opens PERFORM SETUP (5.4): eight knobs, F1..F4 the buttons' assignments, F5 what
+// FILL plays, F6 the freeze's length, F7 ROLL (rate and accelerate in one list), F8 STOP's time; no Shift row; the pads stay PERFORM's.
 //
 // The view logic is apart from the drawing: fill_view() makes a PerformView (what each lamp says and how bright it is), the LEDs are its levels
 // and draw_view() draws it, so the skin can replace the drawing and not the logic. The actions, the snapshots and the keyboard's transposition
@@ -99,7 +99,7 @@ class PerformScreen final : public o3sdk::app::Screen {
   Controls* controls_ = nullptr;
   LiveActions* live_ = nullptr;
   MainScreen* home_ = nullptr;
-  PageKeys setup_keys_;  // PERFORM SETUP's keys: the global table's PERF page (until P2), with a latch of their own
+  PageKeys setup_keys_;  // PERFORM SETUP's keys: the global table's PERF SETUP page (kPagePerfSetup), with a latch of their own
   bool setup_ = false;
   bool morph_ = false;
   int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)

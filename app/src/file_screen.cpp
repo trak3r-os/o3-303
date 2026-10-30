@@ -492,6 +492,7 @@ void FileScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
   status.keys = false;
   std::strcpy(status.enc, "LIST");
   status.save_failed = rig_->project.failed;
+  fill_take_status(*rig_, status);
   status.toast = toast_[0] != '\0' ? toast_ : view_.card;  // with no usable card the status line says so
   status.toast_off = toast_[0] != '\0' ? toast_off_ : true;
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);

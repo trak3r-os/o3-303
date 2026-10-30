@@ -299,7 +299,7 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
       }
     }
   }
-  // PLAYS: x1 dim, a ratchet blue, a condition in the lock colour; the step the RATCHET / COND keys edit is framed.
+  // PLAYS: x1 dim, a ratchet blue, a condition in the lock colour.
   for (unsigned pass = 0; pass < 3; ++pass) {
     for (int i = 0; i < cells; ++i) {
       const Step& st = p.steps[first + i];
@@ -312,9 +312,6 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
       (void)plays_text(st.flags, st.cond, text, sizeof text);
       centred(i, plays_y, text, Face::Micro, pass == 0u ? Color::Empty : (pass == 1u ? Color::Instr : Color::Fx));
     }
-  }
-  if (m.focus >= first && m.focus < first + cells) {
-    r.frame(Rect{cell_x(m.focus - first) + 1, plays_y, kCellW - 2, kRowH - 1}, Color::TextDim);
   }
   // LOCK: the latched knob's lock on each step, a dot where it has none.
   for (int i = 0; i < cells; ++i) {

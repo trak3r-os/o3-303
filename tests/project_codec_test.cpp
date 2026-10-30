@@ -574,6 +574,59 @@ TEST_CASE("project: a SNAP with fewer values is filled from the sound as loaded"
   CHECK(live[16] == a.rig.wiring.level_db);  // target 16 is the level
 }
 
+TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the growl's four targets are filled from the sound as loaded") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  constexpr unsigned kOld = 18;  // the targets of kSnapTargetCount before P2: SOUND, distortion, delay, level, send
+  static_assert(kSnapTargetCount == kOld + 4, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX");
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (!is(id, "SNAP")) {
+      return true;
+    }
+    // slots 8, values 18, used = slots 0 and 6, then 8 x 18 floats: slot s value i = 100 s + i
+    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
+    for (unsigned s = 0; s < 8; ++s) {
+      for (unsigned i = 0; i < kOld; ++i) {
+        const float v = static_cast<float>(100 * s + i);
+        std::uint32_t bits;
+        std::memcpy(&bits, &v, 4);
+        for (int sh = 24; sh >= 0; sh -= 8) {
+          out.push_back(static_cast<std::uint8_t>(bits >> sh));
+        }
+      }
+    }
+    p = out;
+    return true;
+  });
+  project::ProjectState s;
+  REQUIRE(load(old, s).status == project::Status::Ok);
+  CHECK(s.snap_values == kOld);
+  CHECK(s.snap_used == 0x41);
+
+  Session b;
+  project::apply(b.rig, b.engine, s);
+  REQUIRE(b.rig.wiring.snaps.used(0));
+  REQUIRE(b.rig.wiring.snaps.used(6));
+  CHECK_FALSE(b.rig.wiring.snaps.used(1));
+  float live[kSnapValues];
+  b.rig.controls.snap_capture(b.engine, live);
+  const project::ProjectState g = b.gather();
+  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
+    // The old targets keep what the file held; the four new ones are the sound as loaded (the growl's vowel, Q, mix and comb mix of the project).
+    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
+    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
+  }
+  CHECK(live[18] == doctest::Approx(a.engine.param(a.rig.wiring.growl, Growl::Vowel)));  // the saved sound's, scrambled away from the defaults
+  CHECK(live[21] == doctest::Approx(a.engine.param(a.rig.wiring.growl, Growl::CombMix)));
+  CHECK(live[18] != doctest::Approx(0.0f));
+  // Written again, the file has all the targets.
+  const std::vector<std::uint8_t> again = encode_session(b);
+  project::ProjectState s2;
+  REQUIRE(load(again, s2).status == project::Status::Ok);
+  CHECK(s2.snap_values == kSnapTargetCount);
+}
+
 TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {
   Session a;
   scramble(a);

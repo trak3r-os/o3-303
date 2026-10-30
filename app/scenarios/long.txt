@@ -1,16 +1,18 @@
-# Long patterns (DESIGN-303 sections 5 and 6): DOUBLE makes 32, then 64 steps; the step pads show a page of 16 and the screen follows the
+# Long patterns (DESIGN-303 sections 5 and 6): PATTERN SETUP's LENGTH up (today's DOUBLE) makes 32, then 64 steps; the step pads show a page of 16 and the screen follows the
 # cursor and the playhead; a tap on Pattern flips to the piano roll; hold a step + the encoder p-locks the focused parameter; REC + Play +
 # the encoder records motion (Rec while playing; the MOTION latch is gone).
 wait 300
-press shift
-tap f5
-release shift
+tap pattern    # PATTERN SETUP: F1 LENGTH, one step up copies the line into the new half
+tap f1
+turn 1
+tap pattern
 snap 01_doubled_32
 tap left
 snap 02_cursor_wrapped_to_step_32_on_page_2
-press shift
-tap f5
-release shift
+tap pattern
+tap f1
+turn 1
+tap pattern
 snap 03_doubled_64
 tap right
 tap right

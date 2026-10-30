@@ -260,6 +260,7 @@ void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noe
   status.keys = false;
   std::strcpy(status.enc, ctx.panel().shift() ? "SEED" : "SLOT");
   status.save_failed = rig_->project.failed;
+  fill_take_status(*rig_, status);
   status.toast = toast_[0] != '\0' ? toast_ : (saving_ ? "SAVING" : "");
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
 

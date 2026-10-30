@@ -15,6 +15,7 @@
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
+#include <vector>
 #include <cstdint>
 #include <cstring>
 
@@ -233,7 +234,7 @@ TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift la
   CHECK(seqr().perf() == 0);
 }
 
-TEST_CASE("PERFORM SETUP is the PERF page: F1 assigns the Note button, and the pads stay PERFORM's") {
+TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM's") {
   Hands t;
   t.to_perform();
   t.to_perform();  // SETUP
@@ -256,6 +257,114 @@ TEST_CASE("PERFORM SETUP is the PERF page: F1 assigns the Note button, and the p
   t.turn(1);
   t.press(Button::Note);
   CHECK(seqr().perf() == seq::kPerfSlideAll);  // ACC ALL -> SLD ALL
+}
+
+TEST_CASE("PERFORM SETUP's F5..F8 (5.4): FILL, the freeze's length, ROLL as one list (rate and accelerate), STOP's time; no Shift row") {
+  Hands t;
+  t.to_perform();
+  t.to_perform();  // SETUP
+  CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
+  // F5 FILL: what FILL plays, through the sequencer (the default is MUTATE).
+  CHECK(seqr().fill_variant() == seq::FillVariant::Mutate);
+  t.tap(Button::F5);
+  t.turn(2);
+  CHECK(seqr().fill_variant() == seq::FillVariant::Ratchet);
+  // F6 FREEZE: the loop's length (1/4, 1/8, 1/16 of a bar; the default is 1/8).
+  CHECK(t.param(kFreeze, Freeze::Length) == doctest::Approx(1.0f));
+  t.tap(Button::F6);
+  t.turn(1);
+  CHECK(t.param(kFreeze, Freeze::Length) == doctest::Approx(2.0f));
+  // F7 ROLL: 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR; the default is 1/16. A rate switches the accelerate off; BUILD starts at 1/8.
+  t.tap(Button::F7);
+  CHECK(t.param(kFreeze, Freeze::RollRate) == doctest::Approx(1.0f));
+  CHECK(t.param(kFreeze, Freeze::Accelerate) == doctest::Approx(0.0f));
+  t.turn(1);  // 1/32
+  CHECK(t.param(kFreeze, Freeze::RollRate) == doctest::Approx(2.0f));
+  t.turn(2);  // 1/64, then BLD BEAT
+  CHECK(t.param(kFreeze, Freeze::RollRate) == doctest::Approx(0.0f));
+  CHECK(t.param(kFreeze, Freeze::Accelerate) == doctest::Approx(1.0f));  // BEAT
+  t.turn(1);
+  CHECK(t.param(kFreeze, Freeze::Accelerate) == doctest::Approx(2.0f));  // BAR
+  CHECK(t.param(kFreeze, Freeze::RollRate) == doctest::Approx(0.0f));
+  t.turn(5);  // clamped at the last place
+  CHECK(t.param(kFreeze, Freeze::Accelerate) == doctest::Approx(2.0f));
+  t.turn(-2);  // back to 1/64: the accelerate is off again and the rate is that one
+  CHECK(t.param(kFreeze, Freeze::Accelerate) == doctest::Approx(0.0f));
+  CHECK(t.param(kFreeze, Freeze::RollRate) == doctest::Approx(3.0f));
+  // F8 STOP: the slow-down's time (1/8 bar .. 2 bars; the default is half a bar).
+  CHECK(t.param(kFreeze, Freeze::StopTime) == doctest::Approx(2.0f));
+  t.tap(Button::F8);
+  t.turn(-9);
+  CHECK(t.param(kFreeze, Freeze::StopTime) == doctest::Approx(0.0f));
+  // No Shift row here: Shift + F7 and F8 are not REDO and UNDO (they are on PERFORM). NEW (a PERFORM pad, live here too) gives an UNDO step to not take.
+  t.pad(pp(kRow2, 8), 10);
+  const Pattern fresh = t.pat();
+  t.press(Button::Shift);
+  t.tap(Button::F8);
+  t.tap(Button::F7);
+  t.release(Button::Shift);
+  CHECK(same_pattern(t.pat(), fresh));
+  // The pads stay PERFORM's: ROLL held on its pad rolls at the mode set here.
+  t.down(action_pad(PerfAction::Roll));
+  CHECK(t.param(kFreeze, Freeze::Mode) == doctest::Approx(1.0f));
+  t.up(action_pad(PerfAction::Roll));
+}
+
+// ROLL held on its pad for `hold_ms` with the pattern playing, after PERFORM SETUP's F7 was turned by `f7_turn` from its default (1/16): the audio and the
+// frames of the press and the release.
+struct RollRun {
+  std::vector<std::int16_t> audio;
+  std::size_t press = 0;
+  std::size_t release = 0;
+};
+
+RollRun roll_run(int f7_turn, unsigned hold_ms) {
+  Hands t;
+  t.h->record(true);
+  t.to_perform();
+  t.to_perform();  // SETUP
+  t.tap(Button::F7);
+  t.turn(f7_turn);
+  t.to_perform();
+  t.tap(Button::Play);
+  t.wait(1500);
+  RollRun r;
+  r.press = t.h->audio().size() / 2u;
+  t.down(action_pad(PerfAction::Roll));
+  t.wait(hold_ms);
+  r.release = t.h->audio().size() / 2u;
+  t.up(action_pad(PerfAction::Roll));
+  t.wait(300);
+  r.audio = t.h->audio();
+  return r;
+}
+
+// True when frame i and frame i + lag are the same, on both channels, for every frame of [from, to).
+bool repeats_at(const std::vector<std::int16_t>& a, std::size_t from, std::size_t to, std::size_t lag) {
+  if (2u * (to + lag) > a.size()) {
+    return false;
+  }
+  for (std::size_t i = 2u * from; i < 2u * to; ++i) {
+    if (a[i] != a[i + 2u * lag]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+TEST_CASE("ROLL repeats at the rate PERFORM SETUP's F7 set: 1/16 by default, 1/32 after one place up, the loop each rate's note value") {
+  // 125 BPM: the loop of a rate is Freeze::roll_frames (1/16 is 5,292 frames, 1/32 half of it). The loop starts after the entry crossfade; the
+  // check is on the middle of the hold, where the audio of one loop is the audio of the next.
+  const std::size_t l16 = Freeze::roll_frames(Freeze::kRoll16, 125'000, 131072);
+  const std::size_t l32 = Freeze::roll_frames(Freeze::kRoll32, 125'000, 131072);
+  REQUIRE(l32 * 2u == doctest::Approx(static_cast<double>(l16)).epsilon(0.001));
+  const RollRun a = roll_run(0, 900);
+  const std::size_t from = a.press + 4000, to = a.release - l16 - 400;
+  CHECK(repeats_at(a.audio, from, to, l16));
+  CHECK_FALSE(repeats_at(a.audio, from, to, l32));
+  const RollRun b = roll_run(1, 900);  // 1/32
+  CHECK(repeats_at(b.audio, b.press + 4000, b.release - l32 - 400, l32));
+  CHECK_FALSE(repeats_at(b.audio, b.press + 4000, b.release - l32 - 400, l32 + 1u));
 }
 
 TEST_CASE("row 2: Shift + a snapshot pad stores the sound, a tap recalls it and the encoder becomes the morph until an F key is tapped") {
@@ -545,10 +654,10 @@ TEST_CASE("the keys of PageKeys run over a table of their own (set_table) and ov
   PageKeys keys;
   CHECK(keys.page_count() == kPageCount);
   CHECK(&keys.page() == &page_at(0));
-  keys.set_page(kPagePerf);
-  CHECK(&keys.page() == &page_at(kPagePerf));
+  keys.set_page(kPagePerfSetup);
+  CHECK(&keys.page() == &page_at(kPagePerfSetup));
   keys.set_page(kPageCount);  // past the table: nothing changes
-  CHECK(keys.page_index() == kPagePerf);
+  CHECK(keys.page_index() == kPagePerfSetup);
 
   static const Page kLocal[2] = {
       {"ONE", {Entry{Item::Tempo, 0, nullptr}, Entry{Item::Swing, 0, nullptr}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}}},

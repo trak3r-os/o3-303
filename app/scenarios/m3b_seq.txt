@@ -1,7 +1,7 @@
 # M3b sequencer (docs/M3B-PLAN.md R3 FILL, R4 ratchets, R5 trig conditions), entered with the real gestures: the demo line is written on
 # pattern A01 with REC and the keys (ACC and SLIDE held for those steps, the REST pad for the rest), the ratchets and the conditions are the PLAYS row
 # (the Vol button on HOME latches it on the encoder; hold a step and turn: UX-303 2.3 and D8). Then eight passes of 1.92 s with FILL (the Vol button on
-# PERFORM) held for one pass in each of the four variants, chosen with INSTRUMENT MORE's F6. The probability steps draw from the sequencer's fixed seed,
+# PERFORM) held for one pass in each of the four variants, chosen on PERFORM SETUP's F5. The probability steps draw from the sequencer's fixed seed,
 # so every run plays the same notes.
 wait 300
 # Clear the pattern (the CLEAR tool, Shift + F6) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
@@ -82,7 +82,7 @@ turn 16
 wait 100
 snap 03_conditions
 padup 19
-# Play: the line on its own for two passes, then FILL (the Vol button on PERFORM; INSTRUMENT MORE's F6 picks the variant, four Params from PERFORM) for one pass of each variant.
+# Play: the line on its own for two passes, then FILL (the Vol button on PERFORM; PERFORM SETUP's F5 picks the variant, Perform twice) for one pass of each variant.
 record on
 tap play
 tap performance
@@ -93,37 +93,28 @@ wait 1920
 snap 05_fill_mutate
 release vol
 wait 1920
-tap params 1
-tap params 1
-tap params 1
-tap params 1
-tap f6 1
+tap performance 1
+tap f5 1
 turn 1
 tap performance 1
-wait 44
+wait 53
 press vol
 wait 1920
 release vol
 wait 1920
-tap params 1
-tap params 1
-tap params 1
-tap params 1
+tap performance 1
 turn 1
 tap performance 1
-wait 47
+wait 56
 press vol
 wait 1920
 snap 06_fill_ratchet
 release vol
 wait 1920
-tap params 1
-tap params 1
-tap params 1
-tap params 1
+tap performance 1
 turn 1
 tap performance 1
-wait 47
+wait 56
 press vol
 wait 1920
 release vol

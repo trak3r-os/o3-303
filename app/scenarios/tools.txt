@@ -1,43 +1,28 @@
-# The pattern tools under Shift + F1..F8: RANDOM, MUTATE, REVERSE, INVERT, DOUBLE, CLEAR, REDO, UNDO (DESIGN-303 section 3).
-# Shift + F1 opens the RANDOM popup (its scale, density and accent / slide settings are the generator's; random.txt): F8 makes the line, F7 closes it.
+# The Shift row (UX-303 2.4, 5.1, 5.2 and 7): Shift held changes the eight soft-key labels at once (no wait, the old 600 ms is gone), a coarse Shift + turn leaves
+# the knob strip up, SETUP has its own row, and UNDO / REDO walk the tools. Each tool alone is home_tools.txt.
 wait 300
 press shift
-wait 700
-snap 01_tools_row
+snap 01_home_shift_row_at_once
+turn 3
+snap 02_coarse_turn_keeps_the_strip
+release shift
+snap 03_labels_gone
+tap pattern
+press shift
+snap 04_setup_shift_row
+release shift
+tap pattern
+# NEW, REVERSE, CLEAR, then UNDO twice and REDO once: the pattern walks back and forward one step at a time.
+press shift
 tap f1
-release shift
-tap f8
-tap f7
-wait 50
-snap 02_random
-press shift
-tap f2
-release shift
-snap 03_mutate
-press shift
-tap f3
-release shift
-snap 04_reverse
-press shift
-tap f4
-release shift
-snap 05_invert
-press shift
 tap f5
-release shift
-snap 06_double
-press shift
 tap f6
-release shift
-snap 07_clear
-press shift
+wait 50
+snap 05_new_reverse_clear
 tap f8
-release shift
-snap 08_undo
-press shift
+snap 06_undo_clear
 tap f8
-release shift
-press shift
+snap 07_undo_reverse
 tap f7
+snap 08_redo_reverse
 release shift
-snap 09_redo
