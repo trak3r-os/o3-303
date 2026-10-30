@@ -55,6 +55,8 @@ enum class Item : std::uint8_t {
   Snap,       // a snapshot slot of the SNAP page (id 0..7): its key recalls (Shift: stores) and the encoder morphs, it is never latched
   Growl,      // M3c: a parameter of the growl on slot 0's insert 1 (id = its parameter id)
   Wobble,     // M3c: a setting of the wobble (id = a WobbleField), the sequencer's LFO; the settings are Wiring::wobble
+  AccPct,     // H2: the generator's accent chance (project-wide, UX-303 D1); PATTERN SETUP's F7
+  SldPct,     // H2: the generator's slide chance, its own entry (AccSlide's 4/5 rule stays for the RANDOM popup until H4); SETUP's F8
 };
 
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
@@ -94,6 +96,11 @@ inline constexpr unsigned kPageCount = 7;
 enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageGrowl = 2, kPageWobble = 3, kPageSeq = 4, kPagePerf = 5, kPageSnap = 6 };
 
 const Page& page_at(unsigned index) noexcept;
+
+// PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table), not a place in the PARAMS cycle: F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
+// (this pattern's), F5 SCALE, F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). SCALE locks the keyboard (Wiring::scale_set).
+inline constexpr unsigned kSetupPageCount = 1;
+const Page& setup_page() noexcept;
 
 // The RANDOM popup's three settings (Shift + F1): Scale, Density, Acc / Slide %, on its F1..F3. The popup is the app's (main_screen.cpp);
 // setting the Scale through Controls::set() is what engages the keyboard's scale lock.

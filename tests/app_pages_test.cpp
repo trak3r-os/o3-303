@@ -3,10 +3,13 @@
 // (Split from the former o3_303_app_test.cpp; the hands are in app_hands.h.)
 #include "app_hands.h"
 
+#include <o3sdk/units/delay/delay.h>
 #include <o3_303/step_model.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/growl/growl.h>
+
+#include <cstring>
 
 TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two held move together, Shift is coarse") {
   Hands t;
@@ -54,63 +57,62 @@ TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two 
   CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(1.0f));
 }
 
-TEST_CASE("PARAMS goes to the next page (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SNAP), Shift + PARAMS to the SNAP page and back; the pages reach the whole engine") {
+TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS, MORE, DEEP); the pages reach the whole engine") {
   Hands t;
   const float drive0 = t.param(kDist, Distortion::Drive);
-  t.tap(Button::Params);  // FX
+  t.to_instrument(kInstFx);
+  CHECK(std::strcmp(t.title(), "INSTRUMENT FX") == 0);
   t.tap(Button::F1);
   t.turn(10);
   CHECK(t.param(kDist, Distortion::Drive) > drive0);
-  t.tap(Button::F7);  // the distortion model
+  t.tap(Button::F4);  // the distortion model
   t.turn(1);
   CHECK(t.param(kDist, Distortion::Type) == doctest::Approx(1.0f));
-  t.tap(Button::F6);  // the reverb send is not there yet: the key does nothing
-  t.turn(5);
-  t.tap(Button::F5);
+  t.tap(Button::F5);  // the delay
   t.turn(-10);
-  t.tap(Button::F8);
+  t.tap(Button::F8);  // the delay's tone
+  const float tone0 = t.param(kDelay, units::Delay::Tone);
   t.turn(-20);
-  CHECK(t.h->engine().master_level() < 1.0f);
+  CHECK(t.param(kDelay, units::Delay::Tone) < tone0);
 
-  t.tap(Button::Params);  // GROWL: F1 is the vowel (the growl's Mix is 0, so it is still a bypass)
+  t.tap(Button::Params);  // MODS: F1 is the vowel (the growl's Mix is 0, so it is still a bypass)
+  CHECK(std::strcmp(t.title(), "INSTRUMENT MODS") == 0);
   t.tap(Button::F1);
   t.turn(10);
   CHECK(t.param(kGrowl, Growl::Vowel) > 0.0f);  // the growl is the fifth unit, after the freeze
-  t.tap(Button::Params);  // WOBBLE: F1 is the rate
-  t.tap(Button::F1);
+  t.tap(Button::F5);  // the wobble's rate
   t.turn(1);
   CHECK(t.pat().length != 0);
-  t.tap(Button::Params);  // SEQ
+  t.tap(Button::Params);  // MORE (until MASTER, SETUP and PLAYS exist): the transport, the master and the pattern's own
+  CHECK(std::strcmp(t.title(), "INSTRUMENT MORE") == 0);
   const std::uint32_t tempo0 = t.h->engine().tempo();
   t.tap(Button::F1);
   t.turn(10);
   CHECK(t.h->engine().tempo() > tempo0);
-  t.tap(Button::F2);
-  t.turn(10);
+  t.tap(Button::F2);  // MASTER
+  t.turn(-20);
+  CHECK(t.h->engine().master_level() < 1.0f);
   t.tap(Button::F4);
   t.turn(10);
-  CHECK(t.pat().swing == 10 * 1);
   t.tap(Button::F3);
   t.turn(1);
   CHECK(t.pat().length == 32);
 
-  t.tap(Button::Params);  // PERF: its F3 is Vol's action; the encoder would change that, which this test does not do
-  t.tap(Button::Params);  // SNAP: no key is latched there
-  t.tap(Button::Params);  // wraps to SOUND; F3 was the latched key on SEQ, so it is on SOUND too (ENV MOD)
-  const float env0 = t.param(kVoice, AcidVoice::EnvMod);
-  t.turn(3);
-  CHECK(t.param(kVoice, AcidVoice::EnvMod) != env0);
-  t.shift_tap(Button::Params);  // the SNAP page
-  CHECK(t.h->runtime().context().screen() != nullptr);
-  t.shift_tap(Button::Params);  // and back to the page it came from, SOUND
-  const float env1 = t.param(kVoice, AcidVoice::EnvMod);
-  t.turn(3);
-  CHECK(t.param(kVoice, AcidVoice::EnvMod) != env1);  // ENV MOD is still the latched key
-  for (unsigned i = 0; i < kPageSeq; ++i) {
-    t.tap(Button::Params);  // SEQ
-  }
-  const std::uint32_t tempo1 = t.h->engine().tempo();
+  t.tap(Button::Params);  // DEEP (until Config DEEP): the growl's and the wobble's settings that have no knob on MODS
+  CHECK(std::strcmp(t.title(), "INSTRUMENT DEEP") == 0);
+  const float fmt0 = t.param(kGrowl, Growl::FormantMix);
   t.tap(Button::F1);
+  t.turn(-10);  // (it is at 100 % by default)
+  CHECK(t.param(kGrowl, Growl::FormantMix) < fmt0);
+  t.tap(Button::Params);  // wraps to VOICE; its latch is the SOUND page's (F1, CUTOFF), not the pages' that were walked
+  CHECK(std::strcmp(t.title(), "INSTRUMENT VOICE") == 0);
+  const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
+  t.turn(3);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff0);
+  t.to_home();
+  t.to_instrument(kInstMore);  // Params from another screen always opens VOICE; MORE is three more
+  const std::uint32_t tempo1 = t.h->engine().tempo();
+  t.tap(Button::F1);  // MORE keeps its own latch: F1 is TEMPO
   t.turn(2);
   CHECK(t.h->engine().tempo() != tempo1);
 }

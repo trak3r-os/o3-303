@@ -27,12 +27,12 @@ std::uint8_t point_at(const Pattern& p, unsigned lane, unsigned s) { return p.mo
 // Hold step `step` and turn the FX page's DRIVE (its F1) by `detents`: the distortion's Drive has no lane in a fresh pattern, so one is claimed.
 // Starts and ends on the SOUND page.
 void lock_drive(Hands& t, unsigned step, int detents) {
-  t.to_page(kPageFx);
+  t.to_instrument(kInstFx);
   t.tap(Button::F1);  // DRIVE
   t.down(step_pad_of(step));
   t.turn(detents);
   t.up(step_pad_of(step));
-  t.back_to_sound(kPageFx);
+  t.to_home();
 }
 
 }  // namespace
@@ -126,7 +126,7 @@ TEST_CASE("a lock on DRIVE is scaled with the distortion's descriptor on its cla
 
 TEST_CASE("a key no lane can drive is not locked: hold a step + the encoder moves the knob, and writes no motion") {
   Hands t;
-  t.to_page(kPageSeq);
+  t.to_instrument(kInstMore);
   t.tap(Button::F1);  // TEMPO
   const std::uint32_t tempo0 = t.h->engine().tempo();
   t.down(step_pad_of(3));
@@ -136,7 +136,7 @@ TEST_CASE("a key no lane can drive is not locked: hold a step + the encoder move
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
     CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }
-  t.back_to_sound(kPageSeq);
+  t.to_home();
 }
 
 TEST_CASE("with all eight lanes in use a lock on a ninth parameter changes nothing") {
@@ -166,7 +166,7 @@ TEST_CASE("a recorded move goes to the lane that drives the knob: DRIVE claims o
   t.tap(Button::Play);
   t.wait(200);
   // Not recording: the encoder moves the knob and writes nothing.
-  t.to_page(kPageFx);
+  t.to_instrument(kInstFx);
   t.tap(Button::F1);  // DRIVE
   t.turn(1);
   t.wait(200);
@@ -194,7 +194,7 @@ TEST_CASE("a recorded move goes to the lane that drives the knob: DRIVE claims o
     CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }
   // VOLUME (SOUND F8) is the mixer's level, lane 7.
-  t.back_to_sound(kPageFx);
+  t.to_home();
   t.tap(Button::F8);
   t.turn(4);  // -6 dB -> -4 dB
   t.wait(300);

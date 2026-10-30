@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The pattern pads end to end: select, queue and chain with Pattern held, long patterns, Pattern + Copy, and the limits of Shift + Insert.
+// The pattern pads end to end: select, queue and chain with Pattern held, long patterns, the pattern clipboard of PATTERN SETUP, and the limits of DUP>NEXT.
 // (Split from the former o3_303_app_test.cpp; the hands are in app_hands.h.)
 #include "app_hands.h"
 
@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-TEST_CASE("hold Pattern: the 48 pads are the patterns; stopped, a tap selects, a quick tap on Pattern flips to the piano roll") {
+TEST_CASE("hold Pattern: the 48 pads are the patterns; stopped, a tap selects, a quick tap on Pattern flips to PATTERN SETUP and back") {
   Hands t;
   t.press(Button::Pattern);
   t.wait(350);
@@ -22,7 +22,7 @@ TEST_CASE("hold Pattern: the 48 pads are the patterns; stopped, a tap selects, a
   CHECK(t.selected() == 30);  // the grid was not a tap: the view did not flip
 
   t.tap(Button::Pattern, 40);
-  CHECK(std::strcmp(t.title(), "ROLL") == 0);
+  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
   t.tap(Button::Pattern, 40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
 }
@@ -88,10 +88,8 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   CHECK(t.h->display().peak_frame_words() < 2048u);
 
   // Shorter lengths: the pads past the end are dark.
-  for (unsigned i = 0; i < kPageSeq; ++i) {
-    t.tap(Button::Params);
-  }
-  t.tap(Button::F3);
+  t.tap(Button::Pattern);  // PATTERN SETUP: F1 LENGTH
+  t.tap(Button::F1);
   t.turn(-3);  // 8 steps
   CHECK(t.pat().length == 8);
   t.wait(30);
@@ -100,31 +98,29 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   }
 }
 
-TEST_CASE("Pattern held + Copy copies the pattern; Shift + Copy pastes it into the selected one") {
+TEST_CASE("PATTERN SETUP's COPY PAT copies the pattern and PASTE PAT puts it into the selected one; HOME's Shift + Copy is the step's") {
   Hands t;
   const Pattern first = bank().pattern(0);
-  t.press(Button::Pattern);
-  t.wait(350);
-  t.tap(Button::Copy);  // the pattern, not the step
-  t.release(Button::Pattern);
-  t.wait(5);
+  t.tap(Button::Pattern);  // PATTERN SETUP
+  t.shift_tap(Button::F1);  // COPY PAT
   t.select_pattern(7);
   REQUIRE(pattern_is_empty(t.pat()));
-  t.shift_tap(Button::Copy);
+  t.shift_tap(Button::F2);  // PASTE PAT
   CHECK_FALSE(pattern_is_empty(t.pat()));
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == first.steps[i].note);
     CHECK(t.pat().steps[i].flags == first.steps[i].flags);
   }
   CHECK(pattern_is_empty(bank().pattern(8)));
-  // Copying a step afterwards makes the next paste a step again.
+  // On HOME, Shift + Copy with nothing but a pattern copied has no step to paste; copying a step makes it one.
+  t.tap(Button::Pattern);
   t.tap(Button::Copy);
   t.pad(step_pad_of(1));
   t.shift_tap(Button::Copy);
   CHECK(t.pat().steps[1].note == t.pat().steps[0].note);
 }
 
-TEST_CASE("Shift + Insert on the last pattern refuses (nothing wraps round to overwrite A01)") {
+TEST_CASE("DUP>NEXT on the last pattern refuses (nothing wraps round to overwrite A01)") {
   Hands t;
   const Pattern first = bank().pattern(0);
   t.select_pattern(kPatternCount - 1);

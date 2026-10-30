@@ -1,17 +1,22 @@
-# Patterns (DESIGN-303 sections 2 and 4): Pattern held + Insert duplicates the pattern into the next slot (until PATTERN SETUP has DUP>NEXT), hold Pattern and the 48 pads are the
+# Patterns (DESIGN-303 sections 2 and 4, UX-303 5.1 and 5.2): PATTERN SETUP's DUP>NEXT (Shift + F3) duplicates the pattern into the next slot, hold Pattern and the 48 pads are the
 # patterns: stopped, a tap selects; playing, taps queue the next pattern and several taps make a chain.
 wait 300
-press pattern
-tap insert
-release pattern
+# A02 is a copy of A01 with a new line over it, A03 a copy of that, mutated.
+tap pattern
+press shift
+tap f3
+release shift
+tap pattern
 press shift
 tap f1
 release shift
 tap f8
 tap f7
-press pattern
-tap insert
-release pattern
+tap pattern
+press shift
+tap f3
+release shift
+tap pattern
 press shift
 tap f2
 release shift

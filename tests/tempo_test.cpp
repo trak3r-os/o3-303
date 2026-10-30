@@ -21,7 +21,7 @@ std::uint32_t tempo(Hands& t) { return t.h->engine().tempo(); }
 
 }  // namespace
 
-TEST_CASE("a tap of Master latches TEMPO on the encoder, on any page, until an F key or another tap of Master") {
+TEST_CASE("a tap of Master latches TEMPO on the encoder, until an F key or another tap of Master") {
   Hands t;
   const std::uint32_t t0 = tempo(t);
   const float cutoff0 = t.param(kVoice, 0);
@@ -29,8 +29,7 @@ TEST_CASE("a tap of Master latches TEMPO on the encoder, on any page, until an F
   t.turn(2);  // half a BPM a detent
   CHECK(tempo(t) == t0 + 1000);
   CHECK(t.param(kVoice, 0) == cutoff0);  // SOUND's CUTOFF, the page's own latched key, was not the one turned
-  // On the FX page the encoder is still the tempo.
-  t.tap(Button::Params);
+  // (INSTRUMENT has no Master gesture until MASTER, M1: the latch is the 303 screen's.)
   t.turn(-2);
   CHECK(tempo(t) == t0);
   // Shift + turn is the coarse step (ten detents).
@@ -38,23 +37,23 @@ TEST_CASE("a tap of Master latches TEMPO on the encoder, on any page, until an F
   t.turn(1);
   t.release(Button::Shift);
   CHECK(tempo(t) == t0 + 5000);
-  // A second tap of Master gives the encoder back to the page: FX's F1 is the latched key.
-  const float drive0 = t.param(kDist, Distortion::Drive);
+  // A second tap of Master gives the encoder back to the page: F1 (CUTOFF) is the latched key.
+  const float drive0 = t.param(kVoice, 0);
   t.tap(Button::Master);
   const std::uint32_t t1 = tempo(t);
   t.tap(Button::F1);
   t.turn(-5);
   CHECK(tempo(t) == t1);
-  CHECK(t.param(kDist, Distortion::Drive) != drive0);
+  CHECK(t.param(kVoice, 0) != drive0);
   // An F key's tap also gives it back, whatever latched it: Master, then F2.
   t.tap(Button::Master);
   t.turn(2);
   CHECK(tempo(t) == t1 + 1000);
-  const float tone0 = t.param(kDist, Distortion::Tone);
+  const float reso0 = t.param(kVoice, 1);
   t.tap(Button::F2);
   t.turn(3);
   CHECK(tempo(t) == t1 + 1000);
-  CHECK(t.param(kDist, Distortion::Tone) != tone0);
+  CHECK(t.param(kVoice, 1) != reso0);
 }
 
 TEST_CASE("Shift + a tap of Master latches SWING on the encoder; a tap of Master switches to TEMPO and back") {

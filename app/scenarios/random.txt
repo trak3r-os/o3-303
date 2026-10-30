@@ -1,11 +1,12 @@
 # The RANDOM popup (docs/M3B-PLAN.md C3): Shift + F1 opens it over the knob strip: F1 Scale, F2 Density, F3 Acc / Slide %, F8 makes a new line,
-# F7 or Shift + F1 closes it. The transport (Tempo, Swing, Length, Gate, Transpose) and the step's own keys stay on the SEQ page.
+# F7 or Shift + F1 closes it. The transport (Tempo, Length, Gate, Transpose, Fill) and the step's own keys are INSTRUMENT MORE's, until SETUP and PLAYS take them.
 wait 300
 tap params
 tap params
 tap params
 tap params
-snap 01_seq_page_without_the_generator
+snap 01_more_page_without_the_generator
+tap pattern
 press shift
 tap f1
 release shift

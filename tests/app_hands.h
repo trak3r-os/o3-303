@@ -15,6 +15,8 @@
 #include <o3_303/perform.h>
 #include <o3_303/seq/bank.h>
 
+#include "../app/src/instrument_screen.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -29,6 +31,7 @@ namespace {
 
 constexpr dsp::UnitId kVoice = 0;  // the units are attached in this order (o3_303_app.cpp)
 constexpr dsp::UnitId kDist = 1;
+constexpr dsp::UnitId kDelay = 2;
 constexpr dsp::UnitId kGrowl = 4;  // attached after the freeze (3): the first four ids are the tests' contract
 
 inline seq::Bank& bank() { return seq::project_bank(); }
@@ -88,32 +91,40 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // A performance button's action from the SOUND page: PERF is the sixth page (five Params); F1..F4 are Note, Instr, Vol, Fx; the
-  // encoder walks the eleven actions (to the first, then up); two more Params wrap back to SOUND (through SNAP).
-  void assign_perf(Button which, PerfAction action) {
-    for (unsigned i = 0; i < kPagePerf; ++i) {
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, MORE, DEEP) on page `page` (kInstVoice ...), from any screen but INSTRUMENT.
+  void to_instrument(unsigned page = kInstVoice) {
+    tap(Button::Params);
+    for (unsigned i = 0; i < page; ++i) {
       tap(Button::Params);
     }
+  }
+  // Back to the 303 screen (Pattern).
+  void to_home() { tap(Button::Pattern); }
+  // A performance button's action, set on PERFORM SETUP: F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions (to the first,
+  // then up). Starts from the 303 screen and ends on it.
+  void assign_perf(Button which, PerfAction action) {
+    tap(Button::Performance);
+    tap(Button::Performance);  // PERFORM SETUP
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
     turn(-16);
     if (action != PerfAction::Mute) {
       turn(static_cast<int>(action));
     }
-    for (unsigned i = kPagePerf; i < kPageCount; ++i) {
-      tap(Button::Params);
-    }
+    tap(Button::Pattern);
   }
   std::uint8_t led(unsigned pad_index) const { return h->leds().level(pad_index); }
   const char* title() { return h->runtime().context().screen()->title(); }
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }
   unsigned selected() const { return bank().selected(); }
   const Pattern& pat() const { return bank().pattern(bank().selected()); }
-  // Holds Pattern and taps Insert: the selected pattern is copied into the next slot, which is selected (queued while playing).
+  // PATTERN SETUP's DUP>NEXT (Pattern, Shift + F3, Pattern) from HOME, back on HOME: the selected pattern is copied into the next slot, which is
+  // selected (queued while playing). (H2 replaced the bridge Pattern held + Insert.)
   void duplicate_next() {
-    press(Button::Pattern);
-    wait(350);
-    tap(Button::Insert);
-    release(Button::Pattern);
+    tap(Button::Pattern);
+    press(Button::Shift);
+    tap(Button::F3);
+    release(Button::Shift);
+    tap(Button::Pattern);
     wait(5);
   }
   // Holds Pattern and taps a pad (stopped: selects that pattern).

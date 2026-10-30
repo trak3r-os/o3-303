@@ -16,6 +16,8 @@
 #include <o3_303/perform.h>
 #include <o3_303/seq/bank.h>
 
+#include "../app/src/instrument_screen.h"
+
 #include <cstdint>
 #include <memory>
 
@@ -99,14 +101,11 @@ struct Hands {
   unsigned selected() const { return bank().selected(); }
   const o3_303::Pattern& pat() const { return bank().pattern(bank().selected()); }
 
-  // The pages are SOUND, FX, SEQ, PERF, SNAP; these start from SOUND (a fresh run), go forward with Params and come back to it.
-  void to_page(unsigned page) {
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, MORE, DEEP) on page `page` (o3_303::kInstVoice ...), from any screen but
+  // INSTRUMENT itself. to_home() leaves it.
+  void to_instrument(unsigned page = o3_303::kInstVoice) {
+    tap(Button::Params);
     for (unsigned i = 0; i < page; ++i) {
-      tap(Button::Params);
-    }
-  }
-  void back_to_sound(unsigned page) {
-    for (unsigned i = page; i < o3_303::kPageCount; ++i) {
       tap(Button::Params);
     }
   }
@@ -115,15 +114,17 @@ struct Hands {
   void to_home() { tap(Button::Pattern); }
   // The RANDOM popup (Shift + F1), and the key that sets its three settings up.
   void random_popup() { shift_tap(Button::F1); }
-  // A performance button's action (the PERF page's F1..F4), from the SOUND page.
+  // A performance button's action, set on PERFORM SETUP (F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions: down to the first,
+  // then up). Starts from the 303 screen and ends on it.
   void assign_perf(Button which, o3_303::PerfAction action) {
-    to_page(o3_303::kPagePerf);
+    to_perform();
+    tap(Button::Performance);  // PERFORM SETUP
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
     turn(-16);
     if (action != o3_303::PerfAction::Mute) {
       turn(static_cast<int>(action));
     }
-    back_to_sound(o3_303::kPagePerf);
+    to_home();
   }
 };
 

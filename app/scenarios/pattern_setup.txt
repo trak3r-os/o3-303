@@ -1,0 +1,97 @@
+# PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH up copies the line into the new half and down truncates,
+# each one UNDO; F5 SCALE locks the keyboard; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS and UNDO.
+wait 300
+tap pattern
+wait 100
+snap 01_setup_open
+# F1 LENGTH is latched: one detent up is 32, the new half is the line again.
+turn 1
+wait 100
+snap 02_length_32
+# Two down is 8: the steps past the 8th are cut. One UNDO gives the 32 back, a second the 16 the line started with.
+turn -2
+wait 100
+snap 03_length_8
+press shift
+tap f8
+release shift
+wait 100
+snap 04_undo_to_32
+press shift
+tap f8
+release shift
+wait 100
+snap 05_undo_to_16
+# F5 SCALE: walk to Major (entry 3); the keyboard pads out of it go dark and the info strip says so.
+tap f5
+turn -40
+turn 3
+wait 100
+snap 06_scale_major
+# The generator's other three: DENSITY down, ACC % up, SLD % down.
+tap f6
+turn -3
+tap f7
+turn 2
+tap f8
+turn -2
+wait 100
+snap 07_generator
+# A lock on step 3 (HOME's gesture works on SETUP too: the knob is a SETUP one, so only HOME's F1 CUTOFF locks): back on HOME, hold step 3 and turn.
+tap pattern
+paddown 2
+turn 20
+padup 2
+paddown 6
+turn -30
+padup 6
+wait 100
+snap 08_home_with_locks
+tap pattern
+wait 100
+snap 09_setup_with_locks
+# The Shift row, then CLEAR LOCKS: every lane of this pattern, the notes stay.
+press shift
+wait 700
+snap 10_shift_row
+tap f4
+release shift
+wait 100
+snap 11_locks_cleared
+# COPY PAT, then DUP>NEXT: A01 is copied into A02, which is selected; PASTE PAT puts the clipboard over A02.
+press shift
+tap f1
+release shift
+press shift
+tap f3
+release shift
+wait 100
+snap 12_dup_to_next
+press shift
+tap f2
+release shift
+wait 100
+snap 13_pasted
+# Pattern held on SETUP is the 48 patterns, as on HOME; its release does not flip the page.
+press pattern
+wait 350
+snap 14_grid
+release pattern
+wait 100
+snap 15_still_setup
+tap pattern
+wait 100
+snap 16_back_on_home
+# HOME with the Major lock still on, a pattern queued and a step held with a lock: the strip is full, so the scale takes its short form ("SC MAJ").
+tap play
+wait 200
+press pattern
+wait 350
+pad 3
+release pattern
+paddown 4
+turn 30
+wait 100
+snap 17_home_scale_short
+padup 4
+tap play

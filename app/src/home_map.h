@@ -2,7 +2,7 @@
 #pragma once
 
 // The home map (docs/UX-303.md 6.2 and 2.2): what the 48 pads, the arrows, Copy / Insert / Delete, Rec and the four colour buttons do to the
-// pattern on screen, and what the screen asks of it to draw. Every home-map screen (HOME now; PATTERN SETUP, INSTRUMENT, MASTER and RECORD later)
+// pattern on screen, and what the screen asks of it to draw. Every home-map screen (HOME and PATTERN SETUP, the two pages of MainScreen; INSTRUMENT; MASTER and RECORD later)
 // forwards its input here, so the pads mean the same on all of them.
 //
 //   row 1   steps 1-8           ACC SLIDE TIE REST
@@ -36,6 +36,9 @@ namespace o3_303 {
 
 inline constexpr std::uint64_t kHoldMs = 300;  // a press shorter than this is a tap; Pattern held this long: the 48 pads are the patterns
 
+// The toast when a lock or a recorded turn finds all eight lanes in use (UX-303 D2). Until H3 no gesture removes one lock, so it names CLEAR LOCKS alone.
+inline constexpr const char* kLanesUsedToast = "8 LANES USED: CLEAR LOCKS (SETUP)";
+
 // What the PADS line says (UX-303 6.2, the state table): a plain value, so the text is a pure function of it.
 struct PadsLineState {
   bool overlay = false;     // Pattern held: the 48 pads are the patterns
@@ -62,7 +65,8 @@ class HomeMap {
   void leave(o3sdk::app::Context& ctx) noexcept;
 
   // Pads, Note / Instr / Vol / Fx, Left / Right / Up / Down, Copy / Insert / Delete, Rec and Pattern. true when it took the event; a tap of
-  // Pattern (a release that did not open the grid) is the screen's, so it answers false.
+  // Pattern (a release that did not open the grid) is the screen's (it flips HOME and PATTERN SETUP), so it answers false. Copy / Insert / Delete with
+  // Pattern held do nothing but say where those went (PATTERN SETUP's COPY PAT, DUP>NEXT, CLEAR LOCKS, UX-303 5.2).
   bool input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   // The encoder moved by `detents` (`coarse`: Shift) with `knob` as its owner. true when it is a step's: a held step takes the turn, as the
   // ratchet or the condition of the held steps when `knob` is that entry, as the parameter lock of `knob` (its lane claimed) when a lane can drive it.
@@ -193,9 +197,8 @@ class HomeMap {
   bool pattern_down_ = false;
   bool overlay_ = false;
   bool chain_started_ = false;
-  bool pattern_used_ = false;  // Copy or Insert went with it: its release is no tap
+  bool pattern_used_ = false;  // Copy, Insert or Delete went with it (SETUP's now): its release is no tap
   std::uint64_t pattern_down_ms_ = 0;
-  bool copy_is_pattern_ = false;
 
   // Feedback.
   bool toast_off_ = false;

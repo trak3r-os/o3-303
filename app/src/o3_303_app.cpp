@@ -6,13 +6,15 @@
 // them and owns the global keys:
 //
 //   PLAY          play / stop at the press (Shift: tap tempo)
-//   PATTERN       the 303 screen (on it: a tap flips the step view and the piano roll; held: the 48 pads are the patterns)
+//   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
+//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS MORE DEEP); the pads are the home map's, HOME's own
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   FILE          the GEN vault (on it: load the slot shown); Shift + FILE: SAVE the project (project_service.h)
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
+#include "instrument_screen.h"
 #include "live_actions.h"
 #include "main_screen.h"
 #include "perform_screen.h"
@@ -125,6 +127,7 @@ class O3_303App final : public app::App {
     live_.init(rig_);
     main_.init(rig_);
     perform_.init(rig_, main_);
+    instrument_.init(rig_, main_.home_map());  // the home map HOME has: one cursor, one keyboard, one Rec
     vault_.init(rig_, main_);
     project_.init(rig_, e);  // last: it records the session as setup leaves it, so that a project loaded from the card knows if the player has edited
     ctx.show(main_);
@@ -155,13 +158,24 @@ class O3_303App final : public app::App {
       }
       return true;
     }
+    // PARAMS: INSTRUMENT on VOICE, and on it the next page (UX-303 2.1, D21); the vault keeps the key until F3's FILE screen takes it over. Shift changes nothing.
+    if (in.press(Button::Params) && ctx.screen() != &vault_) {
+      if (ctx.screen() == &instrument_) {
+        instrument_.next_page();
+        ctx.redraw();
+      } else {
+        instrument_.open_first_page();
+        ctx.show(instrument_);
+      }
+      return true;
+    }
     // SAVE everywhere but on the vault, where Shift + File still loads the shifted slot (until F3's FILE screen takes the key over).
     if (in.press(Button::File) && in.shift && ctx.screen() != &vault_) {  // (UX-303 8.5): live.o3a and project.o3a, "SAVED"
       project_.save();
       ctx.redraw();
       return true;
     }
-    if (in.press(Button::File) && ctx.screen() == &main_) {
+    if (in.press(Button::File) && (ctx.screen() == &main_ || ctx.screen() == &instrument_)) {
       ctx.show(vault_);
       return true;
     }
@@ -216,6 +230,7 @@ class O3_303App final : public app::App {
   o3_303::LiveActions live_;
   o3_303::MainScreen main_;
   o3_303::PerformScreen perform_;
+  o3_303::InstrumentScreen instrument_;
   o3_303::VaultScreen vault_;
   o3_303::ProjectService project_;
   std::uint64_t tap_ms_[kTaps] = {};

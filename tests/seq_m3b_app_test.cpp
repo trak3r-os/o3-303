@@ -15,6 +15,8 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
+#include "../app/src/instrument_screen.h"
+
 #include <memory>
 
 using namespace o3sdk;
@@ -96,7 +98,7 @@ TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: 
   CHECK(e.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(1000.0f));
 }
 
-TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF page's F5; the demo line's FILL conditions follow it") {
+TEST_CASE("FILL is the Vol button (C4's default) and its variant is INSTRUMENT MORE's F6; the demo line's FILL conditions follow it") {
   Hands hands;
   seq::Sequencer& s = app_sequencer();
   load_demo_line();
@@ -104,9 +106,9 @@ TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF pag
   CHECK(seq::get_ratchet(p, 2) == 1);
   CHECK(seq::get_cond(p, 11) == kCondFill);
 
-  // The variant: SEQ is four pages on from SOUND (FX, GROWL, WOBBLE); F6 is FILL's variant, MUTATE, OCT UP, RATCHET, ACC ROT.
+  // The variant: INSTRUMENT MORE (the fourth page) F6; MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  for (unsigned i = 0; i < kPageSeq; ++i) {
+  for (unsigned i = 0; i <= kInstMore; ++i) {
     hands.tap(Button::Params);
   }
   hands.tap(Button::F6);
@@ -119,9 +121,7 @@ TEST_CASE("FILL is the Vol button (C4's default) and its variant is the PERF pag
   hands.h->turn(-3);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  for (unsigned i = kPageSeq; i < kPageCount; ++i) {
-    hands.tap(Button::Params);  // back to SOUND
-  }
+  hands.tap(Button::Pattern);  // back to the 303 screen
 
   hands.tap(Button::Play);
   hands.h->run_ms(300);

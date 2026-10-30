@@ -113,37 +113,42 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
 }
 
-TEST_CASE("WOBBLE: the WOBBLE page's target and rate apply while it runs, and the Vowel is a growl target") {
+TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (the hold goes on across its pages), and the Vowel is a growl target") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
   t.assign_perf(Button::Fx, PerfAction::Wobble);
-  t.press(Button::Fx);
-  t.to_page(o3_303::kPageWobble);
-  t.tap(Button::F5);  // TARGET: the voice's Cutoff, the growl's Vowel
+  t.to_instrument(o3_303::kInstDeep);
+  t.press(Button::Fx);  // the colour buttons are the home map's: held here as on HOME
+  t.tap(Button::F4);    // WOB RESET off
+  t.turn(-1);
+  t.wait(10);
+  CHECK(s.wobble().on);
+  CHECK_FALSE(s.wobble().reset_on_note);
+  t.tap(Button::Params);  // VOICE, FX, MODS: the hold stays
+  t.tap(Button::Params);
+  t.tap(Button::Params);
+  CHECK(s.wobble().on);
+  t.tap(Button::F8);  // WOB TARGET: the voice's Cutoff, the growl's Vowel
   t.turn(1);
   t.wait(10);
   CHECK(s.wobble().on);
   CHECK(s.wobble().target.target == o3_303::kLaneGrowl);
   CHECK(s.wobble().target.id == Growl::Vowel);
-  t.tap(Button::F1);  // RATE
+  t.tap(Button::F5);  // WOB RATE
   t.turn(2);          // 1/8 -> 1/16
-  t.tap(Button::F4);  // RESET off
-  t.turn(-1);
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_16);
-  CHECK_FALSE(s.wobble().reset_on_note);
   t.release(Button::Fx);
   t.wait(10);
   CHECK_FALSE(s.wobble().on);
   // Changed with the wobble off: the settings wait for the next hold.
-  t.tap(Button::F1);
   t.turn(-2);
   CHECK_FALSE(s.wobble().on);
   t.press(Button::Fx);
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_8);
   t.release(Button::Fx);
-  t.back_to_sound(o3_303::kPageWobble);
+  t.to_home();
   // A fresh run starts with the defaults (setup() resets the wiring and the sequencer's wobble).
   Hands again;
   CHECK_FALSE(app_sequencer().wobble().on);

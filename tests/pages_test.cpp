@@ -538,3 +538,92 @@ TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the
   rig.controls.step(rig.engine, rig.entry(kPagePerf, 7), 1, false);
   CHECK(rig.engine.param(rig.wiring.freeze, Freeze::StopTime) == doctest::Approx(3.0f));
 }
+
+TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's four, then the generator's four, and the entries it appends") {
+  Rig rig;
+  const Page& pg = setup_page();
+  CHECK(std::strcmp(pg.name, "SETUP") == 0);
+  static constexpr Item kItems[kKeys] = {Item::Length, Item::Swing, Item::Gate, Item::Transpose, Item::Scale, Item::Density, Item::AccPct, Item::SldPct};
+  static constexpr const char* kLabels[kKeys] = {"LENGTH", "SWING", "GATE", "TRANSP", "SCALE", "DENSITY", "ACC %", "SLD %"};
+  for (unsigned k = 0; k < kKeys; ++k) {
+    CHECK(pg.entry[k].item == kItems[k]);
+    CHECK(rig.controls.desc(rig.engine, pg.entry[k]) != nullptr);
+    CHECK(std::strcmp(rig.controls.label(rig.engine, pg.entry[k]), kLabels[k]) == 0);
+    CHECK(std::strlen(rig.controls.label(rig.engine, pg.entry[k])) <= 8);  // the F-key row's room
+  }
+  // The item ids are append-only: AccPct and SldPct come after everything that shipped (a stored id is its index).
+  CHECK(static_cast<unsigned>(Item::AccPct) == static_cast<unsigned>(Item::Wobble) + 1u);
+  CHECK(static_cast<unsigned>(Item::SldPct) == static_cast<unsigned>(Item::Wobble) + 2u);
+  CHECK(static_cast<unsigned>(Item::AccSlide) == 11u);  // not moved: the RANDOM popup still has it
+  // No lane drives a SETUP entry.
+  LaneRef ref{kLaneNone, 0};
+  for (unsigned k = 0; k < kKeys; ++k) {
+    CHECK_FALSE(rig.controls.lane_ref(pg.entry[k], ref));
+  }
+}
+
+TEST_CASE("pages: ACC % and SLD % are two settings of the generator, project-wide; AccSlide keeps its 4/5 rule for the popup") {
+  Rig rig;
+  const Entry acc{Item::AccPct, 0, nullptr};
+  const Entry sld{Item::SldPct, 0, nullptr};
+  CHECK(rig.text(acc) == "25%");
+  CHECK(rig.text(sld) == "20%");
+  rig.controls.set(rig.engine, acc, 60.0f);
+  CHECK(rig.wiring.gen.accent_pct == 60);
+  CHECK(rig.wiring.gen.slide_pct == 20);  // the slide chance is its own
+  rig.controls.set(rig.engine, sld, 5.0f);
+  CHECK(rig.wiring.gen.accent_pct == 60);
+  CHECK(rig.wiring.gen.slide_pct == 5);
+  CHECK(rig.text(sld) == "5%");
+  rig.controls.step(rig.engine, sld, 1, true);  // ten a coarse step
+  CHECK(rig.wiring.gen.slide_pct == 15);
+  rig.controls.set(rig.engine, sld, 500.0f);
+  CHECK(rig.wiring.gen.slide_pct == 100);
+  rig.controls.set(rig.engine, acc, -9.0f);
+  CHECK(rig.wiring.gen.accent_pct == 0);
+  // Both read what the generator holds, whichever way it was set.
+  rig.controls.set(rig.engine, Entry{Item::AccSlide, 0, nullptr}, 50.0f);
+  CHECK(rig.controls.get(rig.engine, acc) == doctest::Approx(50.0f));
+  CHECK(rig.controls.get(rig.engine, sld) == doctest::Approx(40.0f));
+  // The generator is not the pattern's: the selected pattern changing leaves the settings alone (D1).
+  rig.bank->select(9);
+  CHECK(rig.wiring.gen.accent_pct == 50);
+  CHECK(rig.wiring.gen.slide_pct == 40);
+}
+
+TEST_CASE("pages: LENGTH goes through seq::resize: a step up copies the line into the new part, a step down truncates, each one undo") {
+  Rig rig;
+  seq::Bank& bank = *rig.bank;
+  const unsigned sel = bank.selected();
+  const Entry length = setup_page().entry[0];
+  // A line with something in every step, so the copy can be told from the old part.
+  for (unsigned i = 0; i < 16; ++i) {
+    (void)bank.set_note(sel, i, 40u + i);
+  }
+  bank.clear_history();
+  const Pattern before = bank.pattern(sel);
+  REQUIRE(before.length == 16);
+  rig.controls.step(rig.engine, length, 1, false);  // 32
+  REQUIRE(bank.pattern(sel).length == 32);
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(bank.pattern(sel).steps[16 + i].note == bank.pattern(sel).steps[i].note);
+    CHECK(bank.pattern(sel).steps[16 + i].flags == bank.pattern(sel).steps[i].flags);
+  }
+  rig.controls.step(rig.engine, length, -2, false);  // 8: the steps past the 8th are cut
+  REQUIRE(bank.pattern(sel).length == 8);
+  CHECK(bank.pattern(sel).steps[9].flags == kStepRest);
+  CHECK(bank.pattern(sel).steps[3].note == before.steps[3].note);
+  // One undo each way.
+  CHECK(bank.undo() == static_cast<int>(sel));
+  CHECK(bank.pattern(sel).length == 32);
+  CHECK(bank.pattern(sel).steps[16 + 5].note == before.steps[5].note);
+  CHECK(bank.undo() == static_cast<int>(sel));
+  CHECK(bank.pattern(sel).length == 16);
+  CHECK_FALSE(bank.can_undo());
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(bank.pattern(sel).steps[i].note == before.steps[i].note);
+  }
+  // The same length again is no edit.
+  rig.controls.set(rig.engine, length, 1.0f);
+  CHECK_FALSE(bank.can_undo());
+}

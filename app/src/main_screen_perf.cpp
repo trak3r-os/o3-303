@@ -100,14 +100,14 @@ void MainScreen::latch_turn(app::Context& ctx, int detents, bool coarse) noexcep
 
 // What is latched or locked and has no place of its own on the screen yet, as small chips on the right of the knob strip's tab line (the
 // header's strip is full when REC, the chain and the four performance chips are all up): the encoder's TEMPO / SWING latch with its value,
-// a tempo nudge, the scale the keyboard is locked to.
+// a tempo nudge (the scale the keyboard is locked to is on the info line).
 void MainScreen::draw_state_chips(app::Context& ctx, ui::Renderer& r, const ui::Rect& strip) noexcept {
   struct Chip {
     char text[32];
     Color fill;
     Color ink;
   };
-  Chip chips[3];
+  Chip chips[2];
   unsigned count = 0;
   if (enc_latch_ != EncLatch::None) {  // the latch, with the value it has
     const bool tempo = enc_latch_ == EncLatch::Tempo;
@@ -134,24 +134,6 @@ void MainScreen::draw_state_chips(app::Context& ctx, ui::Renderer& r, const ui::
     cat(c.text, sizeof c.text, digit);
     c.fill = Color::Accent;
     c.ink = Color::AccentText;
-  }
-  if (home_.scale_locked()) {
-    const Wiring& w = rig_->wiring;
-    Chip& c = chips[count++];
-    c.text[0] = '\0';
-    cat(c.text, sizeof c.text, "SCALE ");
-    char name[o3sdk::core::kScaleNameChars + 1];
-    unsigned n = 0;
-    for (; n < o3sdk::core::kScaleNameChars && o3sdk::core::kScaleNames[w.gen.scale][n] != '\0'; ++n) {
-      name[n] = o3sdk::core::kScaleNames[w.gen.scale][n];
-    }
-    while (n != 0u && name[n - 1u] == ' ') {  // the table pads a name to its field ("Phrygian ")
-      --n;
-    }
-    name[n] = '\0';
-    cat(c.text, sizeof c.text, name);
-    c.fill = Color::Empty;
-    c.ink = Color::Text;
   }
   int x = strip.x + strip.w - 6;
   for (unsigned i = 0; i < count; ++i) {

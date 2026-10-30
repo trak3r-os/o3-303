@@ -98,7 +98,7 @@ const char* attribute_name(PadRole role) noexcept {
 void pads_line_text(const PadsLineState& s, char* out, unsigned cap) noexcept {
   out[0] = '\0';
   if (s.overlay) {
-    append(out, cap, "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . PATTERN+DELETE CLEARS A LANE");
+    append(out, cap, "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP");
     return;
   }
   if (s.attribute != PadRole::None) {
@@ -166,7 +166,6 @@ void HomeMap::init(Rig& rig) noexcept {
   chain_started_ = false;
   pattern_used_ = false;
   pattern_down_ms_ = 0;
-  copy_is_pattern_ = false;
   toast_[0] = '\0';
   toast_until_ms_ = 0;
   toast_off_ = false;
@@ -465,7 +464,7 @@ void HomeMap::ladder_press(app::Context& ctx, unsigned pad) noexcept {
     if (lane >= 0) {
       (void)rig_->seq->record_motion(static_cast<unsigned>(lane), value);
     } else {
-      toast(ctx, "8 LANES USED: PATTERN+DELETE CLEARS A LANE", true);
+      toast(ctx, kLanesUsedToast, true);
     }
   }
   const int shown = seq::find_lane(pat(), kLaneVoice, id);
@@ -726,7 +725,7 @@ bool HomeMap::lock_turn(app::Context& ctx, const Entry& entry, int detents, bool
     const std::uint8_t pt = controls_->to_point(ctx.engine(), entry, core::param_step(*d, v, n));
     const int lane = rig_->bank->lock_step(sel(), ref.target, ref.id, s, pt);
     if (lane < 0) {  // all eight lanes are in use by other parameters (D2)
-      toast(ctx, "8 LANES USED: PATTERN+DELETE CLEARS A LANE", true);
+      toast(ctx, kLanesUsedToast, true);
       return true;
     }
     lane_ = static_cast<unsigned>(lane);
@@ -769,7 +768,7 @@ void HomeMap::turned(app::Context& ctx, const Entry& knob) noexcept {
   const unsigned pp = ph.playing && ph.pattern >= 0 ? static_cast<unsigned>(ph.pattern) : sel();
   const int lane = rig_->bank->claim_lane(pp, ref.target, ref.id);
   if (lane < 0) {
-    toast(ctx, "8 LANES USED: PATTERN+DELETE CLEARS A LANE", true);
+    toast(ctx, kLanesUsedToast, true);
     return;
   }
   lane_ = static_cast<unsigned>(lane);
@@ -852,70 +851,28 @@ void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
 
 void HomeMap::copy_buttons(app::Context& ctx, Button which, bool shift) noexcept {
   seq::Bank& bank = *rig_->bank;
+  if (pattern_down_) {  // Pattern held: the pads are the patterns, and Copy / Insert / Delete are PATTERN SETUP's (COPY PAT, DUP>NEXT, CLEAR LOCKS): nothing here
+    pattern_used_ = true;
+    toast(ctx, "COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP", true);
+    return;
+  }
   switch (which) {
     case Button::Copy:
-      if (pattern_down_) {
-        pattern_used_ = true;
-        bank.copy_pattern(sel());
-        copy_is_pattern_ = true;
-        toast(ctx, "PATTERN COPIED");
-      } else if (shift) {
-        if (copy_is_pattern_) {
-          toast(ctx, bank.paste_pattern(sel()) ? "PATTERN PASTED" : "NOTHING COPIED");
-        } else {
-          toast(ctx, bank.paste_step(sel(), static_cast<unsigned>(cursor_)) ? "STEP PASTED" : "NOTHING COPIED");
-        }
+      if (shift) {
+        toast(ctx, bank.paste_step(sel(), static_cast<unsigned>(cursor_)) ? "STEP PASTED" : "NOTHING COPIED");
       } else {
         bank.copy_step(sel(), static_cast<unsigned>(cursor_));
-        copy_is_pattern_ = false;
         toast(ctx, "STEP COPIED");
       }
       break;
     case Button::Insert:
-      if (pattern_down_) {  // Pattern held + Insert: the pattern copied into the next one (until PATTERN SETUP has DUP>NEXT, UX-303 section 10)
-        pattern_used_ = true;
-        if (sel() + 1u >= kPatternCount) {  // the last pattern has no slot after it: nothing wraps round to overwrite A01
-          toast(ctx, "NO SLOT AFTER THE LAST PATTERN");
-          break;
-        }
-        const unsigned next = sel() + 1u;
-        (void)bank.replace(next, pat());
-        char name[4];
-        char text[24] = "DUPLICATED TO ";
-        pattern_name(next, name, sizeof name);
-        append(text, sizeof text, name);
-        if (playing_) {
-          (void)rig_->seq->queue(next);
-        } else {
-          bank.select(next);
-        }
-        toast(ctx, text);
-      } else if (shift) {  // Shift + Insert (Home): the cursor to step 1
+      if (shift) {  // Shift + Insert (Home): the cursor to step 1
         move_cursor(ctx, 0);
       } else {
         (void)bank.insert_step(sel(), static_cast<unsigned>(cursor_));
       }
       break;
     default: {  // Delete
-      if (pattern_down_) {  // Pattern held + Delete (until PATTERN SETUP has CLEAR LOCKS, UX-303 section 10): the lane of the latched knob, or with Shift every lane
-        pattern_used_ = true;
-        if (shift) {
-          (void)bank.clear_motion(sel());
-          toast(ctx, "ALL LOCKS CLEARED");
-          break;
-        }
-        const int lane = lane_of(knob_, pat());
-        if (lane < 0) {
-          toast(ctx, "NO LANE FOR THAT KNOB", true);
-          break;
-        }
-        (void)bank.clear_lane_motion(sel(), static_cast<unsigned>(lane));
-        char text[40];
-        cut(controls_->label(ctx.engine(), knob_), 12, text, sizeof text);
-        append(text, sizeof text, " LOCKS CLEARED");
-        toast(ctx, text);
-        break;
-      }
       if (shift) {  // Shift + Delete (Backspace): the cursor step goes and the rest is pulled left
         (void)bank.delete_step(sel(), static_cast<unsigned>(cursor_));
         break;

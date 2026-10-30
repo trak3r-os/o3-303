@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The 303 screen (docs/DESIGN-303.md sections 2 to 5, docs/UX-303.md 5.1): the step view as the hero, the motion lane, the knob strip, the soft keys, the
-// status line and the PADS line over it, and the gestures of the pages, the tools and Master. Also the pattern grid it shows while Pattern is held.
+// The 303 screen (docs/DESIGN-303.md sections 2 to 5, docs/UX-303.md 5.1 and 5.2): the step view as the hero, the motion lane, the knob strip, the soft keys,
+// the status line and the PADS line over it, and the gestures of the pages, the tools and Master. Also the pattern grid it shows while Pattern is held, and
+// PATTERN SETUP, its second page (a tap of Pattern): the same drawer and pads, the pattern's LENGTH / SWING / GATE / TRANSP and the generator's settings on
+// F1..F8 (the screen's own PageKeys, so its latch is its own, UX-303 D3), and its own Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, UNDO).
 //
 // The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons are the home map's (home_map.h): this screen forwards them to its HomeMap
 // and draws what it reads from it. It is one class in three files: main_screen.cpp (the pages, the tools, the drawing), main_screen_perf.cpp (the Master
@@ -25,6 +27,10 @@
 
 namespace o3_303 {
 
+// The scale field of the info lines: the name in capitals without the table's padding ("PENTA MIN"), or its first three letters (`short_form`, when the
+// strip is full); "--" when `locked` is false (the keyboard is chromatic: a scale never chosen locks nothing), whatever the generator's scale is.
+void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap) noexcept;
+
 class MainScreen final : public o3sdk::app::Screen {
  public:
   void init(Rig& rig) noexcept;
@@ -38,9 +44,12 @@ class MainScreen final : public o3sdk::app::Screen {
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
 
-  bool roll() const noexcept { return roll_; }
+  // PATTERN SETUP (UX-303 5.2) is the second page of this screen: a tap of Pattern flips it and HOME.
+  bool setup() const noexcept { return setup_; }
   bool pattern_overlay() const noexcept { return home_.overlay(); }
   int cursor() const noexcept { return home_.cursor(); }
+  // The home map the screen forwards to: another home-map screen (INSTRUMENT) uses the same one, so the cursor, the octave, Rec and FILT are shared.
+  HomeMap& home_map() noexcept { return home_; }
   bool rec() const noexcept { return home_.rec(); }
   int octave() const noexcept { return home_.octave(); }
   // What PERFORM's key row and encoder ask of the home map's keyboard (one keyboard, one octave, one scale lock, one Rec).
@@ -61,6 +70,16 @@ class MainScreen final : public o3sdk::app::Screen {
   void button_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void turn_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  // ---- PATTERN SETUP (main_screen.cpp)
+  void setup_toggle(o3sdk::app::Context& ctx) noexcept;
+  void setup_tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  void duplicate_to_next(o3sdk::app::Context& ctx) noexcept;
+  // The page the F keys are on: SETUP's own, or HOME's.
+  PageKeys& fkeys() noexcept { return setup_ ? setup_keys_ : keys_; }
+  const PageKeys& fkeys() const noexcept { return setup_ ? setup_keys_ : keys_; }
+  const char* tool_name(unsigned k) const noexcept;
+  const char* tool_hint(unsigned k) const noexcept;
+  bool tool_dim(unsigned k) const noexcept;
 
   // ---- performance (main_screen_perf.cpp; the four buttons' actions are LiveActions', the keyboard and the ladders the home map's)
   void master_press(o3sdk::app::Context& ctx, bool shift) noexcept;
@@ -69,7 +88,7 @@ class MainScreen final : public o3sdk::app::Screen {
   void nudge_end(o3sdk::app::Context& ctx) noexcept;
   void latch_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
   // ---- the SNAP page and the RANDOM popup (main_screen_snap.cpp; the snapshots themselves are LiveActions')
-  bool on_snap_page() const noexcept { return keys_.page_index() == kPageSnap; }
+  bool on_snap_page() const noexcept { return !setup_ && keys_.page_index() == kPageSnap; }
   void snap_press(o3sdk::app::Context& ctx, unsigned slot, bool shift) noexcept;
   void snap_turn(o3sdk::app::Context& ctx, int detents, bool coarse) noexcept;
   void random_toggle(o3sdk::app::Context& ctx) noexcept;
@@ -94,6 +113,7 @@ class MainScreen final : public o3sdk::app::Screen {
   void draw_tabs(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area, const char* hint) noexcept;
   void fill_knob(o3sdk::app::Context& ctx, unsigned k, const Entry& entry, view::Knob& out) noexcept;
   void draw_tools(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_info_generator(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& strip) noexcept;
   void draw_grid(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
 
   Rig* rig_ = nullptr;
@@ -101,15 +121,15 @@ class MainScreen final : public o3sdk::app::Screen {
   LiveActions* live_ = nullptr;
   HomeMap home_;
   PageKeys keys_;
+  PageKeys setup_keys_;  // PATTERN SETUP's F keys (setup_page()): one page, key 0 (LENGTH) latched
 
   // Modes.
-  bool roll_ = false;
+  bool setup_ = false;   // PATTERN SETUP is shown (a tap of Pattern); every other piece of the screen is shared with HOME
 
   // The pitch window keeps what it has shown for the pattern, so it does not jump while notes are entered.
   int win_pattern_ = -1;
   int win_lo_ = 0;
   int win_hi_ = 0;
-  bool win_roll_ = false;
 
   EncLatch enc_latch_ = EncLatch::None;
   // Master (R7): a tap latches the encoder, a hold and a turn nudges the tempo and gives it back at the release.

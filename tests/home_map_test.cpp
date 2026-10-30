@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The home map (docs/UX-303.md 6.2, slice H1): the PADS line's text for each state of the table (a pure function), the right block's pads and LEDs
 // (ACC SLIDE TIE REST / OCT- OCT+ TRNSP FILT), TRNSP and FILT as toggles, the keyboard that plays the voice by default, Rec while the pattern plays, and
-// the gestures that moved with the block (the Pattern chord, Shift + Insert, Shift + Delete, Shift + Up / Down).
+// the gestures that moved with the block (the Pattern chord, Shift + Insert, Shift + Delete, Shift + Up / Down); H2 took the Pattern + Insert / Delete bridges
+// away (PATTERN SETUP has DUP>NEXT and CLEAR LOCKS).
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -90,7 +91,7 @@ TEST_CASE("the PADS line says what the four rows are in each state of the table"
   grid.overlay = true;
   grid.attribute = PadRole::Acc;
   grid.rec = true;
-  CHECK(line_of(grid) == "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . PATTERN+DELETE CLEARS A LANE");  // Pattern held outranks the rest
+  CHECK(line_of(grid) == "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP");  // Pattern held outranks the rest; SETUP has the chords' jobs
 }
 
 TEST_CASE("the PADS line fits the strip in every state (it is cut at no state's length)") {
@@ -281,7 +282,7 @@ TEST_CASE("a latched WOBBLE does not turn HOME's key row into the rate picker: a
   t.shift_tap(Button::Note);
 }
 
-TEST_CASE("Pattern + Delete clears the lane of the latched knob, Pattern + Shift + Delete every lane; the notes stay and each is one undo") {
+TEST_CASE("Pattern held + Delete, Shift + Delete, Insert and Copy change nothing: CLEAR LOCKS, DUP>NEXT and COPY PAT are PATTERN SETUP's (UX-303 D30)") {
   Hands t;
   const auto lock = [&](unsigned step, int d) {
     t.down(step_pad_of(step));
@@ -291,46 +292,27 @@ TEST_CASE("Pattern + Delete clears the lane of the latched knob, Pattern + Shift
   t.tap(Button::F1);
   lock(3, 10);
   lock(6, -10);
-  t.tap(Button::F2);
-  lock(3, 10);
   REQUIRE(seq::lane_has_motion(t.pat(), 0));
-  REQUIRE(seq::lane_has_motion(t.pat(), 1));
   const Pattern before = t.pat();
   bank().clear_history();
-  t.tap(Button::F1);
-  t.wait(40);
   t.press(Button::Pattern);
-  t.tap(Button::Delete);  // a chord: no overlay, no tap
-  t.release(Button::Pattern);
-  t.wait(40);
-  CHECK(std::strcmp(t.title(), "STEPS") == 0);
-  CHECK_FALSE(seq::lane_has_motion(t.pat(), 0));  // the cutoff's lane
-  CHECK(seq::lane_has_motion(t.pat(), 1));        // the reso's is not
-  CHECK(t.pat().lanes[0].target == before.lanes[0].target);  // the lane is free (no points), still pointed at its parameter
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == before.steps[i].note);
-    CHECK(t.pat().steps[i].flags == before.steps[i].flags);
-  }
-  CHECK(bank().undo() == static_cast<int>(t.selected()));  // one undo
-  CHECK(seq::lane_has_motion(t.pat(), 0));
-  CHECK_FALSE(bank().can_undo());
-  // Every lane.
-  t.press(Button::Pattern);
+  t.tap(Button::Delete);
   t.press(Button::Shift);
   t.tap(Button::Delete);
   t.release(Button::Shift);
+  t.tap(Button::Insert);
+  t.tap(Button::Copy);
   t.release(Button::Pattern);
   t.wait(40);
-  CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
+  CHECK(std::strcmp(t.title(), "STEPS") == 0);  // the chord was no tap
+  CHECK(t.selected() == 0);
+  CHECK(seq::lane_has_motion(t.pat(), 0));
+  CHECK_FALSE(bank().can_undo());
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == before.steps[i].note);
     CHECK(t.pat().steps[i].flags == before.steps[i].flags);
   }
-  CHECK(bank().undo() == static_cast<int>(t.selected()));
-  CHECK(seq::lane_has_motion(t.pat(), 0));
-  CHECK(seq::lane_has_motion(t.pat(), 1));
-  CHECK_FALSE(bank().can_undo());
-  // With the pattern not held, Delete is the step's, and Shift + Delete the backspace: no lane is touched.
+  // With the pattern not held, Delete is the step's and Shift + Delete the backspace: no lane is touched.
   t.tap(Button::Delete);
   CHECK(seq::lane_has_motion(t.pat(), 0));
 }
@@ -355,7 +337,7 @@ TEST_CASE("FILT: a toggle at the press, independent of TRNSP; the keys come back
   CHECK(t.led(kFiltPad) == app::kLedLow);
 }
 
-TEST_CASE("Pattern + Copy and Pattern + Insert are chords: the release of Pattern is no tap, so the view does not flip") {
+TEST_CASE("a chord with Pattern is no tap, so the page does not flip; a plain tap flips HOME and PATTERN SETUP") {
   Hands t;
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   t.press(Button::Pattern);
@@ -363,16 +345,15 @@ TEST_CASE("Pattern + Copy and Pattern + Insert are chords: the release of Patter
   t.release(Button::Pattern);
   t.wait(40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
-  CHECK(t.selected() == 1);  // the pattern was copied into the next slot and that one is selected
-  CHECK_FALSE(pattern_is_empty(t.pat()));
+  CHECK(t.selected() == 0);  // nothing was copied into the next slot: DUP>NEXT is SETUP's
+  CHECK(pattern_is_empty(bank().pattern(1)));
   t.press(Button::Pattern);
   t.tap(Button::Copy);
   t.release(Button::Pattern);
   t.wait(40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
-  // A plain tap of Pattern still flips to the roll and back.
   t.tap(Button::Pattern, 40);
-  CHECK(std::strcmp(t.title(), "ROLL") == 0);
+  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
   t.tap(Button::Pattern, 40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
 }

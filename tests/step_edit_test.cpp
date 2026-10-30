@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Step editing of M3b (docs/M3B-PLAN.md R3, R4, R5): hold a step + OCT+ / OCT- is its ratchet (until the PLAYS row), hold a step + Shift + up / down its
-// octave (up / down alone are a semitone, on the held step or the cursor's), hold a step + the encoder on the PERF page's RATCHET and COND entries edits them (the condition
+// octave (up / down alone are a semitone, on the held step or the cursor's), hold a step + the encoder on INSTRUMENT MORE's RATCHET and COND entries edits them (the condition
 // through seq::step_cond), hold ACC (or SLIDE) + left / right rotates that layer alone. Every edit goes through the Bank, so it is undoable.
 #include <doctest/doctest.h>
 
@@ -160,10 +160,10 @@ TEST_CASE("hold a step + Shift + UP / DOWN moves its octave (the note is kept in
   CHECK(t.pat().steps[0].note == before.steps[0].note - 1);
 }
 
-TEST_CASE("hold a step + the encoder on RATCHET (SEQ's F7) sets that step's ratchet; hold two and both move") {
+TEST_CASE("hold a step + the encoder on RATCHET (INSTRUMENT MORE's F7) sets that step's ratchet; hold two and both move") {
   Hands t;
   set_layers(t);
-  t.to_page(kPageSeq);
+  t.to_instrument(kInstMore);
   t.tap(Button::F7);
   t.down(step_pad_of(2));
   t.turn(2);
@@ -200,7 +200,7 @@ TEST_CASE("hold a step + the encoder on COND walks the conditions with seq::step
   p.steps[9].cond = cond_probability(50);  // a step that starts somewhere else on the walk
   bank().replace(t.selected(), p);
   bank().clear_history();
-  t.to_page(kPageSeq);
+  t.to_instrument(kInstMore);
   t.tap(Button::F8);
   t.down(step_pad_of(3));
   t.turn(1);
@@ -242,7 +242,7 @@ TEST_CASE("a condition edit is undoable and the pattern is otherwise as it was")
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
-  t.to_page(kPageSeq);
+  t.to_instrument(kInstMore);
   t.tap(Button::F8);
   t.down(step_pad_of(3));
   t.turn(4);
@@ -257,7 +257,7 @@ TEST_CASE("a condition edit is undoable and the pattern is otherwise as it was")
   }
 }
 
-TEST_CASE("hold a step + the encoder on a SOUND key still locks it (the entries of the PERF page did not take the encoder away)") {
+TEST_CASE("hold a step + the encoder on a SOUND key still locks it (the entries of INSTRUMENT MORE did not take the encoder away)") {
   Hands t;
   set_layers(t);
   t.tap(Button::F1);  // CUTOFF on SOUND

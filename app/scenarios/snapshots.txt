@@ -1,23 +1,21 @@
-# Snapshots and the morph (docs/M3B-PLAN.md R2): the SNAP page (Shift + Params; it is also the last of the PARAMS cycle) has eight keys: a tap recalls,
-# Shift + a key stores, the encoder morphs from the previous snapshot to the one recalled last, through the sequencer's slew. RAM only.
+# Snapshots and the morph (docs/M3B-PLAN.md R2), on PERFORM's row 2 (docs/UX-303.md 5.3): eight pads, a tap recalls, Shift + a pad stores, the encoder
+# morphs from the previous snapshot to the one recalled last, through the sequencer's slew. RAM only. The sounds are made on INSTRUMENT.
 wait 300
 tap play
 wait 300
-# Sound 1: the SOUND and FX pages as they are, stored on key 1 (Shift + F1).
-press shift
-tap params
-release shift
+# Sound 1: the sound as it is, stored on pad 1 of row 2 (Shift + pad 12).
+tap performance
 wait 100
-snap 01_snap_page_empty
+snap 01_snapshots_empty
 press shift
-tap f1
+pad 12 60
 release shift
 wait 100
 snap 02_stored_1
-# Sound 2: a bright, resonant, driven sound: back to the pages with Shift + Params, turn, come back and store on key 2.
-press shift
+# Sound 2: a bright, resonant, driven sound: INSTRUMENT VOICE (F1 CUTOFF, F2 RESO, F3 ENV MOD, F6 WAVE) and FX (F1 DRIVE, F7 DLY SEND), then back to
+# PERFORM and store it on pad 2. (The waits keep the times of the gestures the scenario's WAV was first made with.)
+wait 4
 tap params
-release shift
 tap f1
 turn 25
 tap f2
@@ -29,22 +27,20 @@ turn 1
 tap params
 tap f1
 turn 25
-tap f5
+tap f7
 turn 20
-tap params
+tap performance
 press shift
-tap params
-release shift
-press shift
-tap f2
+pad 13 60
 release shift
 wait 100
 snap 03_stored_2
 # Recall 1: the first recall starts the morph from the sound as it was; the encoder walks it back and forth.
-tap f1
+wait 64
+pad 12 60
 wait 300
 snap 04_recall_1
-tap f2
+pad 13 60
 wait 300
 snap 05_recall_2
 turn -16
@@ -56,9 +52,9 @@ snap 07_morph_start_is_snapshot_1
 turn 32
 wait 300
 snap 08_morph_end_is_snapshot_2
-# An empty key says so; Shift + turn is the coarse step.
-tap f5
-snap 09_empty_key
+# An empty pad says so; Shift + turn is the coarse step.
+pad 16 60
+snap 09_empty_pad
 press shift
 turn -2
 release shift
@@ -69,9 +65,7 @@ turn 32
 turn -32
 wait 400
 wav snapshots
-# Back on the page it came from.
-press shift
-tap params
-release shift
+# An F key gives the encoder back to the knob.
+tap f1
 wait 100
-snap 11_back_on_the_page
+snap 11_encoder_is_the_knob_again

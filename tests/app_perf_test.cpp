@@ -155,15 +155,13 @@ TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the botto
   t.turn(-100);
   t.tap(Button::F3);
   t.turn(-100);
-  t.tap(Button::Params);
-  t.tap(Button::F5);
+  t.to_instrument(kInstFx);
+  t.tap(Button::F7);  // DLY SEND
   t.turn(-40);
-  t.tap(Button::F7);
+  t.tap(Button::F4);  // MODEL
   t.turn(-10);
   CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(0.0f));
-  for (unsigned i = 0; i < kPagePerf - kPageFx; ++i) {
-    t.tap(Button::Params);
-  }
+  t.to_home();
   CHECK(t.led(kTrnspPad) == app::kLedLow);  // the keyboard plays the voice by default
   t.pad(kTrnspPad);                         // TRNSP: the keys transpose the running pattern
   CHECK(t.led(kTrnspPad) == app::kLedOn);

@@ -2,7 +2,7 @@
 // The beat freeze and the one voice in the app (docs/M3B-PLAN.md R6 and C1): the engine has the voice, the distortion, the delay and the
 // freeze (master insert 0) and nothing on the other slots; the freeze is off at boot and invisible while off (the run is the same one
 // without it, bit for bit, outside a freeze); the Fx performance button (the FREEZE action, C4) turns it on while held, Shift + Fx latches
-// it, and the PERF page's FRZ LEN steps its Length; frozen, the master repeats at the tempo's 1/4, 1/8 or 1/16 of a bar; and the loop
+// it, and PERFORM SETUP's FRZ LEN steps its Length; frozen, the master repeats at the tempo's 1/4, 1/8 or 1/16 of a bar; and the loop
 // is latched at entry. The unit itself is tested in units/freeze/tests.
 #include <doctest/doctest.h>
 
@@ -60,18 +60,15 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // The beat freeze's Length from the PERF page (F5, FRZ LEN): from the SOUND page Params five times; two more come back. The encoder walks
-  // 1/4, 1/8, 1/16 and stops at the ends.
+  // The beat freeze's Length from PERFORM SETUP (F5, FRZ LEN): Perform twice, and Pattern back to the 303 screen. The encoder walks 1/4, 1/8, 1/16 and
+  // stops at the ends.
   void choose_length(Freeze::LengthValue v) {
-    for (unsigned i = 0; i < o3_303::kPagePerf; ++i) {
-      tap(Button::Params);
-    }
+    tap(Button::Performance);
+    tap(Button::Performance);
     tap(Button::F5);
     turn(-3);
     turn(static_cast<int>(v));
-    for (unsigned i = o3_303::kPagePerf; i < o3_303::kPageCount; ++i) {
-      tap(Button::Params);
-    }
+    tap(Button::Pattern);
   }
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }
   std::size_t frames() const { return h->audio().size() / 2u; }

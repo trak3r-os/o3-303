@@ -1,7 +1,7 @@
 # M3b sequencer (docs/M3B-PLAN.md R3 FILL, R4 ratchets, R5 trig conditions), entered with the real gestures: the demo line is written on
 # pattern A01 with REC and the keys (ACC and SLIDE held for those steps, the REST pad for the rest), the ratchets are hold a step + OCT+,
-# the conditions hold a step + the encoder on the PERF page's COND. Then eight passes of 1.92 s with FILL (the Vol button) held for one pass in
-# each of the four variants, chosen with the PERF page's F5. The probability steps draw from the sequencer's fixed seed, so every run
+# the conditions hold a step + the encoder on INSTRUMENT MORE's COND. Then eight passes of 1.92 s with FILL (the Vol button) held for one pass in
+# each of the four variants, chosen with MORE's F6. The probability steps draw from the sequencer's fixed seed, so every run
 # plays the same notes.
 wait 300
 # Clear the pattern (the CLEAR tool, Shift + F6) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
@@ -56,7 +56,7 @@ pad 21
 padup 17
 wait 100
 snap 02_ratchets
-# Conditions: SEQ page (four Params), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
+# Conditions: INSTRUMENT MORE (four Params: VOICE, FX, MODS, MORE), F8 is COND; hold a step and turn: 1:2 is ten places along the walk, 50 % five, FILL 45, then !FILL, FIRST, !FIRST.
 tap params
 tap params
 tap params
@@ -82,7 +82,7 @@ turn 48
 wait 100
 snap 03_conditions
 padup 19
-# Play: the line on its own for two passes, then FILL (the Vol button, SEQ's F6 picks the variant) for one pass of each variant.
+# Play: the line on its own for two passes, then FILL (the Vol button, MORE's F6 picks the variant) for one pass of each variant.
 record on
 tap play
 wait 3840

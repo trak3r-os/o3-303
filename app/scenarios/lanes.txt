@@ -1,4 +1,4 @@
-# Motion lanes through the pattern's lane table (docs/M3B-PLAN.md C2, UX-303 D2): a lane drives the parameter its LaneRef says, so any key of the FX page
+# Motion lanes through the pattern's lane table (docs/M3B-PLAN.md C2, UX-303 D2): a lane drives the parameter its LaneRef says, so any key of INSTRUMENT FX
 # can have one; the first lock on a parameter no lane drives claims the first lane with no motion, in the same undoable edit. A p-lock (hold a step +
 # the encoder) and a recorded move go to that lane, scaled with the target's own descriptor.
 wait 300
@@ -6,8 +6,9 @@ wait 300
 tap f4
 wait 100
 snap 01_decay_lane
-# FX page, F1 DRIVE: no lane drives it. Hold step 3 and turn it: the lock claims a lane (the first with no motion, lane 1: the cutoff's, which had no
+# INSTRUMENT FX (Params twice: VOICE, FX), F1 DRIVE: no lane drives it. Hold step 3 and turn it: the lock claims a lane (the first with no motion, lane 1: the cutoff's, which had no
 # locks) and the strip shows it as LOCK 3, scaled to the distortion's own range.
+tap params
 tap params
 tap f1
 paddown 2
@@ -21,13 +22,8 @@ wait 100
 padup 6
 wait 100
 snap 03_drive_locks
-# VOLUME (SOUND F8) is the mixer's level, lane 8: a lock there is in the mixer's own 0..1.5 range.
-tap params
-tap params
-tap params
-tap params
-tap params
-tap params
+# VOLUME (SOUND F8, back on the 303 screen) is the mixer's level, lane 8: a lock there is in the mixer's own 0..1.5 range.
+tap pattern
 tap f8
 paddown 4
 turn 8

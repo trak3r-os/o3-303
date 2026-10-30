@@ -69,6 +69,11 @@ constexpr Page kPages[kPageCount] = {
       snap(7, "SNAP 8")}},
 };
 
+// PATTERN SETUP (UX-303 5.2): this pattern's four, then the generator's four (project-wide, D1).
+constexpr Page kSetupPage = {"SETUP",
+                             {app_item(Item::Length), app_item(Item::Swing), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"), app_item(Item::Scale),
+                              app_item(Item::Density), app_item(Item::AccPct), app_item(Item::SldPct)}};
+
 constexpr Entry kRandomEntries3[kRandomEntries] = {app_item(Item::Scale), app_item(Item::Density), app_item(Item::AccSlide, "ACC/SLD")};
 
 // What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
@@ -105,6 +110,8 @@ constexpr core::ParamDesc kScale = {"SCALE", "", kScaleNamePtrs.p, nullptr, 0.0f
                                     ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kDensity = {"DENSITY", "%", nullptr, nullptr, 0.0f, 100.0f, 75.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kAccSlide = {"ACC/SLIDE", "%", nullptr, nullptr, 0.0f, 100.0f, 25.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kAccPct = {"ACC %", "%", nullptr, nullptr, 0.0f, 100.0f, 25.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kSldPct = {"SLD %", "%", nullptr, nullptr, 0.0f, 100.0f, 20.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSendA = {"DLY SEND", "%", nullptr, nullptr, 0.0f, 100.0f, 30.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr const char* kDistModeNames[] = {"OFF", "GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
 constexpr core::ParamDesc kDistMode = {"DIST", "", kDistModeNames, nullptr, 0.0f, 5.0f, 1.0f, 5, 1, 6, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -157,6 +164,7 @@ int round_to_int(float v) noexcept { return static_cast<int>(v < 0.0f ? v - 0.5f
 }  // namespace
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
+const Page& setup_page() noexcept { return kSetupPage; }
 const Entry& random_entry(unsigned index) noexcept { return kRandomEntries3[index < kRandomEntries ? index : 0u]; }
 const Entry& snap_target(unsigned index) noexcept { return kSnapTargets[index < kSnapTargetCount ? index : 0u]; }
 
@@ -186,6 +194,10 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kDensity;
     case Item::AccSlide:
       return &kAccSlide;
+    case Item::AccPct:
+      return &kAccPct;
+    case Item::SldPct:
+      return &kSldPct;
     case Item::SendA:
       return &kSendA;
     case Item::Master:
@@ -240,7 +252,10 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
     case Item::Density:
       return static_cast<float>(w_->gen.density);
     case Item::AccSlide:
+    case Item::AccPct:
       return static_cast<float>(w_->gen.accent_pct);
+    case Item::SldPct:
+      return static_cast<float>(w_->gen.slide_pct);
     case Item::SendA:
       return w_->send_a_pct;
     case Item::Master:
@@ -310,7 +325,7 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       (void)w_->bank->set_swing(sel, round_to_int(v));
       break;
     case Item::Length:
-      (void)w_->bank->set_length(sel, kLengths[static_cast<unsigned>(round_to_int(v)) % kLengthCount]);
+      (void)w_->bank->resize(sel, kLengths[static_cast<unsigned>(round_to_int(v)) % kLengthCount]);  // a step up copies the line into the new part (one undo)
       break;
     case Item::Gate:
       (void)w_->bank->set_gate(sel, round_to_int(v));
@@ -331,6 +346,12 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       w_->gen.slide_pct = static_cast<std::uint8_t>(acc * 4 / 5);
       break;
     }
+    case Item::AccPct:
+      w_->gen.accent_pct = static_cast<std::uint8_t>(round_to_int(v));
+      break;
+    case Item::SldPct:
+      w_->gen.slide_pct = static_cast<std::uint8_t>(round_to_int(v));
+      break;
     case Item::SendA:
       w_->send_a_pct = v;
       apply_send(e);
