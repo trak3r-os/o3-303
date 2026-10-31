@@ -1,6 +1,8 @@
 # o3-303: the obsidian skin (plan)
 
-Status: planned, 2026-10-30. The maintainer approved the obsidian look (mockup A as HOME, B as INSTRUMENT) and asked on 2026-10-30 to queue
+Status (2026-10-31): SK1 committed (the assets); SK2 and SK3 built and host-verified (the core, the header, the glass, the F row, the
+`skin` console command); SG2's SONG screen drawn on the skin too; SK4 to SK8 not started; SU1, the first unit session, owed. Planned
+2026-10-30. The maintainer approved the obsidian look (mockup A as HOME, B as INSTRUMENT) and asked on 2026-10-30 to queue
 the skin and the o3-sdk changes it needs. UX-303 section 15 says what the skin is: a new drawing of the same view structs, with no change to
 the interaction. This plan says what each screen draws, what it costs, the kit contracts it needs (UX-PLAN section 7: N4 to N7, plus N0 and N9),
 how the art gets into the image, and the slices. The rule over all of it is the maintainer's: "todo lo más simple, intuitivo y divertido posible".

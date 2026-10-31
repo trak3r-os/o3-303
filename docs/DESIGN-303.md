@@ -1,7 +1,23 @@
 # o3-303: design (draft)
 
-Status: draft, 2026-10-25, from the design conversation with the maintainer. The plan for milestone M3, now built
-(`docs/M3-PLAN.md`) and continued by M3b (`docs/M3B-PLAN.md`). Open decisions are in section 8.
+Status: draft, 2026-10-25, from the design conversation with the maintainer; checked against the tree on 2026-10-31. The plan for
+milestone M3, now built (`docs/M3-PLAN.md`), continued by M3b (`docs/M3B-PLAN.md`) and M3c (`docs/M3C-PLAN.md`). Open decisions are in
+section 8.
+
+**Where the design moved on.** The sound and HOOKS (section 7) still hold as written. The sequencer's data is section 6 plus what M3b and
+the song added. The controls and the screens moved on, and their current text is elsewhere:
+
+- The screens and the buttons (sections 2 to 5): `docs/UX-303.md` is the specification now. It replaces the controls of sections 2 to 5 of
+  this document, and in particular the MOTION key, the PARAMS cycle, the Shift tools row of the knob strip and the Note / Instr / Vol / Fx
+  roles. Its section 5.13 is HELP (Shift + Config): what each control does on the screen in view, the kit's overlay with o3-303's texts.
+- The slice plan that built it: `docs/UX-PLAN.md`, with each slice's state.
+- The look: `docs/SKIN-PLAN.md` (the obsidian skin). The skin replaces the drawing, not the controls. Section 5 of this document describes
+  the classic screen only. The skin's SK1 to SK3 are built or in the tree; the rest is planned.
+- The song (section 4, Song; section 6, "chains on the fly and a song mode"): built as the SONG screen and the project's SONG chunk, see
+  UX-303 5.7 and UX-PLAN's SG1 and SG2 rows. The unit check is owed.
+- The beat freeze, growl, wobble and rolls (the page table of section 3, its GROWL, WOBBLE and SNAP rows, and the Params row of section 4): M3b and M3c
+  (`docs/M3B-PLAN.md`, `docs/M3C-PLAN.md`). The unit measurements are in `docs/hw/`.
+- The unit's own measurements (sound, CPU, sessions) are in `docs/hw/`, not here. Section 1's "15.5-22 % of a block" is track3r-os's figure.
 
 An improved TB-303 clone as an o3sdk app: a 303 voice with Devil Fish-style extras, drive and delay, a 303-style step sequencer
 without the original's pitch/time-mode split, motion recording and parameter locks, and a second screen (HOOKS) that loads or

@@ -1,6 +1,8 @@
 # M3b: Fable's round (plan, contracts and ownership)
 
-Status: planned, 2026-10-25; starts when M3 (`docs/M3-PLAN.md`) is reviewed, folded and verified. The maintainer asked Fable what it
+Status: built 2026-10-25 and 2026-10-26 (commits 989208a, f3c08e6, 40e4636, 0bc38b2; L1 done 2026-10-25, see its row). On the
+unit (`docs/hw/2026-10-26-m3ba.md`, `docs/hw/2026-10-26-m3c.md`): the beat freeze (R6) and the snapshot morph (R2). Owed on the unit:
+ratchets, trig conditions, FILL, the ladders (R1) and the slew; the SEQ page (C3) and the assignable performance buttons (C4) by hand. The original brief follows. The maintainer asked Fable what it
 would add to the 303 and then said: "haz todo lo que diga fable, oki?" (do everything Fable says). This round turns Fable's answer
 into work. Its frame: a 303 is played with two hands on cutoff, reso, env mod and accent while the pattern runs, and this unit has one
 encoder, so most items give the player "a second hand".

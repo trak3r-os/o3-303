@@ -1,14 +1,16 @@
 # UX: the new way o3-303 is used (plan, waves and ownership)
 
-Status: planned, 2026-10-30. The specification is `docs/UX-303.md` (the maintainer's approved concept of 2026-10-29, questions answered
-1a, 2a, 3a, 4a, 5a). This plan cuts it into slices for firmware engineers, in waves that give the tester something playable on the unit
-early. The obsidian skin is not in it: it waits for the FT812 fill-rate test and the kit's skin items (section 7), and gets its own plan.
+Status: waves 1 to 6 built (2026-10-30 and 2026-10-31); wave 7 (SG2, the SONG screen) built and host-verified, unit check owed. Each
+slice's state is in the table under section 3. The specification is `docs/UX-303.md` (the maintainer's approved concept of 2026-10-29,
+questions answered 1a, 2a, 3a, 4a, 5a). This plan cut it into slices for firmware engineers, in waves that give the tester something
+playable on the unit early. The obsidian skin is not in it: it has its own plan, `docs/SKIN-PLAN.md`, and waited for the FT812 fill-rate
+test (section 7).
 
 ## Goal
 
 Every button opens the screen printed on it; HOME is the pattern playing with the eight sound knobs under it; the pads are always 16
 steps, eight modifiers and a two-octave keyboard, except on PERFORM where they are 48 live controls; nothing is lost (UNDO, snapshots,
-autosave). Built on today's kit rendering (header strip, soft-key row, the app's 800 x 426), with the view logic kept apart from the
+autosave). Built on the kit's rendering as of 2026-10-30 (header strip, soft-key row, the app's 800 x 426), with the view logic kept apart from the
 drawing so the skin can replace the drawing later.
 
 ## 1. Scope
@@ -42,30 +44,60 @@ Sizes: **S** about an hour of engineer work plus a review; **M** two to three ho
 
 | Wave | Column A | Column B | Image for the tester | When |
 |---|---|---|---|---|
-| 1 | **P1** PERFORM screen | **S1** sequencer operations | **U1**: PERFORM on the Perform button; HOME as today | **today** |
-| 2 | **RN** rename + test split (alone, first), then **H1** the home map | **F1** project codec, then **F2** project service | U2: the new HOME pads, autosave and the project back after a reboot | next session |
-| 3 | **H2** PATTERN SETUP | **I1** INSTRUMENT and the Params button | U3: SETUP, INSTRUMENT | later |
-| 4 | **H3** the drawer rows | **M1** MASTER, then **F3** FILE and LIBRARY | U4: rows, MASTER, FILE | later |
-| 5 | **H4** Shift row and clean-up, then **P2** PERFORM SETUP | **R1** RECORD and HOOKS | U5: the whole model but SONG | later |
-| 6 | **C1** Config pages and MIDI learn | **SG1** the song in the sequencer | none | later |
-| 7 | (doc-keeper: DESIGN-303, README) | **SG2** SONG screen | U6: everything | later |
-| S | skin, separate plan | | after N2 to N7 | later |
+| 1 | **P1** PERFORM screen | **S1** sequencer operations | **U1**: PERFORM on the Perform button; HOME as today | built 2026-10-30 |
+| 2 | **RN** rename + test split (alone, first), then **H1** the home map | **F1** project codec, then **F2** project service | U2: the new HOME pads, autosave and the project back after a reboot | built 2026-10-30 |
+| 3 | **H2** PATTERN SETUP | **I1** INSTRUMENT and the Params button | U3: SETUP, INSTRUMENT | built 2026-10-30 |
+| 4 | **H3** the drawer rows | **M1** MASTER, then **F3** FILE and LIBRARY | U4: rows, MASTER, FILE (superseded by U5) | built 2026-10-30 |
+| 5 | **H4** Shift row and clean-up, then **P2** PERFORM SETUP | **R1** RECORD and HOOKS | U5: the whole model but SONG | built 2026-10-30 |
+| 6 | **C1** Config pages and MIDI learn | **SG1** the song in the sequencer | U6a: C1 (`docs/hw/2026-10-31-u6a.md`) | built 2026-10-31 |
+| 7 | (doc-keeper: DESIGN-303, README) | **SG2** SONG screen | U6 (with SG2, the song) | SG2 built and host-verified; no image yet |
+| S | skin, separate plan (`docs/SKIN-PLAN.md`) | | after N2 to N7 | SK1 committed; SK2 and SK3 built; SU1 owed |
 
-Why this order (judged from the code): PERFORM goes first because the Perform button does nothing today, so a new screen is additive:
+### Status by slice (2026-10-31)
+
+"Built" means the slice's commit is in the history (the commit subjects carry the `[UX <slice>]` tag) or, for SG2, the work is in the tree
+with its host tests. "Host-verified" means ctest covers its pure logic. The unit column names what the unit sessions in `docs/hw/` recorded
+by the console (the tester's row numbers), and what is still owed. No unit row is passed by ear or by hand unless the page says so.
+
+| Slice | Wave | Built in | State | Unit: recorded | Unit: owed |
+|---|---|---|---|---|---|
+| P1 PERFORM screen | 1 | `ca3062b` | built, host-verified | Perform opens PERFORM and PERFORM SETUP (U5 row 28, U6a row 25); U1's own page has no results (`to fill`) | U1: every action pad by ear, latch, ALL OFF, snapshots and MORPH, the ladder, the LEDs, CPU with FREEZE, WOBBLE and FILL |
+| S1 sequencer operations | 1 | `fe30b93` | built, host-verified | none of its own (U1 says so) | none of its own |
+| RN voice rename and test split | 2 | `6a1d282` | built, host-verified | every image since U2 runs `acid_voice`, unit name ACID | none of its own (bit-identical) |
+| H1 the home map | 2 | `bb72cfc` | built, host-verified | HOME pads and the reboot by console (U3 row 14) | TRNSP and FILT by hand, the ladder slew by ear (U2 plan) |
+| F1 project codec | 2 | `bb72cfc` | built, host-verified | save and reboot brought the project back (U3 row 14, U5 rows 23, 24) | U2 rows 11 to 14 (card pulled during a save, no card, write-protect, card swap): dropped by the maintainer, not run; the encode's main-loop time not recorded |
+| F2 project service | 2 | `bb72cfc` | built, host-verified | autosave with 0 underruns (U3 row 14, citing U2-2 and U2-9) | as F1 |
+| H2 PATTERN SETUP | 3 | `29508b4` | built, host-verified | the Shift row's labels fit (U3 row 6); scale and LEN 32 and 64 come back after a reboot (U3 row 14) | the scale lock on dark pads (U3 row 5) and CLEAR LOCKS freeing the lanes (U3 row 6), by eye |
+| I1 INSTRUMENT, Params | 3 | `29508b4` | built, host-verified | Params cycles VOICE, FX, MODS and back, no DEEP page (U6a row 14; U5 row 31 still had DEEP, before C1) | the shared pads and LEDs, latches across Params, the old cycle's functions by eye (U3 rows 9 to 12) |
+| H3 the drawer rows | 4 | `7568e9a` | built, host-verified | Shift + Note, Instr, Vol, Fx latch the rows on HOME, the ENC text follows (U6a row 17, HOME only) | the rows on SETUP and INSTRUMENT, and the encoder by hand (U5 rows 4 and 9 not run) |
+| M1 MASTER | 4 | `7568e9a` | built, host-verified | Master opens MASTER (U5 row 13, screen only); the nudge is +2 % and back at the release, on HOME and PERFORM (U6a row 19) | tap tempo by hand (Shift + Master) |
+| F3 FILE and LIBRARY | 4 | `7568e9a` | built, host-verified | File opens PROJECTS and LIBRARY and back (U5 row 16); Shift + File saves from five screens (U5 row 22) | NameEntry on the pads, LOAD, REVERT, NEW and DELETE (U5 row 20, not run: no second project) |
+| H4 the Shift row and clean-up | 5 | `0f95cc5` | built, host-verified | the Shift row on HOME shows NEW VARY RHYTHM NOTES REVERSE CLEAR REDO UNDO (U5 row 25, labels only) | what each Shift key does, by hand (U5 row 25) |
+| P2 PERFORM SETUP | 5 | `0f95cc5` | built, host-verified | PERFORM SETUP reached from PERFORM (U5 row 28, U6a row 25) | the pages by eye, and the 22 snapshot targets (not in U5's recorded rows) |
+| R1 RECORD and HOOKS | 5 | `0f95cc5` | built, host-verified | a 1-bar take (1.9 s) and a 30 s take written to `Samples/` (U5 rows 33, 34); CPU 33 to 35 % while recording; HOOKS from the Sample buttons (U5 row 38); main loop about 48 ms a step during a write, 0 underruns (U5 row 35) | Shift + Rec arming from HOME (U5 row 32) |
+| C1 Config pages and MIDI learn | 6 | `606e3c9` | built, host-verified | the 303 and DEEP pages, their values after a reboot, the DEEP fix at boot (U6a rows 4, 5, 6, 7, 8, 28); LEARN and `CANNOT LEARN VOLUME` on INSTRUMENT (U6a row 15, partly) | MIDI learn with a real controller (U6a row 16, not run) |
+| SG1 the song in the sequencer | 6 | `8c81e1c` | built, host-verified | none of its own | none of its own |
+| SG2 SONG screen | 7 | in the tree | built, host-verified | none yet (no image with SG2) | a song with repeats by ear; insert, delete and undo while it plays, with no clicks at pass boundaries |
+| HELP-A (UX-303 5.13, not a slice of this plan) | - | `3c38421`, `27259f0` | built, host-verified (`help_texts_test`) | none yet | HELP on the unit: the pages and the overlay by eye |
+
+The skin's slices are in `docs/SKIN-PLAN.md`: SK1 committed (`037209f`), SK2 and SK3 built and in the tree, SK4 to SK8 not started,
+SU1 (the skin's first unit session) owed.
+
+Why this order (judged from the code): PERFORM goes first because the Perform button did nothing at the plan's date, so a new screen is additive:
 it reuses logic that exists (the live actions, snapshots, ladders and tools in `main_screen_perf.cpp` / `main_screen_snap.cpp`) and
 leaves HOME and its 23 scenarios untouched. HOME is the bigger rewrite (`main_screen.cpp` is 1,661 lines; most scenarios walk its KEYS,
 MOTION, colour buttons or the Params cycle), so it is cut into H1..H4 across four waves, each keeping the tree green. The project (F1,
 F2) runs beside H1 because it touches no screen code, and it is the change that stops jams being lost.
 
-**Today** (about three hours): P1 and S1 start together; S1 is reviewed when done; P1 is reviewed, fixed and folded; the integrator runs
-the full host ctest, the MK66 build and `fw-gate-check`, and writes the U1 hw-session page. RN runs today only if the gate is done with
-time to spare (it needs the tree to itself); otherwise it opens the next session.
+**Wave 1** (the plan): P1 and S1 start together; S1 is reviewed when done; P1 is reviewed, fixed and folded; the integrator runs the full
+host ctest, the MK66 build and `fw-gate-check`, and writes the U1 hw-session page. Built on 2026-10-30 (`ca3062b`, `fe30b93`). U1's
+page has its checklist but no results yet.
 
 ## 4. Slices
 
-### P1: PERFORM screen (M, wave 1, column A, today)
+### P1: PERFORM screen (M, wave 1, column A)
 
-- **Goal:** UX-303 5.3. Perform opens PERFORM, again PERFORM SETUP (today's PERF page as it is until P2); the 48 pads live; HOME
+- **Goal:** UX-303 5.3. Perform opens PERFORM, again PERFORM SETUP (the PERF page as it was until P2); the 48 pads live; HOME
   behaves exactly as today (its colour buttons still trigger live actions until H3).
 - **Owns:** new `app/src/perform_screen.{h,cpp}`, `live_actions.{h,cpp}`, `frame.{h,cpp}`; `app/src/main_screen.{h,cpp}`,
   `main_screen_perf.cpp`, `main_screen_snap.cpp` (the live actions, `FreezeOwner`, wobble and snapshot logic move into `LiveActions`;
@@ -82,7 +114,7 @@ time to spare (it needs the tree to itself); otherwise it opens the next session
 - **Scenario:** `perform_pads.txt`. **Host tests:** `perform_test.cpp` (pure map), `perform_screen_test.cpp`.
 - **Depends:** none. **o3-sdk:** no. **Unit:** yes (U1).
 
-### S1: sequencer operations (S, wave 1, column B, today)
+### S1: sequencer operations (S, wave 1, column B)
 
 - **Goal:** the pure pattern logic H2 and H3 need, so they only wire it: `seq::regen_rhythm` (keeps every pitch, redraws rests,
   accents, slides), `seq::regen_notes` (keeps the rhythm and flags, redraws pitches in scale and range), the PLAYS list (UX-303 2.3 and
@@ -154,7 +186,7 @@ time to spare (it needs the tree to itself); otherwise it opens the next session
 - **Owns:** `main_screen.{h,cpp}`, `home_map.{h,cpp}`, `pages.{h,cpp}`; tests `pages_test`, `app_patterns_test`, new
   `pattern_setup_test`; scenarios `patterns`, `roll` (retired), new `pattern_setup.txt`. Not `hands.h` (I1's this wave): its helpers stay in
   its own test file.
-- **Acceptance:** 5.2; LENGTH up and down one UNDO each; SCALE locks the keyboard as today's R8; ctest green.
+- **Acceptance:** 5.2; LENGTH up and down one UNDO each; SCALE locks the keyboard as R8 has it; ctest green.
 - **Depends:** H1, S1. **o3-sdk:** no. **Unit:** no (U3 looks at it).
 
 ### I1: INSTRUMENT and the Params button (M, wave 3, column B)
@@ -293,6 +325,10 @@ it, card files included. Firmware reaches the unit only by the documented `.ptf`
 | U5 | 5 | the Shift row at once; PERFORM SETUP; a 30 s take written to `Samples/`, the CPU while recording |
 | U6 | 6, 7 | Config values after a reboot; MIDI learn with a real controller; a song with repeats and a transpose |
 
+Sessions run so far (all over USB, by the console; nobody judged by ear or by hand unless the page says so): U3 (`docs/hw/2026-10-30-u3.md`),
+U5 (`docs/hw/2026-10-30-u5.md`) and U6a (`docs/hw/2026-10-31-u6a.md`). U1, U2 and U4 have no results recorded: U1's and U2's pages say
+`to fill`, and U4 was superseded by U5 before it was installed. U6a is C1 only. The image for wave 7 (SG2, the song) has not been prepared.
+
 ## 7. o3-sdk needs (done in o3-sdk under its own rules; none blocks waves 1 to 7)
 
 | Id | Need | For | Blocks |
@@ -306,25 +342,34 @@ it, card files included. Firmware reaches the unit only by the documented `.ptf`
 | N7 | A `Screen` chrome flag (Full / None) so a screen owns all 800 x 480 | the skin's panel header and knob row | the skin |
 | N8 | MIDI learn of an app value (a key and a callback, beside `Midi::learn(unit, param)`) | learning VOLUME, DLY SEND, MODEL, the wobble knobs (UX-303 D15) | nothing |
 
+State (2026-10-31, from o3-sdk's history and `docs/hw/`): N0, N5, N9 are in o3-sdk's `f57d9d7` and N4, N6, N7 in `a098cec`, both tagged
+`[SKIN ...]`. N2 was run on the unit (`docs/hw/2026-10-30-fillrate.md`); its result is the skin's input. N3 exists (`kRamGApp`, per
+`docs/SKIN-PLAN.md`). N1 is not in o3-sdk (no `power_off` in the kit), so the loss bound of UX-303 8.4 applies. N8: not checked for this
+pass.
+
 ## 8. Risks
 
-1. **Test and scenario churn.** Most of today's 23 scenarios and 18 test files walk KEYS, MOTION, the colour buttons or the Params cycle.
+1. **Test and scenario churn.** Most of the 23 scenarios and 18 test files of the plan's date walk KEYS, MOTION, the colour buttons or the Params cycle.
    Mitigation: section 5's ownership, RN's split of `o3_303_app_test.cpp`, `hands.h` helpers, and P1 changing no existing output.
 2. **Extracting from `main_screen.cpp`** (P1, H1) can break HOME silently. Mitigation: byte-identical scenarios for what a slice does not
    own; the reviewer diffs behaviour, not only code.
 3. **The autosave encode** (about 110 KB copied and a CRC in one main-loop pass) may cost a UI frame on the unit. Mitigation: F1 reports the
    host time, U2 measures it; if it is over a frame, F2 encodes across passes.
 4. **The app's first card writes on a unit:** the kit's file API is host-only so far (o3-sdk M2c). U2 is its first real run; a failure there
-   is an o3-sdk finding, reported, not patched here.
+   is an o3-sdk finding, reported, not patched here. Partly met: card saves, autosave and reboots ran on the unit by console in U3, U5 and
+   U6a (section 3's table). Still open: the pulled card, no card, write-protect and card swap (U2 rows 11 to 14, dropped by the maintainer).
 5. **PERFORM's display list** (48 lamps with labels plus the knob row): the scenarios test bounds it on the host; U1 confirms.
 6. **Tester time:** images only at wave ends, each with a short checklist.
 
 ## 9. Decisions for the maintainer
 
 1. **The voice's new name** (RN). (a) `acid_voice` / `AcidVoice`, unit name "ACID" **[pick]**; (b) `voice` / `Voice` (reads like the
-   existing `Item::Voice` and `kLaneVoice`); (c) `bassline` / `Bassline`.
-2. **What lands first.** (a) PERFORM today: additive on an unused button, HOME untouched, no regression risk **[pick]**; (b) HOME first:
-   90 % of the use, but it rewrites the 1,661-line screen and about 15 scenarios, so it cannot land and be gated today.
+   existing `Item::Voice` and `kLaneVoice`); (c) `bassline` / `Bassline`. Built as (a) in `6a1d282`.
+2. **What lands first.** (a) PERFORM first: additive on an unused button, HOME untouched, no regression risk **[pick]**; (b) HOME first:
+   90 % of the use, but it rewrites the 1,661-line screen and about 15 scenarios, so it cannot land and be gated in one round. Built as (a):
+   P1 (`ca3062b`) is wave 1.
+4. **Lua at control rate in the kit** (no slice). Yes or no is waiting on the maintainer; the recommendation was Faust at build time for
+   the DSP. No answer is recorded in this repository.
 3. **The generator's settings on PATTERN SETUP** (SCALE, DENSITY, ACC %, SLD %). (a) One set for the whole project, the keyboard's scale
    lock stable when the pattern changes **[pick]**; (b) per pattern (4 bytes each, `Pattern` 2,260 to 2,264 bytes, the lock follows the
    pattern).

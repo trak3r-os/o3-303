@@ -1,6 +1,8 @@
 # M3: o3-303 on o3sdk (plan, contracts and ownership)
 
-Status: built and verified on the host, 2026-10-25; waiting for the unit test (Done when item 4). The working brief for the parallel slices of milestone M3, the first playable o3-303. The design
+Status: built and verified on the host, 2026-10-25; the image is gated. Done when item 4 (the sound and the controls on the Tracker)
+has no record in `docs/hw/`: the 2026-10-26 pages (`m3ba`, `m3c`) compare against an earlier 2026-10-25 run that has no page there. Owed:
+that unit record, or the maintainer's word on it. The later rounds are in `docs/M3B-PLAN.md`, `docs/M3C-PLAN.md` and `docs/UX-PLAN.md`. The working brief for the parallel slices of milestone M3, the first playable o3-303. The design
 is `docs/DESIGN-303.md`; the framework is `../o3-sdk` (its `CLAUDE.md` and `docs/FRAMEWORK.md` rules apply unchanged, and it is
 never edited from here: a framework change is asked of the integrator, who makes it in o3sdk by o3sdk's own process).
 

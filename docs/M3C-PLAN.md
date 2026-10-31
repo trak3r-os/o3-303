@@ -1,6 +1,9 @@
 # M3c: the bass-music round (plan, contracts and ownership)
 
-Status: planned, 2026-10-26. **Cut the same day** (the maintainer, short of weekly tokens: "recortamos hasta trance_gate y pump (que
+Status: built and unit-checked for G, W and R (commits 2cf7505, 2bf2944, 78109ff, 0bc38b2; `docs/hw/2026-10-26-m3c.md`: growl at about
++2.4 % of a block after the optimisation, everything on at 49.9 % max with 0 over-budget, 10-minute soak clean). C, T, O and P are out
+and stay as the backlog below. Owed: the wobble's rates, the growl's vowels and the morph by ear (the maintainer), and the real pads by
+hand. The round as first planned (2026-10-26): **Cut the same day** (the maintainer, short of weekly tokens: "recortamos hasta trance_gate y pump (que
 se quedan fuera)"): this round builds **W, G and R** only. T (gate and pump), C (crush), P (dive and riser) and O (OTT) are out; they stay
 below as the backlog. The slices are now one dsp+seq slice (the growl, the freeze modes, the wobble and its lane targets), then one ui slice
 (the WOBBLE, ROLL, STOP and REV actions, a GROWL page, the wiring). The maintainer asked for Skrillex-style effects ("alguna idea para añadir efectos estilo skrillex?"); the
