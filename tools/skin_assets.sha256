@@ -1,0 +1,18 @@
+# tools/skin_assets.sha256: the SHA-256 of every bitmap tools/gen_skin.py makes (as packed for RAM_G) and of the two files it writes.
+# The build fails when the output differs (gen_skin.py --check); rewrite it with `python3 -I tools/gen_skin.py --update tools/skin_assets.sha256`
+# and review what changed.
+c5b31752e20a6f0bf5d380f726dcad3ae5755bd5fae0824ac8d989662670d838  tex_obsidian 61440
+a78541972fb33bff23767d3bdcff6f07d5183e2dd3f8b87847aa5ee7b707e826  knob42_scale 1800
+32ac7c39c4e5d1fa4dec957081f16a495a565e4ddaf8b2489dcbe83e5e0c77ba  knob42_body 1460
+cc357404da467a702c2d4390d52f8129ee75d116141980766978b7d7056a1e42  knob42_cap 1936
+42b14175384481c008f8e8592fcd377d3e22ff6c0019def28b2e1e3cc191facc  knob58_scale 2888
+9940276d53745bb621e29c9ca634e7ab80b65d704d002eb535e12656b9c77ab8  knob58_body 2452
+997a45631c71bf342c02e3227b23dc5ff7b17dbad0fa4ffed3eee1f12b02c72c  knob58_cap 3600
+9e546b6fcbd1d16504582b0390d0caf7460ce661e2a3a6a796bbe1512f46eac5  key 4536
+8110a70e2612018ea0b320f508490241d4075fa1c56edb9592fc514cf507c58b  seg 10640
+49da5f91c22b42d658707088424b8572a88aff60a1911a6102d1e23d55972d58  logo 3752
+8853b3b95fbfc7c27c702a782a9074993b0d97583f118d5e0580bfe0d364494c  led 256
+fc26842ccebfea16d56195fa3d2aeb77d0b7d9c07d13fb9fa5baa8441c51829e  lamp 2320
+e239bf820890f193229afb77924878f3006bda0cea50483f3cc1231635020386  actkey 3360
+09eab76445cfa95f6f4b51ee0bf48bdc87e51405b08f3743fbdd38fc669f6bb1  o3_303/skin_assets.h
+fec212a4737e5d2bd1d0ecdd15c108cc3c1e44198d0ee512d80a26f02e578cd6  skin_assets.cpp

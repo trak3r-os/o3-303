@@ -31,6 +31,7 @@
 #include "vault_screen.h"
 
 #include <o3_303/app_access.h>
+#include <o3_303/skin_assets.h>
 #include <o3sdk/app/app.h>
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/screen.h>
@@ -75,6 +76,12 @@ class O3_303App final : public app::App {
   const app::AppInfo& info() const noexcept override {
     static constexpr app::AppInfo kInfo{"O3-303", "0.0.1"};
     return kInfo;
+  }
+
+  // The obsidian skin's bitmaps (docs/SKIN-PLAN.md): the runtime puts them in the app's RAM_G region at boot. Nothing draws them yet.
+  std::size_t assets(const app::AppAsset*& rows) const noexcept override {
+    rows = o3_303::skin_assets::kRows;
+    return o3_303::skin_assets::kCount;
   }
 
   void setup(app::Context& ctx) noexcept override {
