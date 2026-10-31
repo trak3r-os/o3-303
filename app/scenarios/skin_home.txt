@@ -1,11 +1,14 @@
-# The obsidian skin's core (docs/SKIN-PLAN.md section 8, SK2): the panel's header over HOME and PATTERN SETUP, the glass with today's content, the knob strip still today's
-# (the F row is SK3's). The skin is off until SK8, so the scenario turns it on through Config, as a player does: Config opens on its first tab, Left twice is "303", five
+# The obsidian skin's core and F row (docs/SKIN-PLAN.md section 8, SK2 and SK3): the panel's header over HOME and PATTERN SETUP, the glass with today's content, the F row under it
+# (knobs, the WAVE switch, action keys on the Shift row), and the pattern grid. The skin is off until SK8, so the scenario turns it on through Config, as a player does: Config opens on its first tab, Left twice is "303", five
 # Downs reach SKIN (the sixth row), and the encoder clamps at OBSIDIAN, so it is right whatever the default is.
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_home.txt --out <dir>
 #
-# 01 stopped: the header with PATTERN A01 and TEMPO 125.0, the LEDs dark but KEYS (the keyboard plays the voice); 02 playing: PLAY green and the playhead; 03 a toast in the PAGE window
-# (NEW, with Shift); 04 TRNSP on and the octave up; 05 REC lit; 06 PATTERN SETUP (the generator line over the glass, the knobs of its page).
+# 01 stopped: the header with PATTERN A01 and TEMPO 125.0, the LEDs dark but KEYS (the keyboard plays the voice), and the F row with F1 CUTOFF latched (lit LED, red readout);
+# 02 playing: PLAY green and the playhead; 03 a toast in the PAGE window (NEW, with Shift); 04 TRNSP on and the octave up; 05 REC lit; 06 PATTERN SETUP (the generator line over
+# the glass, the knobs of its page); 06b Shift on it (its row of action keys, the free ones empty boxes); 07 F3 held (the amber rim) with F1 still latched; 07b a p-lock written
+# on step 5 (LOCK 5 in the accent colour, amber LED); 07c the WAVE switch latched and turned to SQR; 08 Shift held on HOME (the Shift row as action keys, REDO dim, the red
+# banner); 09 Pattern held (the 48 patterns in the glass).
 wait 300
 tap config
 tap left
@@ -43,3 +46,31 @@ tap rec
 tap pattern
 wait 100
 snap 06_setup
+press shift
+wait 100
+snap 06b_setup_shift_row
+release shift
+tap pattern
+wait 100
+press f3
+wait 100
+snap 07_frow_held
+release f3
+paddown 4
+turn 3
+wait 100
+snap 07b_frow_lock
+padup 4
+tap f6
+turn 1
+wait 100
+snap 07c_frow_switch
+tap f1
+press shift
+wait 100
+snap 08_shift_row
+release shift
+press pattern
+wait 350
+snap 09_pattern_held
+release pattern

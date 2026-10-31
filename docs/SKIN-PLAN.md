@@ -661,6 +661,15 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
   - the Pattern-held frame under the ceiling (1,350);
   - ctest green.
 - **Unit:** SU1 (section 4.6). The integrator builds the image, runs `fw-gate-check` and writes the hw-session page.
+- **As built:**
+  - `knob.h` (pointer maths, Q15 sine table, no libm): 300 degrees, -150 at 0, 0 at 0.5, +150 at 1. The slot rule is `skin::slot_kind` in `frow.h`: blank, action (`norm` < 0), switch (`toggle`), else knob.
+  - The Shift row is built in `MainScreen::fill_shift_row` (labels from the existing key tables, hints from `kHomeKeyHints` / `kSetupKeyHints`, dim from `tool_dim`); there is no undo-depth hint. Its tabs are amber where the page's are red, and while Shift is held a red chip "SHIFT > PATTERN TOOLS, ALL UNDO" replaces the STEP box. This resolves SK2's missing Shift labels.
+  - `skin_home` snaps: 01 to 06 changed (the F row replaces the temporary strip; so does `help_skin` 02_home_again, HOME on the skin); new 06b (SETUP's Shift row), 07 (F3 held), 07b (LOCK 5), 07c (WAVE switch at SQR), 08, 09. Peak frame 1,109 words, 85 primitives on a line, 4,402 box px; the Pattern-held frame 1,023 words.
+  - `skin` console command: `on`, `off` (the same switch as Config's SKIN: Config shows it and the settings save it, so a unit session that types `skin on` ends with `skin off` to leave the unit as it found it), `ballast N` (N/2 one-pixel rects after the frame, clamped to 1,900), `stats` (frames, last words, draw µs by `hal::cycles()` / 180, peak over 1 s). `O3_303_SKIN_REPORT=1` makes the scenarios test print every skin snap's words, primitives and px.
+  - Edited SK2 files: `panel.{h,cpp}` (new layers, `kTexts` 64 to 96, `led`, `window`, `cut_to` moved from `header.cpp`, `draw_ballast`), `skin.{h,cpp}` (palette, stats, console), `tests/skin_core_test.cpp`; `tests/CMakeLists.txt` links the app archive before `platform_host` (`hal::cycles()`).
+  - Image: text +5,200 B, data 0, bss +672 B against SK2's baseline.
+  - SU1 adds: the readouts at arm's length (10x20, 8x16, 6x12), the pointer lines, the switch, the amber held rim, the Shift row's amber tabs and keys, `skin ballast N` and `skin stats` (it says "no bitmaps: classic drawn" when SKIN is on but the upload failed).
+  - **Open, to settle at SU1 and before SK8 makes the skin the default:** while Shift is held the F row is the Shift row, so Shift + turn (a coarse step) shows no value: the ENC window names the knob only. Classic keeps its strip up for that case. Candidates: the value in the STEP-box chip, or in the info line.
 
 ### SK4: PERFORM and PERFORM SETUP (M)
 

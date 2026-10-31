@@ -6,7 +6,7 @@
 // size, bitmap bind) changes once a layer and not once a shape, which is what keeps a frame under its display-list budget (section 4.3). flush_text() draws the texts after the
 // shapes, outside the section, through Renderer::text() in the frame's theme, one colour token at a time. No shape sits over text.
 //
-// The queue is a fixed array (in the SDRAM on the unit, see panel()) (kShapes of 18 bytes, kTexts of 12): a full queue drops what does not fit and counts it (dropped()), which the tests hold at
+// The queue is a fixed array (in the SDRAM on the unit, see panel()) (kShapes of 18 bytes, kTexts of 12: the header and the F row use about 120 shapes and 70 texts between them): a full queue drops what does not fit and counts it (dropped()), which the tests hold at
 // zero; nothing is allocated. Main loop only. The text pointers must stay valid until flush_text(): the caller's members or literals.
 
 #include "skin.h"
@@ -28,8 +28,17 @@ enum class Layer : std::uint8_t {
   GlassFace,   // the glass inside it
   Rule,        // silkscreen rules
   WindowLip,   // the lit edge under every display and window
+  HeldRim,     // an F key that is down: an amber rim a little larger than its readout window, under the window's face
   WindowFace,  // their recesses
+  Fill,        // the focused readout's red fill, over its face
+  Tab,         // the F-number's tab on a slot's label line
   Outline,     // a one pixel frame over a window (a message that says something did not happen)
+  Switch,      // the WAVE switch: track, lever and its light, in the order queued
+  ActKey,      // the action keys (sprites)
+  KnobScale,   // the knobs' ticks, then their skirts, then their caps, each part for every knob (one bitmap bind a layer)
+  KnobBody,
+  KnobCap,
+  Pointer,     // the knobs' pointers (lines)
   Glow,        // the halo of a lit LED (a point)
   Led,         // LED sprites
   Seg,         // 7-segment cells
@@ -42,7 +51,7 @@ inline constexpr unsigned kLayerCount = static_cast<unsigned>(Layer::kCount);
 class Panel {
  public:
   static constexpr unsigned kShapes = 256;
-  static constexpr unsigned kTexts = 64;
+  static constexpr unsigned kTexts = 96;
 
   // The queue empty again, the sheen's scissor the whole screen.
   void clear() noexcept;
@@ -102,9 +111,20 @@ class Panel {
   ui::Rect sheen_clip_{0, 0, ui::kScreenW, ui::kScreenH};
 };
 
+// At most `max` characters of `s` (null: none) into `out`, whose `cap` includes the NUL.
+void cut_to(char* out, unsigned cap, const char* s, unsigned max) noexcept;
+
+// Parts the header and the F row share. An LED at its centre (cx, cy): the sprite, tinted `colour` when it is lit and the socket's own red-black when it is not, and the glow
+// behind a lit one. A display or window: the lit lip under it and the recess a pixel higher (a shadow on top), corners of `radius_px`.
+void led(Panel& p, int cx, int cy, bool on, ui::Rgb colour) noexcept;
+void window(Panel& p, const ui::Rect& r, unsigned radius_px) noexcept;
+
 // The panel itself, for a screen whose glass runs from `glass_top` to `glass_bottom` (docs/SKIN-PLAN.md 2.1; HOME: 66 and 384): the base and the texture in the bands above and below
 // the glass, the sheen over the header, and the glass with its rim. The glass is the frame's CLEAR colour (skin::theme()'s Pane), so only its rim and the bands are queued.
 void queue_panel(Panel& p, int glass_top, int glass_bottom) noexcept;
+
+// The ballast of `skin ballast N` (skin.h): `words` words of one-pixel rects in a Canvas section of their own, to be called last in a frame's draw().
+void draw_ballast(ui::Renderer& r, std::uint32_t words) noexcept;
 
 // The one queue of the program, in the SDRAM (a few KB that a frame reuses). The skinned screens draw through it, one frame at a time.
 Panel& panel() noexcept;

@@ -314,7 +314,16 @@ TEST_CASE("panel: shapes are drawn layer by layer in the order of Layer, whateve
         case Layer::GlassRim:
         case Layer::GlassFace:
         case Layer::WindowLip:
-        case Layer::WindowFace: p.round_rect(static_cast<Layer>(l), ui::Rect{x, 20, 30, 20}, 48, rgb); break;
+        case Layer::HeldRim:
+        case Layer::WindowFace:
+        case Layer::Fill:
+        case Layer::Tab:
+        case Layer::Switch: p.round_rect(static_cast<Layer>(l), ui::Rect{x, 20, 30, 20}, 48, rgb); break;
+        case Layer::ActKey: p.sprite(Layer::ActKey, skin_assets::Id::ActKey, 0, x, 100, rgb); break;
+        case Layer::KnobScale: p.sprite(Layer::KnobScale, skin_assets::Id::Knob42Scale, 0, x, 100, rgb); break;
+        case Layer::KnobBody: p.sprite(Layer::KnobBody, skin_assets::Id::Knob42Body, 0, x, 100, rgb); break;
+        case Layer::KnobCap: p.sprite(Layer::KnobCap, skin_assets::Id::Knob42Cap, 0, x, 100, rgb); break;
+        case Layer::Pointer: p.line(Layer::Pointer, x * 16, 100, x * 16 + 160, 300, 18, rgb); break;
         case Layer::Glow:
         case Layer::SegDot: p.point(static_cast<Layer>(l), x * 16, 300, 64, rgb); break;
         case Layer::Led: p.sprite(Layer::Led, skin_assets::Id::Led, 0, x, 100, rgb); break;

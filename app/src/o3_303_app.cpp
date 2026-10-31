@@ -28,6 +28,7 @@
 #include "project_service.h"
 #include "record_screen.h"
 #include "rig.h"
+#include "skin/skin.h"
 #include "vault_screen.h"
 
 #include <o3_303/app_access.h>
@@ -78,10 +79,17 @@ class O3_303App final : public app::App {
     return kInfo;
   }
 
-  // The obsidian skin's bitmaps (docs/SKIN-PLAN.md): the runtime puts them in the app's RAM_G region at boot. Nothing draws them yet.
+  // The obsidian skin's bitmaps (docs/SKIN-PLAN.md): the runtime puts them in the app's RAM_G region at boot; the skin draws them (skin/skin.h).
   std::size_t assets(const app::AppAsset*& rows) const noexcept override {
     rows = o3_303::skin_assets::kRows;
     return o3_303::skin_assets::kCount;
+  }
+
+  // The console's extra commands (the platform binds them at attach): `skin` (docs/SKIN-PLAN.md 4.6).
+  std::size_t diag_commands(const app::DiagCommand*& rows) const noexcept override {
+    static constexpr app::DiagCommand kRows[] = {{"skin", o3_303::skin::kConsoleHelp, &o3_303::skin::console}};
+    rows = kRows;
+    return sizeof kRows / sizeof kRows[0];
   }
 
   void setup(app::Context& ctx) noexcept override {

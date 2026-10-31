@@ -24,19 +24,10 @@ constexpr int kMicroW = 6;  // the Micro face (Spleen 6x12): a character's advan
 constexpr int kTitleY = 3;
 constexpr int kRuleY = 9;
 constexpr int kRowY[3] = {27, 41, 55};
-constexpr int kLedHalf = 8;
 
 // The PERFORM slots' captions: the actions' chips, cut to the 28 px a slot has (kPerfActionChips has "THROW" and "FREEZE").
 constexpr const char* kSlotCaps[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV"};
 constexpr int kSlotCx[4] = {512, 540, 568, 596};
-
-void cut_to(char* out, unsigned cap, const char* s, unsigned max) noexcept {
-  unsigned n = 0;
-  for (; s != nullptr && s[n] != '\0' && n < max && n + 1u < cap; ++n) {
-    out[n] = s[n];
-  }
-  out[n] = '\0';
-}
 
 bool starts_with(const char* s, const char* prefix) noexcept {
   while (*prefix != '\0') {
@@ -76,19 +67,6 @@ void parse_take(const char* take, HeaderView& v, std::uint64_t now_ms) noexcept 
 }
 
 // ---- queueing helpers ---------------------------------------------------------------------------------------------------------
-
-void led(Panel& p, int cx, int cy, bool on, ui::Rgb colour) noexcept {
-  if (on) {
-    p.point(Layer::Glow, cx * 16, cy * 16, 12 * 16, colour, pal::kGlowAlpha);
-  }
-  p.sprite(Layer::Led, Id::Led, 0, cx - kLedHalf, cy - kLedHalf, on ? colour : pal::kLedOff);
-}
-
-// A display or window: the lit lip under it, then the recess a pixel higher (a shadow on top), as the spike drew them.
-void window(Panel& p, const Rect& r, unsigned radius_px) noexcept {
-  p.round_rect(Layer::WindowLip, Rect{r.x - 1, r.y, r.w + 2, r.h + 2}, (radius_px + 1u) * 16u, pal::kWindowLip, pal::kWindowLipAlpha);
-  p.round_rect(Layer::WindowFace, Rect{r.x, r.y - 1, r.w, r.h + 1}, radius_px * 16u, pal::kWindow);
-}
 
 // A 7-segment display: the window, the cells right aligned at a 22 px pitch, the point after cell `run.dot`.
 void seg_display(Panel& p, const Rect& win, const SegRun& run) noexcept {

@@ -12,6 +12,8 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -84,6 +86,9 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
       const std::size_t words = h.display().last_frame_words();
       const unsigned prims = h.raster().last_frame_peak_line_prims();
       const unsigned px = h.raster().last_frame_peak_line_px();
+      if (std::getenv("O3_303_SKIN_REPORT") != nullptr) {  // `O3_303_SKIN_REPORT=1 ctest -R scenarios -V` lists every skinned snap's cost
+        std::fprintf(stderr, "skin report: %s: %zu words, %u prims, %u px\n", name.c_str(), words, prims, px);
+      }
       CHECK_MESSAGE(words < kSkinMaxWords, name << ": " << words << " words");
       CHECK_MESSAGE(prims <= kSkinMaxLinePrims, name << ": " << prims << " primitives on a line");
       CHECK_MESSAGE(px <= kSkinMaxLinePx, name << ": " << px << " box px on a line");

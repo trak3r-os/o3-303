@@ -5,6 +5,7 @@
 #include "help_texts.h"
 #include "knob_strip.h"
 #include "step_view.h"
+#include "skin/frow.h"
 #include "skin/header.h"
 #include "skin/panel.h"
 #include "skin/skin.h"
@@ -14,6 +15,7 @@
 #include <o3sdk/core/param.h>
 #include <o3sdk/core/scales.h>
 #include <o3sdk/dsp/engine.h>
+#include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/plot/canvas.h>
 #include <o3_303/seq/ops.h>
 
@@ -47,6 +49,9 @@ constexpr int kSkinHeroH = 208;
 constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
 // PATTERN SETUP's: F5..F7 are free.
 constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "-", "-", "-", "UNDO"};
+// What each Shift key does, in a few words under it on the obsidian skin's F row (the classic strip has no room). "" none.
+constexpr const char* kHomeKeyHints[app::kFKeyCount] = {"new line", "25 %", "same notes", "same beat", "backwards", "empty line", "step fwd", "step back"};
+constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "", "", "", "step back"};
 constexpr unsigned kToolNew = 0;
 constexpr unsigned kToolVary = 1;
 constexpr unsigned kToolRhythm = 2;
@@ -426,7 +431,11 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   if (!setup_) {
     (void)home_.step_box(ctx, box, sizeof box);
   }
-  const int box_x = strip.x + strip.w - 8 - r.text_width(box, Face::Data);
+  // Under the skin Shift held says what the F row is, where the STEP box is: a red chip.
+  static constexpr const char* kBanner = "SHIFT > PATTERN TOOLS, ALL UNDO";
+  const bool banner = !setup_ && ctx.panel().shift() && skin::active(ctx);
+  const int banner_w = r.text_width(kBanner, Face::Label) + 16;
+  const int box_x = strip.x + strip.w - 8 - (banner ? banner_w : r.text_width(box, Face::Data));
   char next[16] = "";
   if (ph.playing && ph.queued >= 0) {
     char qn[4];
@@ -454,6 +463,12 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
 
   if (setup_) {  // PATTERN SETUP: the generator's settings (project-wide, D1) on a line of their own, where HOME has the STEP box
     draw_info_generator(ctx, r, Rect{area.x, area.y + kInfoH, area.w, kGenH});
+    return;
+  }
+  if (banner) {
+    const Rect chip{box_x, strip.y + 6, banner_w, 22};
+    r.panel(chip, Color::Rec);
+    r.text(chip.x + 8, ui::caps_y(theme, Face::Label, chip.y, chip.h), kBanner, Color::SelText, Face::Label);
     return;
   }
   // The STEP box, right aligned: "STEP 5: D#2 ACC SLD x2 CUTOFF 420Hz".
@@ -484,11 +499,10 @@ void MainScreen::draw_info_generator(app::Context& ctx, ui::Renderer& r, const R
   }
 }
 
-void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+// The F keys as the page shows them: the eight knobs, with the one the encoder owns, the keys that are down, and a p-lock being written.
+void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kKnobs], char (&lock_label)[16]) noexcept {
   const PageKeys& fk = fkeys();
   const Page& pg = fk.page();
-  view::Knob knobs[view::kKnobs];
-  char label[16];
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
     view::Knob& kn = knobs[k];
     frame::fill_knob(ctx, *controls_, k, pg.entry[k], kn);
@@ -500,15 +514,40 @@ void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];
       view::fmt_uint(static_cast<unsigned>(home_.lock_step() + 1), num);
-      cut("LOCK ", 5, label, sizeof label);
-      append(label, sizeof label, num);
-      kn.label = label;
+      cut("LOCK ", 5, lock_label, sizeof lock_label);
+      append(lock_label, sizeof lock_label, num);
+      kn.label = lock_label;
       cut(home_.lock_text(), sizeof kn.value - 1u, kn.value, sizeof kn.value);
       kn.unit = "";
       kn.norm = home_.lock_norm();
       kn.locked = true;
     }
   }
+}
+
+// The Shift row as eight action keys (the obsidian skin's F row while Shift is held): the labels soft_keys() gives, a hint under each, dim where the tool has nothing to do. A "-" is an empty box.
+void MainScreen::fill_shift_row(view::Knob (&knobs)[view::kKnobs]) const noexcept {
+  static constexpr const char* kFKeys[app::kFKeyCount] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
+  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    view::Knob& kn = knobs[k];
+    kn = view::Knob{};
+    kn.fkey = kFKeys[k];
+    const char* label = setup_ ? kSetupKeyLabels[k] : kHomeKeyLabels[k];
+    if (label[0] == '-') {
+      kn.blank = true;
+      continue;
+    }
+    kn.label = label;
+    cut(setup_ ? kSetupKeyHints[k] : kHomeKeyHints[k], sizeof kn.value - 1u, kn.value, sizeof kn.value);
+    kn.norm = -1.0f;  // an action key
+    kn.dim = tool_dim(k);
+  }
+}
+
+void MainScreen::draw_strip(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  view::Knob knobs[view::kKnobs];
+  char label[16];
+  fill_page_knobs(ctx, knobs, label);
   view::draw_knobs(r, area, knobs);
 }
 
@@ -661,6 +700,19 @@ void MainScreen::draw_skin_frame(app::Context& ctx, ui::Renderer& r) noexcept {
   skin::fill_header(view, status, in);
   skin::draw_header(panel, view);
 
+  // The F row: the page's knobs, or the Shift row as action keys while Shift is held. Both stay valid until the texts are flushed below.
+  view::Knob knobs[view::kKnobs];
+  char lock_label[16];
+  const bool shift = ctx.panel().shift();
+  if (shift) {
+    fill_shift_row(knobs);
+  } else {
+    fill_page_knobs(ctx, knobs, lock_label);
+  }
+  skin::FRowView frow;
+  skin::fill_frow(frow, knobs, shift);
+  skin::draw_frow(panel, frow);
+
   ui::plot::Canvas canvas(r);
   canvas.open();
   panel.flush_shapes(canvas);
@@ -718,7 +770,9 @@ void MainScreen::draw_body(app::Context& ctx, ui::Renderer& r, const Body& b) no
   char line[128];
   home_.pads_line(ctx, line, sizeof line);
   frame::draw_pads_line(r, b.pads, line);
-  draw_strip(ctx, r, b.strip);
+  if (!b.skinned) {
+    draw_strip(ctx, r, b.strip);  // the skin's F row was queued with its frame
+  }
 }
 
 // ---- The skin's switches: the kit asks the screen every frame ------------------------------------------------------------------
@@ -730,9 +784,11 @@ const ui::Theme* MainScreen::theme(const app::Context& ctx) const noexcept { ret
 void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   home_.clamp_cursor();
   Body b;
-  if (skin::active(ctx)) {
-    // The panel is the whole 800 x 480; the glass is y 66 to 384 and holds today's content from the info strip down (the status line is the header's); the knob strip stays today's
-    // until the F row (SK3), on the panel's lower band.
+  const bool skinned = skin::active(ctx);
+  const std::uint32_t t0 = skinned ? o3sdk::hal::cycles() : 0u;
+  if (skinned) {
+    // The panel is the whole 800 x 480; the glass is y 66 to 384 and holds today's content from the info strip down (the status line is the header's); the F row is on the panel's
+    // lower band, queued with the frame.
     draw_skin_frame(ctx, r);
     b.info = Rect{kGlassX, skin::kHeaderH + 3, kGlassW, kInfoH};
     b.x = kGlassX;
@@ -741,7 +797,7 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
     b.hero_h = kSkinHeroH;
     b.grid_bottom = kPadsY - 2;
     b.pads = Rect{kGlassX + 3, kPadsY, kGlassW - 6, frame::kPadsLineH};
-    b.strip = Rect{0, kGlassBottom + 16, ui::kScreenW, ui::kScreenH - kGlassBottom - 16};
+    b.strip = Rect{};
     b.skinned = true;
   } else {
     // From the top: the status line, the info strip, the step view, the motion lane, the PADS line, the knob strip.
@@ -762,6 +818,11 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
     b.skinned = false;
   }
   draw_body(ctx, r, b);
+  if (skinned) {
+    skin::draw_ballast(r, skin::ballast());  // `skin ballast N` (SU1): after everything, so the list is that much longer
+    constexpr std::uint32_t kCyclesPerUs = 180;  // the MK66's clock; the host's hal::cycles() is scaled to it
+    skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / kCyclesPerUs, ctx.uptime_ms());
+  }
 }
 
 }  // namespace o3_303

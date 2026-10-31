@@ -96,6 +96,9 @@ class MainScreen final : public o3sdk::app::Screen {
   struct Body;
   void draw_skin_frame(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
   void draw_body(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const Body& b) noexcept;
+  // The F row's eight knobs: the page's (`lock_label` holds the "LOCK 5" a p-lock names its knob with), or the Shift row as action keys.
+  void fill_page_knobs(o3sdk::app::Context& ctx, view::Knob (&knobs)[view::kKnobs], char (&lock_label)[16]) noexcept;
+  void fill_shift_row(view::Knob (&knobs)[view::kKnobs]) const noexcept;
   void draw_info(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_strip(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_info_generator(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& strip) noexcept;

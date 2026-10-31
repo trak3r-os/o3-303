@@ -7,6 +7,7 @@
 // The switch is Config page "303", key 7, SKIN (CLASSIC / OBSIDIAN; CLASSIC until SK8). Main loop only: the Config value writes it and the drawing reads it.
 
 #include <o3sdk/app/context.h>
+#include <o3sdk/app/diag.h>
 #include <o3sdk/ui/style.h>
 #include <o3sdk/ui/theme.h>
 
@@ -21,6 +22,30 @@ bool on() noexcept;
 // The skin is drawn: it is on, and its bitmaps are in RAM_G (Context::app_assets_ok(): false when the app has none, or the upload failed). Without them the whole app runs
 // classic: a skin drawn from bitmaps that are not there would be a screen of boxes.
 bool active(const o3sdk::app::Context& ctx) noexcept;
+
+// What a skinned frame cost, for the console's `skin stats` (docs/SKIN-PLAN.md 4.6, check 7): the display-list words the screen had emitted when it finished (the Renderer's own END
+// and swap come after), the CPU time of its draw() in microseconds, and the longest of those over the last full second. note_frame() is the screen's, once a frame; stats() the
+// console's. Main loop only.
+struct FrameStats {
+  std::uint32_t frames = 0;      // skinned frames drawn since start (or the last reset)
+  std::uint32_t last_words = 0;
+  std::uint32_t last_us = 0;
+  std::uint32_t peak_us = 0;     // the largest draw time in the second that just ended or is running
+};
+void note_frame(std::uint32_t words, std::uint32_t draw_us, std::uint64_t now_ms) noexcept;
+FrameStats stats() noexcept;
+void reset_stats() noexcept;  // the counters and the peak back to zero (a test's; the console has no use for it)
+
+// The console's `skin ballast N`: N words of one-pixel rects at (0, 479), drawn after the frame's content, so a unit can find the longest display list that scans out clean (SU1, check
+// 2). 0 is off. Clamped to kBallastMax. Main loop only.
+inline constexpr std::uint32_t kBallastMax = 1900;
+void set_ballast(std::uint32_t words) noexcept;
+std::uint32_t ballast() noexcept;
+
+// The console's `skin` command (App::diag_commands, docs/SKIN-PLAN.md 4.6): `skin on`, `skin off` (the same switch as the Config page's SKIN: Config shows it, and it is saved with the settings like any Config change), `skin ballast N`, `skin stats`
+// (also with no word): the state, the skinned frames drawn, the last frame's words and draw time, the peak draw time of the last second, the ballast. A reply is one line.
+void console(const o3sdk::app::DiagArgs& args, o3sdk::app::DiagOut& out) noexcept;
+inline constexpr const char* kConsoleHelp = "skin: on | off | ballast N | stats - the obsidian skin";
 
 // The theme of a skinned frame: dark glass for the Pane, the panel's material for the Chrome (the info strip is drawn on it), and the text colours of the whole skin, which are
 // its 17 tokens (docs/SKIN-PLAN.md section 7): ChromeDim is the silkscreen, Instr / Vol / Fx / Accent the colour buttons (LOCK cyan, NOTE teal, PLAYS purple, GATE amber),
@@ -46,6 +71,15 @@ inline constexpr ui::Rgb kLedRed{255, 50, 34};
 inline constexpr ui::Rgb kLedGreen{90, 232, 80};
 inline constexpr ui::Rgb kLedAmber{255, 176, 32};
 inline constexpr std::uint8_t kGlowAlpha = 50;     // a lit LED's glow, a POINT behind it
+// The F row (docs/SKIN-PLAN.md 2.3), from the spike's obsidian set.
+inline constexpr ui::Rgb kScale{190, 66, 54};      // a knob's ticks
+inline constexpr ui::Rgb kSkirt{16, 16, 18};       // its skirt, near black so that the shadow merged into the bitmap reads as a shadow
+inline constexpr ui::Rgb kCap{150, 150, 160};      // its cap
+inline constexpr ui::Rgb kPointer{255, 74, 50};
+inline constexpr ui::Rgb kFocusFill{186, 30, 22};  // the readout of the knob the encoder drives
+inline constexpr ui::Rgb kLever{170, 170, 178};    // the switch's lever
+inline constexpr ui::Rgb kKey{64, 58, 60};         // an action key
+inline constexpr ui::Rgb kKeyDim{32, 29, 31};      // an action key with nothing to do now
 }  // namespace pal
 
 }  // namespace o3_303::skin
