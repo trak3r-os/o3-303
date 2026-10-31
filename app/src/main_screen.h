@@ -45,6 +45,8 @@ class MainScreen final : public o3sdk::app::Screen {
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
+  // HELP (Shift + Config, help_texts.h): HOME's texts or PATTERN SETUP's, the Shift row's labels, and the home map's pads.
+  void help(const o3sdk::app::Context& ctx, o3sdk::app::Help& h) const noexcept override;
 
   // PATTERN SETUP (UX-303 5.2) is the second page of this screen: a tap of Pattern flips it and HOME.
   bool setup() const noexcept { return setup_; }

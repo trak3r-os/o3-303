@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "record_screen.h"
 
+#include "help_texts.h"
 #include "master_screen.h"
 #include "step_view.h"
 
@@ -912,6 +913,12 @@ void RecordScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
 }
 
 void RecordScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_->leds(ctx, leds); }
+
+void RecordScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(help_texts::Id::Record));
+  home_->help_pads(h);
+}
 
 // ---- The view -----------------------------------------------------------------------------------------------------------------
 

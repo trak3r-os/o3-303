@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "hooks_screen.h"
 
+#include "help_texts.h"
 #include "knob_strip.h"
 #include "step_view.h"
 
@@ -25,6 +26,11 @@ constexpr int kGap = 8;
 constexpr int kCellGap = 4;
 
 }  // namespace
+
+void HooksScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(help_texts::Id::Hooks));
+}
 
 void HooksScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   (void)ctx;

@@ -2,6 +2,7 @@
 #include "vault_screen.h"
 
 #include "frame.h"
+#include "help_texts.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -65,6 +66,9 @@ void add_field(char* line, unsigned cap, const char* label, unsigned value) noex
   append(line, cap, " ");
   append_uint(line, cap, value);
 }
+
+// The Shift row's second key, by what a load takes (soft_keys() and help()).
+constexpr const char* kLoadKeys[3] = {"LOAD BOTH", "LOAD LINE", "LOAD SOUND"};
 
 }  // namespace
 
@@ -232,7 +236,6 @@ void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
 void VaultScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
   if (ctx.panel().shift()) {  // the Shift row: NEW SEED and LOAD what, the rest empty
     out.label[0] = "NEW SEED";
-    static constexpr const char* kLoadKeys[3] = {"LOAD BOTH", "LOAD LINE", "LOAD SOUND"};
     out.label[1] = kLoadKeys[static_cast<unsigned>(what_)];
     return;
   }
@@ -242,6 +245,13 @@ void VaultScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
     out.label[i] = kKeyNames[i];
   }
   out.hot = static_cast<std::uint8_t>(1u << bank_);
+}
+
+void VaultScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(help_texts::Id::Library));
+  help_texts::fill_library_pads(h);
+  h.fkey_shift[1] = kLoadKeys[static_cast<unsigned>(what_)];  // as the Shift row shows it
 }
 
 void VaultScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {

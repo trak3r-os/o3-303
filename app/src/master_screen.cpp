@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "master_screen.h"
 
+#include "help_texts.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -486,6 +487,13 @@ void MasterScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
 }
 
 void MasterScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_->leds(ctx, leds); }
+
+// HELP: MASTER's texts (the Shift row is empty) and the home map's pads.
+void MasterScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(help_texts::Id::Master));
+  home_->help_pads(h);
+}
 
 // ---- The view -----------------------------------------------------------------------------------------------------------------
 

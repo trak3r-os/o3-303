@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "instrument_screen.h"
 
+#include "help_texts.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -556,6 +557,19 @@ void InstrumentScreen::learn_drop(app::Context& ctx) noexcept {
 }
 
 void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_->leds(ctx, leds); }
+
+// HELP: the page's texts, LEARN on the keys of the Shift row that soft_keys() labels so (learn_target(): the unit's own parameters), and the home map's pads.
+void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(page_ == kInstFx ? help_texts::Id::Fx : (page_ == kInstMods ? help_texts::Id::Mods : help_texts::Id::Voice)));
+  const Page& pg = keys().page();
+  for (unsigned k = 0; k < kKeys; ++k) {
+    dsp::UnitId unit = dsp::kNoUnit;
+    std::uint16_t param = 0;
+    h.fkey_shift[k] = learn_target(rig_->wiring, pg.entry[k], unit, param) ? "LEARN" : nullptr;
+  }
+  home_->help_pads(h);
+}
 
 // ---- The view -----------------------------------------------------------------------------------------------------------------
 

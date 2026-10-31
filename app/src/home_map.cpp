@@ -1319,4 +1319,19 @@ void HomeMap::pads_line(app::Context& ctx, char* out, unsigned cap) const noexce
   pads_line_text(s, out, cap);
 }
 
+void HomeMap::help_pads(app::Help& h) const noexcept {
+  help_texts::HomePads s;
+  s.octave = octave_;
+  s.view_page = static_cast<unsigned>(view_page_ < 0 ? 0 : view_page_);
+  s.length = length();
+  s.filt = filt_;
+  for (unsigned i = 0; i < help_texts::kHomeKeys; ++i) {
+    const int note = key_note(24u + i, octave_);
+    if (note >= 0 && scale_locked_out(note)) {
+      s.out_of_scale |= 1u << i;
+    }
+  }
+  help_texts::fill_home_pads(h, s, help_names_);
+}
+
 }  // namespace o3_303

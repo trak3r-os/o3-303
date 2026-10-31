@@ -132,6 +132,8 @@ class RecordScreen final : public o3sdk::app::Screen {
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
+  // HELP (Shift + Config, help_texts.h): RECORD's texts (the Shift row is empty) and the home map's pads.
+  void help(const o3sdk::app::Context& ctx, o3sdk::app::Help& h) const noexcept override;
 
   // The settings and the take, for the tests and the console.
   bool master_source() const noexcept { return master_; }

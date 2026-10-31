@@ -20,6 +20,8 @@ class HooksScreen final : public o3sdk::app::Screen {
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
   // Dark pads: leds() leaves the cleared set as it is.
   void leds(o3sdk::app::Context&, o3sdk::app::PadLeds&) noexcept override {}
+  // HELP (Shift + Config, help_texts.h): what the screen is, and the global buttons; no pads.
+  void help(const o3sdk::app::Context& ctx, o3sdk::app::Help& h) const noexcept override;
 
  private:
   Rig* rig_ = nullptr;

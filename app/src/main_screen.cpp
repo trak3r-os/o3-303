@@ -2,6 +2,7 @@
 #include "main_screen.h"
 
 #include "frame.h"
+#include "help_texts.h"
 #include "knob_strip.h"
 #include "step_view.h"
 
@@ -346,6 +347,17 @@ bool MainScreen::tool_dim(unsigned k) const noexcept {
 }
 
 void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_.leds(ctx, leds); }
+
+// HELP: the texts of the page shown, the Shift row's labels (the very ones soft_keys() gives while Shift is held; "-" is an empty key and says nothing), and the home map's pads.
+void MainScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(setup_ ? help_texts::Id::Setup : help_texts::Id::Home));
+  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    const char* label = setup_ ? kSetupKeyLabels[k] : kHomeKeyLabels[k];
+    h.fkey_shift[k] = label[0] == '-' ? nullptr : label;
+  }
+  home_.help_pads(h);
+}
 
 // ---- Drawing ----------------------------------------------------------------------------------------------------------------
 

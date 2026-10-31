@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "perform_screen.h"
 
+#include "help_texts.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -412,6 +413,26 @@ void PerformScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
   }
   if (!rig_->bank->can_undo()) {
     out.dim = static_cast<std::uint8_t>(out.dim | (1u << 7));
+  }
+}
+
+void PerformScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  help_texts::fill(h, help_texts::text(setup_ ? help_texts::Id::PerformSetup : help_texts::Id::Perform));
+  if (!setup_) {  // the Shift row of PERFORM: REDO on F7 and UNDO on F8 (soft_keys())
+    h.fkey_shift[6] = "REDO";
+    h.fkey_shift[7] = "UNDO";
+  }
+  help_texts::fill_perform_pads(h);
+  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {  // the keys outside the scale the keyboard is locked to do nothing (key_press()) and are dark (leds())
+    if (perform_pad(pad).role != PerformRole::Key) {
+      continue;
+    }
+    const int note = key_note(pad, home_->octave());
+    if (note < 0 || home_->scale_locked_out(note)) {
+      h.pad_group[pad] = 0;
+      h.pad_label[pad] = nullptr;
+    }
   }
 }
 

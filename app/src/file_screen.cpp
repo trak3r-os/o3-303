@@ -2,6 +2,7 @@
 #include "file_screen.h"
 
 #include "frame.h"
+#include "help_texts.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/pad_leds.h>
@@ -458,6 +459,19 @@ void FileScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
   }
   out.dim = v.dim;
   out.hot = v.hot;
+}
+
+void FileScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
+  (void)ctx;
+  if (names_.active()) {  // SAVE AS or NEW: the keyboard has the 48 pads and the keys
+    help_texts::fill(h, help_texts::text(help_texts::Id::FileNaming));
+    help_texts::fill_keyboard_pads(h);
+    return;
+  }
+  help_texts::fill(h, help_texts::text(help_texts::Id::File));
+  const unsigned n = svc_->projects();  // the pads of the rows that show a project (the first pads: leds())
+  const unsigned shown = list_.first() < n ? n - list_.first() : 0u;
+  help_texts::fill_list_pads(h, shown < list_.rows() ? shown : list_.rows());
 }
 
 void FileScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {

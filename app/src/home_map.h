@@ -19,6 +19,7 @@
 // step_view.h). Main loop only.
 
 #include "frame.h"
+#include "help_texts.h"
 #include "live_actions.h"
 #include "rig.h"
 #include "step_view.h"
@@ -99,6 +100,9 @@ class HomeMap {
   void status(frame::StatusView& out) const noexcept;
   // The PADS line.
   void pads_line(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
+  // The 48 pads for HELP (help_texts.h fill_home_pads): the step page shown, the pattern's length, the octave, FILT and the scale lock decide the labels and which pads are dark. The note names
+  // the labels point into are this object's (help_names_), valid while HELP is open (the screen is asked once, when it opens).
+  void help_pads(o3sdk::app::Help& h) const noexcept;
 
   // ---- State the screens share
   int cursor() const noexcept { return cursor_; }
@@ -225,6 +229,9 @@ class HomeMap {
   int lock_step_ = 0;
   float lock_norm_ = 0.0f;
   char lock_text_[16] = {};
+
+  // HELP's note names of the keys (help_pads()): written when HELP opens, read while it is open; both on the main loop.
+  mutable help_texts::KeyNames help_names_ = {};
 };
 
 }  // namespace o3_303
