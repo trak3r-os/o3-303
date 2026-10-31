@@ -46,8 +46,13 @@ int action_chips_width(ui::Renderer& r, std::uint16_t actions, int room) noexcep
 // The line, in `line` (kStatusH high).
 void draw_status(ui::Renderer& r, const ui::Rect& line, const StatusView& view) noexcept;
 
-// One sentence for the four rows of pads, in `line` (kPadsLineH high), the strip's tab line.
+// One sentence for the four rows of pads, in `line` (kPadsLineH high), the strip's tab line. With the legend off (Config 303, PAD LEGEND, UX-303 5.12) the
+// strip keeps its place and its rule and says nothing.
 void draw_pads_line(ui::Renderer& r, const ui::Rect& line, const char* text) noexcept;
+
+// PAD LEGEND (Config 303, key 4): the PADS line's text is drawn or not, on every screen. On at start; the app sets it from the Config value. Main loop only (the drawing's).
+void set_pad_legend(bool on) noexcept;
+bool pad_legend() noexcept;
 
 // The knob of `entry` as the page shows it: its name, value and unit, the value as the fill. `k` is the F key, 0..7.
 void fill_knob(o3sdk::app::Context& ctx, Controls& controls, unsigned k, const Entry& entry, view::Knob& out) noexcept;

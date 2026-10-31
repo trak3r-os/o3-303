@@ -443,7 +443,7 @@ void HomeMap::key_release(app::Context& ctx, unsigned pad) noexcept {
 }
 
 // FILT on: row 3 is Cutoff, row 4 Reso: 12 places on the knob, the first pad its minimum and the last its maximum. A tap jumps there through a
-// 30 ms slew (so a jump does not click and a p-lock or a motion point on the step wins over it). Rec while the pattern plays writes the jump
+// slew (LADDER SLEW, 30 ms by default: so a jump does not click and a p-lock or a motion point on the step wins over it). Rec while the pattern plays writes the jump
 // under the playhead like a turn.
 void HomeMap::ladder_press(app::Context& ctx, unsigned pad) noexcept {
   const unsigned row = app::pad_row(pad);
@@ -454,7 +454,7 @@ void HomeMap::ladder_press(app::Context& ctx, unsigned pad) noexcept {
     return;
   }
   const float value = core::param_denorm(*d, ladder_norm(col));
-  (void)rig_->seq->slew(kLaneVoice, id, value, kLadderSlewMs);
+  (void)rig_->seq->slew(kLaneVoice, id, value, live_->ladder_slew_ms());
   if (recording_motion()) {
     const seq::Playhead ph = rig_->seq->playhead();
     const unsigned pp = ph.playing && ph.pattern >= 0 ? static_cast<unsigned>(ph.pattern) : sel();

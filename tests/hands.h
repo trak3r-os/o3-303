@@ -10,6 +10,7 @@
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/platform/host/fake_midi.h>
 #include <o3sdk/sim/harness.h>
+#include <o3_303/config_keys.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/pages.h>
 #include <o3_303/pattern.h>
@@ -102,7 +103,12 @@ struct Hands {
   unsigned selected() const { return bank().selected(); }
   const o3_303::Pattern& pat() const { return bank().pattern(bank().selected()); }
 
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS, DEEP) on page `page` (o3_303::kInstVoice ...), from any screen but
+  // The app's Config pages (UX-303 5.12) as the kit calls them: the value of `key` (o3_303::config::k...) and a change of it.
+  float config_get(std::uint16_t key) { return o3sdk_app().config_get(h->runtime().context(), key); }
+  void config_set(std::uint16_t key, float value) { o3sdk_app().config_set(h->runtime().context(), key, value); }
+  void config_run(std::uint16_t key) { o3sdk_app().config_run(h->runtime().context(), key); }
+
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS) on page `page` (o3_303::kInstVoice ...), from any screen but
   // INSTRUMENT itself. to_home() leaves it.
   void to_instrument(unsigned page = o3_303::kInstVoice) {
     tap(Button::Params);

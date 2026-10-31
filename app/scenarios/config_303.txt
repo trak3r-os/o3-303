@@ -1,0 +1,79 @@
+# The app's pages of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT) and "DEEP" (FMT MIX,
+# CMB TUNE, CMB FB, WOB RESET, DLY MODE), kept in the kit's settings file and back after a reboot.
+#
+#   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/config_303.txt --card <card> --out <dir>
+#
+# The Config button opens the screen on its first tab; Left wraps round to the last, DEEP, and one more is 303. UP / DOWN choose a row; the encoder and F1 change a value (F1 steps and
+# goes round at the top); an action asks and takes F1 again. Run with a card (a fresh directory) 11_303_kept shows the values changed here and the PADS line gone, after the
+# reboot (the kit writes the settings 1.5 s after the last change); without a card (the scenarios test runs it so) the same commands run and the picture shows the defaults again.
+# KEYS AT BOOT = TRANSPOSE shows as the TRNSP chip at the boot, and not before (it is about the boot). RESET PROJECT is the sound, the tempo and the patterns of a new
+# project, UNDO-able for the patterns.
+wait 300
+snap 00_home
+# A jam to reset later: the cutoff moved, a step of A01 changed.
+tap f1
+turn -12
+pad 3
+wait 100
+tap config
+wait 50
+tap left
+tap left
+snap 01_303_defaults
+turn 1
+tap down
+tap f1
+tap down
+turn 7
+tap down
+tap f1
+wait 50
+snap 02_303_changed
+tap down
+tap f1
+snap 03_reset_asks
+tap down
+snap 04_reset_taken_back
+tap f1
+tap f1
+wait 200
+snap 05_reset_done
+tap right
+snap 06_deep_defaults
+turn -30
+tap down
+turn 5
+tap down
+turn -4
+tap down
+tap f1
+tap down
+tap f1
+wait 50
+snap 07_deep_changed
+tap config
+wait 3200
+snap 08_home_after_reset
+# The settings reach the card 1.5 s after the last change; a reboot gives them back.
+wait 2000
+reboot
+wait 1500
+snap 09_home_after_reboot
+tap config
+tap left
+snap 10_deep_kept
+tap left
+snap 11_303_kept
+tap config
+wait 100
+# PAD LEGEND is on again: the PADS line has its text.
+tap config
+wait 100
+snap 12a_config_reopened
+tap down
+tap down
+tap down
+tap f1
+tap config
+wait 100
+snap 12_legend_back

@@ -50,6 +50,7 @@ void LiveActions::init(Rig& rig) noexcept {
     seen_[b] = rig.wiring.perf[b];
   }
   trnsp_ = false;
+  ladder_slew_ms_ = kLadderSlewMs;
   live_trn_ = 0;
   was_playing_ = false;
   seed_ = 0x303u;

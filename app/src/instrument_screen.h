@@ -6,13 +6,14 @@
 //   VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
 //   MODS    VOWEL FMT Q GRL MIX CMB MIX (the growl), WOB RATE SHAPE DEPTH TARGET (the wobble)
-//   DEEP    until Config DEEP (C1): FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE, which no other page has
+// (FMT MIX, CMB TUNE, CMB FB, WOB RESET and DLY MODE, which no page has, are Config's page DEEP: config_pages.h.)
 //
 // The eight knobs of the page are drawn large, the sections of the other pages as read-outs, and under them the two lines of the drawer (NOTE and
 // GATE) of the pattern's page of 16 steps. The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons (Note, Instr, Vol, Fx: the drawer rows NOTE, GATE,
 // PLAYS and LOCK on the encoder; their captions here are NOTE and GATE, the ENC text names the other two) are the home map's (home_map.h), the very one HOME has (one
-// cursor, one keyboard, one Rec): this screen forwards them and draws what it reads. The Shift row is empty until C1
-// (MIDI learn).
+// cursor, one keyboard, one Rec): this screen forwards them and draws what it reads. The Shift row is MIDI learn (UX-303 5.5, D15): Shift + an F key arms the next
+// control change for that knob (`Context::midi().learn(unit, param)`; the kit's strip confirms LEARNED CC n), again on the same key cancels; a knob that is not a unit
+// parameter (VOLUME, DLY SEND, MODEL, the WOB knobs) shows "-" and cannot be armed. Leaving the screen or the page cancels an arm of this screen's.
 //
 // The view logic is apart from the drawing: InstrumentScreen::fill_view() makes an InstrumentView from the state with the free functions below (fill_cells(),
 // fill_sections(), apply_lock(): pure, host-tested), and draw() draws it, so the skin replaces the drawing and not the logic. Main loop only.
@@ -30,8 +31,8 @@
 
 namespace o3_303 {
 
-inline constexpr unsigned kInstrumentPageCount = 4;
-enum InstrumentPage : unsigned { kInstVoice = 0, kInstFx = 1, kInstMods = 2, kInstDeep = 3 };
+inline constexpr unsigned kInstrumentPageCount = 3;
+enum InstrumentPage : unsigned { kInstVoice = 0, kInstFx = 1, kInstMods = 2 };
 
 // A read-out section: a title and up to four "NAME value" lines.
 struct InstrumentSection {
@@ -67,6 +68,9 @@ void fill_sections(const o3sdk::dsp::Engine& e, const Controls& controls, bool w
 // The knob `kn` as the lock of the held step `step` (0-based): "LOCK 5", the lock's text and position, in Accent. The label is kept in `view`.
 void apply_lock(InstrumentView& view, view::Knob& kn, int step, const char* text, float norm) noexcept;
 
+// The unit parameter an entry is, for MIDI learn: false for the entries that are app values (VOLUME, DLY SEND, MODEL, the wobble, the tempo ...) and the blank.
+bool learn_target(const Wiring& wiring, const Entry& entry, o3sdk::dsp::UnitId& unit, std::uint16_t& param) noexcept;
+
 class InstrumentScreen final : public o3sdk::app::Screen {
  public:
   // `home`: the home map HOME has.
@@ -94,6 +98,8 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void button_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void turn_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void release_keys() noexcept;
+  void learn_key(o3sdk::app::Context& ctx, unsigned k) noexcept;
+  void learn_drop(o3sdk::app::Context& ctx) noexcept;
   PageKeys& keys() noexcept { return page_ == kInstVoice ? rig_->sound_keys : own_[page_ - 1u]; }
   const PageKeys& keys() const noexcept { return page_ == kInstVoice ? rig_->sound_keys : own_[page_ - 1u]; }
 
@@ -105,8 +111,11 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   Controls* controls_ = nullptr;
   LiveActions* live_ = nullptr;
   HomeMap* home_ = nullptr;
-  PageKeys own_[kInstrumentPageCount - 1u];  // FX, MODS and DEEP each keep their own latch (VOICE has sound_keys)
+  PageKeys own_[kInstrumentPageCount - 1u];  // FX and MODS each keep their own latch (VOICE has sound_keys)
   unsigned page_ = kInstVoice;
+  bool learn_armed_ = false;   // this screen armed MIDI learn (the kit's armed state may have ended since: a controller bound it)
+  unsigned learn_page_ = 0;    // ... on this page's key
+  unsigned learn_key_ = 0;
   std::uint32_t tool_mask_ = 0;  // F keys pressed with Shift (their release is not the keys')
 };
 

@@ -7,16 +7,17 @@
 //
 //   PLAY          play / stop at the press (Shift: restart from step 1)
 //   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
-//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS DEEP); the pads are the home map's, HOME's own
+//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS); the pads are the home map's, HOME's own
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master or the input to Samples/; Shift + REC arms and stops a take from every screen
 //   SAMPLE LOAD / PLAY / EDIT   HOOKS, the placeholder until M4 (hooks_screen.h)
-//   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO); the app never sees the key
+//   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO) and the app's two pages, 303 and DEEP (config_pages.h); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
+#include "config_pages.h"
 #include "file_screen.h"
 #include "hooks_screen.h"
 #include "instrument_screen.h"
@@ -131,6 +132,7 @@ class O3_303App final : public app::App {
     rig_.bank->clear_history();  // the boot load is no edit of the user's: the first UNDO must not empty A01
 
     live_.init(rig_);
+    config_.init(rig_, live_, project_);  // the values it holds start at their defaults; the kit's settings read (after setup) then set them
     main_.init(rig_);
     perform_.init(rig_, main_);
     instrument_.init(rig_, main_.home_map());  // the home map HOME has: one cursor, one keyboard, one Rec
@@ -234,7 +236,15 @@ class O3_303App final : public app::App {
     return false;
   }
 
+  // The app's pages of the system Config (UX-303 5.12): the kit asks and sets them in the main loop (config_pages.h).
+  unsigned config_pages() const noexcept override { return config_.pages(); }
+  bool config_page(unsigned index, app::ConfigPage& out) const noexcept override { return config_.page(index, out); }
+  float config_get(const app::Context& ctx, std::uint16_t key) const noexcept override { return config_.get(ctx, key); }
+  void config_set(app::Context& ctx, std::uint16_t key, float value) noexcept override { config_.set(ctx, key, value); }
+  void config_run(app::Context& ctx, std::uint16_t key) noexcept override { config_.run(ctx, key); }
+
   void update(app::Context& ctx) noexcept override {
+    config_.boot_over();  // the kit's boot read of the settings came before the first pass
     sequencer_.update();
     master_.service(ctx);  // a tempo restore that the command ring refused
     live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
@@ -289,6 +299,7 @@ class O3_303App final : public app::App {
   o3_303::VaultScreen vault_;
   o3_303::FileScreen file_;
   o3_303::ProjectService project_;
+  o3_303::ConfigPages config_;
   bool saving_ = false;                // a SAVE was on at the last pass
   bool save_asked_ = false;            // Shift + File was pressed and its answer (the toast) is still due
   std::uint32_t notice_at_press_ = 0;  // Rig::project.notice_seq at that press

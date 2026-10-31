@@ -57,7 +57,7 @@ TEST_CASE("pages: tap an F key to latch it, hold one and turn for a moment, two 
   CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(1.0f));
 }
 
-TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS, DEEP); the pages reach the whole engine") {
+TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS); the pages reach the whole engine") {
   Hands t;
   const float drive0 = t.param(kDist, Distortion::Drive);
   t.to_instrument(kInstFx);
@@ -84,20 +84,14 @@ TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX, MODS,
   t.turn(1);
   CHECK(t.pat().length != 0);
 
-  t.tap(Button::Params);  // DEEP (until Config DEEP): the growl's and the wobble's settings that have no knob on MODS
-  CHECK(std::strcmp(t.title(), "INSTRUMENT DEEP") == 0);
-  const float fmt0 = t.param(kGrowl, Growl::FormantMix);
-  t.tap(Button::F1);
-  t.turn(-10);  // (it is at 100 % by default)
-  CHECK(t.param(kGrowl, Growl::FormantMix) < fmt0);
   t.tap(Button::Params);  // wraps to VOICE; its latch is the SOUND page's (F1, CUTOFF), not the pages' that were walked
   CHECK(std::strcmp(t.title(), "INSTRUMENT VOICE") == 0);
   const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
   t.turn(3);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff0);
   t.to_home();
-  t.to_instrument(kInstDeep);  // Params from another screen always opens VOICE; DEEP is three more
-  CHECK(std::strcmp(t.title(), "INSTRUMENT DEEP") == 0);
+  t.to_instrument(kInstMods);  // Params from another screen always opens VOICE; MODS is two more
+  CHECK(std::strcmp(t.title(), "INSTRUMENT MODS") == 0);
 }
 
 TEST_CASE("hold a step + the encoder p-locks the focused parameter on that step, on the lane that drives it") {

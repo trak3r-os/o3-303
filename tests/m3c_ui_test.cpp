@@ -122,9 +122,8 @@ TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (a latched w
   seq::Sequencer& s = app_sequencer();
   t.assign_perf(Button::Fx, PerfAction::Wobble, true);
   t.shift_tap(Button::Fx);  // latched on PERFORM: the colour buttons are the drawer's rows on INSTRUMENT, a hold cannot cross the change
-  t.to_instrument(o3_303::kInstDeep);
-  t.tap(Button::F4);    // WOB RESET off
-  t.turn(-1);
+  t.to_instrument(o3_303::kInstMods);
+  t.config_set(o3_303::config::kWobReset, 0.0f);  // WOB RESET off, from Config DEEP (UX-303 5.12)
   t.wait(10);
   CHECK(s.wobble().on);
   CHECK_FALSE(s.wobble().reset_on_note);

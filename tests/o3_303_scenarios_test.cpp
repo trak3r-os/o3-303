@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include <o3sdk/app/app.h>
+#include <o3sdk/platform/host/fake_midi.h>
 #include <o3sdk/sim/harness.h>
 #include <o3sdk/sim/scenario.h>
 
@@ -51,7 +52,7 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -71,10 +72,15 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
   const fs::path out = fs::temp_directory_path() / ("o3_303_scenarios_test_" + std::to_string(static_cast<long>(getpid())));
   for (const fs::path& file : files) {
     INFO(file.filename().string());
-    auto h = std::make_unique<sim::Harness>(o3sdk_app());
-    REQUIRE(h->start());
     const std::string text = slurp(file);
     REQUIRE_FALSE(text.empty());
+    // A scenario with a `midi` or `clock` line gets a MIDI device, as <app>_sim makes one (sim/README.md).
+    std::unique_ptr<platform::host::FakeMidi> midi;
+    if (text.rfind("midi ", 0) == 0 || text.find("\nmidi ") != std::string::npos || text.find("\nclock ") != std::string::npos) {
+      midi = std::make_unique<platform::host::FakeMidi>();
+    }
+    auto h = std::make_unique<sim::Harness>(o3sdk_app(), nullptr, midi.get());
+    REQUIRE(h->start());
     const fs::path sub = out / file.stem();
     fs::remove_all(sub);
     fs::create_directories(sub);

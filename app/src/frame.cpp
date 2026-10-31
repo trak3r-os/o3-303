@@ -208,9 +208,19 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   }
 }
 
+namespace {
+bool g_pad_legend = true;  // PAD LEGEND: main loop only, written by the Config value and read by the drawing
+}  // namespace
+
+void set_pad_legend(bool on) noexcept { g_pad_legend = on; }
+bool pad_legend() noexcept { return g_pad_legend; }
+
 void draw_pads_line(ui::Renderer& r, const Rect& line, const char* text) noexcept {
   r.panel(line, Color::Pane);
   r.rule(line.x, line.y, line.w, ui::Axis::Horizontal, Color::Empty);
+  if (!g_pad_legend) {
+    return;
+  }
   r.text(line.x + 6, line.y + 2, "PADS", Color::Text, Face::Micro);
   r.text(line.x + 42, line.y + 2, text, Color::TextDim, Face::Micro);
 }

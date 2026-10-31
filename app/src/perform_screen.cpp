@@ -275,7 +275,7 @@ void PerformScreen::variation(app::Context& ctx, PerformRole role) noexcept {
 }
 
 // Row 3: twelve places on the latched sound knob (its normalised position, so a log cutoff is a log ladder): the first pad is the minimum and the
-// last the maximum. A tap jumps there through a 30 ms slew (so a jump does not click and a p-lock or a motion point on the step wins over it); a
+// last the maximum. A tap jumps there through a slew (LADDER SLEW, 30 ms by default: so a jump does not click and a p-lock or a motion point on the step wins over it); a
 // switch (the wave) is set at once. With REC while the pattern plays the jump is written under the playhead like a turn.
 void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
   const Entry& entry = rig_->sound_keys.focused();
@@ -290,7 +290,7 @@ void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
   if (!lane || d->unit == core::ParamUnit::Enum) {
     controls_->set(e, entry, value);
   } else {
-    (void)rig_->seq->slew(ref.target, ref.id, controls_->to_lane(entry, value), kLadderSlewMs);
+    (void)rig_->seq->slew(ref.target, ref.id, controls_->to_lane(entry, value), live_->ladder_slew_ms());
   }
   if (lane && home_->recording_motion()) {
     const seq::Playhead ph = rig_->seq->playhead();

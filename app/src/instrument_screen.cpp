@@ -39,7 +39,7 @@ constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entr
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 
-// FX, MODS and DEEP: the table index is the page's number minus one (VOICE has none).
+// FX and MODS: the table index is the page's number minus one (VOICE has none). FMT MIX, CMB TUNE, CMB FB, WOB RESET and DLY MODE are Config's page DEEP.
 constexpr Page kPages[kInstrumentPageCount - 1u] = {
     {"FX",
      {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"),
@@ -48,10 +48,6 @@ constexpr Page kPages[kInstrumentPageCount - 1u] = {
     {"MODS",
      {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX"),
       wobble(kWobbleRate, "WOB RATE"), wobble(kWobbleShape, "WOB SHAPE"), wobble(kWobbleDepth, "WOB DEPTH"), wobble(kWobbleTarget, "WOB TGT")}},
-    // Temporary: the settings Config DEEP takes in C1 (UX-303 5.12), so that the old GROWL, WOBBLE and Delay settings stay reachable until then.
-    {"DEEP",
-     {growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB"), wobble(kWobbleReset, "WOB RESET"),
-      delay(units::Delay::Mode, "DLY MODE"), Entry{}, Entry{}, Entry{}}},
 };
 
 // ---- The read-out sections ---------------------------------------------------------------------------------------------------------------------
@@ -85,7 +81,6 @@ constexpr unsigned kShown[kInstrumentPageCount] = {
     kSecDist | kSecDelay | kSecMods,  // VOICE
     kSecVoice | kSecMods,             // FX
     kSecVoice | kSecDist | kSecDelay, // MODS
-    kSecDist | kSecDelay | kSecMods,  // DEEP
 };
 
 // The drawing's geometry (the area is the screen's, under the kit's header): the page's knobs large, the read-outs, the drawer's two lines.
@@ -96,7 +91,7 @@ constexpr int kSecH = 100;
 constexpr int kDrawerY = kSecY + kSecH + 8;
 constexpr int kCellRowH = 24;
 
-constexpr const char* kTitles[kInstrumentPageCount] = {"INSTRUMENT VOICE", "INSTRUMENT FX", "INSTRUMENT MODS", "INSTRUMENT DEEP"};
+constexpr const char* kTitles[kInstrumentPageCount] = {"INSTRUMENT VOICE", "INSTRUMENT FX", "INSTRUMENT MODS"};
 
 void cut(const char* s, unsigned max, char* out, unsigned cap) noexcept {
   unsigned n = 0;
@@ -348,6 +343,30 @@ void apply_lock(InstrumentView& view, view::Knob& kn, int step, const char* text
   kn.locked = true;
 }
 
+bool learn_target(const Wiring& wiring, const Entry& entry, dsp::UnitId& unit, std::uint16_t& param) noexcept {
+  switch (entry.item) {
+    case Item::Voice:
+      unit = wiring.voice;
+      break;
+    case Item::Dist:
+      unit = wiring.dist;
+      break;
+    case Item::Delay:
+      unit = wiring.delay;
+      break;
+    case Item::Growl:
+      unit = wiring.growl;
+      break;
+    case Item::Freeze:
+      unit = wiring.freeze;
+      break;
+    default:
+      return false;  // VOLUME, DLY SEND, MODEL, the wobble ...: app values, not a unit's parameter [D15]
+  }
+  param = entry.id;
+  return unit != dsp::kNoUnit;
+}
+
 // ---- Setup and screen hooks ------------------------------------------------------------------------------------------------------------------
 
 void InstrumentScreen::init(Rig& rig, HomeMap& home) noexcept {
@@ -362,6 +381,9 @@ void InstrumentScreen::init(Rig& rig, HomeMap& home) noexcept {
   }
   page_ = kInstVoice;
   tool_mask_ = 0;
+  learn_armed_ = false;
+  learn_page_ = 0;
+  learn_key_ = 0;
 }
 
 void InstrumentScreen::release_keys() noexcept {
@@ -391,6 +413,7 @@ void InstrumentScreen::enter(app::Context& ctx) noexcept {
 }
 
 void InstrumentScreen::leave(app::Context& ctx) noexcept {
+  learn_drop(ctx);
   home_->leave(ctx);
   release_keys();
   live_->snap_finish(ctx, true);
@@ -400,7 +423,9 @@ void InstrumentScreen::leave(app::Context& ctx) noexcept {
 
 // (The app's update() runs the home map's, as it does for every screen but HOME: the pattern followed, the toast, the lock readout.)
 void InstrumentScreen::update(app::Context& ctx) noexcept {
-  (void)ctx;
+  if (learn_armed_ && (!ctx.midi().learning() || learn_page_ != page_)) {
+    learn_drop(ctx);  // a controller bound it (the kit said so), or the page changed under it
+  }
   home_->knob_latched(keys().focused());  // the lane the drawer shows follows the knob the encoder owns
 }
 
@@ -439,8 +464,9 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {
-      if (in.shift) {  // the Shift row is empty until C1 (MIDI learn): the key does nothing, and its release is not the page's
+      if (in.shift) {  // the Shift row is MIDI learn: the key arms its knob, and its release is not the page's
         tool_mask_ |= 1u << k;
+        learn_key(ctx, k);
         ctx.redraw();
         return;
       }
@@ -462,10 +488,71 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
 
 // ---- Soft keys and LEDs -----------------------------------------------------------------------------------------------------
 
-// The Shift row stays empty until C1: no labels (the knob row carries the names).
+// The Shift row (UX-303 5.5, D15): LEARN for each knob that is a unit parameter (lit while this key's learn is waiting for its controller), "-" for the others; nothing
+// while Shift is up (the knob row carries the names).
 void InstrumentScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
-  (void)ctx;
-  (void)out;
+  if (!ctx.panel().shift()) {
+    return;
+  }
+  const Page& pg = keys().page();
+  for (unsigned k = 0; k < kKeys; ++k) {
+    dsp::UnitId unit = dsp::kNoUnit;
+    std::uint16_t param = 0;
+    if (!learn_target(rig_->wiring, pg.entry[k], unit, param)) {
+      out.label[k] = "-";
+      out.dim = static_cast<std::uint8_t>(out.dim | (1u << k));
+      continue;
+    }
+    out.label[k] = "LEARN";
+    if (learn_armed_ && learn_page_ == page_ && learn_key_ == k && ctx.midi().learning()) {
+      out.hot = static_cast<std::uint8_t>(out.hot | (1u << k));
+    }
+  }
+}
+
+// Shift + F`k`: arms MIDI learn for the knob (the next control change binds to it; again on the same key cancels). A knob that is not a unit parameter says so.
+void InstrumentScreen::learn_key(app::Context& ctx, unsigned k) noexcept {
+  const Entry& entry = keys().page().entry[k];
+  if (entry.item == Item::Blank) {
+    return;
+  }
+  char text[40];
+  text[0] = '\0';
+  dsp::UnitId unit = dsp::kNoUnit;
+  std::uint16_t param = 0;
+  const char* label = controls_->label(ctx.engine(), entry);
+  if (!learn_target(rig_->wiring, entry, unit, param)) {
+    append(text, sizeof text, "CANNOT LEARN ");
+    append(text, sizeof text, label);
+    home_->toast(ctx, text, true);
+    return;
+  }
+  if (learn_armed_ && learn_page_ == page_ && learn_key_ == k && ctx.midi().learning()) {
+    learn_drop(ctx);
+    home_->toast(ctx, "LEARN OFF");
+    return;
+  }
+  if (!ctx.midi().learn(unit, param)) {
+    append(text, sizeof text, "CANNOT LEARN ");
+    append(text, sizeof text, label);
+    home_->toast(ctx, text, true);
+    return;
+  }
+  learn_armed_ = true;
+  learn_page_ = page_;
+  learn_key_ = k;
+  append(text, sizeof text, "LEARN ");
+  append(text, sizeof text, label);
+  append(text, sizeof text, ": MOVE A KNOB");
+  home_->toast(ctx, text);
+}
+
+// This screen's arm ends (left, page changed, cancelled): the kit's learn is cancelled if it still waits.
+void InstrumentScreen::learn_drop(app::Context& ctx) noexcept {
+  if (learn_armed_ && ctx.midi().learning()) {
+    ctx.midi().learn_cancel();
+  }
+  learn_armed_ = false;
 }
 
 void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_->leds(ctx, leds); }

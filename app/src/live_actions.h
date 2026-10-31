@@ -73,6 +73,11 @@ class LiveActions {
   // The morph's blend is stored in the engine: once its slews are over, or now.
   void snap_finish(o3sdk::app::Context& ctx, bool at_once) noexcept;
 
+  // LADDER SLEW (Config 303, UX-303 5.12): the glide of a ladder tap on HOME's and PERFORM's pads, in milliseconds (10..100, 30 by default: kLadderSlewMs). Set by the app from the
+  // Config value; the screens read it at each tap. Main loop only.
+  float ladder_slew_ms() const noexcept { return ladder_slew_ms_; }
+  void set_ladder_slew_ms(float ms) noexcept { ladder_slew_ms_ = ms; }
+
   // A seed that differs from press to press and from boot to boot (NEW, VARY, the RANDOM popup).
   std::uint32_t next_seed(o3sdk::app::Context& ctx) noexcept;
 
@@ -94,6 +99,7 @@ class LiveActions {
   FreezeOwner freeze_owner_;  // which of FREEZE, ROLL, STOP and REV has the beat freeze now (M3c R)
   std::uint8_t seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
   bool trnsp_ = false;
+  float ladder_slew_ms_ = kLadderSlewMs;
   int live_trn_ = 0;
   bool was_playing_ = false;
   std::uint32_t seed_ = 0x303u;

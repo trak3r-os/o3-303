@@ -656,15 +656,15 @@ bool find_entry(const ProjectState& s, std::uint8_t target, std::uint16_t id, fl
   return found;
 }
 
-bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s) noexcept {
-  if (s.pats != nullptr && s.pats_generation != g_generation) {
+bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexcept {
+  if (patterns && s.pats != nullptr && s.pats_generation != g_generation) {
     return false;  // an encode() since decode(): the buffer holds another image
   }
   Wiring& w = rig.wiring;
   (void)e.stop();
 
   // The patterns: the project's, else the fresh pattern; no history entry, and the undo of the old project goes.
-  if (rig.bank != nullptr) {
+  if (patterns && rig.bank != nullptr) {
     alignas(4) Pattern p;
     for (unsigned i = 0; i < kPatternCount; ++i) {
       if (s.pats != nullptr && i < s.pats_n) {

@@ -174,6 +174,7 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
 // parameter for is skipped. Each parameter is written once, with its final value (no block plays a default in between). Does not touch the live
 // actions, the keyboard, the cursor or the undo of anything but the bank. The caller makes sure the sequencer is not playing (the stop here is only
 // asked for: F2 waits for !playing before it applies). false, and nothing touched: `s.pats` was invalidated by an encode() since decode().
-bool apply(Rig& rig, o3sdk::dsp::Engine& e, const ProjectState& s) noexcept;
+// `patterns` false (C1's RESET PROJECT, which edits the patterns itself, undoably): the bank, its selection and its history are left alone and `s.pats` is not read.
+bool apply(Rig& rig, o3sdk::dsp::Engine& e, const ProjectState& s, bool patterns = true) noexcept;
 
 }  // namespace o3_303::project

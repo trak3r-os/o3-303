@@ -341,7 +341,7 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   s.tap(Button::Play);
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 4000));
   const std::uint32_t frames = s.rec().frames();
-  // 125 BPM: 84,672 frames. The transport's grid is a Q32.32 position, so the sixteenths fall on whole samples and a bar is that, or one more: the take is the frames between two of them.
+  // 125 BPM: 84,672 frames. The transport's grid is a Q32.32 position, so the sixteenths fall on whole samples, one late after position 0: a take from Play's first sample is a bar and one frame (the 1, 2, 4 and 8 bars test below pins it).
   const std::uint32_t bar = bar_frames(s.ctx().engine().tempo());
   CHECK(bar == static_cast<std::uint64_t>(hal::audio::sample_rate_mhz()) * 240u / 125'000u);
   CHECK(frames >= bar);
@@ -397,6 +397,45 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   REQUIRE(s.until([&] { return !s.record().saving() && s.rec().state() == State::Idle; }, 4000));
   CHECK(s.takes().size() == 2u);
   CHECK(fs::exists(s.samples() / "take_002.wav"));
+}
+
+// A take of n bars at a tempo whose sixteenths are whole samples (125 BPM: 5,292; 150 BPM: 4,410). The recorder ends it at the n x 16th Step event and the take is the frames between two
+// steps. The transport reaches a whole tick at the first frame whose position is AT OR PAST it, and its increment per sample is the Q32.32 value rounded DOWN
+// (kit/dsp/src/transport.cpp, ticks_per_sample_q32): a grid that is exactly whole samples falls one sample late at every step after position 0. So a take that begins at Play's first
+// sample (tick 0, frame 0) is n bars + 1 (U5 rows 24 and 33, on the unit and here), and one that begins at a later bar line (late by the same sample) is exactly n bars. The cure is in the
+// kit (round the increment up); then the first CHECK becomes `frames == bars * bar`. Until then this test pins both.
+TEST_CASE("a take of 1, 2, 4 and 8 bars: n bars + 1 from Play's first sample, exactly n bars from a later bar line, at two tempos with whole-sample sixteenths") {
+  for (const std::uint32_t mbpm : {125'000u, 150'000u}) {
+    for (const unsigned bars : {1u, 2u, 4u, 8u}) {
+      const std::uint32_t bar = bar_frames(mbpm);
+      REQUIRE(bar % 16u == 0u);  // whole-sample sixteenths
+      INFO("tempo " << mbpm << " bars " << bars);
+      {  // armed on a stopped transport: the take begins at Play's frame 0
+        Session s;
+        REQUIRE(s.h->engine().set_tempo(mbpm));
+        s.open_record();
+        s.choose_bars(bars);
+        s.tap(Button::F1);
+        REQUIRE(s.rec().state() == State::Waiting);
+        s.tap(Button::Play);
+        REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, bars * 2200u));
+        CHECK(s.rec().frames() == bars * bar + 1u);  // the kit's sample: see above
+        CHECK(s.rec().overrun() == 0u);
+      }
+      {  // armed while the line plays: the take begins at a later bar line
+        Session s;
+        REQUIRE(s.h->engine().set_tempo(mbpm));
+        s.open_record();
+        s.choose_bars(bars);
+        s.tap(Button::Play);
+        s.tap(Button::F1);
+        REQUIRE(s.rec().state() == State::Waiting);
+        REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, (bars + 1u) * 2200u));
+        CHECK(s.rec().frames() == bars * bar);
+        CHECK(s.rec().overrun() == 0u);
+      }
+    }
+  }
 }
 
 TEST_CASE("a take armed while the line plays starts at the next bar, not before") {

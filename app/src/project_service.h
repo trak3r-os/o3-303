@@ -112,6 +112,15 @@ class ProjectService {
   bool new_project(const char* name) noexcept;
   bool revert() noexcept;
   bool remove(const char* name) noexcept;
+  // RESET PROJECT (Config 303, key 5; UX-303 5.12): the session becomes a new project's in place, the name and the card file kept: the default sound, the tempo, the
+  // generator and the assignments, empty snapshots, the factory line in A01 and the other patterns fresh. The patterns go as undoable edits (UNDO walks them back,
+  // newest first, up to the history's depth, 32); the rest is not undoable. Never refused (the kit's config_run() cannot say so and shows DONE): it waits for the service to
+  // have no encode, load or request going on, stops the transport (asked each pass for up to 500 ms) and then resets; the autosave writes the change as it writes any edit.
+  // true: asked. false: none is possible (no session) or one is already waiting. Main loop only.
+  bool reset_session(o3sdk::app::Context& ctx) noexcept;
+  // The kit puts the settings it kept over the session once, before the first update() (the Config 303 and DEEP values): the boot load's "has the player edited?" baseline
+  // takes them in, so that only the player's own edits keep a project off [D18: the project then overrides the kit's copy of the DEEP values, as it does any sound]. No effect later.
+  void settings_moved(const o3sdk::dsp::Engine& e) noexcept;
   // The list: while a screen wants it (FILE is up) the service keeps the card's project folders read, one listing whenever it is stale. `projects()` and
   // `project(i)` are only meaningful while list_valid(); list_version() moves with every new list. Folders hidden by DELETE and the kit's own are not in it.
   void want_list(bool on) noexcept { list_wanted_ = on; }
@@ -167,6 +176,8 @@ class ProjectService {
   bool edited(const o3sdk::dsp::Engine& e) noexcept;
   void rebaseline(const o3sdk::dsp::Engine& e, std::uint64_t now_ms) noexcept;
   void observe(o3sdk::app::Context& ctx) noexcept;
+  // RESET PROJECT
+  void reset_step(o3sdk::app::Context& ctx) noexcept;
   // saves
   void idle_update(o3sdk::app::Context& ctx) noexcept;
   void start_save(o3sdk::app::Context& ctx) noexcept;
@@ -212,6 +223,8 @@ class ProjectService {
   bool last_dirty_ = false;  // last.txt does not say name_ yet
   bool home_ = false;        // name_ is a project on the card that autosave writes
   bool save_req_ = false;
+  bool reset_pending_ = false;            // RESET PROJECT asked: it runs when no encode or request is going on and the transport has stopped
+  std::uint64_t reset_deadline_ms_ = 0;   // ... the stop gives up here (0: not asked yet)
   bool auto_name_ = false;   // the name was picked by pick_name() (a SAVE with no project), so a refused name can go on to the next
   unsigned cand_ = 0;        // its number: 1 UNTITLED, 2 UNTITLED 2, ...
   unsigned list_n_ = 0;      // entries of big_->list in use

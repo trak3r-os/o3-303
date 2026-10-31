@@ -127,13 +127,13 @@ TEST_CASE("a lock on DRIVE is scaled with the distortion's descriptor on its cla
 
 TEST_CASE("a key no lane can drive is not locked: hold a step + the encoder moves the knob, and writes no motion") {
   Hands t;
-  t.to_instrument(kInstDeep);
-  t.tap(Button::F4);  // WOB RESET: a setting of the wobble, no lane's
-  CHECK(app_sequencer().wobble().reset_on_note);
+  t.to_instrument(kInstFx);
+  t.tap(Button::F4);  // MODEL: the distortion's Active and Type as one key, no lane's
+  const float type0 = t.param(kDist, Distortion::Type);
   t.down(step_pad_of(3));
-  t.turn(-5);
+  t.turn(2);
   t.up(step_pad_of(3));
-  CHECK_FALSE(app_sequencer().wobble().reset_on_note);
+  CHECK(t.param(kDist, Distortion::Type) != type0);
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
     CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));
   }

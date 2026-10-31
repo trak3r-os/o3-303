@@ -1,10 +1,11 @@
 # INSTRUMENT (docs/UX-303.md 5.5): Params opens it on VOICE (the sound knobs: F2 latches RESO, hold + turn is for a moment, two held move together),
 # Params again goes to FX (DRIVE TONE MIX MODEL, then the delay: TIME FB SEND TONE), MODS (VOWEL FMT Q GRL MIX CMB MIX, then the wobble: RATE SHAPE DEPTH TARGET),
-# and DEEP (until Config DEEP: FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE), and back to VOICE (the MORE page went with P2: TEMPO and MASTER are MASTER's,
-# LENGTH, GATE and TRANSP are SETUP's, FILL is PERFORM SETUP's, RATCHET and COND are the PLAYS row). The knobs of the page are large; the sections of the other pages are read-outs; under them the two lines of
-# the drawer (NOTE and GATE) of the page of 16 steps, with the cursor and the playhead; the pads are HOME's (hold a step + turn locks the latched knob on it).
-# The Shift row is empty (MIDI learn comes with C1). Choices made here: VOICE is the SOUND latch HOME and PERFORM share; FX, MODS and DEEP each keep their
-# own latch; the pad LEDs and the PADS line are HOME's.
+# and back to VOICE (the MORE page went with P2: TEMPO and MASTER are MASTER's, LENGTH, GATE and TRANSP are SETUP's, FILL is PERFORM SETUP's, RATCHET and COND are the
+# PLAYS row; the DEEP page went with C1: FMT MIX, CMB TUNE, CMB FB, WOB RESET and DLY MODE are Config's page DEEP, config_303.txt). The knobs of the page are large; the sections of
+# the other pages are read-outs; under them the two lines of the drawer (NOTE and GATE) of the page of 16 steps, with the cursor and the playhead; the pads are HOME's (hold a
+# step + turn locks the latched knob on it). The Shift row is MIDI learn (C1): LEARN on each knob that is a unit parameter, "-" on the others (VOLUME, DLY SEND, MODEL, the
+# WOB knobs); Shift + F arms the knob, the next control change binds it and the kit's strip says LEARNED CC n. The `midi` lines give the simulator a MIDI device. Choices made
+# here: VOICE is the SOUND latch HOME and PERFORM share; FX and MODS each keep their own latch; the pad LEDs and the PADS line are HOME's.
 wait 300
 tap params
 snap 01_voice
@@ -54,8 +55,7 @@ tap f8
 turn 1
 snap 11_mods_edited
 tap params
-snap 12_deep
-tap params
+snap 12_voice_again
 # Back on VOICE (its latch is the SOUND one): hold step 6 and turn the latched knob: its lock on that step, on the drawer's lane.
 tap f4
 paddown 5
@@ -70,10 +70,26 @@ tap rec
 snap 14_playing_and_rec
 tap rec
 tap play
-# Params from another screen opens VOICE again; Shift shows no row.
+# Params from another screen opens VOICE again; Shift shows the learn row: LEARN on seven knobs, "-" on VOLUME.
 tap pattern
 tap params
 press shift
 wait 800
-snap 15_shift_row_is_empty
+snap 15_shift_row_is_learn
+# Shift + F1 arms CUTOFF (the status line says so, the key is lit); a control change (controller 74) binds it and the kit's strip confirms.
+tap f1
+wait 100
+snap 16_learn_armed
+midi usb b0 4a 40
+wait 200
+snap 17_learned
+release shift
+# FX: MODEL and DLY SEND are app values, not unit parameters: "-" and they cannot be armed.
+tap params
+press shift
+wait 800
+snap 18_fx_shift_row
+tap f4
+wait 100
+snap 19_model_cannot_learn
 release shift

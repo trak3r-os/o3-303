@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // INSTRUMENT (docs/UX-303.md 5.5, slice I1): the Params button (opens VOICE from any screen but the vault, again cycles the pages), the latches (VOICE shares
 // the SOUND latch with PERFORM, the other pages keep their own), the keys of every page reaching their parameter, the home map's pads, Rec, colour buttons
-// and locks forwarded to the one HomeMap HOME has, the empty Shift row, and the display list. The pure view logic is the screen's own; the scenario is
+// and locks forwarded to the one HomeMap HOME has, the Shift row (MIDI learn, C1), and the display list. The pure view logic is the screen's own; the scenario is
 // instrument.txt. The view logic (read-outs, drawer cells, the lock label) is tested on its own functions.
 #include <doctest/doctest.h>
 
@@ -23,6 +23,7 @@
 #include "../app/src/main_screen.h"
 
 #include <cstring>
+#include <string>
 
 using namespace hands;
 using namespace o3_303;
@@ -45,7 +46,7 @@ bool key_moves(Hands& t, unsigned k, dsp::UnitId unit, unsigned id) {
 
 }  // namespace
 
-TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX MODS DEEP and wraps") {
+TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX MODS and wraps") {
   Hands t;
   CHECK_FALSE(on_instrument(t));
   t.tap(Button::Params);
@@ -55,9 +56,7 @@ TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOI
   t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT MODS"));
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT DEEP"));
-  t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT VOICE"));  // the temporary DEEP page is Config's now (C1)
   t.shift_tap(Button::Params);  // Shift changes nothing
   CHECK(is_title(t, "INSTRUMENT FX"));
   // From another screen it always opens VOICE (D21), whatever page was left.
@@ -116,15 +115,14 @@ TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX and MODS each keep thei
   const float vowel0 = t.param(kGrowl, Growl::Vowel);
   t.turn(5);
   CHECK(t.param(kGrowl, Growl::Vowel) != vowel0);
-  t.tap(Button::Params);
-  t.tap(Button::Params);  // VOICE (through DEEP)
+  t.tap(Button::Params);  // VOICE
   t.tap(Button::Params);  // FX again: DLY FB is still the latched key
   const float fb0 = t.param(kDelay, units::Delay::Feedback);
   t.turn(-5);
   CHECK(t.param(kDelay, units::Delay::Feedback) != fb0);
 }
 
-TEST_CASE("every key of FX, MODS and DEEP reaches its parameter") {
+TEST_CASE("every key of FX and MODS reaches its parameter") {
   Hands t;
   t.to_instrument(kInstFx);
   CHECK(key_moves(t, 0, kDist, Distortion::Drive));
@@ -144,12 +142,6 @@ TEST_CASE("every key of FX, MODS and DEEP reaches its parameter") {
   CHECK(key_moves(t, 1, kGrowl, Growl::FormantQ));
   CHECK(key_moves(t, 2, kGrowl, Growl::Mix));
   CHECK(key_moves(t, 3, kGrowl, Growl::CombMix));
-
-  t.tap(Button::Params);  // DEEP
-  CHECK(key_moves(t, 0, kGrowl, Growl::FormantMix));
-  CHECK(key_moves(t, 1, kGrowl, Growl::CombTune));
-  CHECK(key_moves(t, 2, kGrowl, Growl::CombFeedback));
-  CHECK(key_moves(t, 4, kDelay, units::Delay::Mode));
 }
 
 TEST_CASE("every label of the pages' knobs fits the knob strip's nine characters (U3: WOB TARGET showed as WOB TARGE)") {
@@ -199,15 +191,13 @@ TEST_CASE("a held step + a turn locks the latched knob of the page on that step,
   t.up(step_pad_of(3));
   CHECK(t.pat().lanes[0].target == kLaneDist);  // the first lane with no motion
   CHECK(seq::lane_has_motion(t.pat(), 0));
-  // A key no lane can drive moves the knob and writes no motion (DEEP's WOB RESET).
-  t.to_home();
-  t.to_instrument(kInstDeep);
-  CHECK(app_sequencer().wobble().reset_on_note);
+  // A key no lane can drive moves the knob and writes no motion (FX's MODEL).
   t.tap(Button::F4);
+  const float type0 = t.param(kDist, Distortion::Type);
   t.down(step_pad_of(5));
-  t.turn(-5);
+  t.turn(2);
   t.up(step_pad_of(5));
-  CHECK_FALSE(app_sequencer().wobble().reset_on_note);
+  CHECK(t.param(kDist, Distortion::Type) != type0);
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 1));
 }
 
@@ -236,18 +226,119 @@ TEST_CASE("the colour buttons are the drawer's rows here, not live actions: noth
   CHECK(home.row() == DrawerRow::None);
 }
 
-TEST_CASE("the Shift row is empty: Shift + F does nothing, and its release is not the page's") {
-  Hands t;
-  t.to_instrument(kInstFx);
+TEST_CASE("the Shift row is MIDI learn: Shift + F arms the knob of a unit parameter, again cancels, the next controller binds it") {
+  platform::host::FakeMidi midi;
+  Hands t(midi);
+  app::Context& ctx = t.h->runtime().context();
+  t.to_instrument(kInstVoice);
   const Pattern before = t.pat();
-  t.tap(Button::F1);  // DRIVE
-  const float drive0 = t.param(kDist, Distortion::Drive);
-  t.shift_tap(Button::F6);  // would be CLEAR on the 303 screen
-  t.shift_tap(Button::F8);  // ... and UNDO
+  const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
+  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F1);  // CUTOFF
+  CHECK(ctx.midi().learning());
+  t.shift_tap(Button::F1);  // again: cancelled
+  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F1);
+  CHECK(ctx.midi().learning());
+  midi.in(platform::host::FakeMidi::Port::Usb, 0xB0, 74, 0x7F);
+  t.wait(30);
+  CHECK_FALSE(ctx.midi().learning());  // bound: the kit's strip says LEARNED CC 74
+  CHECK(ctx.midi().bindings() == 1u);
+  CHECK(ctx.midi().learned_cc() == 74);
+  midi.in(platform::host::FakeMidi::Port::Usb, 0xB0, 74, 0);  // the knob is swept: it picks the value up on the way
+  t.wait(30);
+  midi.in(platform::host::FakeMidi::Port::Usb, 0xB0, 74, 0x7F);
+  t.wait(30);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) > cutoff0);
+  // Shift never does what the page's key does: the latch stayed, the pattern is as it was.
   CHECK(t.pat().steps[0].note == before.steps[0].note);
   CHECK(t.pat().steps[0].flags == before.steps[0].flags);
-  t.turn(-5);  // the latch is still DRIVE, not F6 or F8
-  CHECK(t.param(kDist, Distortion::Drive) != drive0);
+  t.tap(Button::F2);
+  const float reso0 = t.param(kVoice, AcidVoice::Reso);
+  t.turn(5);
+  CHECK(t.param(kVoice, AcidVoice::Reso) != reso0);
+}
+
+TEST_CASE("MIDI learn arms only unit parameters: VOLUME, DLY SEND, MODEL and the WOB knobs show '-' and cannot be armed; a page change or leaving cancels") {
+  platform::host::FakeMidi midi;
+  Hands t(midi);
+  app::Context& ctx = t.h->runtime().context();
+  const auto row = [&](unsigned k) {
+    InstrumentScreen& screen = *static_cast<InstrumentScreen*>(ctx.screen());
+    app::SoftKeys keys;
+    screen.soft_keys(ctx, keys);
+    return std::string(keys.label[k] != nullptr ? keys.label[k] : "");
+  };
+  // Without Shift the row is empty.
+  t.to_instrument(kInstVoice);
+  CHECK(row(0).empty());
+  t.press(Button::Shift);
+  for (unsigned k = 0; k < 7; ++k) {
+    CHECK(row(k) == "LEARN");
+  }
+  CHECK(row(7) == "-");  // VOLUME is the level, an app value
+  t.release(Button::Shift);
+  t.shift_tap(Button::F8);
+  CHECK_FALSE(ctx.midi().learning());
+
+  t.tap(Button::Params);  // FX: DRIVE TONE MIX | MODEL | DLY TIME DLY FB | DLY SEND | DLY TONE
+  t.press(Button::Shift);
+  const char* fx[8] = {"LEARN", "LEARN", "LEARN", "-", "LEARN", "LEARN", "-", "LEARN"};
+  for (unsigned k = 0; k < 8; ++k) {
+    INFO("FX F" << (k + 1));
+    CHECK(row(k) == fx[k]);
+  }
+  t.release(Button::Shift);
+  t.shift_tap(Button::F4);
+  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F7);
+  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F5);  // DLY TIME: armed ...
+  CHECK(ctx.midi().learning());
+  t.tap(Button::Params);    // ... and the page change drops it
+  t.wait(5);
+  CHECK_FALSE(ctx.midi().learning());
+
+  CHECK(is_title(t, "INSTRUMENT MODS"));
+  t.press(Button::Shift);
+  const char* mods[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "-", "-", "-", "-"};
+  for (unsigned k = 0; k < 8; ++k) {
+    INFO("MODS F" << (k + 1));
+    CHECK(row(k) == mods[k]);
+  }
+  t.release(Button::Shift);
+  for (unsigned k = 4; k < 8; ++k) {
+    t.shift_tap(app::fkey(k));
+    CHECK_FALSE(ctx.midi().learning());
+  }
+  t.shift_tap(Button::F1);  // VOWEL: armed, and leaving the screen drops it
+  CHECK(ctx.midi().learning());
+  t.to_home();
+  CHECK_FALSE(ctx.midi().learning());
+  CHECK(ctx.midi().bindings() == 0u);
+}
+
+TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the app's values") {
+  Wiring w;
+  w.voice = 0;
+  w.dist = 1;
+  w.delay = 2;
+  w.freeze = 3;
+  w.growl = 4;
+  dsp::UnitId unit = dsp::kNoUnit;
+  std::uint16_t param = 99;
+  CHECK(learn_target(w, Entry{Item::Voice, AcidVoice::Reso, nullptr}, unit, param));
+  CHECK(unit == 0);
+  CHECK(param == AcidVoice::Reso);
+  CHECK(learn_target(w, Entry{Item::Dist, Distortion::Tone, nullptr}, unit, param));
+  CHECK(unit == 1);
+  CHECK(learn_target(w, Entry{Item::Delay, units::Delay::Tone, nullptr}, unit, param));
+  CHECK(unit == 2);
+  CHECK(learn_target(w, Entry{Item::Growl, Growl::Vowel, nullptr}, unit, param));
+  CHECK(unit == 4);
+  for (const Item item : {Item::Blank, Item::Level, Item::SendA, Item::DistMode, Item::Wobble, Item::Tempo, Item::Master, Item::Perf, Item::FillVariant}) {
+    CHECK_FALSE(learn_target(w, Entry{item, 0, nullptr}, unit, param));
+  }
 }
 
 TEST_CASE("every page of INSTRUMENT fits the display list, stopped, playing and with Shift held") {
@@ -446,8 +537,6 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[1].title, "DISTORTION") == 0);
   CHECK(std::strcmp(v.section[2].title, "DELAY") == 0);
 
-  fill_sections(e, c, false, kInstDeep, v);
-  CHECK(v.sections == 3);
   fill_sections(e, c, false, kInstrumentPageCount, v);  // a page that does not exist: no sections
   CHECK(v.sections == 0);
 }

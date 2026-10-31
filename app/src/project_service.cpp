@@ -106,6 +106,8 @@ void ProjectService::init(Rig& rig, const o3sdk::dsp::Engine& e) noexcept {
   last_dirty_ = false;
   home_ = false;
   save_req_ = false;
+  reset_pending_ = false;
+  reset_deadline_ms_ = 0;
   explicit_ = false;
   renamed_ = false;
   auto_name_ = false;
@@ -192,6 +194,9 @@ void ProjectService::update(Context& ctx) noexcept {
     }
   }
 
+  if (reset_pending_ && op_ == Op::None) {
+    reset_step(ctx);  // before idle_update(): an autosave that is due does not start an encode over the reset's turn
+  }
   if (op_ == Op::None) {
     switch (phase_) {
       case Phase::BootLast:
@@ -206,6 +211,68 @@ void ProjectService::update(Context& ctx) noexcept {
     }
   }
   publish();
+}
+
+// ---- RESET PROJECT --------------------------------------------------------------------------------------------------------------------------------
+
+constexpr std::uint64_t kResetStopMs = 500;  // how long RESET PROJECT asks the command ring to stop the transport
+
+// The kit's config_run() has no way to say "refused" (it shows DONE after the second F1), so the reset is never refused: it waits until the service has no encode, load or
+// request in progress and then stops the transport (reset_step), and the kit's DONE is true. A wait is bounded by what the service is doing (a boot, a load, a save end).
+bool ProjectService::reset_session(Context& ctx) noexcept {
+  (void)ctx;
+  if (rig_ == nullptr || reset_pending_) {
+    return false;
+  }
+  reset_pending_ = true;
+  reset_deadline_ms_ = 0;  // set when the stop is first asked
+  return true;
+}
+
+void ProjectService::reset_step(Context& ctx) noexcept {
+  o3sdk::dsp::Engine& e = ctx.engine();
+  // An encode in progress reads the bank slice by slice: a reset in that window would write a torn image (the old sound over half-cleared patterns). The write of an image
+  // already built is no obstacle, and any other job or request goes first.
+  if (!(phase_ == Phase::Idle || phase_ == Phase::Writing) || request_busy()) {
+    return;
+  }
+  if (e.playing()) {
+    if (reset_deadline_ms_ == 0u) {
+      reset_deadline_ms_ = ctx.uptime_ms() + kResetStopMs;
+    }
+    if (ctx.uptime_ms() >= reset_deadline_ms_) {
+      reset_pending_ = false;
+      notice("COULD NOT STOP THE TRANSPORT");
+    } else {
+      (void)e.stop();  // asked again until the command ring takes it
+    }
+    return;
+  }
+  reset_pending_ = false;
+  if (rig_->live != nullptr) {
+    rig_->live->all_off(ctx);
+  }
+  big_->probe = project::ProjectState{};  // a new project's: the default sound, no snapshots, the default assignments, 125 BPM (change detection gathers into it again)
+  (void)project::apply(*rig_, e, big_->probe, false);
+  seq::Bank& bank = *rig_->bank;
+  for (unsigned i = 1; i < kPatternCount; ++i) {  // pattern 0 comes below, as one edit; a pattern that is fresh already records nothing
+    (void)bank.edit(i, [](Pattern& p) { clear(p); });
+  }
+  bank.select(0);
+  seq::gen::Preset first;  // the factory line in A01, as a first boot and NEW have it
+  seq::gen::factory(first, 0, 0);
+  load_preset(e, *rig_, first, LoadWhat::Both);
+  notice("PROJECT RESET");
+}
+
+void ProjectService::settings_moved(const o3sdk::dsp::Engine& e) noexcept {
+  if (phase_ != Phase::Start || rig_ == nullptr || big_ == nullptr) {
+    return;
+  }
+  project::gather(*rig_, e, big_->probe);
+  copy_name(big_->probe.name, name_);
+  boot_crc_ = project::small_crc(big_->probe);
+  seen_crc_ = boot_crc_;
 }
 
 bool ProjectService::save_as(const char* name) noexcept {
