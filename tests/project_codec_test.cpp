@@ -142,6 +142,10 @@ void scramble(Session& t) {
     (void)t.bank->restore(i, random_pattern(i + 1u));
   }
   t.bank->select(17);
+  for (unsigned i = 0; i < 9; ++i) {  // a song with a negative transpose, a mute, repeats and the last pattern
+    (void)t.bank->song_append(seq::SongRow{static_cast<std::uint8_t>(i == 8 ? kPatternCount - 1u : i * 5u), static_cast<std::uint8_t>(1u + i * 2u % 16u),
+                                           static_cast<std::int8_t>(static_cast<int>(i) * 3 - 12), static_cast<std::uint8_t>(i % 3u == 0u ? seq::kSongRowMute : 0u)});
+  }
   (void)t.engine.set_tempo(133'500);
   w.scale_set = true;
   w.gen.scale = 7;
@@ -257,9 +261,12 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(s.perf[3] == static_cast<std::uint8_t>(PerfAction::Stop));
   CHECK(s.snap_used == ((1u << 0) | (1u << 3) | (1u << 7)));
   CHECK(s.pats_n == kPatternCount);
+  CHECK(s.song.length == 9);
+  CHECK(std::memcmp(&s.song, &a.bank->song(), sizeof(seq::Song)) == 0);
 
   // A second session, with other values everywhere, takes the project.
   Session b;
+  (void)b.bank->song_append(seq::SongRow{1, 3, 2, 0});  // a song of its own: the project's replaces it
   b.rig.wiring.perf[0] = static_cast<std::uint8_t>(PerfAction::Mute);
   b.rig.wiring.gen.density = 5;
   float junk[kSnapValues] = {};
@@ -272,7 +279,8 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
     CHECK((b.bank->version(i) & 1u) == 0u);
   }
   CHECK(b.bank->selected() == 17);
-  CHECK_FALSE(b.bank->can_undo());
+  CHECK(std::memcmp(&b.bank->song(), &a.bank->song(), sizeof(seq::Song)) == 0);
+  CHECK_FALSE(b.bank->can_undo());  // the song edit above is gone with the old project's undo steps
   CHECK_FALSE(b.bank->can_redo());
   CHECK(b.engine.own_tempo() == 133'500);
   const Wiring& wa = a.rig.wiring;
@@ -378,13 +386,14 @@ TEST_CASE("project: HEAD of a newer major refuses the project; HEAD missing or s
   CHECK(load(shorthead, s).status == project::Status::Damaged);
 }
 
-TEST_CASE("project: another chunk of a newer major, an unknown one, SONG and a doubled one are skipped, their parts keep their defaults") {
+TEST_CASE("project: another chunk of a newer major, an unknown one, a short SONG and a doubled one are skipped, their parts keep their defaults") {
   Session a;
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
 
-  // GEN of major 2 (its layout is unknown), a chunk nobody knows, and SONG (SG2's).
+  // GEN of major 2 (its layout is unknown), a chunk nobody knows, and a SONG that says 4 rows and holds two bytes of them (the real SONG of the image is read first: the
+  // doubled one is the fourth skip).
   const auto skipped = rebuild(
       img,
       [](char (&id)[4], std::vector<std::uint8_t>& p) {
@@ -424,6 +433,148 @@ TEST_CASE("project: another chunk of a newer major, an unknown one, SONG and a d
   REQUIRE(r2.status == project::Status::Ok);
   CHECK(r2.skipped == 1);
   CHECK(s.gen.root == 5);
+}
+
+TEST_CASE("project: a song of 64 rows round-trips, and the project's song replaces the session's, with no undo step left") {
+  Session a;
+  for (unsigned i = 0; i < seq::kSongRows; ++i) {
+    REQUIRE(a.bank->song_append(seq::SongRow{static_cast<std::uint8_t>(i % kPatternCount), static_cast<std::uint8_t>(1u + i % 16u),
+                                             static_cast<std::int8_t>(static_cast<int>(i % 25u) - 12), static_cast<std::uint8_t>(i % 2u)}));
+  }
+  REQUIRE(a.bank->song().length == seq::kSongRows);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  const project::Result res = load(img, s);
+  REQUIRE(res.status == project::Status::Ok);
+  CHECK(res.skipped == 0);
+  CHECK(std::memcmp(&s.song, &a.bank->song(), sizeof(seq::Song)) == 0);
+
+  Session b;
+  REQUIRE(b.bank->song_append(seq::SongRow{3, 2, 1, 0}));
+  REQUIRE(b.bank->can_undo());
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  CHECK(std::memcmp(&b.bank->song(), &a.bank->song(), sizeof(seq::Song)) == 0);
+  CHECK_FALSE(b.bank->can_undo());
+  CHECK(encode_session(b) == img);
+
+  // The sequencer got the song too: Play from the song starts the row the project has first (pattern 0, as `i % 48` says).
+  b.sequencer->set_play_song(true, 5);
+  CHECK(b.sequencer->play_song());
+}
+
+TEST_CASE("project: a project from before SONG loads with an empty song, and an apply empties the session's") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> with_song = encode_session(a);
+  // The image as an SG1 build wrote it: the same chunks without SONG.
+  const auto older = rebuild(with_song, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "SONG"); });
+  REQUIRE(older.size() < with_song.size());
+  project::ProjectState s;
+  const project::Result res = load(older, s);
+  REQUIRE(res.status == project::Status::Ok);
+  CHECK(res.skipped == 0);  // nothing is missing from the reader's point of view: SONG is optional
+  CHECK(s.song.length == 0);
+  seq::Song empty;
+  seq::clear_song(empty);
+  CHECK(std::memcmp(&s.song, &empty, sizeof empty) == 0);
+  CHECK(s.pats_n == kPatternCount);
+
+  Session b;
+  REQUIRE(b.bank->song_append(seq::SongRow{3, 2, 1, 0}));
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  CHECK(b.bank->song().length == 0);
+  CHECK(std::memcmp(&b.bank->song(), &empty, sizeof empty) == 0);
+  CHECK_FALSE(b.bank->can_undo());
+
+  // And a song that is empty is an empty chunk: written, read back, the same.
+  Session c;
+  const std::vector<std::uint8_t> blank = encode_session(c);
+  project::ProjectState t;
+  REQUIRE(load(blank, t).status == project::Status::Ok);
+  CHECK(t.song.length == 0);
+}
+
+TEST_CASE("project: a damaged SONG gives nothing it must not: short is skipped, a newer major is skipped, values out of range come in") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  seq::Song empty;
+  seq::clear_song(empty);
+
+  const auto payload_of = [&](std::vector<std::uint8_t> payload) {
+    return rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+      if (is(id, "SONG")) {
+        p = payload;
+      }
+      return true;
+    });
+  };
+  project::ProjectState s;
+  {  // 5 rows said, 3 present
+    std::vector<std::uint8_t> p = {1, 0, 5};
+    for (unsigned i = 0; i < 12; ++i) {
+      p.push_back(1);
+    }
+    const project::Result res = load(payload_of(p), s);
+    REQUIRE(res.status == project::Status::Ok);
+    CHECK(res.skipped == 1);
+    CHECK(s.song.length == 0);
+  }
+  {  // no length byte at all
+    const project::Result res = load(payload_of({1, 0}), s);
+    REQUIRE(res.status == project::Status::Ok);
+    CHECK(res.skipped == 1);
+    CHECK(s.song.length == 0);
+  }
+  {  // a newer major
+    std::vector<std::uint8_t> p = {2, 0, 1, 0, 1, 0, 0};
+    const project::Result res = load(payload_of(p), s);
+    REQUIRE(res.status == project::Status::Ok);
+    CHECK(res.skipped == 1);
+    CHECK(s.song.length == 0);
+  }
+  {  // two rows, every value out of range: the pattern past the last, repeat 0 and 200, transpose -100 and +100, flags that are not only the mute
+    const std::vector<std::uint8_t> p = {1, 0, 2, 99, 0, 0x9C, 0xFF, 7, 200, 100, 0x02};
+    const project::Result res = load(payload_of(p), s);
+    REQUIRE(res.status == project::Status::Ok);
+    CHECK(res.skipped == 0);
+    REQUIRE(s.song.length == 2);
+    CHECK(s.song.rows[0].pattern == kPatternCount - 1);
+    CHECK(s.song.rows[0].repeat == 1);
+    CHECK(s.song.rows[0].transpose == -seq::kSongMaxTranspose);
+    CHECK(s.song.rows[0].flags == seq::kSongRowMute);
+    CHECK(s.song.rows[1].repeat == seq::kSongMaxRepeat);
+    CHECK(s.song.rows[1].transpose == seq::kSongMaxTranspose);
+    CHECK(s.song.rows[1].flags == 0);
+    seq::Song canon = s.song;
+    seq::song_normalize(canon);
+    CHECK(std::memcmp(&canon, &s.song, sizeof canon) == 0);  // canonical: the rows past the length are the default row
+  }
+  {  // more rows than a song holds: 65 present, 65 said: the first 64 are kept
+    std::vector<std::uint8_t> p = {1, 0, 65};
+    for (unsigned i = 0; i < 65; ++i) {
+      p.insert(p.end(), {static_cast<std::uint8_t>(i % 48u), 1, 0, 0});
+    }
+    const project::Result res = load(payload_of(p), s);
+    REQUIRE(res.status == project::Status::Ok);
+    CHECK(s.song.length == seq::kSongRows);
+    CHECK(s.song.rows[63].pattern == 63u % 48u);
+  }
+}
+
+TEST_CASE("project: a song edit changes the small CRC, so that the autosave sees it") {
+  Session a;
+  const project::ProjectState before = a.gather();
+  const std::uint32_t crc0 = project::small_crc(before);
+  REQUIRE(a.bank->song_append(seq::SongRow{2, 4, 0, 0}));
+  const std::uint32_t crc1 = project::small_crc(a.gather());
+  CHECK(crc1 != crc0);
+  REQUIRE(a.bank->song_set_transpose(0, -5));
+  CHECK(project::small_crc(a.gather()) != crc1);
+  (void)a.bank->undo();
+  CHECK(project::small_crc(a.gather()) == crc1);
+  (void)a.bank->undo();
+  CHECK(project::small_crc(a.gather()) == crc0);
 }
 
 TEST_CASE("project: a newer minor is read as far as this build knows it") {

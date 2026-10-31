@@ -326,12 +326,22 @@ void Sequencer::set_play_song(bool on, unsigned start_row) noexcept {
   song_play_.store((on ? 1u : 0u) | ((start_row < kSongRows ? start_row : 0u) << 8), std::memory_order_relaxed);
 }
 
+bool Sequencer::song_row_inserted(unsigned at) noexcept {
+  return at < kSongRows && commands_.push(Command{Op::SongInsert, static_cast<std::uint8_t>(at), 0});
+}
+
+bool Sequencer::song_row_deleted(unsigned at) noexcept {
+  return at < kSongRows && commands_.push(Command{Op::SongDelete, static_cast<std::uint8_t>(at), 0});
+}
+
+bool Sequencer::song_replaced() noexcept { return commands_.push(Command{Op::SongReplaced, 0, 0}); }
+
 SongPosition Sequencer::song_position() const noexcept {
   const std::uint32_t w = song_pos_.load(std::memory_order_relaxed);
   SongPosition p;
   p.active = (w & 1u) != 0u;
   p.done = (w & 2u) != 0u;
-  p.row = p.active ? static_cast<int>((w >> 8) & 0xFFu) : -1;
+  p.row = p.active && (w & 4u) == 0u ? static_cast<int>((w >> 8) & 0xFFu) : -1;
   p.repeat = (w >> 16) & 0xFFu;
   return p;
 }
@@ -505,6 +515,18 @@ void Sequencer::drain_commands(dsp::BlockContext& ctx) noexcept {
           jump_to_ = c.arg;
         }
         break;
+      case Op::SongInsert:
+        move_song_row(c.arg, true);
+        break;
+      case Op::SongDelete:
+        move_song_row(c.arg, false);
+        break;
+      case Op::SongReplaced:
+        if (song_active_ && !song_done_) {
+          song_orphan_ = true;  // belongs to no row: advance_song() looks for the next row from song_row_, and no row is at kSongRows or after
+          song_row_ = kSongRows;
+        }
+        break;
     }
   }
 }
@@ -555,11 +577,32 @@ int Sequencer::next_row(unsigned from, unsigned length) const noexcept {
   return -1;
 }
 
+// The playing song's rows moved (SG2): the position follows the row it was on (see "SG2" in sequencer.h). `at` is the row inserted or deleted.
+void Sequencer::move_song_row(unsigned at, bool inserted) noexcept {
+  if (!song_active_ || song_done_ || song_row_ >= kSongRows) {
+    return;  // no song is playing (the next run starts from the song as it is), or the song was replaced under the position (song_replaced())
+  }
+  if (inserted) {
+    // A row inserted at or above the playing row pushes it down. With the playing row gone (orphan) song_row_ is the row to play next: a row inserted exactly there
+    // is the one that plays next, so the index stays.
+    if ((song_orphan_ ? at < song_row_ : at <= song_row_) && song_row_ + 1u < kSongRows) {
+      ++song_row_;
+    }
+    return;
+  }
+  if (at < song_row_) {
+    --song_row_;
+  } else if (at == song_row_ && !song_orphan_) {
+    song_orphan_ = true;  // the pattern plays out, then the row that moved up into this place
+  }
+}
+
 // The row's pattern starts, from its first pass; the row's transpose goes on top of the notes.
 void Sequencer::load_row(unsigned row) noexcept {
   const SongRow r = song_clean_row(unpack_row(song_rows_[row].load(std::memory_order_relaxed)));
   load_pattern(r.pattern);
   song_row_ = row;
+  song_orphan_ = false;
   song_rep_ = 0;
   song_transpose_ = r.transpose;
 }
@@ -569,6 +612,7 @@ void Sequencer::load_row(unsigned row) noexcept {
 bool Sequencer::begin_song() noexcept {
   song_active_ = false;
   song_done_ = false;
+  song_orphan_ = false;
   song_row_ = 0;
   song_rep_ = 0;
   song_transpose_ = 0;
@@ -592,20 +636,25 @@ bool Sequencer::begin_song() noexcept {
 
 // The playing pattern ended (its pass counter is already counted): the row's next repeat, else the next row that is not muted; after the last
 // one the first again (the loop), or false when the song is over. A song with nothing left to play loops on the playing pattern.
-// The position is a row index, not a row: a song edited while it plays keeps the index, so deleting the playing row skips the row that
-// moves up into it, and inserting above it plays the playing row once more. A screen that edits a playing song moves the position itself.
+// The position is a row index that the app moves with the rows (move_song_row(): song_row_inserted(), song_row_deleted()); an edit that gives no such
+// command (CLEAR, FROM CHAIN, an undo) leaves the index, clamped here: past the new length the pass ends and the song starts again from its first row.
 bool Sequencer::advance_song() noexcept {
   const bool loop = song_loop_.load(std::memory_order_relaxed) != 0u;
   const unsigned length = song_len_.load(std::memory_order_acquire);
-  if (song_row_ < length) {
+  if (!song_orphan_ && song_row_ < length) {
     const SongRow r = song_clean_row(unpack_row(song_rows_[song_row_].load(std::memory_order_relaxed)));
-    if (song_rep_ + 1u < r.repeat) {
+    // The row as it is now: a repeat count lowered ends it sooner, a mute ends it at this pass, a new pattern starts with the next repeat.
+    if (!row_muted(r) && song_rep_ + 1u < r.repeat) {
       ++song_rep_;
       song_transpose_ = r.transpose;
+      if (r.pattern != playing_) {
+        load_pattern(r.pattern);
+      }
       return true;
     }
   }
-  int row = next_row(song_row_ + 1u, length);
+  // The next row: the one after the playing row, or (its row was deleted) the one that moved up into its place.
+  int row = next_row(song_orphan_ ? song_row_ : song_row_ + 1u, length);
   if (row < 0 && loop) {
     row = next_row(0, length);
   }
@@ -616,6 +665,7 @@ bool Sequencer::advance_song() noexcept {
   if (!loop) {
     return false;
   }
+  song_orphan_ = false;
   song_rep_ = 0;
   return true;
 }
@@ -1520,7 +1570,9 @@ void Sequencer::publish() noexcept {
   h.sounding = held_ >= 0;
   h.fill = running_ && fill_on_;
   playhead_.store(pack_playhead(h), std::memory_order_relaxed);
-  song_pos_.store((running_ && song_active_ ? 1u : 0u) | (song_done_ ? 2u : 0u) | ((song_row_ & 0xFFu) << 8) | ((song_rep_ & 0xFFu) << 16),
+  // Orphan: the playing row was deleted, or the song shrank under it (a row index past its length names no row).
+  const bool orphan = song_orphan_ || song_row_ >= song_len_.load(std::memory_order_relaxed);
+  song_pos_.store((running_ && song_active_ ? 1u : 0u) | (song_done_ ? 2u : 0u) | (orphan ? 4u : 0u) | ((song_row_ & 0xFFu) << 8) | ((song_rep_ & 0xFFu) << 16),
                   std::memory_order_relaxed);
   if (chain_dirty_) {
     publish_chain();

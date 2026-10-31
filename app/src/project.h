@@ -13,7 +13,8 @@
 //         16 the freeze's four settings) and the app's values (target 32, ids AppValue)
 //   SNAP  slots u8 (8), values a slot u8 (the snapshot targets at write time), used mask u8, then slots x values f32
 //   PERF  the PerfAction of Note, Instr, Vol and Fx, u8 each
-//   SONG  SG1's; this build skips it (kSongId is only its name)
+//   SONG  SG2 (1.0): length u8 (0..64), then length rows of {pattern u8, repeat u8, transpose i8, flags u8} (seq::SongRow; the song is the Bank's, on the undo stack). A
+//         file with no SONG chunk (every project before SG2, whose readers skipped it all the same) reads as an empty song
 //
 // The image is built in one buffer of kProjectBytes (buffer(), O3SDK_BIG), the only one: a save and a load never overlap. The patterns are never copied
 // into a ProjectState (108 KB): encode() reads them from the Bank and decode() leaves a pointer into the image, which apply() restores from.
@@ -48,7 +49,7 @@ inline constexpr unsigned kMaxSound = 128;                  // SND entries a Pro
 inline constexpr std::uint16_t kVersion = 0x0100;      // every chunk's version: major 1, minor 0
 inline constexpr std::uint16_t kHeadVersion = 0x0101;  // HEAD's: minor 1 added the save counter
 inline constexpr unsigned kMajor = 1;
-inline constexpr char kSongId[5] = "SONG";  // SG1 adds the chunk and SG2 reads it; until then it is skipped
+inline constexpr char kSongId[5] = "SONG";
 
 // SND's targets: the lane targets (pattern.h) by parameter id, the freeze, the app's own values.
 inline constexpr std::uint8_t kSndFreeze = 16;
@@ -74,7 +75,7 @@ struct SoundEntry {
   float value = 0.0f;
 };
 
-// The small parts of a project (about 2 KB). A default one is a new project's: the default sound (no SND entry), no snapshot, the default
+// The small parts of a project (about 2.3 KB). A default one is a new project's: the default sound (no SND entry), no snapshot, the default
 // assignments, the generator's defaults, 125 BPM, pattern 0, no patterns (apply() then gives every pattern the fresh one).
 struct ProjectState {
   // HEAD
@@ -94,6 +95,12 @@ struct ProjectState {
   float snap[kSnapSlots][kSnapValues] = {};
   // PERF
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
+  // SONG (canonical: seq::song_normalize() has been applied; an empty song unless the file has the chunk)
+  seq::Song song = [] {
+    seq::Song s;
+    seq::clear_song(s);
+    return s;
+  }();
   // PATS (decode only): `pats_n` patterns of sizeof(Pattern) bytes at `pats`, inside the image decode() was given. The image buffer is shared with
   // encode(), so encode() counts a generation and decode() records it in `pats_generation`: apply() refuses a state whose patterns may have been
   // overwritten by an encode in between (apply() before the next encode, or decode again).

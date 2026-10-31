@@ -30,6 +30,7 @@ struct HeaderView {
   char pattern[4] = "A01";     // the PATTERN display: a letter A to D and two digits
   char tempo[6] = "120.0";     // the TEMPO display: "125.0", or " 95.5" (the leading blank is a ghost 8)
   bool playing = false;        // PLAY, green
+  bool song = false;           // Play plays the song (StatusView::song): the legend reads SONG, in the Fx colour, instead of PLAY
   bool rec = false;            // REC, red: write / record mode
   Take take = Take::None;
   bool take_lit = false;       // the TAKE LED now: armed blinks, the rest are on

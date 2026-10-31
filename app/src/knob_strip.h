@@ -24,11 +24,11 @@ struct Knob {
   bool focus = false;       // the key the encoder drives: a strong fill and a frame
   bool held = false;        // the key is down: an Accent frame
   bool locked = false;      // the value is a p-lock of the held step: drawn in Accent
-  // For the obsidian skin's F row (skin/frow.h); the classic strip ignores them.
+  // For the obsidian skin's F row (skin/frow.h); the classic strip ignores them, except `dim`.
   bool toggle = false;      // a two-place list (WAVE SAW / SQR): a switch, `off_name` and `on_name` its two places, `norm` 0 or 1 which one it is on
   const char* off_name = "";
   const char* on_name = "";
-  bool dim = false;         // an action key (norm below 0) with nothing to do now
+  bool dim = false;         // an action key (norm below 0) with nothing to do now: the skin's key is dimmed, the classic strip fades its texts (the layout does not move)
 };
 
 // The boxes under the top line of `area` (the strip's rectangle: kKnobStripTopH of PADS line, then the boxes).

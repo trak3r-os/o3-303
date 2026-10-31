@@ -259,6 +259,11 @@ void ProjectService::reset_step(Context& ctx) noexcept {
     (void)bank.edit(i, [](Pattern& p) { clear(p); });
   }
   bank.select(0);
+  (void)bank.song_clear();  // the song goes too, as one more undo step (SG2)
+  if (rig_->seq != nullptr) {
+    rig_->seq->sync_song();
+    (void)rig_->seq->song_replaced();
+  }
   seq::gen::Preset first;  // the factory line in A01, as a first boot and NEW have it
   seq::gen::factory(first, 0, 0);
   load_preset(e, *rig_, first, LoadWhat::Both);

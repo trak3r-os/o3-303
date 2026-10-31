@@ -97,7 +97,7 @@ While Shift is held, the row is the screen's Shift row (the same SoftKeys labels
 | FILE LIBRARY | `VaultScreen` | **today's layout with the kit chrome** (`Chrome::Full`), in the obsidian theme | the kit's soft-key row | The fallback: skinned it would be about 1,700 to 1,800 words (section 4.3). Revisit after SU1 |
 | RECORD | `RecordView` | glass: SOURCE, BARS and the take's state as readouts; IN and OUT as LED-segment bars; the envelope as drawn today; the file name `Samples/take_NNN.wav` | F1 ARM/STOP action key (lit red while recording), F2 SOURCE and F3 BARS action keys with their value as hint, F4 GAIN knob, F5 MONITOR action key, F6 SAVE, F7 DISCARD, F8 empty | The take also shows on TRANSPORT's TAKE LED on every screen |
 | HOOKS | `HooksScreen` | the 4 x 12 grid as dark `lamp` sprites, the one line of text | eight empty boxes | |
-| SONG (SG2, to come) | new `SongView` | Mockup 07: list columns # / PATTERN / REPEAT / TRANSP / MUTE with chip headers in the buttons' colours; the cursor row highlighted, the playing row with a green bar; a right panel with SONG, LENGTH, LOOP and PLAY readouts and help; PADS line | F1 PLAYS (hint SONG or PATTERN), F2 LOOP (hint on/off), F3 FROM CHAIN, F4-F6 empty, F7 CLEAR (hint "tap twice"), F8 UNDO, all action keys | SG2 builds both drawings from its first commit |
+| SONG (SG2, built) | new `SongView` | Mockup 07: list columns # / PATTERN / REPEAT / TRANSP / MUTE with chip headers in the buttons' colours; the cursor row highlighted, the playing row with a green bar; a right panel with SONG, LENGTH, LOOP and PLAY readouts and help; PADS line | F1 PLAYS (hint SONG or PATTERN), F2 LOOP (hint on/off), F3 CHAIN (hint "to song"), F4-F6 empty, F7 CLEAR (hint "tap twice"), F8 UNDO, all action keys | SG2 builds both drawings from its first commit |
 | Config | the kit's system screen | **unchanged**: the runtime always draws Config with its full chrome and the context theme (N7) | the kit's | The skin adds only the SKIN item (key 7) to page "303" |
 | Boot screen | the kit's | unchanged | | |
 
@@ -732,6 +732,8 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
 
 **SG2 (UX-PLAN wave 7), gains:** a `SongView` drawn by both a classic function and `skin/song.cpp` (mockup 07), with `skin_song.txt`. SG2
 owns those files and runs between SK3 and SK8, in the skin lane's gap.
+SG2 as built, in the header: while Play plays the song (SONG's F1 PLAYS, a mode that outlives the screen) the TRANSPORT legend reads SONG in the Fx colour in place of PLAY, on every screen that draws
+the header (`HeaderView::song`, from `StatusView::song`); the same four Micro characters, so the primitive and pixel budgets are unchanged, and in PATTERN nothing differs. SONG itself keeps PLAY.
 
 ## 9. Risks
 

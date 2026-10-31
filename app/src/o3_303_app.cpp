@@ -13,6 +13,7 @@
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master or the input to Samples/; Shift + REC arms and stops a take from every screen
 //   SAMPLE LOAD / PLAY / EDIT   HOOKS, the placeholder until M4 (hooks_screen.h)
+//   SONG          SONG (song_screen.h): the saved chain of patterns, in the project; F1 chooses what Play plays; a song that ends with its loop off stops the transport from every screen
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO) and the app's two pages, 303 and DEEP (config_pages.h); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
@@ -29,6 +30,7 @@
 #include "record_screen.h"
 #include "rig.h"
 #include "skin/skin.h"
+#include "song_screen.h"
 #include "vault_screen.h"
 
 #include <o3_303/app_access.h>
@@ -154,6 +156,7 @@ class O3_303App final : public app::App {
     master_.init(rig_, main_.home_map());  // the home map HOME has, as INSTRUMENT
     record_.init(rig_, main_.home_map());  // the home map HOME has, as MASTER
     hooks_.init(rig_);
+    song_.init(rig_);  // after the bank is empty and the sequencer set up: it hands the sequencer the (empty) song and the play mode
     vault_.init(rig_);
     file_.init(rig_, project_, vault_);
     project_.init(rig_, e);  // last: it records the session as setup leaves it, so that a project loaded from the card knows if the player has edited
@@ -223,6 +226,13 @@ class O3_303App final : public app::App {
       }
       return true;
     }
+    // SONG (UX-303 2.1, 5.7): the Song button, from every screen.
+    if (in.press(Button::Song)) {
+      if (ctx.screen() != &song_) {
+        ctx.show(song_);
+      }
+      return true;
+    }
     if (in.press(Button::SampleLoad) || in.press(Button::SamplePlay) || in.press(Button::SampleEdit)) {
       if (ctx.screen() != &hooks_) {
         ctx.show(hooks_);
@@ -268,6 +278,7 @@ class O3_303App final : public app::App {
     // The audio take: its chip and messages, its end, its WAV, whatever screen is up. AFTER the project service on purpose: both use the one files service and a job reads its result
     // when the card is free again, so the project settles (and issues) its own first, and the WAV is started only on a pass in which no job runs.
     record_.service(ctx);
+    song_.service(ctx);  // a song that ended with its loop off stops the transport, whatever screen is up
     // A SAVE (Shift + File) says SAVING from the press, also while it waits for an autosave that is on, until both files are written; then SAVED, or why not. A
     // press the service refuses within the same pass (no card, a card that is not Ready) never shows SAVING: its answer is the reason, at once. The screens with
     // the home map (HOME, INSTRUMENT, MASTER, PERFORM) show the toast; FILE and the LIBRARY say it on their own lines.
@@ -311,6 +322,7 @@ class O3_303App final : public app::App {
   o3_303::MasterScreen master_;
   o3_303::RecordScreen record_;
   o3_303::HooksScreen hooks_;
+  o3_303::SongScreen song_;
   o3_303::VaultScreen vault_;
   o3_303::FileScreen file_;
   o3_303::ProjectService project_;

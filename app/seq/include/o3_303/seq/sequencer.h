@@ -120,6 +120,18 @@
 //               length); rows are single words, so a row is never torn, the rows of an edit may be seen across one block boundary. A song
 //               in pattern mode costs nothing: the hook never looks at it.
 //
+//               SG2: the position follows an edit of the playing song (song_row_inserted(), song_row_deleted(): commands on the ring, called
+//               after the sync): it stays on the same musical row where that row exists. A row inserted above it, or a row deleted above
+//               it, moves the position with the row. The playing row deleted: its pattern plays on to the end of this pass (its
+//               remaining repeats are dropped) and the song goes on with the row that moved up into its place (song_position().row is -1
+//               meanwhile: the pattern belongs to no row). A song replaced under the position (CLEAR, FROM CHAIN, an undo or
+//               redo that is not one inserted or deleted row, a load; song_replaced()) belongs to no row for the rest of the pass: the pattern plays
+//               out and the song starts again from its first row (the loop) or finishes, whatever the new rows are by then (song_position().row is -1
+//               meanwhile). A shrink that gives no command at all (a full ring) is clamped, as before: a position past the end ends the pass. A cell of the playing row is read at
+//               the next pass: its repeats (fewer ends the row sooner, a muted row ends at its pass), its pattern (a new one starts at the next
+//               repeat) and its transpose. The edit and its command reach the render in two steps: a pattern that ends in the one block between
+//               them takes the new rows with the old position (one pass, once).
+//
 // Contexts. Everything not marked "render" is the main loop. The main loop never touches the render's state: it queues commands on a
 // lock-free ring (the same way the engine takes its commands; a full ring refuses and returns false), sets a few atomics, and
 // reads the playhead from one atomic word. The patterns are shared through the Bank's seqlock (bank.h).
@@ -185,7 +197,7 @@ struct ChainView {
 struct SongPosition {
   bool active = false;   // a song is what this run plays (set_play_song() was on when it started and a row could play)
   bool done = false;     // the loop is off and the last row has ended: nothing plays any more (the transport still runs)
-  int row = -1;          // the row playing now (the last one played when done), -1 when not active
+  int row = -1;          // the row playing now (the last one played when done), -1 when not active or when the playing row was deleted (its pattern plays out)
   unsigned repeat = 0;   // the play of the row's pattern now, from 0 (0 .. repeat - 1)
 };
 
@@ -258,6 +270,15 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void set_song_loop(bool loop) noexcept { song_loop_.store(loop ? 1u : 0u, std::memory_order_relaxed); }
   bool song_loop() const noexcept { return song_loop_.load(std::memory_order_relaxed) != 0u; }
   SongPosition song_position() const noexcept;
+  // The song's rows moved under a playing song (after sync_song()): a row was inserted at `at` (the rows from it down moved one down) or the row `at` was
+  // deleted (the rows below it moved one up). The playing row's index follows (see "SG2" above). Nothing happens when no song is playing. false: the
+  // command ring is full and the position did not move (the caller may ignore it: the position is then clamped like after any other edit).
+  bool song_row_inserted(unsigned at) noexcept;
+  bool song_row_deleted(unsigned at) noexcept;
+  // The song was replaced as a whole (after sync_song(): CLEAR, FROM CHAIN, an undo that is not a row inserted or deleted, a loaded project): the playing
+  // row belongs to no row of the new song, its pattern plays out and the song starts again at its first row (or finishes). Without it a position
+  // kept across a CLEAR would name whatever row is built at that index later. false: the ring is full (the caller may ignore it).
+  bool song_replaced() noexcept;
 
   // ---- Live control (main loop; atomics, effective at the next step) ----------------------------------------------------
   void set_live_transpose(int semitones) noexcept;  // added to the notes, -48..+48
@@ -334,7 +355,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void block(o3sdk::dsp::BlockContext& ctx) noexcept override;
 
  private:
-  enum class Op : std::uint8_t { Queue, ClearQueue, ChainLoop, Jump };
+  enum class Op : std::uint8_t { Queue, ClearQueue, ChainLoop, Jump, SongInsert, SongDelete, SongReplaced };
   struct Command {
     Op op;
     std::uint8_t arg;
@@ -404,6 +425,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void advance_chain() noexcept;
   bool begin_song() noexcept;
   bool advance_song() noexcept;
+  void move_song_row(unsigned at, bool inserted) noexcept;
   void load_row(unsigned row) noexcept;
   int next_row(unsigned from, unsigned length) const noexcept;
   void finish_song(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
@@ -463,7 +485,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   std::atomic<std::uint32_t> song_loop_{1};
 
   // ---- render -> main
-  std::atomic<std::uint32_t> song_pos_{0};  // bit 0 active | 1 done | 8..15 row | 16..23 repeat
+  std::atomic<std::uint32_t> song_pos_{0};  // bit 0 active | 1 done | 2 orphan | 8..15 row | 16..23 repeat
   std::atomic<std::uint32_t> playhead_{0};  // packed (sequencer.cpp)
   std::atomic<std::uint32_t> dropped_{0};
   std::atomic<std::uint32_t> slewing_{0};
@@ -498,6 +520,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   bool from_chain_ = false;         // the playing pattern is the entry before chain_next_ (not the selected one, not a jump)
   bool song_active_ = false;        // this run plays the song (begin_song())
   bool song_done_ = false;          // ... and it has finished (loop off): no more steps
+  bool song_orphan_ = false;        // the playing row was deleted: song_row_ is the row that moved up into its place, which comes next (not song_row_ + 1)
   unsigned song_row_ = 0;           // the row playing
   unsigned song_rep_ = 0;           // plays of its pattern completed so far
   int song_transpose_ = 0;          // the row's transpose, added to the notes (0 outside a song)

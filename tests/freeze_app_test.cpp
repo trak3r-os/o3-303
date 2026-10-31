@@ -174,12 +174,13 @@ TEST_CASE("freeze: off at boot with the unit's defaults; Fx is FREEZE on PERFORM
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);
   t.release(Button::Fx);
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
-  // The provisional Song key is gone (M3b ui-1): pressed, with or without Shift, it does nothing.
+  // The provisional Song key is gone (M3b ui-1): it opens SONG (SG2) and freezes nothing, with or without Shift; back on PERFORM for the rest.
   t.press(Button::Song);
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   t.release(Button::Song);
   t.shift_tap(Button::Song);
   CHECK(t.param(kFreeze, Freeze::Length) == 1.0f);
+  t.to_perform();
   // Shift + Fx latches the freeze, again unlatches; the button's own release does not undo the latch.
   t.shift_tap(Button::Fx);
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);

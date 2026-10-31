@@ -38,7 +38,10 @@ constexpr unsigned kGenPayload = 2 + 7;
 constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
 constexpr unsigned kPerfPayload = 2 + kPerfButtons;
-constexpr unsigned kSongReserve = 4096;  // room kept for SG1's chunk
+constexpr unsigned kSongPayload = 2 + 1 + seq::kSongRows * sizeof(seq::SongRow);  // version, length, the rows (at most)
+constexpr unsigned kSongReserve = 4096;  // room kept for the SONG chunk (kSongPayload and its header, 267 bytes, fit it many times over)
+static_assert(8 + kSongPayload + (kSongPayload & 1u) <= kSongReserve, "the SONG chunk must fit its reserve");
+static_assert(sizeof(seq::SongRow) == 4, "SONG stores a row as four bytes: a change of SongRow bumps the chunk's major");
 
 // A chunk with its header and its pad byte.
 constexpr std::size_t chunk_bytes(std::size_t payload) noexcept { return 8 + payload + (payload & 1u); }
@@ -252,7 +255,7 @@ bool write_sound(chunk::Writer& w, const ProjectState& s) noexcept {
 
 // ---- Reading -----------------------------------------------------------------------------------------------------------------------------------
 
-enum Seen : unsigned { kSeenHead = 1, kSeenGen = 2, kSeenPats = 4, kSeenSnd = 8, kSeenSnap = 16, kSeenPerf = 32 };
+enum Seen : unsigned { kSeenHead = 1, kSeenGen = 2, kSeenPats = 4, kSeenSnd = 8, kSeenSnap = 16, kSeenPerf = 32, kSeenSong = 64 };
 
 // The payload of a chunk past its version: the version's major, 0 when there is none.
 unsigned major_of(chunk::Fields& f, std::uint16_t& version) noexcept {
@@ -370,6 +373,31 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
   }
 }
 
+// SONG: the length and that many rows; false (the song keeps its default, empty) when the chunk has fewer bytes than its length says. Values out of range are brought in
+// by song_normalize(), so a damaged row can never reach the sequencer.
+bool read_song(chunk::Fields& f, ProjectState& out) noexcept {
+  const unsigned length = f.u8();
+  if (!f.ok() || f.left() < std::size_t{length} * sizeof(seq::SongRow)) {
+    return false;
+  }
+  seq::Song s;
+  seq::clear_song(s);
+  const unsigned n = length < seq::kSongRows ? length : seq::kSongRows;
+  for (unsigned i = 0; i < n; ++i) {
+    s.rows[i].pattern = f.u8();
+    s.rows[i].repeat = f.u8();
+    s.rows[i].transpose = static_cast<std::int8_t>(f.u8());
+    s.rows[i].flags = f.u8();
+  }
+  if (!f.ok()) {
+    return false;
+  }
+  s.length = static_cast<std::uint8_t>(n);
+  seq::song_normalize(s);
+  out.song = s;
+  return true;
+}
+
 }  // namespace
 
 std::uint8_t* buffer() noexcept { return g_buffer; }
@@ -414,6 +442,9 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     out.perf[b] = w.perf[b];
   }
+  if (rig.bank != nullptr) {
+    out.song = rig.bank->song();
+  }
   out.pats = nullptr;
   out.pats_n = 0;
 }
@@ -433,7 +464,7 @@ bool write_head_gen(chunk::Writer& w, const ProjectState& s, std::uint32_t save_
          w.u8(s.gen.accent_pct) && w.u8(s.gen.slide_pct) && w.end();
 }
 
-// The chunks after PATS (SG1 adds SONG here, and only here).
+// The chunks after PATS (SONG is the last of them).
 bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   bool ok = write_sound(w, s);
 
@@ -449,6 +480,15 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   ok = ok && w.begin("PERF") && w.u16(kVersion);
   for (unsigned b = 0; b < kPerfButtons && ok; ++b) {
     ok = w.u8(s.perf[b]);
+  }
+  ok = ok && w.end();
+
+  // SONG: the length, then the rows in use (the song of the state is canonical, so the rows past the length are not written).
+  const unsigned n = s.song.length < seq::kSongRows ? s.song.length : seq::kSongRows;
+  ok = ok && w.begin("SONG") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(n));
+  for (unsigned i = 0; i < n && ok; ++i) {
+    const seq::SongRow& r = s.song.rows[i];
+    ok = w.u8(r.pattern) && w.u8(r.repeat) && w.u8(static_cast<std::uint8_t>(r.transpose)) && w.u8(r.flags);
   }
   return ok && w.end();
 }
@@ -582,6 +622,8 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
       bit = kSeenSnap;
     } else if (chunk::id_is(c, "PERF")) {
       bit = kSeenPerf;
+    } else if (chunk::id_is(c, "SONG")) {
+      bit = kSeenSong;
     }
     chunk::Fields f(c);
     std::uint16_t version = 0;
@@ -603,7 +645,7 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
       continue;
     }
     if (bit == 0u || (seen & bit) != 0u || major != kMajor) {
-      ++res.skipped;  // unknown (SONG too, for now), twice, or of a major this build cannot read: its part keeps its defaults
+      ++res.skipped;  // unknown, twice, or of a major this build cannot read: its part keeps its defaults
       continue;
     }
     bool good = false;
@@ -623,6 +665,9 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
       case kSeenPerf:
         read_perf(f, out);
         good = true;
+        break;
+      case kSeenSong:
+        good = read_song(f, out);
         break;
       default:
         break;
@@ -676,6 +721,11 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
       (void)rig.bank->restore(i, p);
     }
     rig.bank->select(s.selected < kPatternCount ? s.selected : 0u);
+    rig.bank->restore_song(s.song);  // the song of the project (an empty one for a project that has none): not an edit, and the sequencer plays the new one
+    if (rig.seq != nullptr) {
+      rig.seq->sync_song();
+      (void)rig.seq->song_replaced();
+    }
     rig.bank->clear_history();
   }
 

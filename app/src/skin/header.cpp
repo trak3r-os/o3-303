@@ -163,6 +163,7 @@ void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderI
   pattern_name(in.pattern, out.pattern, sizeof out.pattern);
   (void)tempo_display(in.tempo_mbpm, out.tempo);
   out.playing = in.playing;
+  out.song = status.song;
   out.rec = status.rec;
   parse_take(status.take, out, in.now_ms);
   if (status.keys) {
@@ -204,7 +205,7 @@ void draw_header(Panel& p, const HeaderView& v) noexcept {
   // TRANSPORT: PLAY, REC, and the take.
   group(p, "TRANSPORT", 368, 424);
   led(p, 376, kRowY[0], v.playing, pal::kLedGreen);
-  p.text(386, kRowY[0] - 6, "PLAY", v.playing ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  p.text(386, kRowY[0] - 6, v.song ? "SONG" : "PLAY", v.song ? Color::Fx : (v.playing ? Color::ChromeText : Color::ChromeDim), Face::Micro);  // the same four characters: no new primitive
   led(p, 376, kRowY[1], v.rec, pal::kLedRed);
   p.text(386, kRowY[1] - 6, "REC", v.rec ? Color::ChromeText : Color::ChromeDim, Face::Micro);
   const bool recording = v.take == Take::Recording;

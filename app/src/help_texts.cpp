@@ -2,6 +2,7 @@
 #include "help_texts.h"
 
 #include <o3_303/pad_map.h>
+#include <o3_303/pattern.h>
 #include <o3sdk/app/text_entry.h>
 
 namespace o3_303::help_texts {
@@ -18,8 +19,8 @@ using ui::Color;
 // ---- The buttons --------------------------------------------------------------------------------------------------------------------------
 //
 // One table a screen, built at compile time: the keys the app takes on every screen (o3_303_app.cpp: Play, the screen buttons, Master, File, Shift + Rec), worded for the screen they are
-// listed on, then what the screen itself does with the others. A button the screen does nothing with is not listed: the kit draws it dimmed, and that is true. Config is the kit's, Shift has the
-// kit's text, and Song does nothing until SG2.
+// listed on, then what the screen itself does with the others. A button the screen does nothing with is not listed: the kit draws it dimmed, and that is true. Config is the kit's, and Shift has the
+// kit's text. Song opens SONG from every screen (o3_303_app.cpp).
 
 constexpr unsigned kMaxButtons = 25;  // the 25 buttons that are not soft keys
 
@@ -34,12 +35,12 @@ struct Buttons {
   }
 };
 
-enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Master, File, Naming, Library, Record, Hooks };
+enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Master, File, Naming, Library, Record, Hooks, Song };
 
 constexpr void add_globals(Buttons& b, Where w) noexcept {
   const bool perform = w == Where::Perform || w == Where::PerformSetup;
   const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Master || w == Where::Record;
-  b.add(Button::Play, "PLAY / STOP", "RESTART FROM STEP 1");
+  b.add(Button::Play, "PLAY / STOP: SONG OR PATTERN", "RESTART FROM STEP 1");  // which one is SONG's F1 PLAYS; the status line says SONG while it is the song
   // Rec: the home map's step record (a press turns write / record mode on and off); PERFORM's Rec is the same switch (it records the ladder and the knob while the pattern plays);
   // elsewhere it does nothing alone. Shift + Rec is the audio take, from every screen.
   b.add(Button::Rec, home_map ? "WRITE / RECORD MODE ON / OFF" : (perform ? "RECORD KNOB + LADDER MOVES" : nullptr), "ARM / STOP AN AUDIO TAKE");
@@ -53,6 +54,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::SampleLoad, hooks);
   b.add(Button::SamplePlay, hooks);
   b.add(Button::SampleEdit, hooks);
+  b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
 }
 
 // The home map's edit buttons (home_map.h): the cursor, the note of the cursor step (or of the held steps), Copy / Insert / Delete.
@@ -134,6 +136,23 @@ constexpr Buttons make_hooks() noexcept {
   return b;
 }
 
+// SONG: the arrows move through the rows and pages, the four colour buttons pick the column the encoder edits (their colours are the columns' chips), Insert and Delete add and remove rows.
+constexpr Buttons make_song() noexcept {
+  Buttons b;
+  add_globals(b, Where::Song);
+  b.add(Button::Up, "ROW UP");
+  b.add(Button::Down, "ROW DOWN");
+  b.add(Button::Left, "PAGE UP");
+  b.add(Button::Right, "PAGE DOWN");
+  b.add(Button::Insert, "ADD A ROW ABOVE: A COPY");
+  b.add(Button::Delete, "REMOVE THE ROW");
+  b.add(Button::Note, "COLUMN: PATTERN");
+  b.add(Button::Instr, "COLUMN: REPEAT");
+  b.add(Button::Vol, "COLUMN: TRANSPOSE");
+  b.add(Button::Fx, "COLUMN: MUTE");
+  return b;
+}
+
 constexpr Buttons kHomeButtons = make_home(Where::Home);
 constexpr Buttons kSetupButtons = make_home(Where::Setup);
 constexpr Buttons kPerformButtons = make_perform(Where::Perform);
@@ -145,6 +164,7 @@ constexpr Buttons kNamingButtons = make_naming();
 constexpr Buttons kLibraryButtons = make_library();
 constexpr Buttons kRecordButtons = make_home_map_only(Where::Record);
 constexpr Buttons kHooksButtons = make_hooks();
+constexpr Buttons kSongButtons = make_song();
 
 // ---- The pad groups -----------------------------------------------------------------------------------------------------------------------
 
@@ -173,6 +193,9 @@ constexpr HelpPadGroup kLibraryGroups[] = {
 };
 constexpr HelpPadGroup kListGroups[] = {
     {"PROJECTS", "TAP: SELECT THE PROJECT OF THAT ROW", Color::Sel},
+};
+constexpr HelpPadGroup kSongGroups[] = {
+    {"PATTERNS", "TAP: SET THE ROW. ON END: ADD A ROW", Color::Sel},
 };
 constexpr HelpPadGroup kKeyboardGroups[] = {
     {"KEYBOARD", "A PAD TYPES THE KEY UNDER IT", Color::Sel},
@@ -334,6 +357,17 @@ constexpr Text kTexts[kIdCount] = {
      nullptr,
      0,
      nullptr},
+    // Song
+    {"SONG",
+     "ROWS OF PATTERNS PLAYED IN ORDER, EACH AS MANY TIMES AS REPEAT SAYS, TRANSPOSED OR MUTED. F1 CHOOSES WHAT PLAY PLAYS: THE SONG FROM THE CURSOR ROW, OR THE PATTERN.",
+     {"PLAY: SONG OR PATTERN", "LOOP ON / OFF", "CHAIN BECOMES THE SONG", NONE, NONE, NONE, "PRESS TWICE", "STEP BACK"},
+     {NONE, NONE, NONE, NONE, NONE, NONE, "REDO", "UNDO"},
+     "CELL; SHIFT = COARSE",
+     kSongButtons.row,
+     kSongButtons.n,
+     kSongGroups,
+     count_of(sizeof kSongGroups / sizeof kSongGroups[0]),
+     "A PAD IS A PATTERN: TAP SETS THE ROW'S. ON THE + LINE IT ADDS A ROW: TAP PADS TO BUILD A SONG."},
 };
 
 #undef SOUND_KEYS
@@ -355,6 +389,19 @@ constexpr const char* kVariationPads[4] = {"NEW", "VARY", "UNDO", "REDO"};
 constexpr const char* kLadderPads[app::kPadCols] = {"MIN", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "MAX"};
 constexpr const char* kPerformKeyPads[app::kPadCols] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 constexpr const char* kModifierPads[2][4] = {{"ACC", "SLIDE", "TIE", "REST"}, {"OCT-", "OCT+", "TRNSP", "FILT"}};
+
+// The patterns' names on the pads: A01 to A12 on row 1, B on row 2, C on row 3, D on row 4 (step_model.h pattern_name()).
+struct PatternLabels {
+  char text[kPatternCount][4];
+  constexpr PatternLabels() : text{} {
+    for (unsigned i = 0; i < kPatternCount; ++i) {
+      text[i][0] = static_cast<char>('A' + i / 12u);
+      text[i][1] = static_cast<char>('0' + (i % 12u + 1u) / 10u);
+      text[i][2] = static_cast<char>('0' + (i % 12u + 1u) % 10u);
+    }
+  }
+};
+constexpr PatternLabels kPatternLabels{};
 
 constexpr unsigned kRows = app::kPadRows;
 constexpr unsigned kCols = app::kPadCols;
@@ -455,6 +502,13 @@ const char* key_label(unsigned key) noexcept {
   }
   const char c = app::kTextKeysBig[key];
   return (c == '@' || c == '+') ? nullptr : kKeyLabels.text[key];
+}
+
+void fill_song_pads(Help& h) noexcept {
+  for (unsigned pad = 0; pad < kPatternCount; ++pad) {
+    h.pad_label[pad] = kPatternLabels.text[pad];
+    h.pad_group[pad] = 1;
+  }
 }
 
 void fill_keyboard_pads(Help& h) noexcept {

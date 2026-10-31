@@ -1,5 +1,5 @@
 # HELP (Shift + Config, docs/UX-303.md 5.13): every screen opened with HELP over it, a picture of the BUTTONS page and one of the PADS page, then closed with Config.
-# Order: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT (VOICE, FX, MODS), MASTER, RECORD, HOOKS, FILE PROJECTS, the name keyboard of FILE PROJECTS, FILE LIBRARY.
+# Order: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT (VOICE, FX, MODS), MASTER, RECORD, HOOKS, FILE PROJECTS, the name keyboard of FILE PROJECTS, FILE LIBRARY, SONG.
 #
 #   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/help.txt --card <card> --out <dir>
 #
@@ -151,5 +151,17 @@ tap f2
 snap 25_file_library_pads
 tap config
 wait 50
-# HELP closed: FILE LIBRARY is back as it was.
-snap 26_closed
+# SONG: the Song button is on every screen's BUTTONS page ("OPEN SONG"); on SONG its own texts, the Shift row (REDO, UNDO) and the 48 pads as the patterns A01 to D12.
+tap song
+wait 100
+press shift
+tap config
+release shift
+wait 50
+snap 26_song_buttons
+tap f2
+snap 27_song_pads
+tap config
+wait 50
+# HELP closed: SONG is back as it was.
+snap 28_closed

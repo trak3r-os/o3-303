@@ -257,19 +257,13 @@ void PerformScreen::variation(app::Context& ctx, PerformRole role) noexcept {
       toast(ctx, "VARIED");
       break;
     case PerformRole::Undo: {
-      const int i = bank.undo();
-      if (i >= 0) {
-        bank.select(static_cast<unsigned>(i));
-      }
-      toast(ctx, i >= 0 ? "UNDO" : "NOTHING TO UNDO", i < 0);
+      const bool done = undo_step(*rig_, false);
+      toast(ctx, done ? "UNDO" : "NOTHING TO UNDO", !done);
       break;
     }
     default: {
-      const int i = bank.redo();
-      if (i >= 0) {
-        bank.select(static_cast<unsigned>(i));
-      }
-      toast(ctx, i >= 0 ? "REDO" : "NOTHING TO REDO", i < 0);
+      const bool done = undo_step(*rig_, true);
+      toast(ctx, done ? "REDO" : "NOTHING TO REDO", !done);
       break;
     }
   }

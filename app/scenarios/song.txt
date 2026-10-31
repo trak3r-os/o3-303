@@ -1,0 +1,99 @@
+# SONG (docs/UX-303.md 5.7, docs/UX-PLAN.md SG2), classic drawing: build a song from the pads, give rows repeats, a transpose and a mute, play it, edit it while it plays, undo, copy the
+# chain, clear it. Pictures:
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/song.txt --out <dir>
+#
+# 01 empty (END line, how to begin); 02 three pads tapped: A01 A02 B01 (the cursor stays on END); 03 edited: A01 x4, A02 x2 -5, B01 muted (the cursor on its MUTE cell); 04 F1: Play plays the
+# SONG; 05 playing: row 2 on repeat 1 of 2 (the row's bar, the NOW readout, the pattern LED on); 06 a row inserted above the playing one (a copy of A01): the bar moves down with the row that plays; 07 undo
+# (F8); 08 stopped, the chain A06 > A07 > A08 made with Pattern held on HOME; 09 F3: the chain is the song; 10 F7 asks; 11 F7 again clears; 12 F8 brings the song back; 13 Shift row (REDO, UNDO);
+# 14 and 15 more than ten rows: the first page, and the second after Right; 16 and 17 HOME and MASTER while PLAYS is SONG (the status line's SONG chip). The WAV (song.wav) is the whole run: A01 from the song's first row, a few seconds, until Play stops it.
+wait 300
+record on
+tap song
+wait 100
+snap 01_empty
+pad 0
+pad 1
+pad 12
+wait 100
+snap 02_rows
+tap up
+tap up
+tap up
+tap instr
+turn 3
+tap down
+turn 1
+tap vol
+turn -5
+tap down
+tap fx
+turn 1
+wait 100
+snap 03_edited
+tap up
+tap up
+tap f1
+wait 100
+snap 04_plays_song
+tap play
+wait 2500
+snap 05_playing
+tap insert
+wait 100
+snap 06_inserted_while_playing
+wait 1200
+tap play
+wait 100
+tap f8
+wait 100
+snap 07_undo
+tap pattern
+press pattern
+wait 400
+pad 5
+pad 6
+pad 7
+release pattern
+wait 100
+tap song
+tap f3
+wait 100
+snap 09_from_chain
+tap f7
+wait 100
+snap 10_clear_asks
+tap f7
+wait 100
+snap 11_cleared
+tap f8
+wait 100
+snap 12_undone
+press shift
+wait 100
+snap 13_shift_row
+release shift
+tap fx
+tap down
+tap down
+tap insert
+tap insert
+tap insert
+tap insert
+tap insert
+tap insert
+tap insert
+tap insert
+wait 100
+snap 14_first_page
+tap right
+wait 100
+snap 15_second_page
+# PLAYS stays SONG when SONG is left: Play plays the song from anywhere, and the status line says so (a SONG chip next to KEYS), on HOME and on any other screen (MASTER).
+tap pattern
+wait 100
+snap 16_home_plays_song
+tap master
+wait 100
+snap 17_master_plays_song
+wav song

@@ -269,6 +269,36 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   CHECK(std::strlen(v.enc) == 17);
 }
 
+TEST_CASE("header: PLAYS: SONG changes the TRANSPORT legend and nothing else") {
+  frame::StatusView st;
+  HeaderInputs in;
+  in.title = "STEPS";
+  HeaderView pattern;
+  fill_header(pattern, st, in);
+  CHECK_FALSE(pattern.song);  // PATTERN: the header is what it always was
+  st.song = true;
+  HeaderView song;
+  fill_header(song, st, in);
+  CHECK(song.song);
+  CHECK(str(song.pattern) == str(pattern.pattern));  // the rest is the same
+  CHECK(str(song.tempo) == str(pattern.tempo));
+  CHECK(str(song.page) == str(pattern.page));
+  CHECK(str(song.enc) == str(pattern.enc));
+  CHECK(song.playing == pattern.playing);
+  CHECK(song.keys == pattern.keys);
+  CHECK(song.message[0] == pattern.message[0]);
+  // The drawing: the same number of primitives either way (the legend is four characters in both).
+  Panel& p = panel();
+  p.clear();
+  draw_header(p, pattern);
+  const unsigned shapes = p.shapes();
+  const unsigned texts = p.texts();
+  p.clear();
+  draw_header(p, song);
+  CHECK(p.shapes() == shapes);
+  CHECK(p.texts() == texts);
+}
+
 TEST_CASE("header: a full header, with every lamp and window lit, is far inside the queue") {
   Panel p;
   p.clear();

@@ -164,6 +164,10 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
     row.put(Face::Label, oct, Color::ChromeDim);
     row.skip(14);
   }
+  if (view.song) {  // the mode is global: Play on this screen plays the song (SONG's F1)
+    row.chip(Face::Label, "SONG", Color::Fx, Color::SelText);
+    row.skip(8);
+  }
   if (view.rec) {
     row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
     row.skip(8);

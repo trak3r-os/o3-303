@@ -34,7 +34,7 @@ namespace {
 void check_help(const Help& h, const std::string& who) {
   const std::string w = who + ": ";
   app::HelpProblem problem;
-  CHECK_MESSAGE(app::help_check(h, &problem), w << app::help_field_name(problem.field) << " " << unsigned{problem.index} << ": " << problem.what);
+  CHECK_MESSAGE(app::help_check(h, &problem), w << std::string(app::help_field_name(problem.field)) << " " << unsigned{problem.index} << ": " << std::string(problem.what));
   CHECK_MESSAGE(h.summary != nullptr, w << "summary: missing");
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
     const std::string key = w + "F" + std::to_string(k + 1);
@@ -374,9 +374,62 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   check_screen(h, Id::Record, 0x7Fu, kAllPads, "RECORD");  // F1 ARM / STOP .. F7 DISCARD; F8 has no box (record_screen.cpp)
   tap(h, app::Button::SampleLoad);
   check_screen(h, Id::Hooks, 0u, 0u, "HOOKS");
+  tap(h, app::Button::Song);
+  check_screen(h, Id::Song, 0xC7u, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F7 CLEAR, F8 UNDO (song_screen.cpp song_knobs)
   tap(h, app::Button::File);
   tap(h, app::Button::File);
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
+}
+
+TEST_CASE("help texts: the Song button opens SONG from every screen but SONG itself") {
+  for (unsigned i = 0; i < kIdCount; ++i) {
+    const Text& t = text(static_cast<Id>(i));
+    const HelpButton* song = nullptr;
+    for (unsigned b = 0; b < t.button_count; ++b) {
+      if (t.buttons[b].button == app::Button::Song) {
+        song = &t.buttons[b];
+      }
+    }
+    if (static_cast<Id>(i) == Id::Song) {
+      CHECK_MESSAGE(song == nullptr, t.name << ": the Song button does nothing on SONG (it is drawn dimmed)");
+    } else {
+      REQUIRE_MESSAGE(song != nullptr, t.name << ": the Song button is not listed");
+      CHECK_MESSAGE(std::strcmp(song->text, "OPEN SONG") == 0, t.name);
+    }
+  }
+}
+
+TEST_CASE("help texts: SONG says what its buttons, F keys and pads do") {
+  const Text& t = text(Id::Song);
+  const auto says = [&](app::Button b, const char* what) {
+    for (unsigned i = 0; i < t.button_count; ++i) {
+      if (t.buttons[i].button == b) {
+        return t.buttons[i].text != nullptr && std::strstr(t.buttons[i].text, what) != nullptr;
+      }
+    }
+    return false;
+  };
+  CHECK(says(app::Button::Up, "ROW"));
+  CHECK(says(app::Button::Left, "PAGE"));
+  CHECK(says(app::Button::Insert, "ADD"));
+  CHECK(says(app::Button::Delete, "REMOVE"));
+  CHECK(says(app::Button::Note, "PATTERN"));
+  CHECK(says(app::Button::Instr, "REPEAT"));
+  CHECK(says(app::Button::Vol, "TRANSPOSE"));
+  CHECK(says(app::Button::Fx, "MUTE"));
+  CHECK(t.fkey[0] != nullptr);
+  CHECK(t.fkey[3] == nullptr);
+  CHECK(std::strcmp(t.fkey_shift[6], "REDO") == 0);
+  CHECK(std::strcmp(t.fkey_shift[7], "UNDO") == 0);
+  Help h;
+  fill(h, t);
+  fill_song_pads(h);
+  CHECK(std::strcmp(h.pad_label[0], "A01") == 0);
+  CHECK(std::strcmp(h.pad_label[11], "A12") == 0);
+  CHECK(std::strcmp(h.pad_label[12], "B01") == 0);
+  CHECK(std::strcmp(h.pad_label[47], "D12") == 0);
+  check_pads_grouped(h, kAllPads, "SONG");
+  check_help(h, "SONG");
 }
 
 TEST_CASE("help screens: the Shift row is the screen's own") {
@@ -397,6 +450,15 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     CHECK(std::strcmp(help.fkey_shift[2], "DUP>NEXT") == 0);
     CHECK(help.fkey_shift[4] == nullptr);
     CHECK(help.fkey_shift[5] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
+    close_help(h);
+  }
+  tap(h, app::Button::Song);  // SONG: REDO and UNDO, the two keys of the Shift row
+  {
+    const Help& help = open_help(h);
+    CHECK(help.fkey_shift[0] == nullptr);
+    CHECK(help.fkey_shift[5] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }

@@ -229,22 +229,12 @@ void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
     case kToolClear:
       toast(ctx, bank.clear_pattern(sel()) ? "PATTERN CLEARED" : "NO CHANGE", false);
       break;
-    case kToolRedo: {
-      const int i = bank.redo();
-      if (i >= 0) {
-        bank.select(static_cast<unsigned>(i));
-      }
-      toast(ctx, i >= 0 ? "REDO" : "NOTHING TO REDO");
+    case kToolRedo:
+      toast(ctx, undo_step(*rig_, true) ? "REDO" : "NOTHING TO REDO");
       break;
-    }
-    default: {
-      const int i = bank.undo();
-      if (i >= 0) {
-        bank.select(static_cast<unsigned>(i));
-      }
-      toast(ctx, i >= 0 ? "UNDO" : "NOTHING TO UNDO");
+    default:
+      toast(ctx, undo_step(*rig_, false) ? "UNDO" : "NOTHING TO UNDO");
       break;
-    }
   }
   home_.refocus();
 }

@@ -793,3 +793,219 @@ TEST_CASE("the song costs nothing in the render's state when off: set_song, loop
   CHECK_FALSE(rig.seq.song_position().active);
   CHECK(rig.seq.song_position().row == -1);
 }
+
+// ---- SG2: the position of a song that is edited while it plays ------------------------------------------------------------------
+
+namespace {
+
+// Runs the rig to `steps` sixteenths plus `extra` frames from the start of the run (`at` is how far it has run: the caller's counter).
+void run_to(Rig& rig, std::uint64_t& at, std::uint64_t steps, std::uint64_t extra = 70) {
+  const std::uint64_t target = frame_of(steps * kStep) + extra;
+  REQUIRE(target >= at);
+  rig.run(target - at);
+  at = target;
+}
+
+// A rig playing the song A (pattern 0, 16 steps), B (pattern 1, 8 steps, x2), C (pattern 2, 16 steps) from row 0, run to the middle of B's first pass.
+// B's passes are steps 16..24 and 24..32; C is 32..48; the loop starts A again at 48.
+struct Playing {
+  Rig rig;
+  std::uint64_t at = 0;
+  Playing() {
+    make_patterns(rig);
+    rig.start();
+    set_song(rig, {row(0), row(1, 2), row(2)});
+    rig.seq.set_play_song(true, 0);
+    rig.engine.play();
+    run_to(rig, at, 20);
+  }
+  // The edit, handed to the sequencer as the SONG screen does: the sync first, then the command.
+  void inserted(unsigned row_at, const SongRow& r) {
+    REQUIRE(rig.bank->song_insert(row_at, r));
+    rig.seq.sync_song();
+    REQUIRE(rig.seq.song_row_inserted(row_at));
+    rig.run(64);
+    at += 64;
+  }
+  void deleted(unsigned row_at) {
+    REQUIRE(rig.bank->song_delete(row_at));
+    rig.seq.sync_song();
+    REQUIRE(rig.seq.song_row_deleted(row_at));
+    rig.run(64);
+    at += 64;
+  }
+  int pattern() const { return rig.seq.playhead().pattern; }
+  SongPosition pos() const { return rig.seq.song_position(); }
+};
+
+}  // namespace
+
+TEST_CASE("a row inserted above the playing row moves the position with it: the same musical row goes on, then the one after") {
+  Playing p;
+  REQUIRE(p.pos().row == 1);
+  REQUIRE(p.pattern() == 1);
+  p.inserted(1, row(2));  // the new row 1 (pattern 2) is above B, which is row 2 now
+  CHECK(p.pos().row == 2);
+  CHECK(p.pos().repeat == 0);
+  CHECK(p.pattern() == 1);
+  run_to(p.rig, p.at, 28);  // B's second pass, still row 2
+  CHECK(p.pos().row == 2);
+  CHECK(p.pos().repeat == 1);
+  CHECK(p.pattern() == 1);
+  run_to(p.rig, p.at, 36);  // then C, which is row 3 now (the row inserted sits before B and has been passed)
+  CHECK(p.pos().row == 3);
+  CHECK(p.pattern() == 2);
+}
+
+TEST_CASE("a row inserted below the playing row or at the end leaves the position alone") {
+  Playing p;
+  p.inserted(2, row(0));  // above C: below the playing row
+  CHECK(p.pos().row == 1);
+  p.inserted(4, row(1));  // the end
+  CHECK(p.pos().row == 1);
+  run_to(p.rig, p.at, 36);
+  CHECK(p.pos().row == 2);  // the row that was inserted above C is next
+  CHECK(p.pattern() == 0);
+}
+
+TEST_CASE("a row deleted above the playing row moves the position up with it") {
+  Playing p;
+  p.deleted(0);  // A goes
+  CHECK(p.pos().row == 0);
+  CHECK(p.pos().repeat == 0);
+  CHECK(p.pattern() == 1);
+  run_to(p.rig, p.at, 28);
+  CHECK(p.pos().row == 0);
+  CHECK(p.pos().repeat == 1);
+  run_to(p.rig, p.at, 36);
+  CHECK(p.pos().row == 1);  // C
+  CHECK(p.pattern() == 2);
+}
+
+TEST_CASE("the playing row deleted: its pattern plays out, without its other repeats, and the row that moved up comes next") {
+  Playing p;
+  p.deleted(1);  // B, in its first pass of two
+  CHECK(p.pos().active);
+  CHECK(p.pos().row == -1);  // the pattern that plays belongs to no row now
+  CHECK(p.pattern() == 1);
+  run_to(p.rig, p.at, 24 + 4);  // B's pass ended at step 24: the second repeat is gone, C (row 1 now) plays
+  CHECK(p.pos().row == 1);
+  CHECK(p.pos().repeat == 0);
+  CHECK(p.pattern() == 2);
+  run_to(p.rig, p.at, 24 + 16 + 4);  // and the loop goes back to A
+  CHECK(p.pos().row == 0);
+  CHECK(p.pattern() == 0);
+}
+
+TEST_CASE("the last row deleted while it plays: the loop starts again at the first row; with the loop off the song finishes") {
+  for (const bool loop : {true, false}) {
+    Rig rig;
+    make_patterns(rig);
+    rig.start();
+    set_song(rig, {row(0), row(1)});
+    rig.seq.set_play_song(true, 0);
+    rig.seq.set_song_loop(loop);
+    rig.engine.play();
+    std::uint64_t at = 0;
+    run_to(rig, at, 20);
+    REQUIRE(rig.seq.song_position().row == 1);
+    REQUIRE(rig.bank->song_delete(1));
+    rig.seq.sync_song();
+    REQUIRE(rig.seq.song_row_deleted(1));
+    run_to(rig, at, 24 + 4);  // B's pass (16..24) ended
+    if (loop) {
+      CHECK(rig.seq.song_position().row == 0);
+      CHECK(rig.seq.playhead().pattern == 0);
+    } else {
+      CHECK(rig.seq.song_position().done);
+      CHECK_FALSE(rig.seq.playhead().sounding);
+    }
+  }
+}
+
+TEST_CASE("a row inserted where the deleted playing row was is the one that plays next") {
+  Playing p;
+  p.deleted(1);  // B goes: C is row 1
+  p.inserted(1, row(0, 1, 5));  // a new row at that place, before C
+  CHECK(p.pos().row == -1);     // still the pattern of no row
+  run_to(p.rig, p.at, 24 + 4);
+  CHECK(p.pos().row == 1);
+  CHECK(p.pattern() == 0);  // the new row, not C
+  run_to(p.rig, p.at, 24 + 16 + 4);
+  CHECK(p.pos().row == 2);  // then C
+  CHECK(p.pattern() == 2);
+}
+
+TEST_CASE("CLEAR and FROM CHAIN under a playing song clamp the position: the pass ends and the song starts again, or finishes") {
+  {  // CLEAR with the loop on: nothing left to play, the playing pattern goes on
+    Playing p;
+    REQUIRE(p.rig.bank->song_clear());
+    p.rig.seq.sync_song();
+    p.rig.run(64);
+    p.at += 64;
+    CHECK(p.pos().row == -1);  // row 1 of an empty song is no row
+    run_to(p.rig, p.at, 24 + 4);
+    CHECK(p.pos().active);
+    CHECK(p.pattern() == 1);  // B again, as a song with nothing to play loops on its pattern
+    CHECK(p.rig.seq.playhead().playing);
+  }
+  {  // FROM CHAIN to a song of one row: the position (row 1) is past its end; at the pass end the song starts again from its first row
+    Playing p;
+    const std::uint8_t chain[1] = {2};
+    REQUIRE(p.rig.bank->song_from_chain(-1, chain, 1));
+    p.rig.seq.sync_song();
+    p.rig.run(64);
+    p.at += 64;
+    CHECK(p.pos().row == -1);
+    run_to(p.rig, p.at, 24 + 4);
+    CHECK(p.pos().row == 0);
+    CHECK(p.pattern() == 2);
+  }
+}
+
+TEST_CASE("a cell of the playing row is read at its next pass: repeats, mute and pattern") {
+  {  // repeats lowered to x1 in the first pass: the row ends at this pass
+    Playing p;
+    REQUIRE(p.rig.bank->song_set_repeat(1, 1));
+    p.rig.seq.sync_song();
+    run_to(p.rig, p.at, 24 + 4);
+    CHECK(p.pos().row == 2);
+    CHECK(p.pattern() == 2);
+  }
+  {  // muted: the row ends at this pass, its second repeat is not played
+    Playing p;
+    REQUIRE(p.rig.bank->song_set_mute(1, true));
+    p.rig.seq.sync_song();
+    run_to(p.rig, p.at, 24 + 4);
+    CHECK(p.pos().row == 2);
+    CHECK(p.pattern() == 2);
+  }
+  {  // a new pattern: the repeat plays it
+    Playing p;
+    REQUIRE(p.rig.bank->song_set_pattern(1, 2));
+    p.rig.seq.sync_song();
+    CHECK(p.pattern() == 1);  // this pass is the old one
+    run_to(p.rig, p.at, 24 + 4);
+    CHECK(p.pos().row == 1);
+    CHECK(p.pos().repeat == 1);
+    CHECK(p.pattern() == 2);
+  }
+}
+
+TEST_CASE("an edit while no song plays gives no command a position to move: the next run starts from the rows as they are") {
+  Rig rig;
+  make_patterns(rig);
+  rig.start();
+  set_song(rig, {row(0), row(1)});
+  REQUIRE(rig.bank->song_insert(0, row(2)));
+  rig.seq.sync_song();
+  CHECK(rig.seq.song_row_inserted(0));
+  rig.run(64);
+  CHECK_FALSE(rig.seq.song_position().active);
+  rig.seq.set_play_song(true, 0);
+  rig.engine.play();
+  rig.run(256);
+  CHECK(rig.seq.song_position().row == 0);
+  CHECK(rig.seq.playhead().pattern == 2);
+  CHECK_FALSE(rig.seq.song_row_inserted(kSongRows));  // a row that cannot exist is refused
+}

@@ -22,6 +22,7 @@ constexpr std::uint32_t kKeyPlays = 0x0B000000u;
 constexpr std::uint32_t kKeySongPattern = 0x0D000000u;  // | row: the song's cells (the sequencer's motion recording is 0x07)
 constexpr std::uint32_t kKeySongRepeat = 0x0E000000u;
 constexpr std::uint32_t kKeySongTranspose = 0x0F000000u;
+constexpr std::uint32_t kKeySongAppend = 0x10000000u;  // a run of appends from the END line
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
 // Word accesses, not bytes: the patterns are 4-byte aligned and a multiple of 4 long (bank.h), and a write window over the SDRAM stays
@@ -382,8 +383,8 @@ bool Bank::song_insert(unsigned at, const SongRow& r) noexcept {
   return edit_song([&](Song& s) { return seq::song_insert(s, at, r); });
 }
 
-bool Bank::song_append(const SongRow& r) noexcept {
-  return edit_song([&](Song& s) { return seq::song_append(s, r); });
+bool Bank::song_append(const SongRow& r, bool join) noexcept {
+  return edit_song([&](Song& s) { return seq::song_append(s, r); }, join ? kKeySongAppend : 0u);
 }
 
 bool Bank::song_delete(unsigned at) noexcept {

@@ -13,6 +13,8 @@ using ui::Color;
 using ui::Face;
 using ui::Rect;
 
+constexpr std::uint8_t kDimAlpha = 120;  // a dim key's texts (Knob::dim)
+
 int clamp_w(float norm, int w) noexcept {
   const float n = norm < 0.0f ? 0.0f : (norm > 1.0f ? 1.0f : norm);
   return static_cast<int>(n * static_cast<float>(w) + 0.5f);
@@ -68,7 +70,6 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
     if (knobs[k].blank) {
       continue;
     }
-    r.text(box[k].x + 4, box[k].y + 3, knobs[k].fkey, Color::TextDim, Face::Micro);
     char label[12];
     unsigned n = 0;
     const int room = (box[k].w - 22) / 8;  // after "F1" and its gap
@@ -76,7 +77,15 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
       label[n] = knobs[k].label[n];
     }
     label[n] = '\0';
-    r.text(box[k].x + 20, ui::caps_y(theme, Face::Label, box[k].y, 16), label, Color::TextDim, Face::Label);
+    const auto put = [&] {
+      r.text(box[k].x + 4, box[k].y + 3, knobs[k].fkey, Color::TextDim, Face::Micro);
+      r.text(box[k].x + 20, ui::caps_y(theme, Face::Label, box[k].y, 16), label, Color::TextDim, Face::Label);
+    };
+    if (knobs[k].dim) {  // a key with nothing to do now: its caption fades, as the skin's key does (layout unchanged)
+      translucent(r, kDimAlpha, put);
+    } else {
+      put();
+    }
   }
 
   // The values, bright: the Display face when the text fits it, else the Data face; the unit small after it when there is room.
@@ -97,11 +106,18 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
         text[--len] = '\0';
       }
       const int top = box[k].y + 16;
-      r.text(box[k].x + 5, ui::caps_y(theme, face, top, box[k].h - 17), text, pass == 1 ? Color::Accent : Color::Text, face);
       const int unit_w = static_cast<int>(std::strlen(knobs[k].unit)) * 6;
       const int used = static_cast<int>(len) * cw;
-      if (unit_w > 0 && used + 4 + unit_w <= room) {
-        r.text(box[k].x + 5 + used + 4, box[k].y + box[k].h - 16, knobs[k].unit, Color::TextDim, Face::Micro);
+      const auto put = [&] {
+        r.text(box[k].x + 5, ui::caps_y(theme, face, top, box[k].h - 17), text, pass == 1 ? Color::Accent : (knobs[k].dim ? Color::TextDim : Color::Text), face);
+        if (unit_w > 0 && used + 4 + unit_w <= room) {
+          r.text(box[k].x + 5 + used + 4, box[k].y + box[k].h - 16, knobs[k].unit, Color::TextDim, Face::Micro);
+        }
+      };
+      if (knobs[k].dim) {
+        translucent(r, kDimAlpha, put);
+      } else {
+        put();
       }
     }
   }

@@ -56,8 +56,9 @@ struct Rig {
   std::uint64_t take_msg_until_ms = 0;
 };
 
-// The take's chip and message into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks wherever the player is).
+// The take's chip and message, and the song mode, into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks and Play's mode shows wherever the player is).
 inline void fill_take_status(const Rig& rig, frame::StatusView& status) noexcept {
+  status.song = rig.seq != nullptr && rig.seq->play_song();  // PLAYS: SONG is the sequencer's, whatever screen is up (SONG's F1)
   status.take = rig.take;
   status.take_msg = rig.take_msg;
   status.take_msg_off = rig.take_msg_off;
@@ -74,6 +75,17 @@ enum class LoadWhat : std::uint8_t {
 // (one undoable edit), the patch goes to the voice and the distortion as parameter values, the tempo to the engine. Master and the
 // level are not part of a preset: loading never jumps the volume of a set.
 void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what) noexcept;
+
+// How a song changed from `before` to `after`, for the sequencer's place in it (Sequencer::song_row_inserted() and friends): one row inserted at `at`, one row deleted at `at`, the
+// same length and rows (None: a cell edit or nothing, the position stays), or anything else (Replaced: CLEAR, FROM CHAIN, several rows).
+enum class SongMove : std::uint8_t { None, Inserted, Deleted, Replaced };
+SongMove song_move(const seq::Song& before, const seq::Song& after, unsigned& at) noexcept;
+
+// UNDO (`redo` false) or REDO on the project's one stack (the patterns' and the song's, seq::History), for every screen that has the keys: HOME's Shift row, PERFORM's pads and
+// SONG's F8. A pattern step selects the pattern it changed; a song step hands the song back to the sequencer (Sequencer::sync_song(), or it would go on playing the song from
+// before the step) and tells it how the rows moved (song_move(): the position of a song that plays follows an undone Insert or Delete, and drops the row it was on over a replaced
+// song, sequencer.h "SG2"). false: there was nothing to undo or redo.
+bool undo_step(Rig& rig, bool redo) noexcept;
 
 // The beat freeze (units/freeze, docs/M3B-PLAN.md R6) on master insert 0, from the main loop: engine parameters, applied at frame 0 of the
 // next block. Off is the default and is invisible (the unit passes the master through bit for bit). The Fx performance button's FREEZE

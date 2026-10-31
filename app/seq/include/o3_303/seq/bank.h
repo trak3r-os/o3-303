@@ -93,7 +93,8 @@ class Bank {
   bool song_set_transpose(unsigned row, int semitones) noexcept;
   bool song_set_mute(unsigned row, bool mute) noexcept;
   bool song_insert(unsigned at, const SongRow& r = default_row()) noexcept;
-  bool song_append(const SongRow& r = default_row()) noexcept;
+  // `join`: a run of appends with nothing in between is one undo step (SONG's pads on the END line: 64 taps must not push the patterns' history off the stack).
+  bool song_append(const SongRow& r = default_row(), bool join = false) noexcept;
   bool song_delete(unsigned at) noexcept;
   bool song_clear() noexcept;  // CLEAR SONG
   // FROM CHAIN: the song becomes `first` (-1: none) and the chain's patterns, one undo step (song.h song_from_chain).

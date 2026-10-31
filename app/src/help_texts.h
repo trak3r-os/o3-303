@@ -32,6 +32,7 @@ enum class Id : std::uint8_t {
   Library,       // FILE LIBRARY
   Record,        // RECORD
   Hooks,         // HOOKS
+  Song,          // SONG
   kCount
 };
 inline constexpr unsigned kIdCount = static_cast<unsigned>(Id::kCount);
@@ -84,5 +85,7 @@ void fill_library_pads(o3sdk::app::Help& h) noexcept;
 void fill_list_pads(o3sdk::app::Help& h, unsigned rows) noexcept;
 // FILE PROJECTS with the name keyboard: all 48 pads are its keys.
 void fill_keyboard_pads(o3sdk::app::Help& h) noexcept;
+// SONG: the 48 pads are the 48 patterns, labelled A01 to D12 (the names the pattern grid and the song's list use).
+void fill_song_pads(o3sdk::app::Help& h) noexcept;
 
 }  // namespace o3_303::help_texts
