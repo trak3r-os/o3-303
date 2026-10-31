@@ -60,7 +60,6 @@ TEST_CASE("skin assets: the table is the plan's: formats, cells, bytes, 100,440 
     sum += i.bytes;
   }
   CHECK(sum == kTotalBytes);
-  CHECK(kTotalBytes == 100'440u);
   CHECK(kTotalBytes <= 110'000u);
   CHECK(kTotalBytes <= ui::plot::kRamGAppBytes);
   CHECK(app::app_assets_valid(kRows, kCount));

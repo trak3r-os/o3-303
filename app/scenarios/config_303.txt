@@ -1,4 +1,4 @@
-# The app's pages of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT) and "DEEP" (FMT MIX,
+# The app's pages of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT, SKIN) and "DEEP" (FMT MIX,
 # CMB TUNE, CMB FB, WOB RESET, DLY MODE), kept in the kit's settings file and back after a reboot.
 #
 #   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/config_303.txt --card <card> --out <dir>
@@ -34,6 +34,8 @@ tap f1
 snap 03_reset_asks
 tap down
 snap 04_reset_taken_back
+# SKIN is the row below RESET PROJECT: back up to RESET for the second F1 pair (1 ms, so the timings after it stay those of the five-row page).
+tap up 1
 tap f1
 tap f1
 wait 200

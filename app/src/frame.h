@@ -43,6 +43,9 @@ int draw_action_chips(ui::Renderer& r, int x, int x_limit, int baseline, std::ui
 // The width draw_action_chips takes of `room` pixels.
 int action_chips_width(ui::Renderer& r, std::uint16_t actions, int room) noexcept;
 
+// "OCT 2-3": the keyboard's two octaves for an octave shift (the status line's and the obsidian header's).
+void octave_text(int shift, char* out, unsigned cap) noexcept;
+
 // The line, in `line` (kStatusH high).
 void draw_status(ui::Renderer& r, const ui::Rect& line, const StatusView& view) noexcept;
 

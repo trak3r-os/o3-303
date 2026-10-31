@@ -8,6 +8,7 @@
 
 #include "../app/src/frame.h"
 #include "../app/src/project_service.h"
+#include "../app/src/skin/skin.h"
 
 #include <o3sdk/app/config_page.h>
 #include <o3sdk/core/param.h>
@@ -79,7 +80,7 @@ const app::ConfigItem* find_item(const app::ConfigView& v, std::uint16_t key) {
 
 }  // namespace
 
-TEST_CASE("the pages: 303 and DEEP, with the keys UX-303 5.12 fixes, every descriptor valid, key 6 reserved") {
+TEST_CASE("the pages: 303 and DEEP, with the keys UX-303 5.12 fixes, every descriptor valid, key 6 reserved, key 7 SKIN") {
   Hands t;
   const app::ConfigView& v = t.h->runtime().context().config_view();
   REQUIRE(v.pages == 2);
@@ -90,8 +91,8 @@ TEST_CASE("the pages: 303 and DEEP, with the keys UX-303 5.12 fixes, every descr
     const char* label;
     bool value;
   } expect[] = {{1, "AUTOSAVE", true}, {2, "KEYS AT BOOT", true}, {3, "LADDER SLEW", true}, {4, "PAD LEGEND", true}, {5, "RESET PROJECT", false},
-                {20, "FMT MIX", true},  {21, "CMB TUNE", true},    {22, "CMB FB", true},      {23, "WOB RESET", true}, {24, "DLY MODE", true}};
-  REQUIRE(v.page[0].valid() == 5);
+                {7, "SKIN", true},       {20, "FMT MIX", true},  {21, "CMB TUNE", true},    {22, "CMB FB", true},      {23, "WOB RESET", true}, {24, "DLY MODE", true}};
+  REQUIRE(v.page[0].valid() == 6);
   REQUIRE(v.page[1].valid() == 5);
   unsigned n = 0;
   for (unsigned p = 0; p < 2; ++p) {
@@ -108,10 +109,11 @@ TEST_CASE("the pages: 303 and DEEP, with the keys UX-303 5.12 fixes, every descr
       }
     }
   }
-  CHECK(v.values == 9);
+  CHECK(v.values == 10);
   CHECK(find_item(v, 6) == nullptr);  // reserved: SEQ MIDI OUT, deferred (D16)
   CHECK(config::kAutosave == 1);
   CHECK(config::kResetProject == 5);
+  CHECK(config::kSkin == 7);
   CHECK(config::kDlyMode == 24);
 }
 
@@ -144,12 +146,13 @@ TEST_CASE("DEEP's descriptors are the units' own (range, default, kind), and a f
   REQUIRE(wob != nullptr);
   CHECK(wob->value->def == 1.0f);  // ON, as WobbleSettings::reset
   CHECK(t.config_get(config::kWobReset) == 1.0f);
-  // The 303 page's defaults: 10 S, PLAY, 30 ms, ON.
+  // The 303 page's defaults: 10 S, PLAY, 30 ms, ON, CLASSIC.
   CHECK(t.config_get(config::kAutosave) == 1.0f);
   CHECK(t.config_get(config::kKeysAtBoot) == 0.0f);
   CHECK(t.config_get(config::kLadderSlew) == 30.0f);
   CHECK(t.config_get(config::kPadLegend) == 1.0f);
-  for (std::uint16_t key : {config::kAutosave, config::kKeysAtBoot, config::kLadderSlew, config::kPadLegend}) {
+  CHECK(t.config_get(config::kSkin) == 0.0f);
+  for (std::uint16_t key : {config::kAutosave, config::kKeysAtBoot, config::kLadderSlew, config::kPadLegend, config::kSkin}) {
     const app::ConfigItem* it = find_item(v, key);
     REQUIRE(it != nullptr);
     CHECK(t.config_get(key) == it->value->def);
@@ -205,6 +208,52 @@ TEST_CASE("PAD LEGEND turns the PADS line's text off on every screen, and back")
   CHECK(t.h->runtime().frame_failures() == 0u);
   t.config_set(config::kPadLegend, 1.0f);
   CHECK(frame::pad_legend());
+}
+
+TEST_CASE("SKIN: CLASSIC at start, OBSIDIAN on the player's choice, and HOME has no kit chrome while it is on (docs/SKIN-PLAN.md)") {
+  Hands t;
+  app::Context& ctx = t.h->runtime().context();
+  const app::ConfigView& v = t.h->runtime().context().config_view();
+  const app::ConfigItem* it = find_item(v, config::kSkin);
+  REQUIRE(it != nullptr);
+  REQUIRE(it->value != nullptr);
+  CHECK(it->value->list_count == 2);
+  CHECK(std::string(it->value->names[0]) == "CLASSIC");
+  CHECK(std::string(it->value->names[1]) == "OBSIDIAN");
+  CHECK_FALSE(skin::on());
+  CHECK_FALSE(skin::active(ctx));
+  CHECK(ctx.screen()->chrome(ctx) == app::Chrome::Full);
+  CHECK(ctx.screen()->theme(ctx) == nullptr);
+  t.skin_on();
+  CHECK(skin::on());
+  CHECK(t.config_get(config::kSkin) == 1.0f);
+  CHECK(skin::active(ctx));
+  CHECK(ctx.screen()->chrome(ctx) == app::Chrome::None);
+  CHECK(ctx.screen()->theme(ctx) == &skin::theme());
+  CHECK(t.h->runtime().frame_failures() == 0u);
+  t.skin_off();
+  CHECK_FALSE(skin::on());
+  CHECK(ctx.screen()->chrome(ctx) == app::Chrome::Full);
+  // A value out of range is the nearest place, and a new run starts at CLASSIC again (the app object outlives a run).
+  t.config_set(config::kSkin, 7.0f);
+  CHECK(skin::on());
+  t.h = std::make_unique<sim::Harness>(o3sdk_app());
+  t.boot();
+  CHECK_FALSE(skin::on());
+}
+
+TEST_CASE("skin::active is false when the app's bitmaps are not in RAM_G: the whole app runs classic") {
+  Hands t;
+  t.skin_on();
+  app::Context& up = t.h->runtime().context();
+  REQUIRE(up.app_assets_ok());
+  CHECK(skin::active(up));
+  const app::Context failed;  // a context whose upload never happened (or failed): app_assets_ok() is false
+  REQUIRE_FALSE(failed.app_assets_ok());
+  CHECK(skin::on());
+  CHECK_FALSE(skin::active(failed));
+  CHECK(up.screen()->chrome(failed) == app::Chrome::Full);   // the screen draws classic, with the kit's chrome
+  CHECK(up.screen()->theme(failed) == nullptr);
 }
 
 TEST_CASE("LADDER SLEW is the glide of a ladder tap: a longer one is still running after 60 ms, and the value is kept inside 10..100") {
@@ -336,12 +385,13 @@ TEST_CASE("RESET PROJECT is never refused: it waits for an encode in progress (n
 }
 
 
-TEST_CASE("the values are back after a reboot: AUTOSAVE, KEYS AT BOOT (TRNSP is on), LADDER SLEW, PAD LEGEND and DEEP") {
+TEST_CASE("the values are back after a reboot: AUTOSAVE, KEYS AT BOOT (TRNSP is on), LADDER SLEW, PAD LEGEND, SKIN and DEEP") {
   Session s;
   s.set(config::kAutosave, 2.0f);
   s.set(config::kKeysAtBoot, 1.0f);
   s.set(config::kLadderSlew, 65.0f);
   s.set(config::kPadLegend, 0.0f);
+  s.set(config::kSkin, 1.0f);
   s.set(config::kFmtMix, 0.4f);
   s.set(config::kCmbTune, -3.0f);
   s.set(config::kCmbFb, -0.5f);
@@ -358,6 +408,9 @@ TEST_CASE("the values are back after a reboot: AUTOSAVE, KEYS AT BOOT (TRNSP is 
   CHECK(s.get(config::kLadderSlew) == 65.0f);
   CHECK(s.get(config::kPadLegend) == 0.0f);
   CHECK_FALSE(frame::pad_legend());
+  CHECK(s.get(config::kSkin) == 1.0f);
+  CHECK(skin::on());
+  CHECK(skin::active(s.ctx()));
   CHECK(s.get(config::kFmtMix) == doctest::Approx(0.4f));
   CHECK(s.get(config::kCmbTune) == doctest::Approx(-3.0f));
   CHECK(s.get(config::kCmbFb) == doctest::Approx(-0.5f));

@@ -5,12 +5,16 @@
 #include "help_texts.h"
 #include "knob_strip.h"
 #include "step_view.h"
+#include "skin/header.h"
+#include "skin/panel.h"
+#include "skin/skin.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/widgets.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/core/scales.h>
 #include <o3sdk/dsp/engine.h>
+#include <o3sdk/ui/plot/canvas.h>
 #include <o3_303/seq/ops.h>
 
 #include <cstring>
@@ -30,6 +34,14 @@ constexpr int kInfoH = 34;
 constexpr int kHeroY = frame::kStatusH + kInfoH + 4;  // under the status line and the info strip
 constexpr int kHeroH = 252;                           // the motion lane is under it, over the knob strip (the PADS line is the strip's top line)
 constexpr int kGenH = 22;                             // PATTERN SETUP's second info line (the generator): the drawer is that much shorter
+
+// The obsidian frame (docs/SKIN-PLAN.md 2.1): the glass between the header (y 0-66) and the F row's band (y 384-480), its content inset by the rim. The step view is shorter than
+// classic's 252 px, because the status line is the header's but the glass is 318 px: info strip, step view, motion lane and the PADS line fill it.
+constexpr int kGlassBottom = 384;
+constexpr int kGlassX = 5;
+constexpr int kGlassW = ui::kScreenW - 2 * kGlassX;
+constexpr int kPadsY = kGlassBottom - frame::kPadsLineH - 2;   // the PADS line: the glass's last 16 px (above its rim)
+constexpr int kSkinHeroH = 208;
 
 // The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters).
 constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
@@ -611,23 +623,58 @@ void MainScreen::draw_grid(app::Context& ctx, ui::Renderer& r, const Rect& area)
   }
 }
 
-void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
-  const Pattern& p = pat();
-  home_.clamp_cursor();
+// What a frame is laid out on: the info strip, the step view's top and height (PATTERN SETUP's generator line takes the drawer's top), the pattern grid's bottom, the PADS line and
+// the knob strip. Classic: from the status line down inside the kit's content area. Skinned: inside the glass of the panel (docs/SKIN-PLAN.md 2.1).
+struct MainScreen::Body {
+  Rect info;
+  int x;
+  int w;
+  int hero_y;
+  int hero_h;
+  int grid_bottom;
+  Rect pads;
+  Rect strip;
+  bool skinned;
+};
 
-  // From the top: the status line, the info strip, the step view, the motion lane, the PADS line, the knob strip.
+// The obsidian frame's shapes and texts, drawn before the glass content: the panel, the header from the screen's StatusView and the context, then the one Canvas section and the live
+// texts (docs/SKIN-PLAN.md section 5, N6: shapes by layer, then text).
+void MainScreen::draw_skin_frame(app::Context& ctx, ui::Renderer& r) noexcept {
+  skin::Panel& panel = skin::panel();
+  panel.clear();
+  skin::queue_panel(panel, skin::kHeaderH, kGlassBottom);
+
   frame::StatusView status;
   home_.status(status);
   status.save_failed = rig_->project.failed;
   enc_text(ctx, status.enc, sizeof status.enc);
-  frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
-  draw_info(ctx, r, Rect{area.x, area.y + frame::kStatusH, area.w, kInfoH});
-  const Rect strip_area{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};
-  const Rect pads_area{strip_area.x, strip_area.y, strip_area.w, frame::kPadsLineH};  // the knob row's top line, as on every screen with a knob row
+  skin::HeaderInputs in;
+  in.title = title();
+  in.pattern = sel();
+  in.tempo_mbpm = ctx.engine().tempo();
+  in.playing = rig_->seq->playhead().playing;
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    in.perf[b] = rig_->wiring.perf[b];
+  }
+  in.now_ms = ctx.uptime_ms();
+  skin::HeaderView view;
+  skin::fill_header(view, status, in);
+  skin::draw_header(panel, view);
 
-  const int hero_y = area.y + kHeroY + (setup_ ? kGenH : 0);  // PATTERN SETUP's second info line takes the drawer's top
+  ui::plot::Canvas canvas(r);
+  canvas.open();
+  panel.flush_shapes(canvas);
+  canvas.close();
+  panel.flush_text(r);
+}
+
+void MainScreen::draw_body(app::Context& ctx, ui::Renderer& r, const Body& b) noexcept {
+  const Pattern& p = pat();
+  draw_info(ctx, r, b.info);
+
+  const int hero_y = b.hero_y + (setup_ ? kGenH : 0);  // PATTERN SETUP's second info line takes the drawer's top
   if (home_.overlay()) {
-    draw_grid(ctx, r, Rect{area.x, hero_y, area.w, strip_area.y - hero_y - 2});
+    draw_grid(ctx, r, Rect{b.x, hero_y, b.w, b.grid_bottom - hero_y});
   } else {
     // The pitch window: the notes of the pattern, remembered while they are entered.
     int lo = 36;
@@ -645,16 +692,17 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
     win_hi_ = hi > win_hi_ ? hi : win_hi_;
 
     view::Marks m = home_.drawer(ctx);
-    const Rect hero{area.x, hero_y, area.w, kHeroH - (setup_ ? kGenH : 0)};
+    m.button_colours = b.skinned;
+    const Rect hero{b.x, hero_y, b.w, b.hero_h - (setup_ ? kGenH : 0)};
     m.window = range_window(win_lo_, win_hi_, view::lane_height(hero.h));
     view::draw_steps(r, hero, p, m);
     if (pattern_is_empty(p)) {
       const char* a = "EMPTY PATTERN";
-      const char* b = "ARM REC AND PLAY THE KEYS, OR HOLD A STEP PAD AND PLAY A KEY";
+      const char* bl = "ARM REC AND PLAY THE KEYS, OR HOLD A STEP PAD AND PLAY A KEY";
       const int cx = view::kGridX + view::kGridW / 2;
       const int cy = hero.y + view::kNumbersH + 70;
       r.text(cx - r.text_width(a, Face::Data) / 2, cy, a, Color::TextDim, Face::Data);
-      r.text(cx - r.text_width(b, Face::Label) / 2, cy + 26, b, Color::Empty, Face::Label);
+      r.text(cx - r.text_width(bl, Face::Label) / 2, cy + 26, bl, Color::Empty, Face::Label);
     }
 
     // The motion lane of the knob the encoder owns when a lane drives it (the pattern's lanes table, C2); else the last lane shown.
@@ -663,14 +711,57 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
     const Entry lane_entry = controls_->lane_entry(lane_ref);
     const core::ParamDesc* d = controls_->desc(ctx.engine(), lane_entry);
     const float knob = d != nullptr ? core::param_norm(*d, controls_->get(ctx.engine(), lane_entry)) : 0.0f;
-    view::draw_motion(r, Rect{area.x, hero.y + hero.h + 4, area.w, view::kMotionH}, p, m, lane, controls_->lane_name(ctx.engine(), lane_ref), knob,
+    view::draw_motion(r, Rect{b.x, hero.y + hero.h + 4, b.w, view::kMotionH}, p, m, lane, controls_->lane_name(ctx.engine(), lane_ref), knob,
                       home_.on_lane());
   }
 
   char line[128];
   home_.pads_line(ctx, line, sizeof line);
-  frame::draw_pads_line(r, pads_area, line);
-  draw_strip(ctx, r, strip_area);
+  frame::draw_pads_line(r, b.pads, line);
+  draw_strip(ctx, r, b.strip);
+}
+
+// ---- The skin's switches: the kit asks the screen every frame ------------------------------------------------------------------
+
+app::Chrome MainScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }
+
+const ui::Theme* MainScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
+
+void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  home_.clamp_cursor();
+  Body b;
+  if (skin::active(ctx)) {
+    // The panel is the whole 800 x 480; the glass is y 66 to 384 and holds today's content from the info strip down (the status line is the header's); the knob strip stays today's
+    // until the F row (SK3), on the panel's lower band.
+    draw_skin_frame(ctx, r);
+    b.info = Rect{kGlassX, skin::kHeaderH + 3, kGlassW, kInfoH};
+    b.x = kGlassX;
+    b.w = kGlassW;
+    b.hero_y = b.info.y + kInfoH + 4;
+    b.hero_h = kSkinHeroH;
+    b.grid_bottom = kPadsY - 2;
+    b.pads = Rect{kGlassX + 3, kPadsY, kGlassW - 6, frame::kPadsLineH};
+    b.strip = Rect{0, kGlassBottom + 16, ui::kScreenW, ui::kScreenH - kGlassBottom - 16};
+    b.skinned = true;
+  } else {
+    // From the top: the status line, the info strip, the step view, the motion lane, the PADS line, the knob strip.
+    frame::StatusView status;
+    home_.status(status);
+    status.save_failed = rig_->project.failed;
+    enc_text(ctx, status.enc, sizeof status.enc);
+    frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
+    const Rect strip_area{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};
+    b.info = Rect{area.x, area.y + frame::kStatusH, area.w, kInfoH};
+    b.x = area.x;
+    b.w = area.w;
+    b.hero_y = area.y + kHeroY;
+    b.hero_h = kHeroH;
+    b.grid_bottom = strip_area.y - 2;
+    b.pads = Rect{strip_area.x, strip_area.y, strip_area.w, frame::kPadsLineH};  // the knob row's top line, as on every screen with a knob row
+    b.strip = strip_area;
+    b.skinned = false;
+  }
+  draw_body(ctx, r, b);
 }
 
 }  // namespace o3_303

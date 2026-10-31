@@ -39,6 +39,7 @@ struct Marks {
   DrawerRow row = DrawerRow::None;  // the row the encoder owns: its caption is highlighted
   char lock[16][kLockChars] = {};   // the LOCK row: the latched knob's lock on each step of the page ("" none), as the home map formats them
   PitchWindow window;
+  bool button_colours = false;  // the obsidian skin: the rows' captions in the colour of the button that owns the row (NOTE teal, GATE amber, PLAYS purple, LOCK cyan), the owned one filled
 };
 
 // The height the pitch lane gets inside a hero area of height `h` (the step view keeps room for the three rows).

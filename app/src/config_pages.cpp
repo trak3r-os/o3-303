@@ -4,6 +4,7 @@
 #include "frame.h"
 #include "live_actions.h"
 #include "project_service.h"
+#include "skin/skin.h"
 
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/config_keys.h>
@@ -24,12 +25,14 @@ constexpr const char* kAutosaveNames[config::kAutosaveChoices] = {"OFF", "10 S",
 constexpr const char* kKeysNames[] = {"PLAY", "TRANSPOSE"};
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
 constexpr const char* kModeNames[] = {"MONO", "PING"};
+constexpr const char* kSkinNames[] = {"CLASSIC", "OBSIDIAN"};
 
 constexpr core::ParamDesc kAutosave = {"AUTOSAVE", "", kAutosaveNames, nullptr, 0.0f, 2.0f, 1.0f, 2, 1, config::kAutosaveChoices, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kKeysAtBoot = {"KEYS AT BOOT", "", kKeysNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kLadderSlew = {"LADDER SLEW", "ms", nullptr, nullptr, config::kLadderSlewMinMs, config::kLadderSlewMaxMs, kLadderSlewMs, 18, 2, 0, ParamUnit::Int,
                                          ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kPadLegend = {"PAD LEGEND", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kSkin = {"SKIN", "", kSkinNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 
 constexpr core::ParamDesc kFmtMix = {"FMT MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 1.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kCmbTune = {"CMB TUNE", "st", nullptr, nullptr, -24.0f, 24.0f, 0.0f, 48, 12, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
@@ -45,6 +48,7 @@ constexpr app::ConfigItem k303Items[] = {
     {config::kLadderSlew, "LADDER SLEW", &kLadderSlew},
     {config::kPadLegend, "PAD LEGEND", &kPadLegend},
     {config::kResetProject, "RESET PROJECT", nullptr},
+    {config::kSkin, "SKIN", &kSkin},
 };
 constexpr app::ConfigItem kDeepItems[] = {
     {config::kFmtMix, "FMT MIX", &kFmtMix},   {config::kCmbTune, "CMB TUNE", &kCmbTune}, {config::kCmbFb, "CMB FB", &kCmbFb},
@@ -91,6 +95,7 @@ void ConfigPages::init(Rig& rig, LiveActions& live, ProjectService& project) noe
   boot_ = true;
   live.set_ladder_slew_ms(kLadderSlewMs);
   frame::set_pad_legend(true);
+  skin::set_on(false);  // CLASSIC (the kit's settings read puts the saved choice over it)
   // (The autosave period is not reset: the project service keeps it across its own init() on purpose, as a setting that outlives the session; a unit boots with the default
   // and the kit's settings put the saved one over it.)
 }
@@ -115,6 +120,8 @@ float ConfigPages::get(const app::Context& ctx, std::uint16_t key) const noexcep
       return live_->ladder_slew_ms();
     case config::kPadLegend:
       return frame::pad_legend() ? 1.0f : 0.0f;
+    case config::kSkin:
+      return skin::on() ? 1.0f : 0.0f;
     default:
       break;
   }
@@ -140,6 +147,10 @@ void ConfigPages::set(app::Context& ctx, std::uint16_t key, float value) noexcep
     }
     case config::kPadLegend:
       frame::set_pad_legend(value >= 0.5f);
+      ctx.redraw();
+      return;
+    case config::kSkin:
+      skin::set_on(value >= 0.5f);
       ctx.redraw();
       return;
     default:

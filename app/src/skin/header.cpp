@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "header.h"
+
+#include "seg.h"
+
+#include "../step_view.h"
+
+#include <o3_303/step_model.h>
+
+#include <cstring>
+
+namespace o3_303::skin {
+
+namespace {
+
+using ui::Color;
+using ui::Face;
+using ui::Rect;
+using skin_assets::Id;
+
+constexpr int kMicroW = 6;  // the Micro face (Spleen 6x12): a character's advance, for centring and rules
+
+// The header's grid (800 x 66). The rows of LED centres are shared by TRANSPORT and KEYBOARD.
+constexpr int kTitleY = 3;
+constexpr int kRuleY = 9;
+constexpr int kRowY[3] = {27, 41, 55};
+constexpr int kLedHalf = 8;
+
+// The PERFORM slots' captions: the actions' chips, cut to the 28 px a slot has (kPerfActionChips has "THROW" and "FREEZE").
+constexpr const char* kSlotCaps[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV"};
+constexpr int kSlotCx[4] = {512, 540, 568, 596};
+
+void cut_to(char* out, unsigned cap, const char* s, unsigned max) noexcept {
+  unsigned n = 0;
+  for (; s != nullptr && s[n] != '\0' && n < max && n + 1u < cap; ++n) {
+    out[n] = s[n];
+  }
+  out[n] = '\0';
+}
+
+bool starts_with(const char* s, const char* prefix) noexcept {
+  while (*prefix != '\0') {
+    if (*s++ != *prefix++) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// The take chip's words after "TAKE ".
+void parse_take(const char* take, HeaderView& v, std::uint64_t now_ms) noexcept {
+  v.take = Take::None;
+  v.take_lit = false;
+  cut_to(v.take_text, sizeof v.take_text, "TAKE", 4);
+  if (take == nullptr || take[0] == '\0') {
+    return;
+  }
+  const char* w = starts_with(take, "TAKE ") ? take + 5 : take;
+  if (starts_with(w, "ARMED")) {
+    v.take = Take::Armed;
+    v.take_lit = ((now_ms / 400u) & 1u) == 0u;  // blinking
+    cut_to(v.take_text, sizeof v.take_text, "ARMED", 7);
+  } else if (starts_with(w, "REC")) {
+    v.take = Take::Recording;
+    v.take_lit = true;
+    const char* t = w + 3;
+    while (*t == ' ') {
+      ++t;
+    }
+    cut_to(v.take_text, sizeof v.take_text, t[0] != '\0' ? t : "REC", 7);
+  } else {
+    v.take = starts_with(w, "SAVING") ? Take::Saving : Take::Ready;
+    v.take_lit = true;
+    cut_to(v.take_text, sizeof v.take_text, w, 7);
+  }
+}
+
+// ---- queueing helpers ---------------------------------------------------------------------------------------------------------
+
+void led(Panel& p, int cx, int cy, bool on, ui::Rgb colour) noexcept {
+  if (on) {
+    p.point(Layer::Glow, cx * 16, cy * 16, 12 * 16, colour, pal::kGlowAlpha);
+  }
+  p.sprite(Layer::Led, Id::Led, 0, cx - kLedHalf, cy - kLedHalf, on ? colour : pal::kLedOff);
+}
+
+// A display or window: the lit lip under it, then the recess a pixel higher (a shadow on top), as the spike drew them.
+void window(Panel& p, const Rect& r, unsigned radius_px) noexcept {
+  p.round_rect(Layer::WindowLip, Rect{r.x - 1, r.y, r.w + 2, r.h + 2}, (radius_px + 1u) * 16u, pal::kWindowLip, pal::kWindowLipAlpha);
+  p.round_rect(Layer::WindowFace, Rect{r.x, r.y - 1, r.w, r.h + 1}, radius_px * 16u, pal::kWindow);
+}
+
+// A 7-segment display: the window, the cells right aligned at a 22 px pitch, the point after cell `run.dot`.
+void seg_display(Panel& p, const Rect& win, const SegRun& run) noexcept {
+  constexpr int kPitch = 22;
+  const skin_assets::Info& cell = skin_assets::info(Id::Seg);
+  window(p, win, 4);
+  const int n = static_cast<int>(run.n);
+  const int gx = win.x + win.w - 6 - (n - 1) * kPitch - cell.cell_w + 1;
+  const int gy = win.y + (win.h - cell.cell_h) / 2;
+  for (int i = 0; i < n; ++i) {
+    p.sprite(Layer::Seg, Id::Seg, run.cell[i], gx + i * kPitch, gy, pal::kSeg);
+  }
+  if (run.dot >= 0) {
+    p.point(Layer::SegDot, (gx + run.dot * kPitch) * 16 + skin_assets::kSegDotX_q4, gy * 16 + skin_assets::kSegDotY_q4, 2 * 16, pal::kSeg);
+  }
+}
+
+// A group's silkscreen title at x and, when it leaves room, a rule from its end to x_end.
+void group(Panel& p, const char* title, int x, int x_end) noexcept {
+  p.text(x, kTitleY, title, Color::ChromeDim, Face::Micro);
+  const int x0 = x + static_cast<int>(std::strlen(title)) * kMicroW + 6;
+  if (x_end - x0 > 4) {
+    p.rect(Layer::Rule, Rect{x0, kRuleY, x_end - x0, 1}, pal::kRule);
+  }
+}
+
+// One of the PAGE / ENC windows: the tag in the silkscreen, the value in 8x16.
+void value_window(Panel& p, int y, const char* tag, const char* value, Color ink) noexcept {
+  window(p, Rect{620, y, 172, 22}, 3);
+  p.text(626, y + 5, tag, Color::ChromeDim, Face::Micro);
+  p.text(656, y + 3, value, ink, Face::Label);
+}
+
+}  // namespace
+
+const char* tempo_display(std::uint32_t mbpm, char (&out)[6]) noexcept {
+  std::uint32_t tenths = static_cast<std::uint32_t>((static_cast<std::uint64_t>(mbpm) + 50u) / 100u);
+  tenths = tenths > 9999u ? 9999u : tenths;
+  const std::uint32_t whole = tenths / 10u;  // at most 999: three cells, then the point and the tenth
+  out[0] = whole >= 100u ? static_cast<char>('0' + whole / 100u) : ' ';
+  out[1] = whole >= 10u ? static_cast<char>('0' + whole / 10u % 10u) : ' ';
+  out[2] = static_cast<char>('0' + whole % 10u);
+  out[3] = '.';
+  out[4] = static_cast<char>('0' + tenths % 10u);
+  out[5] = '\0';
+  return out;
+}
+
+void fill_perform_slots(PerformSlot (&slots)[4], std::uint16_t on, const std::uint8_t (&assigned)[kPerfButtons]) noexcept {
+  for (PerformSlot& s : slots) {
+    s = PerformSlot{};
+  }
+  unsigned total = 0;
+  for (unsigned a = 0; a < kPerfActionCount; ++a) {
+    total += (on >> a & 1u) != 0u ? 1u : 0u;
+  }
+  unsigned slot = 0;
+  std::uint16_t used = 0;  // the actions a slot already names
+  for (unsigned a = 0; a < kPerfActionCount && slot < 4u; ++a) {
+    if ((on >> a & 1u) == 0u) {
+      continue;
+    }
+    if (total > 4u && slot == 3u) {  // the last slot stands for every action that did not get one
+      slots[slot].cap[0] = '+';
+      const unsigned more = total - 3u;
+      unsigned n = 1;
+      if (more >= 10u) {
+        slots[slot].cap[n++] = static_cast<char>('0' + more / 10u);
+      }
+      slots[slot].cap[n++] = static_cast<char>('0' + more % 10u);
+      slots[slot].cap[n] = '\0';
+      slots[slot].lit = true;
+      ++slot;
+      break;
+    }
+    cut_to(slots[slot].cap, sizeof slots[slot].cap, kSlotCaps[a], 5);
+    slots[slot].lit = true;
+    used = static_cast<std::uint16_t>(used | (1u << a));
+    ++slot;
+  }
+  for (unsigned b = 0; b < kPerfButtons && slot < 4u; ++b) {  // the buttons' own actions, dark, where there is room
+    const unsigned a = assigned[b];
+    if (a >= kPerfActionCount || (used >> a & 1u) != 0u) {
+      continue;
+    }
+    cut_to(slots[slot].cap, sizeof slots[slot].cap, kSlotCaps[a], 5);
+    used = static_cast<std::uint16_t>(used | (1u << a));
+    ++slot;
+  }
+}
+
+void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderInputs& in) noexcept {
+  out = HeaderView{};
+  pattern_name(in.pattern, out.pattern, sizeof out.pattern);
+  (void)tempo_display(in.tempo_mbpm, out.tempo);
+  out.playing = in.playing;
+  out.rec = status.rec;
+  parse_take(status.take, out, in.now_ms);
+  if (status.keys) {
+    out.trnsp = status.trnsp;
+    out.keys = !status.trnsp;
+    frame::octave_text(status.octave, out.octave, sizeof out.octave);
+  }
+  fill_perform_slots(out.perform, status.actions, in.perf);
+  cut_to(out.page, sizeof out.page, in.title, 17);
+  cut_to(out.enc, sizeof out.enc, status.enc, 17);
+  // One message at a time in the PAGE window: the screen's toast, else what the take said. Cut to the 20 characters the window holds without its tag.
+  if (status.toast != nullptr && status.toast[0] != '\0') {
+    cut_to(out.message, sizeof out.message, status.toast, 20);
+    out.message_off = status.toast_off;
+  } else if (status.take_msg != nullptr && status.take_msg[0] != '\0') {
+    cut_to(out.message, sizeof out.message, status.take_msg, 20);
+    out.message_off = status.take_msg_off;
+  }
+  out.save_failed = status.save_failed;
+}
+
+void draw_header(Panel& p, const HeaderView& v) noexcept {
+  // The brand and its tagline (red while the last autosave has failed).
+  p.sprite(Layer::Logo, Id::Logo, 0, 12, 4, pal::kLogo);
+  if (v.save_failed) {
+    p.text(14, 52, "SAVE FAILED", Color::Rec, Face::Micro);
+  } else {
+    p.text(14, 52, "ACID BASS VOICE", Color::ChromeDim, Face::Micro);
+  }
+
+  // PATTERN and TEMPO.
+  group(p, "PATTERN", 168, 248);
+  group(p, "TEMPO", 256, 330);
+  p.text(358 - 3 * kMicroW, kTitleY, "BPM", Color::ChromeDim, Face::Micro);
+  const char name[4] = {v.pattern[0], v.pattern[1], v.pattern[2], '\0'};
+  seg_display(p, Rect{168, 16, 80, 41}, seg_text(name));
+  seg_display(p, Rect{256, 16, 102, 41}, seg_text(v.tempo));
+
+  // TRANSPORT: PLAY, REC, and the take.
+  group(p, "TRANSPORT", 368, 424);
+  led(p, 376, kRowY[0], v.playing, pal::kLedGreen);
+  p.text(386, kRowY[0] - 6, "PLAY", v.playing ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  led(p, 376, kRowY[1], v.rec, pal::kLedRed);
+  p.text(386, kRowY[1] - 6, "REC", v.rec ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  const bool recording = v.take == Take::Recording;
+  led(p, 376, kRowY[2], v.take_lit, recording ? pal::kLedRed : pal::kLedAmber);
+  p.text(386, kRowY[2] - 6, v.take_text, v.take == Take::None ? Color::ChromeDim : (recording ? Color::Rec : Color::Accent), Face::Micro);
+
+  // KEYBOARD: KEYS or TRNSP, and the octave.
+  group(p, "KEYBOARD", 432, 490);
+  led(p, 442, kRowY[0], v.keys, pal::kLedRed);
+  p.text(452, kRowY[0] - 6, "KEYS", v.keys ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  led(p, 442, kRowY[1], v.trnsp, pal::kLedRed);
+  p.text(452, kRowY[1] - 6, "TRNSP", v.trnsp ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  if (v.octave[0] != '\0') {
+    p.text(436, kRowY[2] - 6, v.octave, Color::ChromeDim, Face::Micro);
+  }
+
+  // PERFORM: four slots.
+  group(p, "PERFORM", 498, 612);
+  for (unsigned i = 0; i < 4; ++i) {
+    const PerformSlot& s = v.perform[i];
+    led(p, kSlotCx[i], 30, s.lit, pal::kLedRed);
+    if (s.cap[0] != '\0') {
+      p.text(kSlotCx[i] - static_cast<int>(std::strlen(s.cap)) * kMicroW / 2, 42, s.cap, s.lit ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+    }
+  }
+
+  // PAGE and ENC. A message takes the PAGE window for its life: amber, or outlined in red when it says something did not happen.
+  if (v.message[0] != '\0') {
+    window(p, Rect{620, 6, 172, 22}, 3);
+    if (v.message_off) {
+      const ui::Rgb red = theme().rgb(Color::Rec);
+      p.rect(Layer::Outline, Rect{620, 6, 172, 1}, red);
+      p.rect(Layer::Outline, Rect{620, 27, 172, 1}, red);
+      p.rect(Layer::Outline, Rect{620, 6, 1, 22}, red);
+      p.rect(Layer::Outline, Rect{791, 6, 1, 22}, red);
+    }
+    p.text(626, 9, v.message, v.message_off ? Color::Rec : Color::Accent, Face::Label);
+  } else {
+    value_window(p, 6, "PAGE", v.page, Color::Text);
+  }
+  value_window(p, 36, "ENC", v.enc, Color::Instr);
+}
+
+}  // namespace o3_303::skin

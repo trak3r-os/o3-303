@@ -38,6 +38,9 @@ class MainScreen final : public o3sdk::app::Screen {
   void init(Rig& rig) noexcept;
 
   const char* title() const noexcept override;
+  // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise today's.
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context& ctx) const noexcept override;
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void enter(o3sdk::app::Context& ctx) noexcept override;
   void leave(o3sdk::app::Context& ctx) noexcept override;
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
@@ -90,6 +93,9 @@ class MainScreen final : public o3sdk::app::Screen {
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
 
   // ---- drawing
+  struct Body;
+  void draw_skin_frame(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
+  void draw_body(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const Body& b) noexcept;
   void draw_info(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_strip(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_info_generator(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& strip) noexcept;

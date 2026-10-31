@@ -641,6 +641,9 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
   - `skin::active` is false when `app_assets_ok()` is false (a test);
   - ctest green, 0 warnings, no new `__aeabi_d*`.
 - **Expected PNG change:** the new `skin_home` pictures only.
+- **As built:**
+  - `knob.h` was not delivered: the knobs are drawn in SK3, and it moves there.
+  - Under `Chrome::None` the kit's soft keys are not drawn, so holding Shift with OBSIDIAN on shows no Shift labels (`skin_home` 03_toast). SK3's F row and Shift row bring them, and SU1 runs on an SK3 image.
 
 ### SK3: the F row, HOME's Shift row and Pattern held (M)
 

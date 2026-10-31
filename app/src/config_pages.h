@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The app's pages of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT) and "DEEP" (FMT MIX,
+// The app's pages of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT, SKIN) and "DEEP" (FMT MIX,
 // CMB TUNE, CMB FB, WOB RESET, DLY MODE), through the kit's App::config_pages / config_page / config_get / config_set / config_run (o3sdk/app/config_page.h). The kit keeps the values
 // in system.o3s (APPV, keyed by config_keys.h) and gives them back through set() once at boot, after the app's setup(); the tables are constexpr data in config_pages.cpp.
 //
@@ -10,6 +10,7 @@
 //   KEYS AT BOOT  this object; TRNSP is set from it while the boot window is open (the kit's boot read), and only then: a later change is the next boot's
 //   LADDER SLEW   LiveActions::ladder_slew_ms (HOME's and PERFORM's ladder taps)
 //   PAD LEGEND    frame::pad_legend (the PADS line's text on every screen)
+//   SKIN          skin::on (skin/skin.h): the obsidian look of the screens that have one; CLASSIC until SK8
 //   DEEP          the units' own parameters (Controls, as INSTRUMENT's keys write them) and the wobble's reset: the engine is the truth, which is also what the project saves.
 //                 At a boot load the project wins: it writes every sound parameter, and ProjectService::settings_moved keeps the kit's values from counting as the player's edit.
 //

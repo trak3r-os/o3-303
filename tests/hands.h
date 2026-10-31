@@ -107,6 +107,15 @@ struct Hands {
   float config_get(std::uint16_t key) { return o3sdk_app().config_get(h->runtime().context(), key); }
   void config_set(std::uint16_t key, float value) { o3sdk_app().config_set(h->runtime().context(), key, value); }
   void config_run(std::uint16_t key) { o3sdk_app().config_run(h->runtime().context(), key); }
+  // The obsidian skin (Config 303, SKIN, docs/SKIN-PLAN.md): on as a player turns it on, off again; a few frames follow, so the screen has drawn with it.
+  void skin_on() {
+    config_set(o3_303::config::kSkin, 1.0f);
+    wait(60);
+  }
+  void skin_off() {
+    config_set(o3_303::config::kSkin, 0.0f);
+    wait(60);
+  }
 
   // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS) on page `page` (o3_303::kInstVoice ...), from any screen but
   // INSTRUMENT itself. to_home() leaves it.

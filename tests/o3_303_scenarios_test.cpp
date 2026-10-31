@@ -48,11 +48,66 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
   }
 }
 
+// The skin's budgets (docs/SKIN-PLAN.md 4.3): a skinned frame under 1,350 display-list words, at most 100 primitives and 4,800 box pixels on any one line. HELP over a skinned
+// screen is not held to this (its frames keep the kit's 1,800).
+constexpr std::size_t kSkinMaxWords = 1350;
+constexpr unsigned kSkinMaxLinePrims = 100;
+constexpr unsigned kSkinMaxLinePx = 4800;
+
+// The first word of a scenario line, without its comment.
+std::string command_of(const std::string& line) {
+  std::istringstream words(line.substr(0, line.find('#')));
+  std::string cmd;
+  words >> cmd;
+  return cmd;
+}
+
+// Runs a skin scenario one snap at a time (the harness keeps its state between the pieces) and holds each snapped frame to the skin's budgets.
+void run_skin_scenario(sim::Harness& h, const std::string& text, const std::string& dir, sim::ScenarioResult& total) {
+  std::istringstream lines(text);
+  std::string piece;
+  auto run_piece = [&](const std::string& name) {
+    if (piece.empty()) {
+      return;
+    }
+    const std::size_t app_uses = h.raster().handle_app_uses();
+    const sim::ScenarioResult r = sim::run_scenario(h, piece, dir);
+    if (!r.ok && total.ok) {
+      total = r;
+    }
+    total.snapshots += r.snapshots;
+    piece.clear();
+    if (!name.empty()) {
+      // The frames of this piece drew bitmaps of the app's own (handle 0, which only the skin's Canvas uses): the screen really was skinned. If the SKIN row moved and the scenario
+      // left the skin off, every bound below would hold for a classic frame and prove nothing.
+      CHECK_MESSAGE(h.raster().handle_app_uses() > app_uses, name << ": the frame is not skinned");
+      const std::size_t words = h.display().last_frame_words();
+      const unsigned prims = h.raster().last_frame_peak_line_prims();
+      const unsigned px = h.raster().last_frame_peak_line_px();
+      CHECK_MESSAGE(words < kSkinMaxWords, name << ": " << words << " words");
+      CHECK_MESSAGE(prims <= kSkinMaxLinePrims, name << ": " << prims << " primitives on a line");
+      CHECK_MESSAGE(px <= kSkinMaxLinePx, name << ": " << px << " box px on a line");
+    }
+  };
+  for (std::string line; std::getline(lines, line);) {
+    piece += line + "\n";
+    const std::string cmd = command_of(line);
+    if (cmd == "snap" || cmd == "boot") {
+      std::istringstream w(line.substr(0, line.find('#')));
+      std::string c;
+      std::string name;
+      w >> c >> name;
+      run_piece(name);
+    }
+  }
+  run_piece("");
+}
+
 }  // namespace
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -84,7 +139,12 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
     const fs::path sub = out / file.stem();
     fs::remove_all(sub);
     fs::create_directories(sub);
-    const sim::ScenarioResult r = sim::run_scenario(*h, text, sub.string());
+    sim::ScenarioResult r;
+    if (file.stem().string().rfind("skin_", 0) == 0) {
+      run_skin_scenario(*h, text, sub.string(), r);
+    } else {
+      r = sim::run_scenario(*h, text, sub.string());
+    }
     CHECK_MESSAGE(r.ok, "line " << r.line << ": " << r.error);
 
     std::vector<std::string> snaps;

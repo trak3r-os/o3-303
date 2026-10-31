@@ -2,7 +2,7 @@
 #pragma once
 
 // The keys of the app's Config pages "303" and "DEEP" (docs/UX-303.md 5.12). A key is the item's identity in the kit's settings file (system.o3s, APPV): it is fixed here and
-// never reused or renumbered, like a unit's parameter id: an older settings file keeps meaning what it meant. Key 6 is reserved (SEQ MIDI OUT, deferred, D16).
+// never reused or renumbered, like a unit's parameter id: an older settings file keeps meaning what it meant. Key 6 is reserved (SEQ MIDI OUT, deferred, D16); key 7 is SKIN.
 // Pure data and the two conversions of AUTOSAVE: no engine, no screen, so a host test holds them.
 
 #include <cstdint>
@@ -16,6 +16,7 @@ inline constexpr std::uint16_t kLadderSlew = 3;    // 10..100 ms (30)
 inline constexpr std::uint16_t kPadLegend = 4;     // OFF, ON: the PADS line's text (ON)
 inline constexpr std::uint16_t kResetProject = 5;  // an action
 // 6: reserved.
+inline constexpr std::uint16_t kSkin = 7;          // CLASSIC, OBSIDIAN: the look of the screens that have a skin (CLASSIC until SK8; docs/SKIN-PLAN.md)
 
 // Page "DEEP": the sound settings no INSTRUMENT page has. They are also in the project (SND), which wins at a boot load (D18).
 inline constexpr std::uint16_t kFmtMix = 20;       // the growl's Formant Mix

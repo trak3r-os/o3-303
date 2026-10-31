@@ -37,6 +37,24 @@ Geo geometry(const Rect& area) noexcept {
   return g;
 }
 
+// A row's caption: classic is a Sel chip with SelText when the row is owned and TextDim otherwise; the obsidian skin (Marks::button_colours) draws it in the colour of the button
+// that owns the row, and the owned one as a chip of that colour with dark ink (docs/SKIN-PLAN.md 2.4).
+Color button_colour(DrawerRow row) noexcept {
+  switch (row) {
+    case DrawerRow::Note: return Color::Vol;
+    case DrawerRow::Gate: return Color::Accent;
+    case DrawerRow::Plays: return Color::Fx;
+    default: return Color::Instr;  // LOCK
+  }
+}
+Color caption_fill(const Marks& m, DrawerRow row) noexcept { return m.button_colours ? button_colour(row) : Color::Sel; }
+Color caption_ink(const Marks& m, DrawerRow row, bool owned) noexcept {
+  if (m.button_colours) {
+    return owned ? Color::AccentText : button_colour(row);
+  }
+  return owned ? Color::SelText : Color::TextDim;
+}
+
 int clampi(int v, int lo, int hi) noexcept { return v < lo ? lo : (v > hi ? hi : v); }
 
 // The top of the row of `note` in the lane (the rows are centred in the lane's height).
@@ -111,9 +129,9 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
   {
     const bool owned = m.row == DrawerRow::Note;
     if (owned) {
-      r.panel(Rect{gx + 2, g.lane.y, kGutterW - 4, kRowH - 2}, Color::Sel);
+      r.panel(Rect{gx + 2, g.lane.y, kGutterW - 4, kRowH - 2}, caption_fill(m, DrawerRow::Note));
     }
-    r.text(gx + 6, g.lane.y + 1, "NOTE", owned ? Color::SelText : Color::TextDim, Face::Micro);
+    r.text(gx + 6, g.lane.y + 1, "NOTE", caption_ink(m, DrawerRow::Note, owned), Face::Micro);
     const StepInfo cur = m.cursor >= 0 ? describe(p, static_cast<unsigned>(m.cursor)) : StepInfo{};
     for (int n = w.lo; n <= w.hi(); ++n) {
       if (n % 12 == 0) {
@@ -269,9 +287,9 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
     const int ry = g.rows.y + k * kRowH;
     const bool owned = m.row == kRowIds[k];
     if (owned) {
-      r.panel(Rect{gx + 2, ry, kGutterW - 4, kRowH - 2}, Color::Sel);
+      r.panel(Rect{gx + 2, ry, kGutterW - 4, kRowH - 2}, caption_fill(m, kRowIds[k]));
     }
-    r.text(gx + 6, ry + 1, kRowNames[k], owned ? Color::SelText : Color::TextDim, Face::Micro);
+    r.text(gx + 6, ry + 1, kRowNames[k], caption_ink(m, kRowIds[k], owned), Face::Micro);
   }
   const int gate_y = g.rows.y;
   const int plays_y = g.rows.y + kRowH;

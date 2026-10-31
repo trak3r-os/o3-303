@@ -29,26 +29,6 @@ void cat(char* out, unsigned cap, const char* s) noexcept {
   }
 }
 
-// "OCT 2-3": the keyboard's two octaves (the bottom row is octave 2 at shift 0).
-void octave_text(int shift, char* out, unsigned cap) noexcept {
-  out[0] = '\0';
-  cat(out, cap, "OCT ");
-  for (int i = 0; i < 2; ++i) {
-    const int o = 2 + shift + i;
-    char num[4];
-    unsigned n = 0;
-    if (o < 0) {
-      num[n++] = '-';
-    }
-    n += view::fmt_uint(static_cast<unsigned>(o < 0 ? -o : o), num + n);
-    num[n] = '\0';
-    if (i == 1) {
-      cat(out, cap, "-");
-    }
-    cat(out, cap, num);
-  }
-}
-
 unsigned popcount16(std::uint16_t v) noexcept {
   unsigned n = 0;
   for (; v != 0u; v = static_cast<std::uint16_t>(v & (v - 1u))) {
@@ -90,6 +70,26 @@ unsigned chips_that_fit(const ui::Renderer& r, std::uint16_t actions, int room) 
 }
 
 }  // namespace
+
+// "OCT 2-3": the keyboard's two octaves (the bottom row is octave 2 at shift 0).
+void octave_text(int shift, char* out, unsigned cap) noexcept {
+  out[0] = '\0';
+  cat(out, cap, "OCT ");
+  for (int i = 0; i < 2; ++i) {
+    const int o = 2 + shift + i;
+    char num[4];
+    unsigned n = 0;
+    if (o < 0) {
+      num[n++] = '-';
+    }
+    n += view::fmt_uint(static_cast<unsigned>(o < 0 ? -o : o), num + n);
+    num[n] = '\0';
+    if (i == 1) {
+      cat(out, cap, "-");
+    }
+    cat(out, cap, num);
+  }
+}
 
 int action_chips_width(ui::Renderer& r, std::uint16_t actions, int room) noexcept {
   const unsigned total = popcount16(actions);
