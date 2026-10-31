@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "skin.h"
 
+#include "panel.h"
+
 namespace o3_303::skin {
 
 namespace {
@@ -105,7 +107,7 @@ bool parse_uint(const char* s, std::uint32_t& out) noexcept {
 void say_stats(o3sdk::app::DiagOut& out) noexcept {
   const FrameStats s = stats();
   out.text("skin ").text(g_on ? "on" : "off").text(g_on && !g_assets ? " (no bitmaps: classic drawn)" : "").text(" frames=").dec(s.frames).text(" words=").dec(s.last_words).text(" draw_us=").dec(s.last_us).text(" peak_us=").dec(s.peak_us);
-  out.text(" ballast=").dec(g_ballast).nl();
+  out.text(" dropped=").dec(panel().dropped()).text(" ballast=").dec(g_ballast).nl();
 }
 
 }  // namespace

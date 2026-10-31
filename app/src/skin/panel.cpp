@@ -114,6 +114,15 @@ bool Panel::text(int x, int y, const char* s, ui::Color c, ui::Face face) noexce
   return true;
 }
 
+bool Panel::sprite_at(unsigned i, SpriteInfo& out) const noexcept {
+  if (i >= n_shapes_ || shape_[i].kind != Kind::Sprite) {
+    return false;
+  }
+  const Shape& s = shape_[i];
+  out = SpriteInfo{s.layer, static_cast<skin_assets::Id>(s.asset), s.a, s.b, s.rgb};
+  return true;
+}
+
 ui::plot::BitmapDesc Panel::texture_desc(int y, int h) noexcept {
   const skin_assets::Info& i = skin_assets::info(skin_assets::Id::TexObsidian);
   const unsigned rows = static_cast<unsigned>(h);

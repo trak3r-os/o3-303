@@ -6,7 +6,7 @@
 // size, bitmap bind) changes once a layer and not once a shape, which is what keeps a frame under its display-list budget (section 4.3). flush_text() draws the texts after the
 // shapes, outside the section, through Renderer::text() in the frame's theme, one colour token at a time. No shape sits over text.
 //
-// The queue is a fixed array (in the SDRAM on the unit, see panel()) (kShapes of 18 bytes, kTexts of 12: the header and the F row use about 120 shapes and 70 texts between them): a full queue drops what does not fit and counts it (dropped()), which the tests hold at
+// The queue is a fixed array (in the SDRAM on the unit, see panel()) (kShapes of 18 bytes, kTexts of 12: the header and the F row use about 120 shapes and 70 texts between them; PERFORM's worst frame, all eleven actions on and the four buttons latched, with a toast, queues 108 texts and 202 shapes): a full queue drops what does not fit and counts it (dropped()), which the tests hold at
 // zero; nothing is allocated. Main loop only. The text pointers must stay valid until flush_text(): the caller's members or literals.
 
 #include "skin.h"
@@ -34,7 +34,7 @@ enum class Layer : std::uint8_t {
   Tab,         // the F-number's tab on a slot's label line
   Outline,     // a one pixel frame over a window (a message that says something did not happen)
   Switch,      // the WAVE switch: track, lever and its light, in the order queued
-  ActKey,      // the action keys (sprites)
+  ActKey,      // the action keys and PERFORM's lamps (sprites)
   KnobScale,   // the knobs' ticks, then their skirts, then their caps, each part for every knob (one bitmap bind a layer)
   KnobBody,
   KnobCap,
@@ -51,7 +51,7 @@ inline constexpr unsigned kLayerCount = static_cast<unsigned>(Layer::kCount);
 class Panel {
  public:
   static constexpr unsigned kShapes = 256;
-  static constexpr unsigned kTexts = 96;
+  static constexpr unsigned kTexts = 160;  // PERFORM queues its 48 lamp labels beside the header and the F row's ~70
 
   // The queue empty again, the sheen's scissor the whole screen.
   void clear() noexcept;
@@ -73,6 +73,16 @@ class Panel {
   void flush_shapes(ui::plot::Canvas& canvas) const noexcept;
   // Every queued text, one colour token at a time (the order of ui::Color).
   void flush_text(ui::Renderer& r) const noexcept;
+
+  // For the tests: shape `i` of the queue, when it is a sprite (false otherwise): what is queued is what is drawn.
+  struct SpriteInfo {
+    Layer layer;
+    skin_assets::Id id;
+    int x;
+    int y;
+    ui::Rgb rgb;
+  };
+  bool sprite_at(unsigned i, SpriteInfo& out) const noexcept;
 
   unsigned shapes() const noexcept { return n_shapes_; }
   unsigned texts() const noexcept { return n_texts_; }

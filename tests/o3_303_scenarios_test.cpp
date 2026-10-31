@@ -79,7 +79,13 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
     }
     total.snapshots += r.snapshots;
     piece.clear();
-    if (!name.empty()) {
+    // A snap named help_* must be the kit's HELP overlay (Shift + Config) over the skinned screen: the test checks that it is open. Its frames are the kit's, so they keep the kit's 1,800
+    // words (checked for the whole run below) and not the skin's budgets. A skinned frame that is named help_* fails here instead of skipping its checks.
+    const bool help_snap = name.rfind("help_", 0) == 0;
+    if (help_snap) {
+      CHECK_MESSAGE(h.runtime().help_open(), name << ": a help_* snap is the kit's HELP, and it is not open");
+    }
+    if (!name.empty() && !help_snap) {
       // The frames of this piece drew bitmaps of the app's own (handle 0, which only the skin's Canvas uses): the screen really was skinned. If the SKIN row moved and the scenario
       // left the skin off, every bound below would hold for a classic frame and prove nothing.
       CHECK_MESSAGE(h.raster().handle_app_uses() > app_uses, name << ": the frame is not skinned");
@@ -112,7 +118,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin", "song", "skin_song"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }

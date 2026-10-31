@@ -341,9 +341,15 @@ TEST_CASE("console: skin on and off, ballast N and stats, one line each; anythin
   CHECK(console_says({"ballast", "0"}).find("ballast=0\n") != std::string::npos);
   reset_stats();
   note_frame(1234, 567, 5000);
+  skin::panel().clear();
   const std::string line = console_says({"stats"});
-  CHECK(line == "skin off frames=1 words=1234 draw_us=567 peak_us=567 ballast=0\n");
+  CHECK(line == "skin off frames=1 words=1234 draw_us=567 peak_us=567 dropped=0 ballast=0\n");
   CHECK(console_says({}) == line);  // no word is stats
+  for (unsigned i = 0; i < Panel::kShapes + 3; ++i) {  // a frame that overflowed the queue: the reply says how many shapes and texts were lost
+    skin::panel().rect(Layer::Base, ui::Rect{0, 0, 1, 1}, pal::kBase);
+  }
+  CHECK(console_says({"stats"}).find(" dropped=3 ") != std::string::npos);
+  skin::panel().clear();
   for (const char* bad : {"ballast", "nonsense", "onn", "o"}) {
     CHECK(console_says({bad}).rfind("usage: ", 0) == 0);
   }

@@ -19,6 +19,7 @@
 #include "frame.h"
 #include "live_actions.h"
 #include "main_screen.h"
+#include "perform_view.h"
 #include "rig.h"
 
 #include <o3sdk/app/panel.h>
@@ -27,19 +28,6 @@
 #include <cstdint>
 
 namespace o3_303 {
-
-// One pad as the screen shows it.
-struct PadLamp {
-  char label[8] = "";
-  std::uint8_t level = 0;  // the pad's LED level (the kit's kLedOff .. kLedOn)
-  bool latched = false;    // an action latched: drawn with a frame
-};
-
-struct PerformView {
-  PadLamp lamp[o3sdk::app::kPadCount];
-  char ladder_caption[16] = "";  // what row 3 is: the latched knob's name, or "WOBBLE RATE"
-  char keys_caption[16] = "";    // what row 4 does: "PLAY VOICE" or "TRANSPOSE"
-};
 
 class PerformScreen final : public o3sdk::app::Screen {
  public:
@@ -59,8 +47,13 @@ class PerformScreen final : public o3sdk::app::Screen {
   bool setup() const noexcept { return setup_; }
   // The encoder is MORPH (a snapshot was recalled and no F key was tapped since).
   bool morphing() const noexcept { return morph_; }
+  // The view the last skinned frame drew (for the tests: its lamps are the pads' LED levels).
+  const PerformView& last_view() const noexcept { return view_; }
 
   const char* title() const noexcept override { return setup_ ? "PERFORM SETUP" : "PERFORM"; }
+  // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise the kit's.
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context& ctx) const noexcept override;
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void enter(o3sdk::app::Context& ctx) noexcept override;
   void leave(o3sdk::app::Context& ctx) noexcept override;
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
@@ -95,7 +88,13 @@ class PerformScreen final : public o3sdk::app::Screen {
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   void pads_line(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   void draw_colour_buttons(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& line) const noexcept;
+  void fill_chips(PerformView& view) const noexcept;
+  // The F row's eight boxes: the page's knobs, or with Shift held on PERFORM the Shift row (REDO and UNDO). Returns whether it is the Shift row. `skin`: the obsidian row dims a key that has
+  // nothing to do (the classic strip's boxes are not dimmed).
+  bool fill_knob_row(o3sdk::app::Context& ctx, view::Knob (&knobs)[view::kKnobs], bool skin) noexcept;
   void draw_knob_row(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_classic(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
 
   Rig* rig_ = nullptr;
   Controls* controls_ = nullptr;
@@ -110,6 +109,7 @@ class PerformScreen final : public o3sdk::app::Screen {
   char toast_[32] = {};
   bool toast_off_ = false;
   std::uint64_t toast_until_ms_ = 0;
+  PerformView view_;  // the last skinned frame's
 };
 
 }  // namespace o3_303

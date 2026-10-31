@@ -419,7 +419,7 @@ TEST_CASE("panel: a full queue drops what does not fit, counts it, and clear() e
   CHECK(p.shapes() == 0);
   CHECK(p.texts() == 0);
   CHECK(p.dropped() == 0);
-  static_assert(sizeof(Panel) < 8 * 1024, "the queue is a few KB");
+  static_assert(sizeof(Panel) < 10 * 1024, "the queue is a few KB");
 }
 
 TEST_CASE("panel: the texture bands are the tile's rows drawn 800 wide, and valid descs") {

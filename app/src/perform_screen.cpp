@@ -2,12 +2,16 @@
 #include "perform_screen.h"
 
 #include "help_texts.h"
+#include "skin/header.h"
+#include "skin/perform.h"
+#include "skin/skin.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/widgets.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
+#include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/components.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/seq/ops.h>
@@ -84,9 +88,7 @@ void draw_view(ui::Renderer& r, const Rect& area, const PerformView& view, unsig
   // The levels: off is an outline alone, dim a grey lamp, low and mid the blue one, on the green one.
   static constexpr Color kFill[4] = {Color::Pane, Color::Empty, Color::Sel, Color::Play};
   static constexpr Color kInk[4] = {Color::TextDim, Color::Text, Color::SelText, Color::PlayText};
-  const auto group = [](std::uint8_t level) -> unsigned {
-    return level >= app::kLedOn ? 3u : (level >= app::kLedLow ? 2u : (level >= app::kLedDim ? 1u : 0u));
-  };
+  const auto group = [](std::uint8_t level) -> unsigned { return static_cast<unsigned>(lamp_tone(level)); };
   for (unsigned g = 0; g < 4; ++g) {
     for (unsigned pad = 0; pad < count; ++pad) {
       if (group(view.lamp[pad].level) == g) {
@@ -620,10 +622,21 @@ void PerformScreen::draw_colour_buttons(app::Context& ctx, ui::Renderer& r, cons
   r.text(line.x + line.w - 8 - r.text_width(hint, Face::Micro), line.y + 4, hint, Color::Empty, Face::Micro);
 }
 
-// The knob row: the sound knobs (PERFORM), the setup page's (PERFORM SETUP), or, with Shift held, the Shift row (REDO and UNDO).
-void PerformScreen::draw_knob_row(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+// The four colour buttons as the skin's chips show them: the button, its assigned action and whether it is held or latched.
+void PerformScreen::fill_chips(PerformView& view) const noexcept {
+  static constexpr const char* kButtonNames[kPerfButtons] = {"NOTE", "INSTR", "VOL", "FX"};
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    PerformChip& chip = view.chip[b];
+    cut(kButtonNames[b], sizeof chip.name - 1u, chip.name, sizeof chip.name);
+    const unsigned a = rig_->wiring.perf[b];
+    cut(a < kPerfActionCount ? kPerfActionNames[a] : "", sizeof chip.action - 1u, chip.action, sizeof chip.action);
+    chip.state = (live_->buttons_latched() >> b & 1u) != 0u ? ChipState::Latched : ((live_->buttons_held() >> b & 1u) != 0u ? ChipState::Held : ChipState::Idle);
+  }
+}
+
+// The F row: the sound knobs (PERFORM), the setup page's (PERFORM SETUP), or, with Shift held, the Shift row (REDO and UNDO).
+bool PerformScreen::fill_knob_row(app::Context& ctx, view::Knob (&knobs)[view::kKnobs], bool skin) noexcept {
   static constexpr const char* kFKeys[kKeys] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
-  view::Knob knobs[view::kKnobs];
   if (!setup_ && ctx.panel().shift()) {
     for (unsigned k = 0; k < kKeys; ++k) {
       knobs[k].fkey = kFKeys[k];
@@ -632,10 +645,10 @@ void PerformScreen::draw_knob_row(app::Context& ctx, ui::Renderer& r, const Rect
         const bool can = k == 6u ? rig_->bank->can_redo() : rig_->bank->can_undo();
         knobs[k].label = k == 6u ? "REDO" : "UNDO";
         cut(can ? (k == 6u ? "FWD" : "BACK") : "NONE", 7, knobs[k].value, sizeof knobs[k].value);
+        knobs[k].dim = skin && !can;
       }
     }
-    view::draw_knobs(r, area, knobs);
-    return;
+    return true;
   }
   const PageKeys& pk = keys();
   const Page& pg = pk.page();
@@ -648,10 +661,53 @@ void PerformScreen::draw_knob_row(app::Context& ctx, ui::Renderer& r, const Rect
     kn.focus = !(morph_ && !setup_) && k == pk.focus();
     kn.held = (pk.held() >> k & 1u) != 0u;
   }
+  return false;
+}
+
+void PerformScreen::draw_knob_row(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  view::Knob knobs[view::kKnobs];
+  (void)fill_knob_row(ctx, knobs, false);
   view::draw_knobs(r, area, knobs);
 }
 
+app::Chrome PerformScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }
+
+const ui::Theme* PerformScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
+
 void PerformScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  if (skin::active(ctx)) {
+    draw_skinned(ctx, r);
+  } else {
+    draw_classic(ctx, r, area);
+  }
+}
+
+// The obsidian drawing (skin/perform.cpp): the header, the glass with the lamps, the F row. The same view the classic drawing takes, filled the same way.
+void PerformScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
+  const std::uint32_t t0 = o3sdk::hal::cycles();
+  fill_view(ctx, view_);
+  fill_chips(view_);
+  frame::StatusView status;
+  fill_status(ctx, status);
+  skin::HeaderInputs in;
+  in.title = title();
+  in.pattern = sel();
+  in.tempo_mbpm = ctx.engine().tempo();
+  in.playing = rig_->seq->playhead().playing;
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    in.perf[b] = rig_->wiring.perf[b];
+  }
+  in.now_ms = ctx.uptime_ms();
+  view::Knob knobs[view::kKnobs];
+  const bool shift_row = fill_knob_row(ctx, knobs, true);
+  char line[128];
+  pads_line(ctx, line, sizeof line);
+  skin::draw_perform(r, view_, setup_, status, in, knobs, shift_row, line);
+  constexpr std::uint32_t kCyclesPerUs = 180;  // the MK66's clock; the host's hal::cycles() is scaled to it
+  skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / kCyclesPerUs, ctx.uptime_ms());
+}
+
+void PerformScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   frame::StatusView status;
   fill_status(ctx, status);
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
