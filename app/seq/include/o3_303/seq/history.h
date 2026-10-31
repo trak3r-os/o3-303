@@ -2,7 +2,7 @@
 #pragma once
 
 // The undo / redo history: whole-pattern snapshots in a fixed ring, no allocation. It lives inside the Bank (bank.h, in the SDRAM:
-// kHistoryDepth + 1 patterns, about 75 KB); the Bank is its only user.
+// kHistoryDepth + 1 patterns and as many songs, about 85 KB); the Bank is its only user.
 //
 // The entries form a timeline with a cursor. The entries before the cursor can be undone, the ones from the cursor on redone. An
 // entry holds a pattern's state and which pattern: undo swaps the entry's state with the live pattern's (so the entry then holds
@@ -10,21 +10,27 @@
 //
 // Coalescing: an edit with a non-zero `key` equal to the last entry's key (and the same pattern, nothing to redo) joins that
 // entry instead of making a new one, so turning the encoder on one step is one undo, not forty.
+//
+// The song (song.h) shares the timeline (UX-303 D9): an entry whose `index` is kSongEntry holds a song in `song` instead of a pattern in
+// `state` (the other one is not touched), swapped with the Bank's song on undo and redo in the same way.
 
 #include <o3_303/pattern.h>
+#include <o3_303/seq/song.h>
 
 #include <cstdint>
 
 namespace o3_303::seq {
 
 inline constexpr unsigned kHistoryDepth = 32;
+inline constexpr std::uint8_t kSongEntry = 0xFF;  // Entry::index of an entry that holds the song (a pattern index is below kPatternCount)
 
 class History {
  public:
   struct Entry {
     Pattern state;
+    Song song;
     std::uint32_t key;
-    std::uint8_t index;  // the pattern it belongs to
+    std::uint8_t index;  // the pattern it belongs to, or kSongEntry
   };
 
   void clear() noexcept {
@@ -44,6 +50,9 @@ class History {
   // After the edit (when stage() returned true): keeps the snapshot when `live` differs from it (drops the redo entries first),
   // discards it otherwise. true: the pattern changed.
   bool commit(const Pattern& live) noexcept;
+  // The same for an edit of the song (an entry of kind kSongEntry); the key joins only with another song entry.
+  bool stage_song(const Song& live, std::uint32_t key) noexcept;
+  bool commit_song(const Song& live) noexcept;
 
   // The entry to swap for an undo / redo (null when there is none); the cursor has moved. Calling one ends coalescing.
   Entry* take_undo() noexcept;
@@ -51,6 +60,8 @@ class History {
 
  private:
   Entry& at(unsigned i) noexcept { return ring_[(start_ + i) % kHistoryDepth]; }
+  bool joins(unsigned index, std::uint32_t key) noexcept;  // the edit about to be staged continues the last entry
+  void keep_scratch() noexcept;                            // drops the redo line, makes room and stores scratch_ as the newest entry
 
   Entry ring_[kHistoryDepth];
   Entry scratch_;

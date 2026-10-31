@@ -104,6 +104,17 @@ constexpr std::uint32_t kWobDefault = kWobReset | (static_cast<std::uint32_t>(kW
 constexpr std::uint32_t kWobbleSeedMix = 0x5eed0b1eu;  // the sample and hold's generator is the seed's, scrambled: it draws apart from the conditions'
 constexpr unsigned kWobbleTick = 16;                   // frames between two Param events of the wobble
 
+// A song row as one word (Sequencer::song_rows_).
+std::uint32_t pack_row(const SongRow& r) noexcept {
+  return static_cast<std::uint32_t>(r.pattern) | (static_cast<std::uint32_t>(r.repeat) << 8) |
+         (static_cast<std::uint32_t>(static_cast<std::uint8_t>(r.transpose)) << 16) | (static_cast<std::uint32_t>(r.flags) << 24);
+}
+
+SongRow unpack_row(std::uint32_t w) noexcept {
+  return SongRow{static_cast<std::uint8_t>(w), static_cast<std::uint8_t>(w >> 8), static_cast<std::int8_t>(static_cast<std::uint8_t>(w >> 16)),
+                 static_cast<std::uint8_t>(w >> 24)};
+}
+
 float default_mix(unsigned field) noexcept { return field == kMixerLevel ? 1.0f : 0.0f; }
 
 // A mixer value as Engine::set_mix stores it (clamped; NaN is the field's default).
@@ -131,6 +142,9 @@ Sequencer::Sequencer(Bank& bank) noexcept : bank_(bank), seed_(kDefaultSeed), wo
   }
   for (auto& w : chain_words_) {
     w.store(0u, std::memory_order_relaxed);
+  }
+  for (auto& w : song_rows_) {
+    w.store(pack_row(default_row()), std::memory_order_relaxed);
   }
   for (auto& sh : shadow_) {
     clear(sh);  // until the first consistent copy of a pattern arrives the hook plays silence
@@ -291,6 +305,35 @@ bool Sequencer::jump(unsigned pattern) noexcept {
   }
   bank_.select(pattern);
   return true;
+}
+
+// ---- The song (main loop) -------------------------------------------------------------------------------------------------------
+
+void Sequencer::set_song(const Song& song) noexcept {
+  Song n = song;
+  song_normalize(n);
+  // The hook never sees a length that covers a row not yet written: a shorter song stores its length first, a longer one last.
+  if (n.length < song_len_.load(std::memory_order_relaxed)) {
+    song_len_.store(n.length, std::memory_order_release);
+  }
+  for (unsigned i = 0; i < kSongRows; ++i) {
+    song_rows_[i].store(pack_row(n.rows[i]), std::memory_order_relaxed);
+  }
+  song_len_.store(n.length, std::memory_order_release);
+}
+
+void Sequencer::set_play_song(bool on, unsigned start_row) noexcept {
+  song_play_.store((on ? 1u : 0u) | ((start_row < kSongRows ? start_row : 0u) << 8), std::memory_order_relaxed);
+}
+
+SongPosition Sequencer::song_position() const noexcept {
+  const std::uint32_t w = song_pos_.load(std::memory_order_relaxed);
+  SongPosition p;
+  p.active = (w & 1u) != 0u;
+  p.done = (w & 2u) != 0u;
+  p.row = p.active ? static_cast<int>((w >> 8) & 0xFFu) : -1;
+  p.repeat = (w >> 16) & 0xFFu;
+  return p;
 }
 
 void Sequencer::set_live_transpose(int semitones) noexcept {
@@ -500,6 +543,98 @@ void Sequencer::advance_chain() noexcept {
   }
 }
 
+// ---- The song (render) ----------------------------------------------------------------------------------------------------------
+
+// The first row at `from` or after (below `length`) that is not muted, -1 when there is none.
+int Sequencer::next_row(unsigned from, unsigned length) const noexcept {
+  for (unsigned i = from; i < length; ++i) {
+    if (!row_muted(unpack_row(song_rows_[i].load(std::memory_order_relaxed)))) {
+      return static_cast<int>(i);
+    }
+  }
+  return -1;
+}
+
+// The row's pattern starts, from its first pass; the row's transpose goes on top of the notes.
+void Sequencer::load_row(unsigned row) noexcept {
+  const SongRow r = song_clean_row(unpack_row(song_rows_[row].load(std::memory_order_relaxed)));
+  load_pattern(r.pattern);
+  song_row_ = row;
+  song_rep_ = 0;
+  song_transpose_ = r.transpose;
+}
+
+// Play starts a run: with the song mode on and a row to play (from the start row on, round the end once) that row starts and the song is
+// what the run plays. false: the run plays the selected pattern.
+bool Sequencer::begin_song() noexcept {
+  song_active_ = false;
+  song_done_ = false;
+  song_row_ = 0;
+  song_rep_ = 0;
+  song_transpose_ = 0;
+  const std::uint32_t play = song_play_.load(std::memory_order_relaxed);
+  if ((play & 1u) == 0u) {
+    return false;
+  }
+  const unsigned length = song_len_.load(std::memory_order_acquire);
+  const unsigned start = (play >> 8) < length ? (play >> 8) : 0u;
+  int row = next_row(start, length);
+  if (row < 0) {
+    row = next_row(0, start);
+  }
+  if (row < 0) {
+    return false;
+  }
+  load_row(static_cast<unsigned>(row));
+  song_active_ = true;
+  return true;
+}
+
+// The playing pattern ended (its pass counter is already counted): the row's next repeat, else the next row that is not muted; after the last
+// one the first again (the loop), or false when the song is over. A song with nothing left to play loops on the playing pattern.
+// The position is a row index, not a row: a song edited while it plays keeps the index, so deleting the playing row skips the row that
+// moves up into it, and inserting above it plays the playing row once more. A screen that edits a playing song moves the position itself.
+bool Sequencer::advance_song() noexcept {
+  const bool loop = song_loop_.load(std::memory_order_relaxed) != 0u;
+  const unsigned length = song_len_.load(std::memory_order_acquire);
+  if (song_row_ < length) {
+    const SongRow r = song_clean_row(unpack_row(song_rows_[song_row_].load(std::memory_order_relaxed)));
+    if (song_rep_ + 1u < r.repeat) {
+      ++song_rep_;
+      song_transpose_ = r.transpose;
+      return true;
+    }
+  }
+  int row = next_row(song_row_ + 1u, length);
+  if (row < 0 && loop) {
+    row = next_row(0, length);
+  }
+  if (row >= 0) {
+    load_row(static_cast<unsigned>(row));
+    return true;
+  }
+  if (!loop) {
+    return false;
+  }
+  song_rep_ = 0;
+  return true;
+}
+
+// The last row ended with the loop off: the note ends, the locks let go, and nothing starts again (sequence() returns early from now on).
+void Sequencer::finish_song(dsp::BlockContext& ctx, unsigned frame) noexcept {
+  release_held(ctx, frame);
+  restore_lanes(ctx, frame);
+  song_done_ = true;
+  cur_step_ = -1;
+  cur_point_ = 0;
+  pt_q_ = 4;
+  hit_n_ = 0;
+  hit_k_ = 0;
+  fill_on_ = false;
+  draw_valid_ = false;
+  prev_slide_ = false;
+}
+
 int Sequencer::chain_position() const noexcept { return running_ && from_chain_ && chain_next_ > 0u ? static_cast<int>(chain_next_) - 1 : -1; }
 
 int Sequencer::chain_queued() const noexcept {
@@ -623,6 +758,9 @@ void Sequencer::end_run(dsp::BlockContext& ctx) noexcept {
   chain_next_ = 0;  // a stopped sequencer starts the chain from its first entry
   from_chain_ = false;
   chain_dirty_ = true;
+  song_active_ = false;
+  song_done_ = false;
+  song_transpose_ = 0;
 }
 
 void Sequencer::begin_run(const dsp::Transport& t) noexcept {
@@ -641,7 +779,9 @@ void Sequencer::begin_run(const dsp::Transport& t) noexcept {
   chain_next_ = 0;
   from_chain_ = false;
   chain_dirty_ = true;
-  load_pattern(bank_.selected());  // also the first pass
+  if (!begin_song()) {
+    load_pattern(bank_.selected());  // also the first pass
+  }
   step_tick_ = (t.pos + 0xFFFFFFFFull) >> 32;  // the first whole tick the transport has not passed
   wob_phase_ = 0;  // the wobble's cycles are counted from the transport's start
   wob_held_ = wob_rng_.next_float() * 2.0f - 1.0f;
@@ -743,6 +883,9 @@ void Sequencer::build_variant() noexcept {
 
 void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   // Which step: a pending jump starts its pattern here; the end of the length is the end of the pattern (queue, chain).
+  if (song_active_ && jump_to_ >= 0) {
+    jump_to_ = -1;  // the song is the order: a jump is not followed
+  }
   if (jump_to_ >= 0) {
     load_pattern(static_cast<unsigned>(jump_to_));
     jump_to_ = -1;
@@ -752,7 +895,12 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   } else if (next_step_ >= length_of(shadow_[cur_])) {
     next_step_ = 0;
     ++pass_;         // the pattern starts over ...
-    advance_chain();  // ... unless the chain loads another one, whose first pass this is
+    if (!song_active_) {
+      advance_chain();  // ... unless the chain loads another one, whose first pass this is
+    } else if (!advance_song()) {  // ... unless the song's next row (or the end of the song) comes
+      finish_song(ctx, frame);
+      return;
+    }
   }
 
   // FILL is looked at here and nowhere else: the variant starts and ends on a step boundary.
@@ -849,7 +997,7 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   const auto part0 = static_cast<std::uint32_t>(hits > 1u ? len / hits : len);
   const std::uint32_t gate_ticks = (part0 * gate_pct + 50u) / 100u;
 
-  const int transposed = static_cast<int>(s.note) + static_cast<int>(pat.transpose) + live_transpose_.load(std::memory_order_relaxed);
+  const int transposed = static_cast<int>(s.note) + static_cast<int>(pat.transpose) + live_transpose_.load(std::memory_order_relaxed) + song_transpose_;
   const int note = transposed < 0 ? 0 : (transposed > static_cast<int>(kMaxNote) ? static_cast<int>(kMaxNote) : transposed);
   const bool acc_all = (perf & kPerfAccAll) != 0u;
   const bool accent = (s.flags & kStepAccent) != 0u || acc_all;
@@ -1372,6 +1520,8 @@ void Sequencer::publish() noexcept {
   h.sounding = held_ >= 0;
   h.fill = running_ && fill_on_;
   playhead_.store(pack_playhead(h), std::memory_order_relaxed);
+  song_pos_.store((running_ && song_active_ ? 1u : 0u) | (song_done_ ? 2u : 0u) | ((song_row_ & 0xFFu) << 8) | ((song_rep_ & 0xFFu) << 16),
+                  std::memory_order_relaxed);
   if (chain_dirty_) {
     publish_chain();
     chain_dirty_ = false;
@@ -1457,6 +1607,10 @@ void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {
     begin_run(t);
   }
   refresh_shadow();
+  if (song_done_) {  // the song ended with the loop off: the transport runs on, nothing plays
+    publish();
+    return;
+  }
 
   for (unsigned n = 0; n < kMaxEventsLoop; ++n) {
     // The earliest thing due: the gate end of the held note, a motion quarter, a ratchet hit, or the next step. At the same tick the gate
@@ -1498,6 +1652,9 @@ void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {
       case Due::Step:
         start_step(ctx, frame);
         break;
+    }
+    if (song_done_) {  // the step that was due was the end of the song: nothing else starts
+      break;
     }
   }
   publish();

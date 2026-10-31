@@ -105,6 +105,21 @@
 //               the hook sets its Note parameter (kGrowlNoteParam, the MIDI note that starts, clamped as played) at every note start, ratchet
 //               hits included: one Param event a note.
 //
+// SG1 (UX-303 5.7, the song), on top of those:
+//
+//   song        a Song (song.h) the sequencer plays instead of the selected pattern when the song mode is on (set_play_song(); it is read when
+//               Play starts a run). Play starts at the start row (the first row from it that is not muted), and the row's pattern plays
+//               `repeat` times, counted at the pattern's end (the pass counter goes on over the repeats, so a trig condition A:B works
+//               across them; a new row starts it again, as a chain entry does). Then the next row that is not muted starts, and after the
+//               last one the song starts again from its first (the loop, on by default) or, with the loop off, the sequencer finishes: it
+//               goes quiet, the transport runs on and song_position().done says so (the app stops the engine). A row's transpose
+//               is added to the note on top of the pattern's and the live transpose. A song with no row to play (empty, all muted) is
+//               played as pattern mode when Play starts, and loops on the playing pattern if it comes to that mid-run. While a song plays the chain
+//               and jump() are not followed (the song is the order). set_song() may be called at any time: a row is read when it is
+//               started (its pattern, its transpose), when its pattern ends (its repeats) and when the next row is looked for (mute,
+//               length); rows are single words, so a row is never torn, the rows of an edit may be seen across one block boundary. A song
+//               in pattern mode costs nothing: the hook never looks at it.
+//
 // Contexts. Everything not marked "render" is the main loop. The main loop never touches the render's state: it queues commands on a
 // lock-free ring (the same way the engine takes its commands; a full ring refuses and returns false), sets a few atomics, and
 // reads the playhead from one atomic word. The patterns are shared through the Bank's seqlock (bank.h).
@@ -115,6 +130,7 @@
 #include <o3_303/pattern.h>
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/rng.h>
+#include <o3_303/seq/song.h>
 #include <o3_303/seq/wobble.h>
 
 #include <atomic>
@@ -163,6 +179,14 @@ struct ChainView {
                                        // -1 if the playing pattern simply repeats; it is position + 1 unless a jump moved the playing pattern
   int next = -1;                       // its pattern, as Playhead::queued
   bool loop = false;                   // the chain starts again after its last entry
+};
+
+// Where the song is, as of the end of the last block (Sequencer::song_position()).
+struct SongPosition {
+  bool active = false;   // a song is what this run plays (set_play_song() was on when it started and a row could play)
+  bool done = false;     // the loop is off and the last row has ended: nothing plays any more (the transport still runs)
+  int row = -1;          // the row playing now (the last one played when done), -1 when not active
+  unsigned repeat = 0;   // the play of the row's pattern now, from 0 (0 .. repeat - 1)
 };
 
 // The wobble as the main loop set it (Sequencer::wobble()).
@@ -219,6 +243,21 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   // The pattern starts at the next step, from its step 0; the chain's cursor stays where it was, so the chain goes on after it.
   // Stopped: only selects the pattern. Playing: selects it too, but only if the command went on the ring (false: nothing happened).
   bool jump(unsigned pattern) noexcept;
+
+  // ---- The song (main loop; see "SG1" above) ------------------------------------------------------------------------------------
+  // Hands the sequencer a copy of `song` to play (made canonical on the way: song_normalize()). Not a command on the ring: the rows are
+  // atomic words the hook reads when it needs them.
+  void set_song(const Song& song) noexcept;
+  // set_song(bank().song()): after an edit, an undo / redo or a restore of the Bank's song.
+  void sync_song() noexcept { set_song(bank_.song()); }
+  // The song mode, read when Play starts a run: `on` plays the song from row `start_row` (a row past the end starts at 0); off, the selected
+  // pattern as always. A run that is going keeps the mode it began with.
+  void set_play_song(bool on, unsigned start_row = 0) noexcept;
+  bool play_song() const noexcept { return (song_play_.load(std::memory_order_relaxed) & 1u) != 0u; }
+  // After the last row: true starts the song again (the default), false finishes it.
+  void set_song_loop(bool loop) noexcept { song_loop_.store(loop ? 1u : 0u, std::memory_order_relaxed); }
+  bool song_loop() const noexcept { return song_loop_.load(std::memory_order_relaxed) != 0u; }
+  SongPosition song_position() const noexcept;
 
   // ---- Live control (main loop; atomics, effective at the next step) ----------------------------------------------------
   void set_live_transpose(int semitones) noexcept;  // added to the notes, -48..+48
@@ -363,6 +402,11 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void refresh_shadow() noexcept;
   void append_chain(unsigned pattern) noexcept;
   void advance_chain() noexcept;
+  bool begin_song() noexcept;
+  bool advance_song() noexcept;
+  void load_row(unsigned row) noexcept;
+  int next_row(unsigned from, unsigned length) const noexcept;
+  void finish_song(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
   int chain_position() const noexcept;
   int chain_queued() const noexcept;
   void publish() noexcept;
@@ -411,7 +455,15 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   };
   Unstored unstored_[kLaneTargetCount][kKnobs];
 
+  // The song, main -> render: a row is one word (pattern | repeat << 8 | transpose << 16 | flags << 24), so a row is never torn; a single
+  // writer (the main loop). song_play_: bit 0 on | 8..15 the start row.
+  std::atomic<std::uint32_t> song_rows_[kSongRows];
+  std::atomic<std::uint32_t> song_len_{0};
+  std::atomic<std::uint32_t> song_play_{0};
+  std::atomic<std::uint32_t> song_loop_{1};
+
   // ---- render -> main
+  std::atomic<std::uint32_t> song_pos_{0};  // bit 0 active | 1 done | 8..15 row | 16..23 repeat
   std::atomic<std::uint32_t> playhead_{0};  // packed (sequencer.cpp)
   std::atomic<std::uint32_t> dropped_{0};
   std::atomic<std::uint32_t> slewing_{0};
@@ -444,6 +496,11 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   unsigned chain_len_ = 0;          // entries
   unsigned chain_next_ = 0;         // the entry that starts when the playing pattern ends (== chain_len_: none left)
   bool from_chain_ = false;         // the playing pattern is the entry before chain_next_ (not the selected one, not a jump)
+  bool song_active_ = false;        // this run plays the song (begin_song())
+  bool song_done_ = false;          // ... and it has finished (loop off): no more steps
+  unsigned song_row_ = 0;           // the row playing
+  unsigned song_rep_ = 0;           // plays of its pattern completed so far
+  int song_transpose_ = 0;          // the row's transpose, added to the notes (0 outside a song)
   bool chain_dirty_ = true;         // the published chain is out of date
   std::uint8_t overridden_ = 0;     // motion lanes whose value the hook set (bit per lane)
   std::uint8_t lane_target_[kMotionLanes] = {};  // what an overridden lane drives (the pattern's table may change under it)

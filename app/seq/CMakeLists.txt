@@ -3,7 +3,7 @@
 # clocked hook that plays them on the voice, and GEN with the vault. Depends on o3sdk's dsp and core only (no ui). Headers are
 # <o3_303/seq/*.h>; they include <o3_303/pattern.h>, which lives one directory up (app/include).
 o3sdk_library(o3_303_seq
-  SOURCES src/ops.cpp src/history.cpp src/bank.cpp src/sequencer.cpp src/gen.cpp
+  SOURCES src/ops.cpp src/song.cpp src/history.cpp src/bank.cpp src/sequencer.cpp src/gen.cpp
   DEPENDS dsp core)
 target_include_directories(o3_303_seq PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 # Single precision everywhere (the cross build is checked for software double helpers); no errno from the maths functions.

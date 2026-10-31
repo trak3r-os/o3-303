@@ -19,6 +19,9 @@ constexpr std::uint32_t kKeyRatchet = 0x08000000u;  // (0x07 is the sequencer's 
 constexpr std::uint32_t kKeyCond = 0x09000000u;
 constexpr std::uint32_t kKeyGateList = 0x0A000000u;
 constexpr std::uint32_t kKeyPlays = 0x0B000000u;
+constexpr std::uint32_t kKeySongPattern = 0x0D000000u;  // | row: the song's cells (the sequencer's motion recording is 0x07)
+constexpr std::uint32_t kKeySongRepeat = 0x0E000000u;
+constexpr std::uint32_t kKeySongTranspose = 0x0F000000u;
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
 // Word accesses, not bytes: the patterns are 4-byte aligned and a multiple of 4 long (bank.h), and a write window over the SDRAM stays
@@ -77,6 +80,8 @@ void Bank::init() noexcept {
     has_motion_[i].store(0u, std::memory_order_relaxed);
   }
   selected_.store(0u, std::memory_order_relaxed);
+  clear_song(song_);
+  undid_song_ = false;
   history_.clear();
   std::memset(&step_clip_, 0, sizeof(step_clip_));
   clear(pattern_clip_);
@@ -125,24 +130,33 @@ bool Bank::snapshot(unsigned index, Pattern& out, std::uint32_t* version_out, bo
 
 int Bank::undo() noexcept {
   History::Entry* e = history_.take_undo();
+  undid_song_ = false;
   if (e == nullptr) {
     return -1;
   }
-  begin_write(e->index);
-  swap_words(&patterns_[e->index], &e->state, sizeof(Pattern));
-  end_write(e->index);
-  return e->index;
+  return swap_entry(*e);
 }
 
 int Bank::redo() noexcept {
   History::Entry* e = history_.take_redo();
+  undid_song_ = false;
   if (e == nullptr) {
     return -1;
   }
-  begin_write(e->index);
-  swap_words(&patterns_[e->index], &e->state, sizeof(Pattern));
-  end_write(e->index);
-  return e->index;
+  return swap_entry(*e);
+}
+
+// Undo and redo are the same swap: the entry takes the live state and gives back its own.
+int Bank::swap_entry(History::Entry& e) noexcept {
+  if (e.index == kSongEntry) {
+    swap_words(&song_, &e.song, sizeof(Song));
+    undid_song_ = true;
+    return static_cast<int>(selected());
+  }
+  begin_write(e.index);
+  swap_words(&patterns_[e.index], &e.state, sizeof(Pattern));
+  end_write(e.index);
+  return e.index;
 }
 
 // ---- Named edits --------------------------------------------------------------------------------------------------------------
@@ -344,6 +358,49 @@ bool Bank::restore(unsigned index, const Pattern& src) noexcept {
   copy_words(&patterns_[index], &src, sizeof(Pattern));
   end_write(index);
   return true;
+}
+
+// ---- The song -------------------------------------------------------------------------------------------------------------------
+
+bool Bank::song_set_pattern(unsigned row, unsigned pattern) noexcept {
+  return edit_song([&](Song& s) { return seq::song_set_pattern(s, row, pattern); }, kKeySongPattern | (row & 0xFFu));
+}
+
+bool Bank::song_set_repeat(unsigned row, unsigned repeat) noexcept {
+  return edit_song([&](Song& s) { return seq::song_set_repeat(s, row, repeat); }, kKeySongRepeat | (row & 0xFFu));
+}
+
+bool Bank::song_set_transpose(unsigned row, int semitones) noexcept {
+  return edit_song([&](Song& s) { return seq::song_set_transpose(s, row, semitones); }, kKeySongTranspose | (row & 0xFFu));
+}
+
+bool Bank::song_set_mute(unsigned row, bool mute) noexcept {
+  return edit_song([&](Song& s) { return seq::song_set_mute(s, row, mute); });
+}
+
+bool Bank::song_insert(unsigned at, const SongRow& r) noexcept {
+  return edit_song([&](Song& s) { return seq::song_insert(s, at, r); });
+}
+
+bool Bank::song_append(const SongRow& r) noexcept {
+  return edit_song([&](Song& s) { return seq::song_append(s, r); });
+}
+
+bool Bank::song_delete(unsigned at) noexcept {
+  return edit_song([&](Song& s) { return seq::song_delete(s, at); });
+}
+
+bool Bank::song_clear() noexcept {
+  return edit_song([&](Song& s) { return seq::song_clear(s); });
+}
+
+bool Bank::song_from_chain(int first, const std::uint8_t* patterns, unsigned count) noexcept {
+  return edit_song([&](Song& s) { return seq::song_from_chain(s, first, patterns, count); });
+}
+
+void Bank::restore_song(const Song& src) noexcept {
+  song_ = src;
+  song_normalize(song_);
 }
 
 // ---- Clipboards ---------------------------------------------------------------------------------------------------------------

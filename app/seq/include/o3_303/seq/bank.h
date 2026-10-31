@@ -2,7 +2,7 @@
 #pragma once
 
 // The bank: the project's kPatternCount patterns, the selected one, the undo history and the clipboards. One object, big (about
-// 186 KB), so it lives in the SDRAM: the app declares it `O3SDK_BIG` (or uses project_bank() below) and calls init() at setup.
+// 195 KB), so it lives in the SDRAM: the app declares it `O3SDK_BIG` (or uses project_bank() below) and calls init() at setup.
 //
 // Threads. The main loop is the only writer of the patterns. The render context (the Sequencer's hook, sequencer.h) reads them and
 // never takes a lock: every pattern has a version counter used as a seqlock. An edit makes it odd while the pattern changes and
@@ -11,10 +11,15 @@
 // than one block. Patterns are changed only through edit() (or the named wrappers, which call it); pattern() is for reading.
 //
 // Every edit through edit() is undoable (undo() / redo()), except select() and the clipboards.
+//
+// The song (song.h) lives here too: the main loop's copy that the SONG screen edits, on the same undo stack as the patterns (UX-303 D9).
+// It is main-loop state only. The render plays the Sequencer's own copy: after an edit_song() / song_*() / undo() / redo() / restore_song()
+// that moved the song, hand it over with Sequencer::sync_song().
 
 #include <o3_303/pattern.h>
 #include <o3_303/seq/history.h>
 #include <o3_303/seq/ops.h>
+#include <o3_303/seq/song.h>
 
 #include <atomic>
 #include <cstdint>
@@ -64,9 +69,45 @@ class Bank {
     return history_.commit(p);
   }
 
+  // ---- The song (main loop) -----------------------------------------------------------------------------------------------
+  const Song& song() const noexcept { return song_; }
+  // Runs `fn(Song&)` (void or bool, as edit()) as one undoable edit on the shared stack; `key` != 0 joins consecutive edits with the same
+  // key into one step. Returns true when the song changed (nothing is recorded otherwise).
+  template <typename Fn>
+  bool edit_song(Fn&& fn, std::uint32_t key = 0) noexcept {
+    const bool staged = history_.stage_song(song_, key);
+    bool changed = true;
+    if constexpr (std::is_same<decltype(fn(song_)), bool>::value) {
+      changed = fn(song_);
+    } else {
+      fn(song_);
+    }
+    if (!staged) {
+      return changed;
+    }
+    return history_.commit_song(song_);
+  }
+  // One undoable edit each (song.h): cell edits join their turns per row and column.
+  bool song_set_pattern(unsigned row, unsigned pattern) noexcept;
+  bool song_set_repeat(unsigned row, unsigned repeat) noexcept;
+  bool song_set_transpose(unsigned row, int semitones) noexcept;
+  bool song_set_mute(unsigned row, bool mute) noexcept;
+  bool song_insert(unsigned at, const SongRow& r = default_row()) noexcept;
+  bool song_append(const SongRow& r = default_row()) noexcept;
+  bool song_delete(unsigned at) noexcept;
+  bool song_clear() noexcept;  // CLEAR SONG
+  // FROM CHAIN: the song becomes `first` (-1: none) and the chain's patterns, one undo step (song.h song_from_chain).
+  bool song_from_chain(int first, const std::uint8_t* patterns, unsigned count) noexcept;
+  // The song as a project loaded from the card has it (made canonical): NOT an edit, nothing recorded; call clear_history() after the last
+  // restore, as for restore().
+  void restore_song(const Song& src) noexcept;
+  // true when the last undo() / redo() that did something moved the song (and then it returned selected(), not a pattern index).
+  bool undid_song() const noexcept { return undid_song_; }
+
   bool can_undo() const noexcept { return history_.can_undo(); }
   bool can_redo() const noexcept { return history_.can_redo(); }
-  // The index of the pattern that changed, -1 when there was nothing to undo / redo.
+  // The index of the pattern that changed, -1 when there was nothing to undo / redo. A step that moved the song returns selected() (a caller
+  // that selects the result stays where it is) and sets undid_song(): sync the sequencer then.
   int undo() noexcept;
   int redo() noexcept;
   // Forgets every undo and redo step; the patterns stay as they are. For the edits that are not the user's (the factory preset loaded
@@ -157,6 +198,7 @@ class Bank {
   }
 
  private:
+  int swap_entry(History::Entry& e) noexcept;  // undo / redo of one entry; returns what undo() returns
   void begin_write(unsigned index) noexcept;
   void end_write(unsigned index) noexcept;
 
@@ -164,6 +206,8 @@ class Bank {
   std::atomic<std::uint32_t> versions_[kPatternCount];  // seqlock: odd while patterns_[i] is being written (single writer: the main loop)
   std::atomic<std::uint8_t> has_motion_[kPatternCount];  // 1: patterns_[i] has a motion point; rewritten in every write window, so it is part of the seqlock
   std::atomic<std::uint8_t> selected_;
+  Song song_;  // main loop only (the Sequencer plays its own copy)
+  bool undid_song_;
   History history_;
   StepClip step_clip_;
   alignas(4) Pattern pattern_clip_;
