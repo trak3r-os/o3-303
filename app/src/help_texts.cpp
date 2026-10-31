@@ -359,23 +359,6 @@ constexpr const char* kModifierPads[2][4] = {{"ACC", "SLIDE", "TIE", "REST"}, {"
 constexpr unsigned kRows = app::kPadRows;
 constexpr unsigned kCols = app::kPadCols;
 
-// "C#-1": the note's name and its octave (C2 is MIDI 36, the bottom left key at octave 0), into `out` (kKeyNameChars).
-void note_name(int note, char (&out)[kKeyNameChars]) noexcept {
-  static constexpr char kNames[] = "C C#D D#E F F#G G#A A#B ";
-  const unsigned pc = static_cast<unsigned>(note) % 12u;
-  unsigned n = 0;
-  out[n++] = kNames[pc * 2u];
-  if (kNames[pc * 2u + 1u] != ' ') {
-    out[n++] = kNames[pc * 2u + 1u];
-  }
-  const int octave = note / 12 - 1;
-  if (octave < 0) {
-    out[n++] = '-';
-  }
-  out[n++] = static_cast<char>('0' + (octave < 0 ? -octave : octave) % 10);
-  out[n] = '\0';
-}
-
 }  // namespace
 
 const Text& text(Id id) noexcept {
@@ -415,13 +398,12 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
       h.pad_label[pad] = app::pad_row(pad) == 2u ? "CUT" : "RES";
       continue;
     }
-    const int note = key_note(pad, s.octave);
-    if (note < 0 || ((s.out_of_scale >> i) & 1u) != 0u) {  // outside 0..127 or outside the locked scale: dark, nothing happens
+    // The name is the kit's ("C#-1", C2 is MIDI 36: the bottom left key at octave 0); outside 0..127 or outside the locked scale: dark, nothing happens.
+    if (((s.out_of_scale >> i) & 1u) != 0u || !app::help_note_label(names[i], key_note(pad, s.octave))) {
       h.pad_group[pad] = 0;
       h.pad_label[pad] = nullptr;
       continue;
     }
-    note_name(note, names[i]);
     h.pad_group[pad] = 3;
     h.pad_label[pad] = names[i];
   }

@@ -29,73 +29,15 @@ namespace {
 
 // ---- The limits -------------------------------------------------------------------------------------------------------------------------------
 
-// The lines `s` needs when wrapped at spaces to `width` (the kit's rule), 0 when a word is longer than a line (it would be cut in the middle).
-unsigned wrapped_lines(const char* s, unsigned width) {
-  unsigned lines = 0;
-  unsigned used = 0;  // characters on the line being filled
-  while (*s != '\0') {
-    while (*s == ' ') {
-      ++s;
-    }
-    unsigned word = 0;
-    while (s[word] != '\0' && s[word] != ' ') {
-      ++word;
-    }
-    if (word == 0u) {
-      break;
-    }
-    if (word > width) {
-      return 0;
-    }
-    if (lines == 0u || used + 1u + word > width) {
-      ++lines;
-      used = word;
-    } else {
-      used += 1u + word;
-    }
-    s += word;
-  }
-  return lines;
-}
-
-bool upper_case(const char* s) {
-  for (; *s != '\0'; ++s) {
-    if (*s >= 'a' && *s <= 'z') {
-      return false;
-    }
-  }
-  return true;
-}
-
-// One line of at most `max` characters, in capitals (null is allowed when `may_be_null`).
-void check_line(const char* s, unsigned max, const char* what, bool may_be_null = true) {
-  if (s == nullptr) {
-    CHECK_MESSAGE(may_be_null, what << ": missing");
-    return;
-  }
-  CHECK_MESSAGE(std::strlen(s) <= max, what << ": " << s << " is longer than " << max);
-  CHECK_MESSAGE(upper_case(s), what << ": " << s << " is not upper case");
-}
-
-void check_wrapped(const char* s, unsigned width, unsigned max_lines, const char* what, bool may_be_null = true) {
-  if (s == nullptr) {
-    CHECK_MESSAGE(may_be_null, what << ": missing");
-    return;
-  }
-  const unsigned lines = wrapped_lines(s, width);
-  CHECK_MESSAGE(lines != 0u, what << ": " << s << " has a word longer than " << width);
-  CHECK_MESSAGE(lines <= max_lines, what << ": " << s << " needs " << lines << " lines of " << width);
-  CHECK_MESSAGE(upper_case(s), what << ": " << s << " is not upper case");
-}
-
-// The limits of help.h on a Help: the summary, the F keys, the buttons, the encoder, the groups, the pads' labels and groups.
+// The kit's check of a Help (o3-sdk help.h help_check(): every limit, measured with the overlay's own wrap rule, the groups, the buttons table), then o3-303's own rules on top: a summary on every
+// screen, no sentence on two F keys, Shift left to the kit, no button entry without a text.
 void check_help(const Help& h, const std::string& who) {
   const std::string w = who + ": ";
-  check_wrapped(h.summary, app::kHelpSummaryLine, 2, (w + "summary").c_str(), false);
+  app::HelpProblem problem;
+  CHECK_MESSAGE(app::help_check(h, &problem), w << app::help_field_name(problem.field) << " " << unsigned{problem.index} << ": " << problem.what);
+  CHECK_MESSAGE(h.summary != nullptr, w << "summary: missing");
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
     const std::string key = w + "F" + std::to_string(k + 1);
-    check_wrapped(h.fkey[k], app::kHelpFKeyLine, 2, (key + " text").c_str());
-    check_line(h.fkey_shift[k], app::kHelpFKeyShift, (key + " Shift label").c_str());
     // The same sentence on two keys of one screen is what review took out of HELLO.
     for (unsigned j = 0; j < k; ++j) {
       if (h.fkey[k] != nullptr && h.fkey[j] != nullptr) {
@@ -104,30 +46,11 @@ void check_help(const Help& h, const std::string& who) {
     }
   }
   REQUIRE(h.button_count <= HelpOverlay::kEntries - 1u);
-  bool seen[app::kButtonCount] = {};
   for (unsigned b = 0; b < h.button_count; ++b) {
     const HelpButton& hb = h.buttons[b];
     const unsigned id = static_cast<unsigned>(hb.button);
-    REQUIRE(id < app::kButtonCount);
-    CHECK_MESSAGE(!app::is_fkey(hb.button), w << "button " << id << " is a soft key");
-    CHECK_MESSAGE(hb.button != app::Button::Config, w << "Config is the kit's");
     CHECK_MESSAGE(hb.button != app::Button::Shift, w << "Shift is the kit's");
-    CHECK_MESSAGE(!seen[id], w << "button " << id << " is listed twice");
-    seen[id] = true;
     CHECK_MESSAGE((hb.text != nullptr || hb.shift != nullptr), w << "button " << id << " has no text at all (leave it out: it is drawn dimmed)");
-    check_line(hb.text, app::kHelpButtonText, (w + "button text").c_str());
-    check_line(hb.shift, app::kHelpButtonText, (w + "button Shift text").c_str());
-  }
-  check_line(h.encoder, app::kHelpButtonText, (w + "encoder").c_str());
-  check_line(h.pads, app::kHelpPadsText, (w + "pads").c_str());
-  REQUIRE(h.group_count <= app::kHelpMaxGroups);
-  for (unsigned g = 0; g < h.group_count; ++g) {
-    check_line(h.groups[g].name, app::kHelpGroupName, (w + "group name").c_str(), false);
-    check_line(h.groups[g].text, app::kHelpGroupText, (w + "group text").c_str(), false);
-  }
-  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
-    CHECK_MESSAGE(h.pad_group[pad] <= h.group_count, w << "pad " << pad << " is in group " << unsigned{h.pad_group[pad]} << " of " << unsigned{h.group_count});
-    check_line(h.pad_label[pad], app::kHelpPadLabel, (w + "pad label").c_str());
   }
 }
 
