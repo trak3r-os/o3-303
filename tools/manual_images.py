@@ -11,8 +11,8 @@ own, into a temporary directory. The pictures are written again without loss and
 the PNG filter that packs best. Nothing is compared byte for byte: --check only asks that every picture the manual shows is here and named in the table,
 and that every row names a scenario that exists and a snap that it really takes.
 
-The screens that are not skinned yet (MASTER, FILE, LIBRARY, RECORD, HOOKS: SK6 and SK7 in docs/SKIN-PLAN.md) are taken by manual_screens.txt with SKIN on
-OBSIDIAN, so they draw their classic layout today and their obsidian one when those slices land: running this script again is the whole update.
+MASTER, RECORD, HOOKS, FILE PROJECTS and its name keyboard are skinned (SK6, SK7 in docs/SKIN-PLAN.md); FILE LIBRARY keeps its classic layout with the kit's chrome,
+in the obsidian colours. All of them are taken by manual_screens.txt with SKIN on OBSIDIAN, so running this script again is the whole update.
 Python 3 standard library only.
 """
 

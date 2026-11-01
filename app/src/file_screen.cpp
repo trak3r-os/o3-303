@@ -3,9 +3,14 @@
 
 #include "frame.h"
 #include "help_texts.h"
+#include "live_actions.h"
+#include "skin/file.h"
+#include "skin/header.h"
+#include "skin/skin.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/pad_leds.h>
+#include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/components.h>
 
 #include <cstring>
@@ -494,7 +499,100 @@ void FileScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
 
 // ---- The drawing --------------------------------------------------------------------------------------------------------------------------------
 
+// What the list says when it has no project: the card's trouble, the read in progress, or the plain empty list. One rule for both drawings.
+static ui::ListEmpty list_empty(const FileView& view) noexcept {
+  if (view.card[0] != '\0') {
+    return ui::ListEmpty{view.card, "PUT A WRITABLE CARD IN"};
+  }
+  if (view.reading) {
+    return ui::ListEmpty{"READING THE CARD", ""};
+  }
+  return ui::ListEmpty{"NO PROJECTS YET", "SAVE AS OR NEW MAKES ONE"};
+}
+
+// The status line's (and the skin header's) content: LIST on the encoder, the last save's failure, the take, and the toast, or the card's trouble when there is no usable card.
+void FileScreen::fill_status(app::Context& ctx, const FileView& view, frame::StatusView& status) const noexcept {
+  (void)ctx;
+  status.keys = false;
+  std::strcpy(status.enc, "LIST");
+  status.save_failed = rig_->project.failed;
+  fill_take_status(*rig_, status);
+  status.toast = toast_[0] != '\0' ? toast_ : view.card;  // with no usable card the status line says so
+  status.toast_off = toast_[0] != '\0' ? toast_off_ : true;
+}
+
+app::Chrome FileScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }
+
+const ui::Theme* FileScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
+
 void FileScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  if (skin::active(ctx)) {
+    draw_skinned(ctx, r);
+  } else {
+    draw_classic(ctx, r, area);
+  }
+}
+
+// The skin's part of the view: the list's window as many rows as the glass holds (the pads follow it), each row's name, the cursor and the current project.
+void FileScreen::fill_rows(FileView& view, unsigned rows) noexcept {
+  list_.set_rows(rows < kFileRowsMax ? rows : kFileRowsMax);
+  const Source src(*svc_);
+  list_.fit(src);
+  view.total = src.count();
+  view.first = list_.first();
+  view.shown = view.total > view.first ? view.total - view.first : 0u;
+  view.shown = view.shown < list_.rows() ? view.shown : list_.rows();
+  for (unsigned i = 0; i < view.shown; ++i) {
+    FileRow& row = view.row[i];
+    copy_text(row.name, sizeof row.name, svc_->project(view.first + i));
+    row.current = svc_->is_current(row.name);
+    row.cursor = view.first + i == list_.cursor();
+  }
+  const ui::ListEmpty empty = list_empty(view);
+  view.empty = view.total == 0u ? empty.headline : "";
+  view.empty_hint = view.total == 0u ? empty.hint : "";
+  view.naming = names_.active();
+}
+
+// The obsidian drawing (skin/file.cpp): the same view the classic drawing takes, the header's status as the classic status line takes it, and the name keyboard (the kit's) in the glass.
+void FileScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
+  const std::uint32_t t0 = o3sdk::hal::cycles();
+  fill_view(ctx, view_);
+  fill_rows(view_, skin::kFileRows);
+  if (ctx.panel().shift() && !names_.active()) {  // the Shift row is empty (soft_keys(), input()): eight empty boxes, not keys that do nothing
+    for (unsigned k = 0; k < 8; ++k) {
+      view_.labels[k] = "";
+    }
+    view_.dim = 0;
+    view_.hot = 0;
+  }
+  if (names_.active()) {  // the keyboard's own keys: TYPE, OK (dim while the name is refused) and CANCEL
+    app::SoftKeys keys;
+    names_.soft_keys(keys);
+    for (unsigned k = 0; k < 8; ++k) {
+      view_.labels[k] = keys.label[k] != nullptr ? keys.label[k] : "";
+    }
+    view_.dim = keys.dim;
+    view_.hot = 0;
+  }
+  frame::StatusView status;
+  fill_status(ctx, view_, status);
+  status.actions = rig_->live->on();
+  skin::HeaderInputs in;
+  in.title = title();
+  in.pattern = rig_->bank->selected();
+  in.tempo_mbpm = ctx.engine().tempo();
+  in.playing = rig_->seq->playhead().playing;
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    in.perf[b] = rig_->wiring.perf[b];
+  }
+  in.now_ms = ctx.uptime_ms();
+  const char* pads = names_.active() ? "THE 48 PADS ARE THE KEYS . DELETE ERASES" : (view_.card[0] != '\0' ? view_.card : "LIST ROWS . TAP = SELECT");
+  skin::draw_file(r, view_, status, in, names_.active() ? &names_ : nullptr, pads);
+  skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / skin::kCyclesPerUs, ctx.uptime_ms());
+}
+
+void FileScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   if (names_.active()) {
     names_.draw(r, area);
     return;
@@ -503,12 +601,7 @@ void FileScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
   fill_view(ctx, view_);
 
   frame::StatusView status;
-  status.keys = false;
-  std::strcpy(status.enc, "LIST");
-  status.save_failed = rig_->project.failed;
-  fill_take_status(*rig_, status);
-  status.toast = toast_[0] != '\0' ? toast_ : view_.card;  // with no usable card the status line says so
-  status.toast_off = toast_[0] != '\0' ? toast_off_ : true;
+  fill_status(ctx, view_, status);
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
 
   // The project's line: where the projects are, which one this is, when it was last written.
@@ -525,12 +618,7 @@ void FileScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
   const int top = info.y + kInfoH + kGap;
   const Rect box{area.x + kGap, top, area.w - 2 * kGap, area.y + area.h - frame::kPadsLineH - kGap - top};
   list_.set_rows(ui::ListView::rows_in(theme, box));
-  ui::ListEmpty empty{"NO PROJECTS YET", "SAVE AS OR NEW MAKES ONE"};
-  if (view_.card[0] != '\0') {
-    empty = ui::ListEmpty{view_.card, "PUT A WRITABLE CARD IN"};
-  } else if (view_.reading) {
-    empty = ui::ListEmpty{"READING THE CARD", ""};
-  }
+  const ui::ListEmpty empty = list_empty(view_);
   const Source src(*svc_);
   list_.fit(src);
   list_.draw(r, box, src, empty);

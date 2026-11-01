@@ -492,7 +492,7 @@ The song shares the undo history with the patterns, and it is saved with the pro
 Press **File**. The list shows the projects on the card. The current one is marked with a star, and the line at the top says when it was
 last saved.
 
-![FILE PROJECTS: the folder Apps/o3_303/, CURRENT dub, AUTOSAVED 3 S AGO, and a list with acid and dub](manual/img/file-projects.png)
+![FILE PROJECTS: the folder Apps/o3_303/, NOW dub, AUTOSAVED 3 S AGO, and a list with acid and dub](manual/img/file-projects.png)
 
 *Two projects on the card; dub is the one open (the star).*
 
@@ -783,9 +783,10 @@ and tempo, lamps, real-looking knobs, dark glass. The buttons and the pads do th
 
 - **To switch**: Config, page 303, the SKIN row (the last one), turn the encoder. The choice is kept.
 - **CLASSIC is the default today.** OBSIDIAN becomes the default later, once it has been tested on a unit. There is no date.
-- **Not every screen has its OBSIDIAN form yet.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, SONG, MASTER, RECORD and HOOKS have
-  it. FILE PROJECTS and FILE LIBRARY keep their CLASSIC drawing for now, whatever the setting; the pictures of the screens in this
-  manual that have theirs now will change when the pictures are rebuilt. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
+- **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, SONG, MASTER, RECORD,
+  HOOKS and FILE PROJECTS (with its name keyboard) have it. FILE LIBRARY keeps its CLASSIC layout, with the header and the key row of the
+  system, in the OBSIDIAN colours: it is too full to be redrawn on the panel. The pictures of the screens in this manual that have a new look
+  now will change when the pictures are rebuilt. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
 
 ---
 

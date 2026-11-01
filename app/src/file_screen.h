@@ -16,7 +16,11 @@
 //
 // The view logic is apart from the drawing: the free functions below make the texts (host-tested), fill_view() makes a FileView from the state, draw() draws it
 // (the skin replaces the drawing, not the logic). Main loop only.
+//
+// The obsidian skin (skin/file.cpp, docs/SKIN-PLAN.md 2.4 and SK7) draws the same FileView with no kit chrome: the path, NOW and the autosave line, the list in the glass (the cursor row banded, "*" on the
+// current project), the F row as action keys, and the name keyboard (the kit's, centred in the glass) for SAVE AS and NEW. The classic drawing is draw_classic().
 
+#include "frame.h"
 #include "project_service.h"
 #include "rig.h"
 
@@ -43,6 +47,14 @@ struct SaveState {
 // "AUTOSAVED 12 S AGO", "SAVING", "NOT SAVED" (the last write failed), "NOT ON THE CARD YET" (no project on it: SAVE), "NOTHING WRITTEN YET"; "" with no card.
 unsigned saved_text(const SaveState& s, char* out, unsigned cap) noexcept;
 
+// One row of the list's window, for the skin (the classic drawing hands the same projects to the kit's ui::ListView).
+struct FileRow {
+  char name[ProjectInfo::kNameChars] = "";
+  bool current = false;  // the project the session is (marked "*")
+  bool cursor = false;   // the selected row
+};
+inline constexpr unsigned kFileRowsMax = 12;  // the most rows a window holds (the ListView's own default)
+
 // What the screen shows besides the list.
 struct FileView {
   char current[ProjectInfo::kNameChars] = "";
@@ -52,6 +64,14 @@ struct FileView {
   const char* labels[8] = {};
   std::uint8_t dim = 0;       // F keys that do nothing now
   std::uint8_t hot = 0;       // F keys that wait for their second press
+  // For the obsidian skin only (fill_rows(), called by its drawing; the classic one draws the kit's list): the window of the list, the empty state, the keyboard.
+  FileRow row[kFileRowsMax];
+  unsigned shown = 0;         // rows of the window that hold a project
+  unsigned total = 0;         // projects on the card
+  unsigned first = 0;         // the window's first project
+  const char* empty = "";     // what the list says when it has no project (headline and hint), "" when it has some
+  const char* empty_hint = "";
+  bool naming = false;        // SAVE AS or NEW: the name keyboard is up (the labels are its own, TYPE, OK and CANCEL)
 };
 
 class FileScreen final : public o3sdk::app::Screen {
@@ -65,6 +85,9 @@ class FileScreen final : public o3sdk::app::Screen {
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
+  // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise the kit's.
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context& ctx) const noexcept override;
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
   // HELP (Shift + Config, help_texts.h): the list's texts, or the name keyboard's while it is open; the pads are the visible rows, or the keyboard.
@@ -94,6 +117,10 @@ class FileScreen final : public o3sdk::app::Screen {
   void reopen(o3sdk::app::Context& ctx, const char* title, const char* text, const char* why) noexcept;
   bool follow_list() noexcept;  // true: the list is another one
   void fill_view(o3sdk::app::Context& ctx, FileView& view) const noexcept;
+  void fill_status(o3sdk::app::Context& ctx, const FileView& view, frame::StatusView& status) const noexcept;
+  void fill_rows(FileView& view, unsigned rows) noexcept;  // sets the list's window to `rows` and fills the skin's part of the view
+  void draw_classic(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
 
   class Source;  // the list's items: the service's project list
 

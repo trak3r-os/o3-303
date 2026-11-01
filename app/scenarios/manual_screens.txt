@@ -1,6 +1,6 @@
 # The player's manual's pictures of Config, MASTER, RECORD, HOOKS, FILE PROJECTS, the name keyboard, FILE LIBRARY and HELP's PADS pages (docs/MANUAL.md,
-# tools/manual_images.py), all with SKIN on OBSIDIAN. MASTER, RECORD and HOOKS are skinned (SK6); FILE PROJECTS, the name keyboard and FILE LIBRARY are not yet (SK7 in docs/SKIN-PLAN.md)
-# and draw their classic layout under it, so those pictures become the obsidian ones when SK7 lands, with no change here. Config stays the kit's in every look.
+# tools/manual_images.py), all with SKIN on OBSIDIAN. MASTER, RECORD, HOOKS, FILE PROJECTS and the name keyboard are skinned (SK6, SK7); FILE LIBRARY keeps its classic layout
+# with the kit's chrome, in the obsidian colours (SK7's fallback, docs/SKIN-PLAN.md 2.4). Config stays the kit's in every look.
 # The skin is turned on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
 #
 #   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/manual_screens.txt --card <card> --out <dir>

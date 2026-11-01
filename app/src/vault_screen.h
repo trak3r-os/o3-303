@@ -35,6 +35,9 @@ class VaultScreen final : public o3sdk::app::Screen {
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
+  // The obsidian skin's fallback (docs/SKIN-PLAN.md 2.4, 4.3 and SK7): this screen keeps its layout and the kit's header and soft-key row (the default chrome, Full), drawn in the obsidian colours while the
+  // skin is active. Skinned it would peak near 1,800 words; the classic layout is 1,481.
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
   // HELP (Shift + Config, help_texts.h): the banks, the Shift row and the 48 slots.

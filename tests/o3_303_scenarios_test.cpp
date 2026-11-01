@@ -5,15 +5,19 @@
 #include <doctest/doctest.h>
 
 #include <o3sdk/app/app.h>
+#include <o3sdk/platform/host/dir_card.h>
 #include <o3sdk/platform/host/fake_midi.h>
 #include <o3sdk/sim/harness.h>
 #include <o3sdk/sim/scenario.h>
+
+#include "../app/src/skin/skin.h"
 
 #include <unistd.h>
 
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -55,6 +59,10 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 constexpr std::size_t kSkinMaxWords = 1350;
 constexpr unsigned kSkinMaxLinePrims = 100;
 constexpr unsigned kSkinMaxLinePx = 4800;
+// FILE LIBRARY with the skin on is the one screen that is not skinned (docs/SKIN-PLAN.md 2.4, 4.3 and SK7): its classic layout with the kit's header and soft-key row, in the obsidian colours,
+// peaks at 1,481 words (the `library` scenario). A snap named library_* in a skin_* file must show it so (VaultScreen, Chrome::Full, the obsidian theme) and is held to this bound, and to the
+// kit's 1,800 for the whole run, instead of the skin's three budgets and "is skinned".
+constexpr std::size_t kLibraryMaxWords = 1500;
 
 // The first word of a scenario line, without its comment.
 std::string command_of(const std::string& line) {
@@ -85,7 +93,21 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
     if (help_snap) {
       CHECK_MESSAGE(h.runtime().help_open(), name << ": a help_* snap is the kit's HELP, and it is not open");
     }
-    if (!name.empty() && !help_snap) {
+    // A library_* snap is the fallback: FILE LIBRARY with the kit's chrome and the obsidian theme, under the fallback's own bound.
+    const bool library_snap = name.rfind("library_", 0) == 0;
+    if (library_snap) {
+      app::Context& ctx = h.runtime().context();
+      REQUIRE(ctx.screen() != nullptr);
+      CHECK_MESSAGE(std::strcmp(ctx.screen()->title(), "FILE LIBRARY") == 0, name << ": a library_* snap is FILE LIBRARY, not " << ctx.screen()->title());
+      CHECK_MESSAGE(ctx.screen()->chrome(ctx) == app::Chrome::Full, name << ": FILE LIBRARY keeps the kit's chrome");
+      CHECK_MESSAGE(ctx.screen()->theme(ctx) == &o3_303::skin::theme(), name << ": FILE LIBRARY is drawn in the obsidian theme");
+      const std::size_t words = h.display().last_frame_words();
+      if (std::getenv("O3_303_SKIN_REPORT") != nullptr) {
+        std::fprintf(stderr, "skin report: %s: %zu words (the fallback: its own bound %zu)\n", name.c_str(), words, kLibraryMaxWords);
+      }
+      CHECK_MESSAGE(words < kLibraryMaxWords, name << ": " << words << " words");
+    }
+    if (!name.empty() && !help_snap && !library_snap) {
       // The frames of this piece drew bitmaps of the app's own (handle 0, which only the skin's Canvas uses): the screen really was skinned. If the SKIN row moved and the scenario
       // left the skin off, every bound below would hold for a classic frame and prove nothing.
       CHECK_MESSAGE(h.raster().handle_app_uses() > app_uses, name << ": the frame is not skinned");
@@ -118,7 +140,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "manual_tour", "manual_screens"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -145,7 +167,16 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
     if (text.rfind("midi ", 0) == 0 || text.find("\nmidi ") != std::string::npos || text.find("\nclock ") != std::string::npos) {
       midi = std::make_unique<platform::host::FakeMidi>();
     }
-    auto h = std::make_unique<sim::Harness>(o3sdk_app(), nullptr, midi.get());
+    // A scenario with a `card` line (the NO CARD snap pulls it) needs one, as <app>_sim does with --card: a scratch directory of its own, which outlives the harness.
+    const bool needs_card = text.rfind("card ", 0) == 0 || text.find("\ncard ") != std::string::npos;
+    std::unique_ptr<platform::host::ScratchDir> card_dir;
+    std::unique_ptr<platform::host::DirCard> card;
+    if (needs_card) {
+      card_dir = std::make_unique<platform::host::ScratchDir>("o3303-scn");
+      REQUIRE(card_dir->ok());
+      card = std::make_unique<platform::host::DirCard>(card_dir->path());
+    }
+    auto h = needs_card ? std::make_unique<sim::Harness>(o3sdk_app(), nullptr, midi.get(), card.get(), "o3_303") : std::make_unique<sim::Harness>(o3sdk_app(), nullptr, midi.get());
     REQUIRE(h->start());
     const fs::path sub = out / file.stem();
     fs::remove_all(sub);

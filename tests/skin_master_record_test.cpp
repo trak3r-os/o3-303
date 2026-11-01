@@ -583,3 +583,33 @@ TEST_CASE("skin hooks: 48 dark lamps in four rows of twelve, the line, eight emp
   q.intact();
   MESSAGE("HOOKS frame: " << q.q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.q.texts() << " texts of " << skin::Panel::kTexts);
 }
+
+// ---- Shift on the F row --------------------------------------------------------------------------------------------------------
+
+// The classic MASTER and RECORD draw their knob strip from the view whatever Shift says (their soft_keys() is empty, and the encoder still drives a knob under Shift, coarser), and HOOKS has
+// eight empty keys; so the skinned row under Shift is the row without it, slot for slot (FILE, whose classic row is empty under Shift, is in skin_file_test.cpp).
+TEST_CASE("skin screens: Shift on MASTER, RECORD and HOOKS leaves the F row's slots as they are, as the classic strip does") {
+  Hands t;
+  t.skin_on();
+  const Queue q;
+  struct Row {
+    Button button;
+    unsigned caps;
+    unsigned keys;
+    unsigned boxes;
+  };
+  for (const Row& row : {Row{Button::Master, 3u, 1u, 4u}, Row{Button::SampleRec, 2u, 5u, 1u}, Row{Button::SampleLoad, 0u, 0u, 8u}}) {
+    t.tap(row.button, 30);
+    t.wait(100);
+    CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == row.caps);
+    CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == row.keys);
+    CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == row.boxes);
+    t.press(Button::Shift);
+    t.wait(100);
+    CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == row.caps);
+    CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == row.keys);
+    CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == row.boxes);
+    t.release(Button::Shift);
+    t.wait(60);
+  }
+}

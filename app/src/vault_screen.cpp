@@ -3,6 +3,7 @@
 
 #include "frame.h"
 #include "help_texts.h"
+#include "skin/skin.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -260,6 +261,8 @@ void VaultScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
     leds.set(pad, pad == slot_ ? app::kLedOn : (pad % 8u == 0u ? app::kLedLow : app::kLedDim));
   }
 }
+
+const ui::Theme* VaultScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
 
 void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   const ui::Theme& theme = r.theme();

@@ -1,0 +1,88 @@
+# FILE PROJECTS on the obsidian skin, and FILE LIBRARY's fallback (docs/SKIN-PLAN.md 2.4 and section 8, SK7): the header, the glass (the folder, NOW with the current project and the autosave
+# line, the list with its banded cursor row and the "*" on the current project, the empty states, the PADS line) and the F row (LOAD, SAVE, SAVE AS, NEW, REVERT and DELETE as action keys, dim
+# when the screen refuses them, an armed REVERT or DELETE lit red as "REVERT?" / "DELETE?"; F7 an empty box; F8 LIBRARY). SAVE AS and NEW put the kit's name keyboard in the glass (obsidian
+# theme) and the keyboard's own keys on the F row. LIBRARY keeps its classic layout with the kit's header and soft-key row, in the obsidian colours: a library_* snap is held to the 1,500 words of
+# that fallback, not to the skin's budgets (the scenarios test). The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs
+# reach SKIN, the encoder clamps at OBSIDIAN). It needs a card (`card out` is the NO CARD snap), which the scenarios test gives it:
+#
+#   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/skin_file.txt --card <card> --out <dir>
+#
+# Start from an empty card directory (the kit's strip over the F row's hints, a notice of three seconds, is waited out before the pictures that show them). 01 an empty card: NO PROJECTS YET, F1 LOAD and F6 DELETE dim; 02 SAVE AS on the keyboard with "aci" typed (a 24, c 38, i 19, d 26: the pads count from 0), F7 OK,
+# F8 CANCEL; 03 the same with "acid", F7 saved it: the list with acid, "*" and the cursor; 04 NEW on the keyboard with "dub" (d 26, u 18, b 40); 05 the list: acid and dub, dub current, the cursor on
+# dub; 06 the cursor on acid; 07 F5 REVERT once: lit red, "REVERT?", "again?"; 08 F6 DELETE once on acid: armed; 09 F6 on the current project: refused, LOAD ANOTHER FIRST in the PAGE window;
+# 10 the card pulled: NO CARD in red in the glass, the PAGE window and the PADS line, F1..F6 dim; 11 the card back; 11b Shift held: the Shift row is empty, eight empty boxes (F keys do nothing under Shift); 12 SAVE AS with the name erased (Delete): OK dim, the first character's refused keys dim;
+# help_13 the kit's HELP over the skinned FILE (Shift + Config); library_14 F8 LIBRARY with the skin on.
+wait 300
+tap config
+tap left
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap file
+wait 400
+snap 01_empty
+tap f3
+wait 50
+pad 24
+pad 38
+pad 19
+snap 02_save_as_aci
+pad 26
+wait 50
+tap f7
+wait 3800
+snap 03_acid_saved
+tap f4
+wait 50
+pad 26
+pad 18
+pad 40
+snap 04_new_dub
+tap f7
+wait 3800
+snap 05_acid_and_dub
+turn -1
+snap 06_cursor_acid
+tap f5
+snap 07_revert_armed
+turn 1
+turn -1
+tap f6
+snap 08_delete_armed
+turn 1
+tap f6
+snap 09_current_refused
+card out
+wait 3500
+snap 10_no_card
+card in
+wait 3800
+snap 11_card_back
+press shift
+wait 50
+snap 11b_shift_row
+release shift
+wait 50
+tap f3
+wait 50
+tap delete
+wait 50
+snap 12_name_empty
+tap f8
+wait 50
+press shift
+tap config
+release shift
+wait 50
+snap help_13
+tap config
+wait 50
+tap f8
+wait 100
+snap library_14

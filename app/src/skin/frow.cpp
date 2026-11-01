@@ -63,7 +63,7 @@ void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s) noexcept {
   if (s.held) {
     p.round_rect(Layer::HeldRim, Rect{win.x - 2, win.y - 3, win.w + 4, win.h + 5}, 5 * 16, theme().rgb(Color::Accent));
   }
-  Color ink = s.kind == SlotKind::Action ? Color::TextDim : Color::Text;
+  Color ink = s.kind == SlotKind::Action ? (s.dim ? Color::Empty : Color::TextDim) : Color::Text;  // the hint of a key with nothing to do is as quiet as the key
   if (s.locked) {
     ink = Color::Accent;
   } else if (s.focus && s.kind != SlotKind::Action) {
