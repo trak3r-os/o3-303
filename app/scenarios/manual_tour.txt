@@ -1,0 +1,97 @@
+# The player's manual's first five minutes (docs/MANUAL.md section 4), on the obsidian skin: the pictures of tools/manual_images.py. The skin is
+# turned on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN, so it is right whatever the default is).
+#
+#   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/manual_tour.txt --card <card> --out <dir>
+#
+# 01 Play, and the encoder on F1 CUTOFF (latched at boot) turned while the line plays; 02 Pattern held, pad 12 picks the empty pattern B01; 03 REC on: the
+# keys write a note on the cursor step and move on, REST writes a rest; 04 accents and slides: a step held and ACC or SLIDE tapped; 05 the new line plays;
+# 06 Shift + File saves the project (with a card the PAGE window says SAVED; without one, the scenarios test's case, it says why not); 07 FILT on: rows 3 and 4
+# are the CUTOFF and RESO ladders, one place tapped on each; 08 stopped, step 5 selected (pad 4) and the Vol button: the encoder is on the PLAYS row, one detent
+# makes the step play twice (x2); F1 gives the encoder back to the knob.
+wait 300
+tap config
+tap left
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap play
+wait 300
+turn 20
+wait 400
+snap 01_play_and_turn
+tap play
+press pattern
+wait 350
+pad 12
+release pattern
+wait 100
+snap 02_empty_b01
+# REC (stopped): C2 C2 C3 rest D#2 C2 G2 rest C2 A#2 C3 rest C2 G2 C2 C3 (pads count from 0: pad 36 is C2, the bottom left; pad 24 is C3; pad 11 is REST).
+tap rec
+pad 36
+pad 36
+pad 24
+pad 11
+pad 39
+pad 36
+pad 43
+pad 11
+pad 36
+pad 46
+pad 24
+pad 11
+pad 36
+pad 43
+pad 36
+pad 24
+wait 100
+snap 03_rec_writes
+tap rec
+# Accents on steps 2, 7 and 11, slides on steps 5 and 9: hold the step's pad (steps 1-8 are pads 0-7, steps 9-16 pads 12-19), tap ACC (pad 8) or SLIDE (pad 9).
+# Then FILT is pad 23; pad 30 is the seventh place of the CUTOFF ladder (row 3), pad 45 the tenth of the RESO ladder (row 4).
+paddown 1
+pad 8
+padup 1
+paddown 6
+pad 8
+padup 6
+paddown 14
+pad 8
+padup 14
+paddown 4
+pad 9
+padup 4
+paddown 12
+pad 9
+padup 12
+wait 100
+snap 04_accent_slide
+tap play
+wait 900
+snap 05_your_line
+press shift
+tap file
+release shift
+wait 700
+snap 06_saved
+wait 3000
+pad 23
+pad 30
+pad 45
+wait 300
+snap 07_filt_ladders
+pad 23
+tap play
+pad 4
+tap vol
+turn 1
+wait 100
+snap 08_plays_row
+tap f1
+wait 100

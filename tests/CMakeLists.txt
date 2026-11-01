@@ -14,3 +14,8 @@ target_compile_definitions(o3_303_tests PRIVATE O3_303_SCENARIO_DIR="${CMAKE_CUR
 add_test(NAME skin_assets_fresh
   COMMAND ${O3SDK_PYTHON} -I ${PROJECT_SOURCE_DIR}/tools/gen_skin.py --fresh ${PROJECT_BINARY_DIR}/app/generated --check ${PROJECT_SOURCE_DIR}/tools/skin_assets.sha256)
 set_tests_properties(skin_assets_fresh PROPERTIES TIMEOUT 120)
+# The player's manual (docs/MANUAL.md): every picture it shows is in docs/manual/img and has a row in tools/manual_images.py, and every row names a
+# scenario that exists and a snap it really takes. The pictures' bytes are not compared (tools/manual_images.py --sim makes them again).
+add_test(NAME manual_images
+  COMMAND ${O3SDK_PYTHON} -I ${PROJECT_SOURCE_DIR}/tools/manual_images.py --check)
+set_tests_properties(manual_images PROPERTIES TIMEOUT 60)

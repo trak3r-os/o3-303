@@ -1,11 +1,14 @@
 # o3-303
 
 An improved TB-303 for the Tracker hardware (NXP MK66FX1M0, 800×480 display, 48 pads with LEDs, 33 buttons, one encoder), built as an
-app on the [o3-sdk](https://github.com/trak3r-os/o3-sdk) framework: a 303 voice with Devil Fish-style extras, drive and delay, a 303-style step sequencer with
+app on the [o3-sdk](https://github.com/trak3r-os/o3-sdk) framework: a 303 voice with drive and delay (Devil Fish-style extras planned, `docs/DESIGN-303.md` section 3), a 303-style step sequencer with
 motion recording and parameter locks, and later a HOOKS screen that launches phrases in time. The design is `docs/DESIGN-303.md`. The
 app is a whole firmware image; o3-sdk, checked out next to this repository, is the library under it and is used as it is.
 
 Unofficial; not affiliated with or endorsed by Polyend. "Tracker" is used only to describe the hardware it runs on.
+
+**To play it, read the [player's manual](docs/MANUAL.md)**: installing and going back, the panel, the first five minutes, and every screen
+with its picture.
 
 ## Status
 
@@ -15,7 +18,7 @@ Unofficial; not affiliated with or endorsed by Polyend. "Tracker" is used only t
 | M3b | The performance round: pad filter ladders, snapshots and morph, momentary FILL, ratchets, trig conditions, beat freeze, tempo nudge, scale-locked keyboard, assignable performance buttons | built 2026-10-25 and 2026-10-26; the beat freeze and the snapshot morph checked on the unit, the rest owed (`docs/M3B-PLAN.md`) |
 | M3c | The bass-music round: growl, wobble, rolls, tape stop and reverse (crush, trance gate, pump, dive, riser and OTT are backlog) | built and unit-checked for growl, wobble and rolls (2026-10-26); by-ear checks owed (`docs/M3C-PLAN.md`) |
 | UX | The new way the app is used: PERFORM, the HOME map, PATTERN SETUP, INSTRUMENT, MASTER, FILE, RECORD, the Config pages, the project with autosave, HELP | waves 1 to 6 built (2026-10-30 and 2026-10-31), checked on the unit by console only; SONG built and host-verified, unit check owed (`docs/UX-PLAN.md`) |
-| SKIN | The obsidian skin: assets (SK1) committed; the skin core, header and F row (SK2, SK3) built; SK4 to SK8 not started | in progress (`docs/SKIN-PLAN.md`) |
+| SKIN | The obsidian skin, CLASSIC by default until SK8: the assets (SK1), the core, header and F row on HOME and SETUP (SK2, SK3), SONG (with SG2) and PERFORM (SK4) committed; INSTRUMENT (SK5) built and host-verified; MASTER, RECORD, HOOKS, FILE (SK6, SK7) and OBSIDIAN by default (SK8) not started | in progress, unit check owed (SU1, then SU2; `docs/SKIN-PLAN.md`) |
 | M4 | The HOOKS screen (sample launcher, synced sampling) | planned; the three Sample buttons open a placeholder |
 
 ### On the Tracker
@@ -46,6 +49,7 @@ play the voice.
 
 | Document | What it is | Read it when |
 |---|---|---|
+| `docs/MANUAL.md` | The player's manual: install, the panel, the first five minutes, every screen with its picture, projects, settings, MIDI, troubleshooting | to play the instrument |
 | `CLAUDE.md` | The rules for agents and contributors: the framework, the hard rules, the build and the tests | before changing anything |
 | `docs/DESIGN-303.md` | The design: the sound, the sequencer's data, HOOKS and the open decisions (section 8). Its status block says which controls have moved on | for what the app is and why |
 | `docs/UX-303.md` | The specification of the screens, buttons, pads, Config, HELP and the project | before touching a screen, a button or a pad |

@@ -1,0 +1,102 @@
+# The player's manual's pictures of Config, MASTER, RECORD, HOOKS, FILE PROJECTS, the name keyboard, FILE LIBRARY and HELP's PADS pages (docs/MANUAL.md,
+# tools/manual_images.py), all with SKIN on OBSIDIAN. The screens that are not skinned yet (SK6 and SK7 in docs/SKIN-PLAN.md) draw their classic layout under it,
+# so these pictures are the classic ones today and become the obsidian ones when those slices land, with no change here. Config stays the kit's in every look.
+# The skin is turned on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+#
+#   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/manual_screens.txt --card <card> --out <dir>
+#
+# 01 Config's page 303 on the SKIN row; 02 its page DEEP; 03 MASTER while the line plays (the meters); 04 RECORD idle; 05 a take armed (it waits for the next
+# bar); 06 the take recording; 07 the take done; 08 HOOKS; 09 FILE PROJECTS' SAVE AS: the kit's keyboard with "acid" typed (a 24, c 38, i 19, d 26: the pads
+# count from 0); 10 HELP's PADS page over the keyboard; 11 FILE PROJECTS after F7 saved "acid" and F4 NEW made "dub" (d 26, u 18, b 40), the current one
+# marked; 12 FILE LIBRARY; 13 HELP's PADS page over it; 14 HELP's
+# PADS page over SONG. Without a card (the scenarios test runs it so) FILE says NO CARD and the keyboard does not open; F7 twice drops the take either way.
+wait 300
+tap config
+tap left
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+wait 100
+snap 01_config_303
+tap right
+wait 100
+snap 02_config_deep
+tap config
+wait 100
+tap play
+wait 300
+tap master
+wait 700
+snap 03_master
+tap samplerec
+wait 100
+snap 04_record
+tap f1
+wait 100
+snap 05_record_armed
+wait 2000
+snap 06_record_recording
+wait 7000
+snap 07_record_done
+tap play
+tap f7
+tap f7
+wait 3000
+tap sampleload
+wait 100
+snap 08_hooks
+tap file
+wait 300
+tap f3
+wait 50
+pad 24
+pad 38
+pad 19
+pad 26
+wait 50
+snap 09_file_name
+press shift
+tap config
+release shift
+wait 50
+tap f2
+snap 10_help_name_pads
+tap config
+wait 50
+tap f7
+wait 700
+tap f4
+wait 50
+pad 26
+pad 18
+pad 40
+tap f7
+wait 4000
+snap 11_file_projects
+tap file
+wait 100
+snap 12_library
+press shift
+tap config
+release shift
+wait 50
+tap f2
+snap 13_help_library_pads
+tap config
+wait 50
+tap song
+wait 100
+press shift
+tap config
+release shift
+wait 50
+tap f2
+snap 14_help_song_pads
+tap config
+wait 50
+tap pattern
+wait 100

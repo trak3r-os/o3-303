@@ -4,7 +4,8 @@
 // Snapshots and the morph (docs/M3B-PLAN.md R2), the pure part: eight snapshots of the sound, each `kSnapValues` numbers in the units of
 // the entries they came from (pages.h snap_target()), and the position of the encoder's morph between the previous snapshot and the one
 // recalled last. No engine here: the screen reads the values from the controls, asks this for the blend, and puts it on the sequencer's
-// slew. RAM only, nothing is saved. Main loop only.
+// slew. The project saves the eight snapshots and which slots hold one (project.cpp, the SNAP chunk); the morph's position is not saved.
+// Main loop only.
 //
 //   store(i, values)    snapshot i holds `values`
 //   recall(i, live)     the morph is now from the snapshot recalled before (from `live` when there was none) to snapshot i, at its end

@@ -118,7 +118,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "hooks", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "manual_tour", "manual_screens"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
