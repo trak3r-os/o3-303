@@ -4,6 +4,8 @@
 // (every event at its frame) and with the real acid voice (the audio sample by sample), and compares them.
 #include <doctest/doctest.h>
 
+#include "exact_frame.h"
+
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
@@ -27,10 +29,7 @@ namespace {
 constexpr std::uint32_t kStep = dsp::kTicksPerSixteenth;
 constexpr std::uint32_t kTempo = 120'000;
 
-std::uint64_t frame_of(std::uint64_t tick) {
-  const std::uint64_t inc = dsp::ticks_per_sample_q32(kTempo);
-  return ((tick << 32) + inc - 1u) / inc;
-}
+std::uint64_t frame_of(std::uint64_t tick) { return seq_test::exact_frame(tick, kTempo); }
 
 // ---- The voice stand-in: every event with its absolute frame -------------------------------------------------------------------
 

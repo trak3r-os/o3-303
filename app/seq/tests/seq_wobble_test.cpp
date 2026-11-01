@@ -4,6 +4,8 @@
 // are checked against a model written here in doubles (the phase from the transport's ticks, the shapes spelled out).
 #include <doctest/doctest.h>
 
+#include "exact_frame.h"
+
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
@@ -185,10 +187,7 @@ std::vector<Rec> wob_events(const std::vector<Rec>& log, int id = 0) {
 
 double cutoff_norm(float v) { return static_cast<double>(core::param_norm(kVoiceParams[0], v)); }
 
-std::uint64_t frame_of(std::uint64_t tick, std::uint32_t tempo_mbpm) {
-  const std::uint64_t inc = dsp::ticks_per_sample_q32(tempo_mbpm);
-  return ((tick << 32) + inc - 1u) / inc;
-}
+std::uint64_t frame_of(std::uint64_t tick, std::uint32_t tempo_mbpm) { return seq_test::exact_frame(tick, tempo_mbpm); }
 
 // The transport's tick at an absolute frame, in doubles.
 double ticks_at(std::uint64_t frame, std::uint32_t tempo_mbpm) {

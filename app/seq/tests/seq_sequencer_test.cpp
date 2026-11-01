@@ -4,6 +4,8 @@
 // property test of random patterns against an independent model of the same rules.
 #include <doctest/doctest.h>
 
+#include "exact_frame.h"
+
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/rng.h>
@@ -139,10 +141,7 @@ Pattern play_all(unsigned length = 16) {
 }
 
 // The frame at which the transport reaches whole tick `tick` (frame f owns the positions up to f x inc).
-std::uint64_t frame_of(std::uint64_t tick, std::uint32_t tempo_mbpm) {
-  const std::uint64_t inc = dsp::ticks_per_sample_q32(tempo_mbpm);
-  return ((tick << 32) + inc - 1u) / inc;
-}
+std::uint64_t frame_of(std::uint64_t tick, std::uint32_t tempo_mbpm) { return seq_test::exact_frame(tick, tempo_mbpm); }
 
 constexpr std::uint32_t kStep = dsp::kTicksPerSixteenth;  // 240 ticks
 
@@ -1081,11 +1080,9 @@ TEST_CASE("the same events whatever the block size") {
   }
 }
 
-// The frame at which `tick` is reached when the tempo became `tempo` at a block boundary (the transport at `pos0`, Q32.32, after
-// `frame0` frames).
-std::uint64_t frame_after_change(std::uint64_t tick, std::uint64_t pos0, std::uint64_t frame0, std::uint32_t tempo) {
-  const std::uint64_t inc = dsp::ticks_per_sample_q32(tempo);
-  return frame0 + (((tick << 32) - pos0) + inc - 1u) / inc;
+// The frame at which `tick` is reached when the tempo became `tempo` at a block boundary, `frame0` frames after Play at `from` (exact: seq_test::exact_frame_after_change).
+std::uint64_t frame_after_change(std::uint64_t tick, std::uint64_t frame0, std::uint32_t from, std::uint32_t tempo) {
+  return seq_test::exact_frame_after_change(tick, frame0, from, tempo);
 }
 
 TEST_CASE("a tempo change in the middle of a step keeps every later step and gate on its tick") {
@@ -1099,21 +1096,20 @@ TEST_CASE("a tempo change in the middle of a step keeps every later step and gat
     rig.start(c.from);
     rig.engine.play();
     rig.run(frame_of(100, c.from));  // inside step 0 (its gate ends at tick 120)
-    const std::uint64_t pos0 = rig.engine.stats().pos;
     const std::uint64_t frame0 = rig.voice.at;
     rig.engine.set_tempo(c.to);
-    rig.run(frame_after_change(6 * kStep + kStep / 2 + 5, pos0, frame0, c.to) - frame0);
+    rig.run(frame_after_change(6 * kStep + kStep / 2 + 5, frame0, c.from, c.to) - frame0);
     const auto n = rig.notes();
     REQUIRE(n.size() >= 14);
     CHECK(n[0].frame == 0);
     CHECK(n[1].kind == dsp::EventKind::NoteOff);
-    CHECK(n[1].frame == frame_after_change(kStep / 2, pos0, frame0, c.to));
+    CHECK(n[1].frame == frame_after_change(kStep / 2, frame0, c.from, c.to));
     for (unsigned k = 1; k <= 6; ++k) {
       CAPTURE(k);
       CHECK(n[2 * k].kind == dsp::EventKind::NoteOn);
-      CHECK(n[2 * k].frame == frame_after_change(static_cast<std::uint64_t>(k) * kStep, pos0, frame0, c.to));
+      CHECK(n[2 * k].frame == frame_after_change(static_cast<std::uint64_t>(k) * kStep, frame0, c.from, c.to));
       CHECK(n[2 * k + 1].kind == dsp::EventKind::NoteOff);
-      CHECK(n[2 * k + 1].frame == frame_after_change(static_cast<std::uint64_t>(k) * kStep + kStep / 2, pos0, frame0, c.to));
+      CHECK(n[2 * k + 1].frame == frame_after_change(static_cast<std::uint64_t>(k) * kStep + kStep / 2, frame0, c.from, c.to));
     }
   }
 }

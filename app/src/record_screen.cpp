@@ -981,7 +981,7 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
     append(view.line, sizeof view.line, take_bars_ != 0u ? "F1 STOPS IT EARLY" : "F1 STOPS . THE BUFFER FILLS AT 0:30");
   } else if (st == State::Done) {
     view.state = "DONE";
-    append(view.line, sizeof view.line, rec.overrun() != 0u ? "BUFFER FULL . F6 SAVE . F7 DISCARD" : "F6 SAVE . F7 DISCARD");
+    append(view.line, sizeof view.line, rec.full() ? "BUFFER FULL . F6 SAVE . F7 DISCARD" : "F6 SAVE . F7 DISCARD");
   } else {
     view.state = "IDLE";
     if (!view.fits) {

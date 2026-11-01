@@ -341,11 +341,11 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   s.tap(Button::Play);
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 4000));
   const std::uint32_t frames = s.rec().frames();
-  // 125 BPM: 84,672 frames. The transport's grid is a Q32.32 position, so the sixteenths fall on whole samples, one late after position 0: a take from Play's first sample is a bar and one frame (the 1, 2, 4 and 8 bars test below pins it).
+  // 125 BPM: 84,672 frames, a sixteenth is 5,292 whole samples. The kit's transport lands a step on the first sample at or after its exact time (dsp/transport.h, "Exact landing"), so a take
+  // from Play's first sample is exactly a bar (the 1, 2, 4 and 8 bars test below pins it).
   const std::uint32_t bar = bar_frames(s.ctx().engine().tempo());
   CHECK(bar == static_cast<std::uint64_t>(hal::audio::sample_rate_mhz()) * 240u / 125'000u);
-  CHECK(frames >= bar);
-  CHECK(frames <= bar + 1u);
+  CHECK(frames == bar);
   CHECK(s.rec().overrun() == 0u);
   CHECK(s.record().envelope().span() == bar);
 
@@ -400,11 +400,9 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
 }
 
 // A take of n bars at a tempo whose sixteenths are whole samples (125 BPM: 5,292; 150 BPM: 4,410). The recorder ends it at the n x 16th Step event and the take is the frames between two
-// steps. The transport reaches a whole tick at the first frame whose position is AT OR PAST it, and its increment per sample is the Q32.32 value rounded DOWN
-// (kit/dsp/src/transport.cpp, ticks_per_sample_q32): a grid that is exactly whole samples falls one sample late at every step after position 0. So a take that begins at Play's first
-// sample (tick 0, frame 0) is n bars + 1 (U5 rows 24 and 33, on the unit and here), and one that begins at a later bar line (late by the same sample) is exactly n bars. The cure is in the
-// kit (round the increment up); then the first CHECK becomes `frames == bars * bar`. Until then this test pins both.
-TEST_CASE("a take of 1, 2, 4 and 8 bars: n bars + 1 from Play's first sample, exactly n bars from a later bar line, at two tempos with whole-sample sixteenths") {
+// steps. The transport reaches a whole tick at the first frame whose position is AT OR PAST it; since o3-sdk's "Exact landing" (a Q32.64 position, kit-fix1) a grid that is exactly whole
+// samples lands on them, so a take that begins at Play's first sample is exactly n bars, and so is one that begins at a later bar line. (Before it the first was n bars + 1: U5 rows 24 and 33.)
+TEST_CASE("a take of 1, 2, 4 and 8 bars is exactly n bars, from Play's first sample and from a later bar line, at two tempos with whole-sample sixteenths") {
   for (const std::uint32_t mbpm : {125'000u, 150'000u}) {
     for (const unsigned bars : {1u, 2u, 4u, 8u}) {
       const std::uint32_t bar = bar_frames(mbpm);
@@ -419,7 +417,7 @@ TEST_CASE("a take of 1, 2, 4 and 8 bars: n bars + 1 from Play's first sample, ex
         REQUIRE(s.rec().state() == State::Waiting);
         s.tap(Button::Play);
         REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, bars * 2200u));
-        CHECK(s.rec().frames() == bars * bar + 1u);  // the kit's sample: see above
+        CHECK(s.rec().frames() == bars * bar);
         CHECK(s.rec().overrun() == 0u);
       }
       {  // armed while the line plays: the take begins at a later bar line
@@ -751,7 +749,10 @@ TEST_CASE("a take that fills the buffer ends by itself with everything before it
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 31'500));
   CHECK(s.rec().frames() >= kTakeFrames - 64u);
   CHECK(s.rec().frames() <= kTakeFrames);
-  CHECK(s.rec().overrun() > 0u);
+  CHECK(s.rec().full());           // the buffer ended the take (the screen says BUFFER FULL)
+  CHECK(s.rec().overrun() == 0u);  // and a free take loses nothing by it
+  s.wait(100);  // a frame is drawn
+  CHECK(std::string(s.record().last_view().line).rfind("BUFFER FULL", 0) == 0u);
   CHECK(s.record().envelope().peak(Envelope::kCols - 1) == 0u);  // the master is silent: the envelope is flat but the scan got to the end without leaving the buffer
   s.tap(Button::F7);
   s.tap(Button::F7);

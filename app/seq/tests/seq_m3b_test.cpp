@@ -4,6 +4,8 @@
 // its absolute frame; a spy hook added after the sequencer reads what the mixer's targets stand at after it.
 #include <doctest/doctest.h>
 
+#include "exact_frame.h"
+
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
@@ -204,10 +206,7 @@ Pattern play_all(unsigned length = 16) {
   return p;
 }
 
-std::uint64_t frame_of(std::uint64_t tick, std::uint32_t tempo_mbpm) {
-  const std::uint64_t inc = dsp::ticks_per_sample_q32(tempo_mbpm);
-  return ((tick << 32) + inc - 1u) / inc;
-}
+std::uint64_t frame_of(std::uint64_t tick, std::uint32_t tempo_mbpm) { return seq_test::exact_frame(tick, tempo_mbpm); }
 
 constexpr std::uint32_t kStep = dsp::kTicksPerSixteenth;  // 240 ticks
 constexpr std::uint32_t kTempo = 120'000;
