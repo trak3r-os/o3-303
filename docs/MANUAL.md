@@ -443,9 +443,10 @@ The pads, the steps, Rec and the edit buttons work here as on HOME, so you can k
 
 Tap **Master**. The encoder starts on the tempo.
 
-![MASTER: TEMPO 125.0 BPM, NUDGE +0 %, CLOCK INTERNAL, and the left and right meters; the F row TEMPO, TAP, NUDGE and MASTER](manual/img/master.png)
+![MASTER: TEMPO 125.0 BPM in red digits, NUDGE +0 %, TAP, CLOCK INTERNAL, the OUTPUT meters L and R, CPU and USB; the F row TEMPO, TAP, NUDGE and MASTER](manual/img/master.png)
 
-*MASTER while the line plays. CLOCK says where the tempo comes from (MIDI is set in Config).*
+*MASTER while the line plays. CLOCK says where the tempo comes from (MIDI is set in Config). CPU is the sound engine's load on the unit
+(the pictures are made on a computer, so it reads "--"); USB says whether a computer is taking the unit's audio.*
 
 | Key | What |
 |---|---|
@@ -561,7 +562,7 @@ Press **Sample Rec**. RECORD makes a WAV of what you play (section 11).
 | F6 SAVE | Write the take to the card as a WAV |
 | F7 DISCARD | Drop the take (press twice) |
 
-![RECORD with a finished take: DONE 0:07.6, the take's waveform in green, TAKE READY in red, F6 SAVE READY](manual/img/record-done.png)
+![RECORD with a finished take: DONE 0:07.6, the take's waveform in green, the TAKE light READY in amber at the top, F6 SAVE READY](manual/img/record-done.png)
 
 *A four-bar take, done. F6 saves it, F7 drops it.*
 
@@ -785,8 +786,8 @@ and tempo, lamps, real-looking knobs, dark glass. The buttons and the pads do th
 - **CLASSIC is the default today.** OBSIDIAN becomes the default later, once it has been tested on a unit. There is no date.
 - **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, SONG, MASTER, RECORD,
   HOOKS and FILE PROJECTS (with its name keyboard) have it. FILE LIBRARY keeps its CLASSIC layout, with the header and the key row of the
-  system, in the OBSIDIAN colours: it is too full to be redrawn on the panel. The pictures of the screens in this manual that have a new look
-  now will change when the pictures are rebuilt. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
+  system, in the OBSIDIAN colours: it is too full to be redrawn on the panel. The pictures of the screens in this manual show the OBSIDIAN
+  look, except where they say CLASSIC. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
 
 ---
 
