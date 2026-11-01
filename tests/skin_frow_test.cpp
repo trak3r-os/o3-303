@@ -223,7 +223,7 @@ TEST_CASE("frow: the states are copied: focus, held, locked and dim, and a switc
   in[4] = knob("WAVE", "SQR", "x", 1.0f);
   in[4].toggle = true;
   in[4].off_name = "SAW";
-  in[4].on_name = "SQUARE";
+  in[4].on_name = "SQUARES";
   in[5] = knob("WAVE", "SAW", "", 0.49f);
   in[5].toggle = true;
   in[5].off_name = "SAW";
@@ -249,7 +249,7 @@ TEST_CASE("frow: the states are copied: focus, held, locked and dim, and a switc
   CHECK(v.slot[4].kind == SlotKind::Switch);
   CHECK(str(v.slot[4].readout) == "SQR");  // a switch's readout is the value alone: its unit is never shown
   CHECK(str(v.slot[4].off_name) == "SAW");
-  CHECK(str(v.slot[4].on_name) == "SQUAR");  // cut to the five characters beside the switch
+  CHECK(str(v.slot[4].on_name) == "SQUARE");  // cut to the six characters beside the switch
   CHECK(v.slot[4].norm == 1.0f);
   CHECK(v.slot[5].norm == 0.0f);
   CHECK(v.slot[6].norm == 1.0f);

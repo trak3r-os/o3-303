@@ -37,7 +37,7 @@ constexpr SlotKind slot_kind(const view::Knob& k) noexcept {
 
 inline constexpr unsigned kNameChars = 8;      // the label line's name: a tab and eight 8x16 characters fit a slot
 inline constexpr unsigned kReadoutChars = 14;  // the readout window's most (6x12 characters in 92 px)
-inline constexpr unsigned kCaptionChars = 5;   // a switch's two names
+inline constexpr unsigned kCaptionChars = 6;   // a switch's two names (CUTOFF / VOWEL fits a slot)
 
 // The face a readout of `n` characters is drawn in: the 10x20 Data face to eight characters, the 8x16 Label to ten, the 6x12 Micro after that.
 constexpr ui::Face readout_face(unsigned n) noexcept { return n <= 8u ? ui::Face::Data : (n <= 10u ? ui::Face::Label : ui::Face::Micro); }
