@@ -8,7 +8,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

@@ -1,6 +1,6 @@
 # PERFORM and PERFORM SETUP on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK4; mockup 05): the header (PAGE "PERFORM", the PERFORM LEDs, the ENC window), the glass with the four rows of lamps (a cap
 # tinted by the pad's LED level, an accent ring round a latched action, its label on it), the row names with what each row is now, the four colour buttons' chips and the PADS line, and the F
-# row under it. The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+# row under it. The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_perform.txt --out <dir>
 #
@@ -15,7 +15,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

@@ -2,9 +2,8 @@
 #pragma once
 
 // The obsidian skin's INSTRUMENT (docs/SKIN-PLAN.md 2.4 and section 8, SK5; mockup 06): the panel at full height, no glass. From the top: the header; the page's eight knobs as `knob58`
-// (the F row of this screen: "Fn NAME" over each, the latch LED, the readout under it); the sections of the other pages as boxes of read-outs (DISTORTION, DELAY, MODS on VOICE;
-// whatever InstrumentSection gives on FX and MODS); the step strip of the page of 16: the note text, an ACCENT, a SLIDE and a STEP LED and a `key` sprite for each step (the cursor
-// ringed in white, a held step in amber, groups of four tinted alternately), the step numbers; last the page tabs VOICE FX MODS and the PADS line. While Shift is held the knobs stay
+// (the F row of this screen: "Fn NAME" over each, the latch LED, the readout under it); the sections of the other pages as boxes of read-outs (whatever InstrumentSection gives on each page); the step strip of the page of 16: the note text, an ACCENT, a SLIDE and a STEP LED and a `key` sprite for each step (the cursor
+// ringed in white, a held step in amber, groups of four tinted alternately), the step numbers; last the page tabs (the group's: VOICE FX; GROWL; WOBBLE) and the PADS line. While Shift is held the knobs stay
 // up, their labels read LEARN (lit while armed) or "-" (dim), the F-number tabs turn amber (the PAGES tabs stay red): the coarse value of a Shift + turn is in the readout, as it is with Shift up. The view says what is
 // shown (instrument_view.h); this file only places and draws it, and its pure rules (which LED a step lights, the key's tint, where each part sits) are tested apart
 // (tests/skin_instrument_test.cpp). Main loop only.

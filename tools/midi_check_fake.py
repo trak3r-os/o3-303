@@ -23,8 +23,8 @@ import time
 PROMPT = b"o3> "
 SECTIONS = ("firmware", "audio", "midi", "card", "display", "info")
 PORTS = ("none", "din", "usb", "din+usb")
-SCREEN_OF_KEY = {"master": "MASTER", "pattern": "STEPS", "performance": "PERFORM", "song": "SONG", "file": "FILE_PROJECTS", "samplerec": "RECORD", "sampleload": "HOOKS"}
-INSTR_PAGES = ("INSTRUMENT_VOICE", "INSTRUMENT_FX", "INSTRUMENT_MODS")
+SCREEN_OF_KEY = {"master": "MASTER", "pattern": "STEPS", "performance": "PERFORM", "song": "SONG", "file": "FILE_PROJECTS", "samplerec": "RECORD", "sampleplay": "GROWL", "sampleedit": "WOBBLE"}
+INSTR_PAGES = ("INSTRUMENT_VOICE", "INSTRUMENT_FX")
 BUTTONS = ("f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "params", "performance", "file", "config", "master", "sampleload", "sampleplay", "sampleedit", "samplerec", "song", "note",
            "instr", "vol", "fx", "pattern", "play", "copy", "insert", "up", "delete", "rec", "shift", "left", "down", "right")
 WINDOW = 36            # clocks in the follow fit

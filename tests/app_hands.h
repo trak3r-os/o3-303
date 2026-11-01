@@ -92,13 +92,16 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS) on page `page` (kInstVoice ...), from any screen but INSTRUMENT.
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX) on page `page` (kInstVoice ...), from any screen but INSTRUMENT.
   void to_instrument(unsigned page = kInstVoice) {
     tap(Button::Params);
     for (unsigned i = 0; i < page; ++i) {
       tap(Button::Params);
     }
   }
+  // GROWL (Sample Playback) and WOBBLE (Sample Editor), from any screen; to_home() leaves them.
+  void to_growl() { tap(Button::SamplePlay); }
+  void to_wobble() { tap(Button::SampleEdit); }
   // Back to the 303 screen (Pattern).
   void to_home() { tap(Button::Pattern); }
   // HOME's Shift row (UX-303 5.1), at once: F1 NEW, F2 VARY, F3 RHYTHM, F4 NOTES, F5 REVERSE, F6 CLEAR, F7 REDO, F8 UNDO.

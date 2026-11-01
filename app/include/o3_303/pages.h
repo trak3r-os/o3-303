@@ -99,7 +99,7 @@ inline constexpr unsigned kSetupPageCount = 1;
 const Page& setup_page() noexcept;
 
 // What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
-// SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (MODS); the wobble's settings stay out. A project
+// SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (GROWL); the wobble's settings stay out. A project
 // saved with fewer targets loads: the missing ones are filled from the sound (project.cpp). Each is an entry, so a value is in the units the
 // entry shows and steps in.
 inline constexpr unsigned kSnapTargetCount = 22;

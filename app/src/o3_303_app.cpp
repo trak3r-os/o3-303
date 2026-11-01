@@ -7,20 +7,19 @@
 //
 //   PLAY          play / stop at the press (Shift: restart from step 1)
 //   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
-//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX MODS); the pads are the home map's, HOME's own
+//   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX); the pads are the home map's, HOME's own
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master or the input to Samples/; Shift + REC arms and stops a take from every screen
-//   SAMPLE LOAD / PLAY / EDIT   HOOKS, the placeholder until M4 (hooks_screen.h)
+//   SAMPLE PLAY   GROWL (one page of INSTRUMENT's screen class: instrument_screen.h); SAMPLE EDIT   WOBBLE (the same); SAMPLE LOAD opens nothing until MODDED (docs/MODS-PLAN.md S2)
 //   SONG          SONG (song_screen.h): the saved chain of patterns, in the project; F1 chooses what Play plays; a song that ends with its loop off stops the transport from every screen
-//   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO) and the app's two pages, 303 and DEEP (config_pages.h); the app never sees the key
+//   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO) and the app's page 303 (config_pages.h); the app never sees the key
 //
 // Everything else belongs to the screen that is up (the performance buttons' FREEZE, FILL and the rest are the 303 screen's, C4).
 
 #include "config_pages.h"
 #include "file_screen.h"
-#include "hooks_screen.h"
 #include "instrument_screen.h"
 #include "live_actions.h"
 #include "main_screen.h"
@@ -51,6 +50,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 namespace {
 
@@ -70,6 +70,19 @@ static_assert(alignof(FreezeRing) == 8 && sizeof(FreezeRing) == kFreezeCapacity 
 static_assert(2u * sizeof(FreezeRing) <= (1u << 20), "the freeze's ring is at most 1 MiB for both sides");
 O3SDK_BIG FreezeRing g_freeze_l;
 O3SDK_BIG FreezeRing g_freeze_r;
+
+// One object of the app that lives in the SDRAM, built on first use in zero-filled O3SDK_BIG storage of its own (`N` tells the instances of one type apart): the app object is a
+// static in SRAM_U (o3sdk_app() below), which keeps only what the linker script leaves for the stack, and Rig and the three INSTRUMENT-class screens were 1.5 KB of it. The first call
+// is O3_303App's constructor, which main() reaches after the startup has tested the SDRAM and cleared `.sdram_bss` (kit/core placement.h), and statics here are not guarded against
+// threads (-fno-threadsafe-statics on the unit): one thread, main(). Only the main loop touches what is placed this way (Rig says so, rig.h; the screens are the main loop's); nothing
+// the render, a Clocked hook or an ISR runs reads it.
+template <class T, unsigned N>
+T& sdram_instance() noexcept {
+  static_assert(alignof(T) <= 8, "O3SDK_BIG storage is 8-byte aligned");
+  alignas(T) O3SDK_BIG static unsigned char storage[sizeof(T)];
+  static T* const object = ::new (static_cast<void*>(storage)) T();
+  return *object;
+}
 
 constexpr std::uint32_t kDefaultTempoMilli = 125'000;  // Replicant's default
 constexpr std::uint64_t kSavingToastMs = 1000;         // the SAVING toast is said again this often (a toast lasts a little longer)
@@ -149,13 +162,14 @@ class O3_303App final : public app::App {
     rig_.bank->clear_history();  // the boot load is no edit of the user's: the first UNDO must not empty A01
 
     live_.init(rig_);
-    config_.init(rig_, live_, project_);  // the values it holds start at their defaults; the kit's settings read (after setup) then set them
+    config_.init(live_, project_);  // the values it holds start at their defaults; the kit's settings read (after setup) then set them
     main_.init(rig_);
     perform_.init(rig_, main_);
-    instrument_.init(rig_, main_.home_map());  // the home map HOME has: one cursor, one keyboard, one Rec
+    instrument_.init(rig_, main_.home_map(), o3_303::instrument_group());  // the home map HOME has: one cursor, one keyboard, one Rec
+    growl_screen_.init(rig_, main_.home_map(), o3_303::growl_group());            // GROWL and WOBBLE are INSTRUMENT's class on the same home map
+    wobble_screen_.init(rig_, main_.home_map(), o3_303::wobble_group());
     master_.init(rig_, main_.home_map());  // the home map HOME has, as INSTRUMENT
     record_.init(rig_, main_.home_map());  // the home map HOME has, as MASTER
-    hooks_.init(rig_);
     song_.init(rig_);  // after the bank is empty and the sequencer set up: it hands the sequencer the (empty) song and the play mode
     vault_.init(rig_);
     file_.init(rig_, project_, vault_);
@@ -218,11 +232,29 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // RECORD and HOOKS (UX-303 2.1, 5.10, 5.11): the Sample Recorder button opens RECORD, the other three Sample buttons the HOOKS placeholder; Shift + Rec is RECORD's F1 from every
-    // screen, with no change of screen (the plain Rec stays the home map's step record).
+    // RECORD, GROWL and WOBBLE (UX-303 2.1, docs/MODS-PLAN.md 4.3): the Sample Recorder button opens RECORD, Sample Playback GROWL and Sample Editor WOBBLE, each with or without Shift and, on its own
+    // screen, nothing (one page each). Sample Loader opens nothing until MODDED (MODS-PLAN S2): the app takes its press, so that no screen sees it. Shift + Rec is RECORD's F1 from every screen, with no change
+    // of screen (the plain Rec stays the home map's step record).
+    if (in.press(Button::SampleLoad)) {
+      return true;
+    }
     if (in.press(Button::SampleRec)) {
       if (ctx.screen() != &record_) {
         ctx.show(record_);
+      }
+      return true;
+    }
+    if (in.press(Button::SamplePlay)) {
+      if (ctx.screen() != &growl_screen_) {
+        growl_screen_.open_first_page();
+        ctx.show(growl_screen_);
+      }
+      return true;
+    }
+    if (in.press(Button::SampleEdit)) {
+      if (ctx.screen() != &wobble_screen_) {
+        wobble_screen_.open_first_page();
+        ctx.show(wobble_screen_);
       }
       return true;
     }
@@ -230,12 +262,6 @@ class O3_303App final : public app::App {
     if (in.press(Button::Song)) {
       if (ctx.screen() != &song_) {
         ctx.show(song_);
-      }
-      return true;
-    }
-    if (in.press(Button::SampleLoad) || in.press(Button::SamplePlay) || in.press(Button::SampleEdit)) {
-      if (ctx.screen() != &hooks_) {
-        ctx.show(hooks_);
       }
       return true;
     }
@@ -314,14 +340,15 @@ class O3_303App final : public app::App {
   o3_303::Freeze freeze_{g_freeze_l.v, g_freeze_r.v, kFreezeCapacity};
   o3_303::Growl growl_;
   o3_303::seq::Sequencer sequencer_{o3_303::seq::project_bank()};
-  o3_303::Rig rig_;
+  o3_303::Rig& rig_ = sdram_instance<o3_303::Rig, 0>();  // SDRAM (sdram_instance)
   o3_303::LiveActions live_;
   o3_303::MainScreen main_;
   o3_303::PerformScreen perform_;
-  o3_303::InstrumentScreen instrument_;
+  o3_303::InstrumentScreen& instrument_ = sdram_instance<o3_303::InstrumentScreen, 0>();    // SDRAM (sdram_instance)
+  o3_303::InstrumentScreen& growl_screen_ = sdram_instance<o3_303::InstrumentScreen, 1>();  // GROWL and WOBBLE: INSTRUMENT's class with the groups of instrument_screen.cpp (growl_ is the unit)
+  o3_303::InstrumentScreen& wobble_screen_ = sdram_instance<o3_303::InstrumentScreen, 2>();
   o3_303::MasterScreen master_;
   o3_303::RecordScreen record_;
-  o3_303::HooksScreen hooks_;
   o3_303::SongScreen song_;
   o3_303::VaultScreen vault_;
   o3_303::FileScreen file_;

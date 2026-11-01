@@ -21,7 +21,7 @@ add_test(NAME manual_images
 set_tests_properties(manual_images PROPERTIES TIMEOUT 60)
 # The MIDI test tool of the unit (tools/midi_check.py, docs/hw/2026-11-01-midi.md) against its fake unit: parsers, signal analysis, the clock sender's timing on this
 # machine, the refusal, the restore after a failure mid-phase, and the whole tool on a pty. No hardware. It needs a pty and the o3-sdk tools; without them it
-# returns 77 and ctest reports it skipped.
+# returns 77 and ctest reports it skipped. RUN_SERIAL: it measures the clock sender's timing in real time, so it passes alone and fails when other tests share the CPU.
 add_test(NAME midi_check_selftest
   COMMAND ${O3SDK_PYTHON} -I ${PROJECT_SOURCE_DIR}/tools/midi_check.py --self-test)
-set_tests_properties(midi_check_selftest PROPERTIES TIMEOUT 900 LABELS tools SKIP_RETURN_CODE 77 ENVIRONMENT "O3SDK_DIR=${O3SDK_DIR}")
+set_tests_properties(midi_check_selftest PROPERTIES TIMEOUT 900 RUN_SERIAL TRUE LABELS tools SKIP_RETURN_CODE 77 ENVIRONMENT "O3SDK_DIR=${O3SDK_DIR}")

@@ -80,11 +80,12 @@ TEST_CASE("snapshots: store two sounds, recall them, morph between them; the eng
 
 TEST_CASE("snapshots: the growl's VOWEL, FMT Q, GRL MIX and CMB MIX are stored and recalled with the rest (D29)") {
   Hands t;
-  const Growl::Param ids[4] = {Growl::Vowel, Growl::FormantQ, Growl::Mix, Growl::CombMix};  // INSTRUMENT MODS' F1..F4 are this order
-  const auto knobs = [&](int detents) {  // the four MODS knobs, each turned by `detents`
-    t.to_instrument(kInstMods);
+  const Growl::Param ids[4] = {Growl::Vowel, Growl::FormantQ, Growl::Mix, Growl::CombMix};
+  const unsigned keys[4] = {0, 1, 6, 5};  // GROWL's F1 VOWEL, F2 FMT Q, F7 GRL MIX and F6 CMB MIX
+  const auto knobs = [&](int detents) {  // the four stored growl knobs, each turned by `detents`
+    t.to_growl();
     for (unsigned k = 0; k < 4; ++k) {
-      t.tap(app::fkey(k));
+      t.tap(app::fkey(keys[k]));
       t.turn(detents);
     }
   };

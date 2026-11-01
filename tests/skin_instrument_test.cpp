@@ -35,13 +35,23 @@ InstrumentCell cell(bool on, bool accent, bool slide) {
   return c;
 }
 
-// INSTRUMENT on the skin, on page `page`, with the last frame's queue to look at.
+// The four skinned shapes of the one screen class: INSTRUMENT's pages VOICE and FX, then GROWL and WOBBLE (the Sample buttons', one page each).
+enum class Where : std::uint8_t { Voice, Fx, Growl, Wobble };
+constexpr Where kAllScreens[4] = {Where::Voice, Where::Fx, Where::Growl, Where::Wobble};
+const char* where_name(Where w) { return w == Where::Voice ? "VOICE" : (w == Where::Fx ? "FX" : (w == Where::Growl ? "GROWL" : "WOBBLE")); }
+
+// INSTRUMENT, GROWL or WOBBLE on the skin, with the last frame's queue to look at.
 struct OnInstrument {
   Hands t;
   InstrumentScreen* s = nullptr;
-  explicit OnInstrument(unsigned page = kInstVoice) {
+  explicit OnInstrument(Where w = Where::Voice) {
     t.skin_on();
-    t.to_instrument(page);
+    switch (w) {
+      case Where::Voice: t.to_instrument(kInstVoice); break;
+      case Where::Fx: t.to_instrument(kInstFx); break;
+      case Where::Growl: t.to_growl(); break;
+      case Where::Wobble: t.to_wobble(); break;
+    }
     settle();
   }
   void settle() {
@@ -238,7 +248,7 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   CHECK(o.sprites(skin::Layer::KeyLight, skin_assets::Id::Key) == v.cells);
   CHECK(o.sprites(skin::Layer::KeyDark, skin_assets::Id::Key) == v.cells);
   CHECK(o.sprites(skin::Layer::Led, skin_assets::Id::Led) >= 3u * v.cells);  // the strip's, and the knobs' latch LEDs
-  // The tabs: three on the row, the shown page's in the Rec colour and no other.
+  // The tabs: the group's two (VOICE, FX) on the row, the shown page's in the Rec colour and no other.
   unsigned tabs = 0;
   unsigned red = 0;
   const ui::Rgb rec = skin::theme().rgb(ui::Color::Rec);
@@ -249,18 +259,23 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
       red += same(rr.rgb, rec) ? 1u : 0u;
     }
   }
-  CHECK(tabs == 3u);
+  CHECK(tabs == 2u);
   CHECK(red == 1u);
-  // The tabs' names: the shown page's in the selected ink, the other two dim.
+  // The tabs' names: the shown page's in the selected ink, the other dim.
   CHECK(o.texts_in(kTabsY, kTabsY + 4, ui::Color::SelText) == 1u);
-  CHECK(o.texts_in(kTabsY, kTabsY + 4, ui::Color::TextDim) == 2u);
+  CHECK(o.texts_in(kTabsY, kTabsY + 4, ui::Color::TextDim) == 1u);
   o.intact();
 }
 
-TEST_CASE("skin instrument: each page marks its own tab, and the sections of the page are boxes of read-outs") {
-  for (unsigned page = 0; page < 3; ++page) {
-    OnInstrument o(page);
-    REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);
+TEST_CASE("skin instrument: each page marks its own tab (GROWL and WOBBLE have the one), and the sections of the page are boxes of read-outs") {
+  for (const Where w : kAllScreens) {
+    const unsigned page = w == Where::Fx ? 1u : 0u;  // the page of the group: GROWL and WOBBLE have one page
+    OnInstrument o(w);
+    if (w == Where::Voice || w == Where::Fx) {
+      REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);
+    } else {
+      REQUIRE(std::strcmp(o.t.title(), where_name(w)) == 0);
+    }
     unsigned red = 0;
     int red_x = -1;
     const ui::Rgb rec = skin::theme().rgb(ui::Color::Rec);
@@ -271,19 +286,19 @@ TEST_CASE("skin instrument: each page marks its own tab, and the sections of the
         red_x = rr.box.x;
       }
     }
-    CHECK_MESSAGE(red == 1u, "page " << page);
+    CHECK_MESSAGE(red == 1u, where_name(w));
     // The tabs run left to right in page order: the red one is the page's.
-    CHECK_MESSAGE(red_x == (page == 0u ? 60 : (page == 1u ? 60 + 5 * 8 + 16 + 8 : 60 + 5 * 8 + 16 + 8 + 2 * 8 + 16 + 8)), "page " << page);
+    CHECK_MESSAGE(red_x == (page == 0u ? 60 : 60 + 5 * 8 + 16 + 8), where_name(w));
     InstrumentView v;
     o.s->fill_view(o.t.h->runtime().context(), v);
-    CHECK(v.page == page);
+    CHECK_MESSAGE(v.page == page, where_name(w));
     // One title in the legend of each section's box, one window text for each read-out.
     unsigned values = 0;
     for (unsigned sct = 0; sct < v.sections; ++sct) {
       values += v.section[sct].count;
     }
-    CHECK_MESSAGE(o.texts_in(190, 191, ui::Color::ChromeDim) == v.sections, "page " << page);
-    CHECK_MESSAGE(o.texts_in(220, 250, ui::Color::Text) == values, "page " << page);
+    CHECK_MESSAGE(o.texts_in(190, 191, ui::Color::ChromeDim) == v.sections, where_name(w));
+    CHECK_MESSAGE(o.texts_in(220, 250, ui::Color::Text) == values, where_name(w));
     o.intact();
   }
 }
@@ -449,9 +464,9 @@ TEST_CASE("skin instrument: LEARN waits in the accent colour on the knob that is
   t.release(Button::Shift);
 }
 
-TEST_CASE("skin instrument: the worst frame (every step a note with accent and slide, every step held, playing, a long toast) is queued whole on every page") {
+TEST_CASE("skin instrument: the worst frame (every step a note with accent and slide, every step held, playing, a long toast) is queued whole on every screen") {
   platform::host::FakeMidi midi;
-  for (unsigned page = 0; page < 3; ++page) {
+  for (const Where w : kAllScreens) {
     Hands t(midi);
     t.skin_on();
     bank().edit(t.selected(), [](Pattern& p) {
@@ -460,7 +475,12 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
         p.steps[k].flags = static_cast<std::uint8_t>(kStepAccent | kStepSlide);
       }
     });
-    t.to_instrument(page);
+    switch (w) {
+      case Where::Voice: t.to_instrument(kInstVoice); break;
+      case Where::Fx: t.to_instrument(kInstFx); break;
+      case Where::Growl: t.to_growl(); break;
+      case Where::Wobble: t.to_wobble(); break;
+    }
     t.wait(60);
     t.tap(Button::Play);
     t.press(Button::Shift);
@@ -485,11 +505,11 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
       skin::Panel::TextInfo tx;
       message += q.text_at(i, tx) && tx.x == 626 && tx.color == ui::Color::Accent ? 1u : 0u;
     }
-    CHECK_MESSAGE(rings >= 16u, "page " << page);
-    CHECK_MESSAGE(leds_on >= 32u + 15u, "page " << page);  // ACCENT and SLIDE of the 16 and the dim STEP of the 15 off the playhead (the playhead's is lit: also counted, so 48)
-    CHECK_MESSAGE(message == 1u, "page " << page << ": the toast is in the PAGE window");
-    CHECK_MESSAGE(q.dropped() == 0u, "page " << page);
-    MESSAGE("worst frame, page " << page << ": " << q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.texts() << " texts of " << skin::Panel::kTexts);
+    CHECK_MESSAGE(rings >= 16u, where_name(w));
+    CHECK_MESSAGE(leds_on >= 32u + 15u, where_name(w));  // ACCENT and SLIDE of the 16 and the dim STEP of the 15 off the playhead (the playhead's is lit: also counted, so 48)
+    CHECK_MESSAGE(message == (w == Where::Wobble ? 0u : 1u), where_name(w) << ": the toast is in the PAGE window (this counts the accent-coloured LEARN wait in the PAGE window, which only an armed knob has: WOBBLE's keys cannot be armed, they show the CANNOT LEARN toast, which is not it)");
+    CHECK_MESSAGE(q.dropped() == 0u, where_name(w));
+    MESSAGE("worst frame, " << where_name(w) << ": " << q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.texts() << " texts of " << skin::Panel::kTexts);
     CHECK(q.shapes() + 40u <= skin::Panel::kShapes);  // room to spare: a longer name does not drop
     CHECK(q.texts() + 20u <= skin::Panel::kTexts);
     for (unsigned k = 0; k < 16; ++k) {

@@ -1,5 +1,5 @@
 # HELP over the skinned HOME (docs/SKIN-PLAN.md section 8, SK2): the kit draws HELP always with its full chrome (header and soft keys), in the theme of the screen that is open, so over the
-# obsidian HOME (no kit chrome of its own) it still has them, in the obsidian tokens. The skin is turned on through Config (Left twice is "303", five Downs reach SKIN, the encoder
+# obsidian HOME (no kit chrome of its own) it still has them, in the obsidian tokens. The skin is turned on through Config (Left once is "303", five Downs reach SKIN, the encoder
 # clamps at OBSIDIAN); a picture of the BUTTONS page and one of the PADS page, then HELP closed with Config over the skinned HOME again.
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/help_skin.txt --out <dir>
@@ -8,7 +8,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

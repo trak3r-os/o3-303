@@ -1,5 +1,5 @@
 # HELP (Shift + Config, docs/UX-303.md 5.13): every screen opened with HELP over it, a picture of the BUTTONS page and one of the PADS page, then closed with Config.
-# Order: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT (VOICE, FX, MODS), MASTER, RECORD, HOOKS, FILE PROJECTS, the name keyboard of FILE PROJECTS, FILE LIBRARY, SONG.
+# Order: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT (VOICE, FX), GROWL, MASTER, RECORD, WOBBLE, FILE PROJECTS, the name keyboard of FILE PROJECTS, FILE LIBRARY, SONG.
 #
 #   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/help.txt --card <card> --out <dir>
 #
@@ -71,15 +71,15 @@ tap f2
 snap 11_instrument_fx_pads
 tap config
 wait 50
-tap params
+tap sampleplay
 wait 100
 press shift
 tap config
 release shift
 wait 50
-snap 12_instrument_mods_buttons
+snap 12_growl_buttons
 tap f2
-snap 13_instrument_mods_pads
+snap 13_growl_pads
 tap config
 wait 50
 tap master
@@ -104,15 +104,15 @@ tap f2
 snap 17_record_pads
 tap config
 wait 50
-tap sampleload
+tap sampleedit
 wait 100
 press shift
 tap config
 release shift
 wait 50
-snap 18_hooks_buttons
+snap 18_wobble_buttons
 tap f2
-snap 19_hooks_pads
+snap 19_wobble_pads
 tap config
 wait 50
 tap file

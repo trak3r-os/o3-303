@@ -1024,8 +1024,8 @@ CONFIG_ROWS = {"channel": 0, "out_channel": 1, "ports": 2, "clock_out": 3, "tran
 SECTION_ORDER = ("firmware", "audio", "midi", "card", "display", "info")
 PORT_ORDER = ("none", "din", "usb", "din+usb")
 SCREEN_KEY = {"STEPS": "pattern", "PATTERN_SETUP": "pattern", "PATTERNS": "pattern", "MASTER": "master", "INSTRUMENT_VOICE": "params", "INSTRUMENT_FX": "params",
-              "INSTRUMENT_MODS": "params", "PERFORM": "performance", "PERFORM_SETUP": "performance", "SONG": "song", "FILE_PROJECTS": "file", "FILE_LIBRARY": "file",
-              "RECORD": "samplerec", "HOOKS": "sampleload"}
+              "GROWL": "sampleplay", "WOBBLE": "sampleedit", "PERFORM": "performance", "PERFORM_SETUP": "performance", "SONG": "song", "FILE_PROJECTS": "file",
+              "FILE_LIBRARY": "file", "RECORD": "samplerec"}
 KEY_GAP_S = 0.15
 
 

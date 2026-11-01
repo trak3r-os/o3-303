@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// RECORD and HOOKS (docs/UX-303.md 5.10 and 5.11, docs/UX-PLAN.md R1): the pure view logic (the bar arithmetic, the list of bars and of sources, the clock, the envelope) and the
+// RECORD (docs/UX-303.md 5.10, docs/UX-PLAN.md R1): the pure view logic (the bar arithmetic, the list of bars and of sources, the clock, the envelope) and the
 // screens end to end in the simulator, on a scratch card: a one-bar take of the master starts on the bar's sample and is exactly a bar long, the WAV lands in Samples/ as the take
 // is, BARS that do not fit the buffer are refused, FREE and F1, DISCARD's second press, Shift + Rec from another screen (it arms, stops and saves without changing screen, and
-// the plain Rec stays the step record), the update blocker, a transport that stops under a take, the input sources on the fake codec, a full buffer, and the HOOKS placeholder.
-// The pictures are record.txt's and hooks.txt's.
+// the plain Rec stays the step record), the update blocker, a transport that stops under a take, the input sources on the fake codec, a full buffer, and the Sample buttons' routing (RECORD, GROWL, WOBBLE; Sample Loader opens nothing).
+// The pictures are record.txt's.
 #include <doctest/doctest.h>
 
-#include "../app/src/hooks_screen.h"
 #include "../app/src/main_screen.h"
 #include "../app/src/project_service.h"
 #include "../app/src/record_screen.h"
@@ -287,17 +286,20 @@ TEST_CASE("Envelope: the columns of a span that does not divide by their count h
 
 // ---- The screens ---------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("the Sample buttons: Sample Recorder opens RECORD, the three others HOOKS; Rec alone stays the step record") {
+TEST_CASE("the Sample buttons: Sample Recorder opens RECORD, Sample Playback and Sample Editor open GROWL and WOBBLE, Sample Loader nothing; Rec alone stays the step record") {
   Session s;
   s.tap(Button::SampleRec);
   CHECK(std::strcmp(s.title(), "RECORD") == 0);
   s.tap(Button::SampleRec);  // again: nothing
   CHECK(std::strcmp(s.title(), "RECORD") == 0);
-  for (Button b : {Button::SampleLoad, Button::SamplePlay, Button::SampleEdit}) {
-    s.tap(Button::SampleRec);
-    s.tap(b);
-    CHECK(std::strcmp(s.title(), "HOOKS") == 0);
-  }
+  s.tap(Button::SampleLoad);  // nothing until MODDED (docs/MODS-PLAN.md S2)
+  CHECK(std::strcmp(s.title(), "RECORD") == 0);
+  s.tap(Button::SamplePlay);
+  CHECK(std::strcmp(s.title(), "GROWL") == 0);
+  s.tap(Button::SampleRec);
+  s.tap(Button::SampleEdit);
+  CHECK(std::strcmp(s.title(), "WOBBLE") == 0);
+  s.tap(Button::SampleRec);
   s.tap(Button::Pattern);
   REQUIRE(std::strcmp(s.title(), "RECORD") != 0);
   auto& home = static_cast<MainScreen*>(s.ctx().screen())->home_map();
@@ -309,23 +311,6 @@ TEST_CASE("the Sample buttons: Sample Recorder opens RECORD, the three others HO
   CHECK(home.rec());  // RECORD's own Rec is the home map's too
   s.tap(Button::Rec);
   CHECK_FALSE(home.rec());
-  CHECK(s.rec().state() == State::Idle);
-}
-
-TEST_CASE("HOOKS: the placeholder takes no pad, key or turn, and the pads are dark") {
-  Session s;
-  s.tap(Button::SampleLoad);
-  REQUIRE(std::strcmp(s.title(), "HOOKS") == 0);
-  s.h->pad_down(0);
-  s.wait(20);
-  s.h->pad_up(0);
-  s.turn(5);
-  s.tap(Button::F1);
-  s.tap(Button::Rec);
-  CHECK(std::strcmp(s.title(), "HOOKS") == 0);
-  for (unsigned p = 0; p < 48; ++p) {
-    CHECK(s.h->leds().level(p) == 0u);
-  }
   CHECK(s.rec().state() == State::Idle);
 }
 
@@ -807,7 +792,7 @@ TEST_CASE("Shift + Rec that is refused says so on the status line of every scree
     unsigned taps;
   };
   const Where where[] = {{"HOME", Button::Pattern, 1}, {"INSTRUMENT", Button::Params, 1}, {"PERFORM", Button::Performance, 1}, {"FILE", Button::File, 1},
-                         {"LIBRARY", Button::File, 2}, {"HOOKS", Button::SampleLoad, 1}, {"RECORD", Button::SampleRec, 1}};
+                         {"LIBRARY", Button::File, 2}, {"GROWL", Button::SamplePlay, 1}, {"RECORD", Button::SampleRec, 1}};
   for (const Where& w : where) {
     CAPTURE(w.name);
     s.tap(Button::Pattern);  // (a known start, so that the taps below open the screen on its first page)

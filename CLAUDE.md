@@ -2,8 +2,9 @@
 
 An improved TB-303 for the Tracker hardware (NXP MK66FX1M0, Cortex-M4F at 180 MHz with a single-precision FPU, 256 KiB SRAM, 16 MiB
 SDRAM, FT812 display 800×480, SGTL5000 codec, 48 pads with monochrome LEDs, 33 buttons, one encoder): a 303 voice with Devil Fish-style
-extras, a step sequencer, and later a HOOKS screen. It is one app, a whole firmware image, built on the o3sdk framework. The design is
-`docs/DESIGN-303.md`. Licence GPL-3.0-or-later. Everything in this repository is written in English.
+mods, growl and wobble, and a step sequencer. Only a 303: HOOKS was cancelled on 2026-11-01, and the Sample buttons open MODDED, GROWL and
+WOBBLE (`docs/MODS-PLAN.md`). It is one app, a whole firmware image, built on the o3sdk framework. The design is `docs/DESIGN-303.md`.
+Licence GPL-3.0-or-later. Everything in this repository is written in English.
 
 ## The framework is ../o3-sdk
 

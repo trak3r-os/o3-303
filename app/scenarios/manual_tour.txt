@@ -1,5 +1,5 @@
 # The player's manual's first five minutes (docs/MANUAL.md section 4), on the obsidian skin: the pictures of tools/manual_images.py. The skin is
-# turned on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN, so it is right whatever the default is).
+# turned on through Config as skin_home.txt does (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN, so it is right whatever the default is).
 #
 #   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/manual_tour.txt --card <card> --out <dir>
 #
@@ -11,7 +11,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

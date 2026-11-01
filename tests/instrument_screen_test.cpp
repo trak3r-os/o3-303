@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// INSTRUMENT (docs/UX-303.md 5.5, slice I1): the Params button (opens VOICE from any screen but the vault, again cycles the pages), the latches (VOICE shares
+// INSTRUMENT, GROWL and WOBBLE (docs/UX-303.md 5.5, slice I1; docs/MODS-PLAN.md 5.1, S0: one screen class, three groups): the Params button (opens VOICE from any screen but the vault, again cycles
+// the pages), the Sample Playback and Sample Editor buttons (GROWL and WOBBLE, from every screen), the latches (VOICE shares
 // the SOUND latch with PERFORM, the other pages keep their own), the keys of every page reaching their parameter, the home map's pads, Rec, colour buttons
 // and locks forwarded to the one HomeMap HOME has, the Shift row (MIDI learn, C1), and the display list. The pure view logic is the screen's own; the scenario is
 // instrument.txt. The view logic (read-outs, drawer cells, the lock label) is tested on its own functions.
@@ -46,7 +47,7 @@ bool key_moves(Hands& t, unsigned k, dsp::UnitId unit, unsigned id) {
 
 }  // namespace
 
-TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX MODS and wraps") {
+TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX and wraps") {
   Hands t;
   CHECK_FALSE(on_instrument(t));
   t.tap(Button::Params);
@@ -54,9 +55,7 @@ TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOI
   t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT FX"));
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT MODS"));
-  t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));  // the temporary DEEP page is Config's now (C1)
+  CHECK(is_title(t, "INSTRUMENT VOICE"));  // GROWL and WOBBLE are the Sample buttons' now (S0), the DEEP page is gone
   t.shift_tap(Button::Params);  // Shift changes nothing
   CHECK(is_title(t, "INSTRUMENT FX"));
   // From another screen it always opens VOICE (D21), whatever page was left.
@@ -66,11 +65,72 @@ TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOI
   CHECK(is_title(t, "INSTRUMENT VOICE"));
   t.to_home();
   CHECK_FALSE(on_instrument(t));
-  t.to_instrument(kInstMods);
-  CHECK(is_title(t, "INSTRUMENT MODS"));
+  t.to_instrument(kInstFx);
+  CHECK(is_title(t, "INSTRUMENT FX"));
   t.tap(Button::Pattern);
   t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT VOICE"));
+}
+
+TEST_CASE("Sample Playback opens GROWL and Sample Editor WOBBLE from every screen; pressed again on its own screen it stays, Params leaves for VOICE") {
+  Hands t;
+  CHECK(is_title(t, "STEPS"));
+  t.to_growl();
+  CHECK(is_title(t, "GROWL"));
+  t.to_growl();  // again: stays (one page, no cycling)
+  CHECK(is_title(t, "GROWL"));
+  t.to_wobble();  // the other button, from GROWL
+  CHECK(is_title(t, "WOBBLE"));
+  t.to_wobble();
+  CHECK(is_title(t, "WOBBLE"));
+  t.to_growl();
+  CHECK(is_title(t, "GROWL"));
+  t.tap(Button::Params);
+  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  t.to_wobble();  // from INSTRUMENT
+  CHECK(is_title(t, "WOBBLE"));
+  t.tap(Button::Pattern);
+  CHECK_FALSE(on_instrument(t));
+  // From the screens of other classes: each is entered with `enter`, left by GROWL or WOBBLE.
+  const auto from = [&](const char* title, auto enter) {
+    for (unsigned w = 0; w < 2; ++w) {
+      t.to_home();
+      enter();
+      CHECK_MESSAGE(is_title(t, title), title);
+      if (w == 0) {
+        t.to_growl();
+        CHECK_MESSAGE(is_title(t, "GROWL"), title);
+      } else {
+        t.to_wobble();
+        CHECK_MESSAGE(is_title(t, "WOBBLE"), title);
+      }
+    }
+  };
+  from("PERFORM", [&] { t.tap(Button::Performance); });
+  from("PERFORM SETUP", [&] { t.tap(Button::Performance); t.tap(Button::Performance); });
+  from("MASTER", [&] { t.tap(Button::Master); });
+  from("RECORD", [&] { t.tap(Button::SampleRec); });
+  from("SONG", [&] { t.tap(Button::Song); });
+  from("FILE PROJECTS", [&] { t.tap(Button::File); });
+  from("FILE LIBRARY", [&] { t.tap(Button::File); t.tap(Button::File); });
+}
+
+TEST_CASE("Shift + Sample Playback and Sample Editor open GROWL and WOBBLE too") {
+  Hands t;
+  t.shift_tap(Button::SamplePlay);
+  CHECK(is_title(t, "GROWL"));
+  t.to_home();
+  t.shift_tap(Button::SampleEdit);
+  CHECK(is_title(t, "WOBBLE"));
+}
+
+TEST_CASE("Sample Loader opens nothing until S2 of docs/MODS-PLAN.md: the screen stays where it is") {
+  Hands t;
+  t.tap(Button::SampleLoad);
+  CHECK(is_title(t, "STEPS"));
+  t.to_growl();
+  t.tap(Button::SampleLoad);
+  CHECK(is_title(t, "GROWL"));
 }
 
 TEST_CASE("Params is INSTRUMENT from FILE and from the library, and File opens FILE PROJECTS from INSTRUMENT") {
@@ -91,7 +151,7 @@ TEST_CASE("Params is INSTRUMENT from FILE and from the library, and File opens F
   CHECK(is_title(t, "FILE PROJECTS"));
 }
 
-TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX and MODS each keep their own") {
+TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX, GROWL and WOBBLE each keep their own") {
   Hands t;
   const float decay0 = t.param(kVoice, AcidVoice::Decay);
   const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
@@ -111,18 +171,23 @@ TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX and MODS each keep thei
   t.turn(5);
   CHECK(t.param(kDist, Distortion::Drive) != drive0);
   t.tap(Button::F6);  // DLY FB on FX
-  t.tap(Button::Params);  // MODS: its own, F1 VOWEL
+  t.to_growl();  // GROWL: its own, F1 VOWEL
   const float vowel0 = t.param(kGrowl, Growl::Vowel);
   t.turn(5);
   CHECK(t.param(kGrowl, Growl::Vowel) != vowel0);
+  t.tap(Button::F7);  // GRL MIX on GROWL
   t.tap(Button::Params);  // VOICE
   t.tap(Button::Params);  // FX again: DLY FB is still the latched key
   const float fb0 = t.param(kDelay, units::Delay::Feedback);
   t.turn(-5);
   CHECK(t.param(kDelay, units::Delay::Feedback) != fb0);
+  t.to_growl();  // GROWL again: GRL MIX is the latched key
+  const float mix0 = t.param(kGrowl, Growl::Mix);
+  t.turn(5);
+  CHECK(t.param(kGrowl, Growl::Mix) != mix0);
 }
 
-TEST_CASE("every key of FX and MODS reaches its parameter") {
+TEST_CASE("every key of FX, GROWL and WOBBLE reaches its parameter") {
   Hands t;
   t.to_instrument(kInstFx);
   CHECK(key_moves(t, 0, kDist, Distortion::Drive));
@@ -137,17 +202,26 @@ TEST_CASE("every key of FX and MODS reaches its parameter") {
   t.turn(-5);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) != send0);
 
-  t.tap(Button::Params);  // MODS
+  t.to_growl();  // GROWL: the formant, the comb, the growl's mix; F8 is an empty well
   CHECK(key_moves(t, 0, kGrowl, Growl::Vowel));
   CHECK(key_moves(t, 1, kGrowl, Growl::FormantQ));
-  CHECK(key_moves(t, 2, kGrowl, Growl::Mix));
-  CHECK(key_moves(t, 3, kGrowl, Growl::CombMix));
+  CHECK(key_moves(t, 2, kGrowl, Growl::FormantMix));
+  CHECK(key_moves(t, 3, kGrowl, Growl::CombTune));
+  CHECK(key_moves(t, 4, kGrowl, Growl::CombFeedback));
+  CHECK(key_moves(t, 5, kGrowl, Growl::CombMix));
+  CHECK(key_moves(t, 6, kGrowl, Growl::Mix));
 }
 
 TEST_CASE("every label of the pages' knobs fits the knob strip's nine characters (U3: WOB TARGET showed as WOB TARGE)") {
   Hands t;
-  for (unsigned page = kInstFx; page < kInstrumentPageCount; ++page) {
-    t.to_instrument(page);
+  for (unsigned screen_no = 0; screen_no < 3; ++screen_no) {  // FX, GROWL, WOBBLE
+    if (screen_no == 0) {
+      t.to_instrument(kInstFx);
+    } else if (screen_no == 1) {
+      t.to_growl();
+    } else {
+      t.to_wobble();
+    }
     const InstrumentScreen& screen = *static_cast<InstrumentScreen*>(t.h->runtime().context().screen());
     const Page& pg = screen.page_table();
     for (unsigned k = 0; k < kKeys; ++k) {
@@ -171,7 +245,7 @@ TEST_CASE("the pads, Rec and the cursor are HOME's own: the same home map") {
   t.to_home();  // the cursor and Rec went with the screen
   t.pad(key_pad(52));
   CHECK(t.pat().steps[2].note == 52);
-  t.to_instrument(kInstMods);
+  t.to_growl();  // GROWL and WOBBLE have the same home map
   t.pad(key_pad(53));
   CHECK(t.pat().steps[3].note == 53);
   t.tap(Button::Rec);
@@ -180,6 +254,9 @@ TEST_CASE("the pads, Rec and the cursor are HOME's own: the same home map") {
   t.pad(key_pad(55));  // Rec is off: it plays the voice and writes nothing
   CHECK(t.pat().steps[3].note == 53);
   CHECK(t.pat().steps[2].note == 52);
+  t.to_wobble();
+  t.pad(key_pad(55));  // Rec is off here too
+  CHECK(t.pat().steps[3].note == 53);
 }
 
 TEST_CASE("a held step + a turn locks the latched knob of the page on that step, its lane claimed") {
@@ -205,7 +282,7 @@ TEST_CASE("the colour buttons are the drawer's rows here, not live actions: noth
   Hands t;
   HomeMap& home = static_cast<MainScreen*>(t.h->runtime().context().screen())->home_map();
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
-  t.to_instrument(kInstMods);
+  t.to_instrument(kInstFx);
   t.press(Button::Fx);  // FREEZE on PERFORM; here the LOCK row
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
@@ -299,23 +376,33 @@ TEST_CASE("MIDI learn arms only unit parameters: VOLUME, DLY SEND, MODEL and the
   t.wait(5);
   CHECK_FALSE(ctx.midi().learning());
 
-  CHECK(is_title(t, "INSTRUMENT MODS"));
+  t.to_growl();  // GROWL: the seven growl knobs are unit parameters, F8 is an empty well
   t.press(Button::Shift);
-  const char* mods[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "-", "-", "-", "-"};
+  const char* growl[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "-"};
   for (unsigned k = 0; k < 8; ++k) {
-    INFO("MODS F" << (k + 1));
-    CHECK(row(k) == mods[k]);
+    INFO("GROWL F" << (k + 1));
+    CHECK(row(k) == growl[k]);
   }
   t.release(Button::Shift);
-  for (unsigned k = 4; k < 8; ++k) {
-    t.shift_tap(app::fkey(k));
-    CHECK_FALSE(ctx.midi().learning());
-  }
-  t.shift_tap(Button::F1);  // VOWEL: armed, and leaving the screen drops it
+  t.shift_tap(Button::F8);
+  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F6);  // CMB MIX: armed, and leaving the screen drops it
   CHECK(ctx.midi().learning());
   t.to_home();
   CHECK_FALSE(ctx.midi().learning());
   CHECK(ctx.midi().bindings() == 0u);
+
+  t.to_wobble();  // WOBBLE: the wobble's settings are app values, "-" on every key, and none can be armed
+  t.press(Button::Shift);
+  for (unsigned k = 0; k < 8; ++k) {
+    INFO("WOBBLE F" << (k + 1));
+    CHECK(row(k) == "-");
+  }
+  t.release(Button::Shift);
+  for (unsigned k = 0; k < 8; ++k) {
+    t.shift_tap(app::fkey(k));
+    CHECK_FALSE(ctx.midi().learning());
+  }
 }
 
 TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the app's values") {
@@ -341,12 +428,18 @@ TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the a
   }
 }
 
-TEST_CASE("every page of INSTRUMENT fits the display list, stopped, playing and with Shift held") {
+TEST_CASE("every page of INSTRUMENT, GROWL and WOBBLE fits the display list, stopped, playing and with Shift held") {
   Hands t;
   t.tap(Button::Play);
   t.wait(300);
-  for (unsigned page = kInstVoice; page < kInstrumentPageCount; ++page) {
-    t.to_instrument(page);
+  for (unsigned screen_no = 0; screen_no < instrument_group().count + 2; ++screen_no) {  // VOICE, FX, GROWL, WOBBLE
+    if (screen_no < instrument_group().count) {
+      t.to_instrument(screen_no);
+    } else if (screen_no == instrument_group().count) {
+      t.to_growl();
+    } else {
+      t.to_wobble();
+    }
     t.wait(60);
     t.press(Button::Shift);
     t.wait(700);
@@ -505,25 +598,28 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   t.wait(5);
 
   InstrumentView v;
-  fill_sections(e, c, false, kInstVoice, v);  // VOICE draws its own knobs large: the others are read-outs
+  const InstrumentGroup& inst = instrument_group();
+  fill_sections(e, c, false, inst, kInstVoice, v);  // VOICE draws its own knobs large: the others are read-outs
   REQUIRE(v.sections == 3);
   CHECK(std::strcmp(v.section[0].title, "DISTORTION") == 0);
   CHECK(std::strcmp(v.section[1].title, "DELAY") == 0);
-  CHECK(std::strcmp(v.section[2].title, "MODS") == 0);
+  CHECK(std::strcmp(v.section[2].title, "GROWL") == 0);
+  CHECK(std::strcmp(v.section[2].label[0], "VOWEL") == 0);
   CHECK(std::strcmp(v.section[0].label[0], "MODEL") == 0);
   CHECK(std::strcmp(v.section[0].value[0], "TUBE") == 0);
   CHECK(std::strcmp(v.section[1].label[2], "SEND") == 0);
   CHECK(std::strcmp(v.section[1].value[2], "30%") == 0);  // the base send, 30 % by default
-  CHECK(std::strcmp(v.section[2].label[3], "WOB") == 0);
-  CHECK(std::strcmp(v.section[2].value[3], "OFF") == 0);
+  CHECK(std::strcmp(v.section[2].label[3], "GRL MIX") == 0);
 
-  fill_sections(e, c, true, kInstVoice, v);
-  CHECK(std::strcmp(v.section[2].value[3], "ON") == 0);
-
-  fill_sections(e, c, false, kInstFx, v);  // FX draws the distortion and the delay large
+  fill_sections(e, c, false, inst, kInstFx, v);  // FX draws the distortion and the delay large
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
-  CHECK(std::strcmp(v.section[1].title, "MODS") == 0);
+  CHECK(std::strcmp(v.section[1].title, "WOBBLE") == 0);
+  CHECK(std::strcmp(v.section[1].label[3], "WOB") == 0);  // the wobble's state, ON or OFF
+  CHECK(std::strcmp(v.section[1].value[3], "OFF") == 0);
+  fill_sections(e, c, true, inst, kInstFx, v);
+  CHECK(std::strcmp(v.section[1].value[3], "ON") == 0);
+  fill_sections(e, c, false, inst, kInstFx, v);
   CHECK(std::strcmp(v.section[0].label[0], "CUTOFF") == 0);
   char text[24];
   (void)c.format(e, Entry{Item::Voice, AcidVoice::Cutoff, nullptr}, text, sizeof text);
@@ -531,12 +627,17 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[0].value[0], text) == 0);
   CHECK(std::strlen(v.section[0].value[0]) <= 11);
 
-  fill_sections(e, c, false, kInstMods, v);
-  REQUIRE(v.sections == 3);
+  fill_sections(e, c, false, growl_group(), 0, v);  // GROWL draws the growl large: the voice and the wobble are read-outs
+  REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
-  CHECK(std::strcmp(v.section[1].title, "DISTORTION") == 0);
-  CHECK(std::strcmp(v.section[2].title, "DELAY") == 0);
+  CHECK(std::strcmp(v.section[1].title, "WOBBLE") == 0);
+  fill_sections(e, c, false, wobble_group(), 0, v);  // WOBBLE: the voice and the growl
+  REQUIRE(v.sections == 2);
+  CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
+  CHECK(std::strcmp(v.section[1].title, "GROWL") == 0);
 
-  fill_sections(e, c, false, kInstrumentPageCount, v);  // a page that does not exist: no sections
+  fill_sections(e, c, false, inst, inst.count, v);  // a page that does not exist: no sections
+  CHECK(v.sections == 0);
+  fill_sections(e, c, false, growl_group(), 1, v);
   CHECK(v.sections == 0);
 }

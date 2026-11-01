@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// What INSTRUMENT shows (docs/UX-303.md 5.5, docs/SKIN-PLAN.md 2.4, SK5), apart from the logic that fills it: one InstrumentView, drawn by the classic function of instrument_screen.cpp and by
+// What INSTRUMENT, GROWL and WOBBLE show (docs/UX-303.md 5.5, docs/MODS-PLAN.md 5.1, docs/SKIN-PLAN.md 2.4, SK5), apart from the logic that fills it: one InstrumentView, drawn by the classic function of instrument_screen.cpp and by
 // the obsidian skin's skin/instrument.cpp, so neither decides what a knob, a read-out or a step says. It holds texts, flags and numbers only. The screen fills it with
 // InstrumentScreen::fill_view() (and the pure functions of instrument_screen.h); the text pointers it holds (a knob's label, a section's title) are literals or members of the view itself.
 
@@ -42,7 +42,10 @@ struct InstrumentView {
   unsigned cells = 0;       // how many of them are inside the pattern
   view::Marks marks;        // the cursor, the playhead and the held steps of the page
   char lock_label[16] = "";  // "LOCK 5": the label of the knob the encoder locks on a held step
-  unsigned page = 0;         // the page of INSTRUMENT shown (InstrumentPage: VOICE, FX, MODS)
+  unsigned page = 0;         // the page of the group shown (INSTRUMENT: VOICE, FX; MODDED NOTES, TONE; GROWL; WOBBLE)
+  unsigned tab_count = 0;    // the group's pages: the skin's tabs (a group of one page has one tab)
+  const char* const* tabs = nullptr;  // their names ("VOICE", "FX"): literals of the group
+  const char* hint = "";     // the line after the tabs: what the buttons do on this group's pages (a literal)
   Learn learn[view::kKnobs] = {};  // the Shift row, per knob
 };
 

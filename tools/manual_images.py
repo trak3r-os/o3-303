@@ -61,7 +61,8 @@ IMAGES = [
     ("perform-setup", "skin_perform", "08_setup", "screen"),
     ("instrument-voice", "skin_instrument", "01_voice", "screen"),
     ("instrument-fx", "skin_instrument", "02_fx", "screen"),
-    ("instrument-mods", "skin_instrument", "03_mods", "screen"),
+    # Until S4: run this generator only with --check; a plain run would overwrite hooks.png and config-deep.png with other pictures (stopgap rows: instrument-mods, hooks, config-deep).
+    ("instrument-mods", "skin_instrument", "03_growl", "screen"),  # S0 stopgap: the MODS page is GROWL now; S4 rewrites this row and the manual
     ("instrument-learn", "skin_instrument", "07_shift_learn_row", "screen"),
     ("master", "manual_screens", "03_master", "screen"),
     ("song", "skin_song", "03_playing", "screen"),
@@ -71,7 +72,7 @@ IMAGES = [
     ("library", "manual_screens", "12_library", "screen"),
     ("record", "manual_screens", "04_record", "screen"),
     ("record-done", "manual_screens", "07_record_done", "screen"),
-    ("hooks", "manual_screens", "08_hooks", "screen"),
+    ("hooks", "manual_screens", "08_growl", "screen"),  # S0 stopgap: HOOKS is cancelled; S4 deletes this row and the picture
     # 6 The pads
     ("help-home-pads", "help_skin", "01_home_pads", "screen"),
     ("help-perform-pads", "skin_perform", "help_01_perform_pads", "screen"),
@@ -80,7 +81,7 @@ IMAGES = [
     ("help-library-pads", "manual_screens", "13_help_library_pads", "screen"),
     # 9 Settings
     ("config-303", "manual_screens", "01_config_303", "screen"),
-    ("config-deep", "manual_screens", "02_config_deep", "screen"),
+    ("config-deep", "manual_screens", "01_config_303", "screen"),  # S0 stopgap: the page DEEP is retired; S4 deletes this row and the picture
     # 13 Two looks
     ("look-classic-home", "home", "01_plain", "screen"),
     ("look-obsidian-home", "skin_home", "01_stopped", "screen"),

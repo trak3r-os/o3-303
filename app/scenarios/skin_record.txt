@@ -1,7 +1,7 @@
-# RECORD and HOOKS on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK6): the header with the TAKE LED (TRANSPORT: ARMED blinking, 0:05 red while it records, READY, SAVING), the glass (TAKE: the
+# RECORD (and GROWL, where the take is seen while it records) on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK6): the header with the TAKE LED (TRANSPORT: ARMED blinking, 0:05 red while it records, READY, SAVING), the glass (TAKE: the
 # state and the clock in two windows, the bar chip, the sentence, SOURCE and BARS, the file name; LEVELS: IN and OUT as LED-segment bars; ENVELOPE: the take's peaks, red while it grows and green
 # once it is done) and the F row (F1 ARM / STOP lit red while it records, F2 SOURCE and F3 BARS action keys with their value, F4 GAIN and F5 MONITOR knobs, F6 SAVE and F7 DISCARD action keys,
-# dim until there is a finished take, F8 an empty box). The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs reach
+# dim until there is a finished take, F8 an empty box). The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left once is "303", five Downs reach
 # SKIN, the encoder clamps at OBSIDIAN). The simulator has no card here (the scenarios test runs it so): SAVE says NO CARD. With a card, as record.txt:
 #
 #   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/skin_record.txt --card <card> --out <dir>
@@ -10,12 +10,12 @@
 # playing): ARMED, the TAKE LED blinking amber; 04 and 05 recording: REC and the clock in the windows, the chip "BAR n / 4", the bars and the envelope growing in red, the TAKE LED red with
 # the time, F1 STOP lit red; 06 the same take seen from HOME: the TAKE LED in the header; 07 done: DONE, the envelope green with the bar marks, F6 SAVE and F7 DISCARD lit; 08 HOME with the
 # finished take: TAKE READY; 09 F6 without a card: NO CARD in the PAGE window and red under the take; 10 F7 twice drops the take; 11 Shift + Rec from HOME arms a 1 bar take (TAKE ARMED in
-# the header, still on HOME); 12 HOOKS while it records: the 4 x 12 grid of dark lamps, its line, eight empty boxes, the TAKE LED still red; 13 HOOKS with the take dropped (the TAKE LED dark); 14 RECORD with a FREE take
+# the header, still on HOME); 12 GROWL (Sample Playback) while it records: its seven knobs, the TAKE LED still red; 13 GROWL with the take dropped (the TAKE LED dark); 14 RECORD with a FREE take
 # stopped by F1 on the empty RECORD (no bar marks, no chip); help_* the kit's HELP over the skinned RECORD (Shift + Config).
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down
@@ -80,18 +80,18 @@ tap rec
 release shift
 wait 100
 snap 11_home_armed
-tap sampleload
+tap sampleplay
 wait 1700
-snap 12_hooks_recording
-# The 1 bar take finishes while HOOKS is up; RECORD drops it (F7 twice, and the toast goes by) before 13.
+snap 12_growl_recording
+# The 1 bar take finishes while GROWL is up; RECORD drops it (F7 twice, and the toast goes by) before 13.
 wait 4200
 tap samplerec
 tap f7
 tap f7
 wait 2600
-tap sampleload
+tap sampleplay
 wait 100
-snap 13_hooks
+snap 13_growl
 tap samplerec
 wait 100
 tap f3

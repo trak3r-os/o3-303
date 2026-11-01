@@ -6,9 +6,7 @@
 #include "project_service.h"
 #include "skin/skin.h"
 
-#include <o3sdk/units/delay/delay.h>
 #include <o3_303/config_keys.h>
-#include <o3_303/units/growl/growl.h>
 
 namespace o3_303 {
 
@@ -19,12 +17,10 @@ using core::ParamCurve;
 using core::ParamUnit;
 
 // ---- The descriptors (name, unit text, names, knots, min, max, default, detents, coarse, list count, display, curve, flags, page) ---------------------
-// The DEEP ones repeat the units' own ranges and defaults (the kit needs constexpr tables; the units' are inside their .cpp): config_pages_test holds them equal.
 
 constexpr const char* kAutosaveNames[config::kAutosaveChoices] = {"OFF", "10 S", "30 S"};
 constexpr const char* kKeysNames[] = {"PLAY", "TRANSPOSE"};
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
-constexpr const char* kModeNames[] = {"MONO", "PING"};
 constexpr const char* kSkinNames[] = {"CLASSIC", "OBSIDIAN"};
 
 constexpr core::ParamDesc kAutosave = {"AUTOSAVE", "", kAutosaveNames, nullptr, 0.0f, 2.0f, 1.0f, 2, 1, config::kAutosaveChoices, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -33,12 +29,6 @@ constexpr core::ParamDesc kLadderSlew = {"LADDER SLEW", "ms", nullptr, nullptr, 
                                          ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kPadLegend = {"PAD LEGEND", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSkin = {"SKIN", "", kSkinNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
-
-constexpr core::ParamDesc kFmtMix = {"FMT MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 1.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kCmbTune = {"CMB TUNE", "st", nullptr, nullptr, -24.0f, 24.0f, 0.0f, 48, 12, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kCmbFb = {"CMB FB", "", nullptr, nullptr, -0.95f, 0.95f, 0.6f, 38, 5, 0, ParamUnit::Fixed1, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kWobReset = {"WOB RESET", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kDlyMode = {"DLY MODE", "", kModeNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 
 // ---- The pages -----------------------------------------------------------------------------------------------------------------------------
 
@@ -50,34 +40,10 @@ constexpr app::ConfigItem k303Items[] = {
     {config::kResetProject, "RESET PROJECT", nullptr},
     {config::kSkin, "SKIN", &kSkin},
 };
-constexpr app::ConfigItem kDeepItems[] = {
-    {config::kFmtMix, "FMT MIX", &kFmtMix},   {config::kCmbTune, "CMB TUNE", &kCmbTune}, {config::kCmbFb, "CMB FB", &kCmbFb},
-    {config::kWobReset, "WOB RESET", &kWobReset}, {config::kDlyMode, "DLY MODE", &kDlyMode},
-};
-constexpr app::ConfigPage kPages[2] = {
+constexpr app::ConfigPage kPages[1] = {
     {"303", k303Items, sizeof k303Items / sizeof k303Items[0]},
-    {"DEEP", kDeepItems, sizeof kDeepItems / sizeof kDeepItems[0]},
 };
-static_assert(sizeof k303Items / sizeof k303Items[0] <= app::kMaxConfigItems && sizeof kDeepItems / sizeof kDeepItems[0] <= app::kMaxConfigItems, "every item is shown");
-
-// The sound entry a DEEP key writes (the engine's, as INSTRUMENT's keys do); Blank for the other keys.
-Entry deep_entry(std::uint16_t key) noexcept {
-  switch (key) {
-    case config::kFmtMix:
-      return Entry{Item::Growl, static_cast<std::uint16_t>(Growl::FormantMix), nullptr};
-    case config::kCmbTune:
-      return Entry{Item::Growl, static_cast<std::uint16_t>(Growl::CombTune), nullptr};
-    case config::kCmbFb:
-      return Entry{Item::Growl, static_cast<std::uint16_t>(Growl::CombFeedback), nullptr};
-    case config::kWobReset:
-      return Entry{Item::Wobble, kWobbleReset, nullptr};
-    case config::kDlyMode:
-      return Entry{Item::Delay, static_cast<std::uint16_t>(units::Delay::Mode), nullptr};
-    default:
-      break;
-  }
-  return Entry{};
-}
+static_assert(sizeof k303Items / sizeof k303Items[0] <= app::kMaxConfigItems, "every item is shown");
 
 unsigned round_index(float v, unsigned last) noexcept {
   const float c = v < 0.0f ? 0.0f : v;
@@ -87,8 +53,7 @@ unsigned round_index(float v, unsigned last) noexcept {
 
 }  // namespace
 
-void ConfigPages::init(Rig& rig, LiveActions& live, ProjectService& project) noexcept {
-  rig_ = &rig;
+void ConfigPages::init(LiveActions& live, ProjectService& project) noexcept {
   live_ = &live;
   project_ = &project;
   keys_at_boot_ = 0;
@@ -100,17 +65,17 @@ void ConfigPages::init(Rig& rig, LiveActions& live, ProjectService& project) noe
   // and the kit's settings put the saved one over it.)
 }
 
-unsigned ConfigPages::pages() const noexcept { return 2; }
+unsigned ConfigPages::pages() const noexcept { return 1; }
 
 bool ConfigPages::page(unsigned index, app::ConfigPage& out) const noexcept {
-  if (index >= 2u) {
+  if (index >= 1u) {
     return false;
   }
   out = kPages[index];
   return true;
 }
 
-float ConfigPages::get(const app::Context& ctx, std::uint16_t key) const noexcept {
+float ConfigPages::get(const app::Context& /*ctx*/, std::uint16_t key) const noexcept {
   switch (key) {
     case config::kAutosave:
       return static_cast<float>(config::autosave_choice(project_->autosave_period()));
@@ -125,8 +90,7 @@ float ConfigPages::get(const app::Context& ctx, std::uint16_t key) const noexcep
     default:
       break;
   }
-  const Entry en = deep_entry(key);
-  return en.item == Item::Blank ? 0.0f : rig_->controls.get(ctx.engine(), en);
+  return 0.0f;  // a key the app does not have (the retired 20..24, config_keys.h): the kit never asks it
 }
 
 void ConfigPages::set(app::Context& ctx, std::uint16_t key, float value) noexcept {
@@ -154,12 +118,7 @@ void ConfigPages::set(app::Context& ctx, std::uint16_t key, float value) noexcep
       ctx.redraw();
       return;
     default:
-      break;
-  }
-  const Entry en = deep_entry(key);
-  if (en.item != Item::Blank) {
-    rig_->controls.set(ctx.engine(), en, value);
-    project_->settings_moved(ctx.engine());
+      break;  // a retired key (20..24) is inert: its value is dropped, never applied (config_keys.h)
   }
 }
 

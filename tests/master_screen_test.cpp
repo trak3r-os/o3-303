@@ -7,6 +7,7 @@
 #include "hands.h"
 #include "../app/src/master_screen.h"
 
+#include <o3sdk/units/delay/delay.h>
 #include <o3_303/app_access.h>
 #include <o3_303/perform.h>
 
@@ -153,7 +154,7 @@ TEST_CASE("the F2 TAP and F3 NUDGE boxes: counts and the nudge's place on its sc
 
 // ---- The screen -------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("the keys: F1 TEMPO and F4 MASTER are values, F2 and F3 are the screen's; the encoder enters on F1") {
+TEST_CASE("the keys: F1 TEMPO, F4 MASTER and F5 DLY MODE are values, F2 and F3 are the screen's; the encoder enters on F1") {
   Hands t;
   open_master(t);
   MasterScreen& m = master(t);
@@ -162,8 +163,10 @@ TEST_CASE("the keys: F1 TEMPO and F4 MASTER are values, F2 and F3 are the screen
   CHECK(m.page_table().entry[3].item == Item::Master);
   CHECK(m.page_table().entry[1].item == Item::Blank);  // F2 and F3 take no latch
   CHECK(m.page_table().entry[2].item == Item::Blank);
-  for (unsigned k = 4; k < 8; ++k) {
-    CHECK(m.page_table().entry[k].item == Item::Blank);  // F5..F8 empty
+  CHECK(m.page_table().entry[4].item == Item::Delay);  // F5 DLY MODE (the delay's Mode, MODS-PLAN 5.6)
+  CHECK(m.page_table().entry[4].id == units::Delay::Mode);
+  for (unsigned k = 5; k < 8; ++k) {
+    CHECK(m.page_table().entry[k].item == Item::Blank);  // F6..F8 empty
   }
   const std::uint32_t t0 = t.h->engine().tempo();
   // F2 and F3 taps leave the latch where it is: the encoder still moves the tempo.
@@ -178,8 +181,19 @@ TEST_CASE("the keys: F1 TEMPO and F4 MASTER are values, F2 and F3 are the screen
   const float level0 = t.h->engine().master_level();
   t.turn(-4);
   CHECK(t.h->engine().master_level() < level0);
-  // F5..F8 do nothing.
+  // F5 latches DLY MODE: the encoder moves the delay's mode, one place a detent (it was Config DEEP's until MODS-PLAN S0), and F6..F8 do nothing.
+  t.tap(Button::F5);
+  CHECK(m.focus() == 4u);
+  const float mode0 = t.h->engine().param(kDelay, units::Delay::Mode);
+  t.turn(mode0 >= 0.5f ? -1 : 1);
+  t.wait(5);
+  CHECK(t.h->engine().param(kDelay, units::Delay::Mode) != mode0);
+  t.turn(mode0 >= 0.5f ? 1 : -1);
+  t.wait(5);
+  CHECK(t.h->engine().param(kDelay, units::Delay::Mode) == doctest::Approx(mode0));
   t.tap(Button::F6);
+  CHECK(m.focus() == 4u);
+  t.tap(Button::F4);
   CHECK(m.focus() == 3u);
   // Back on F1.
   t.tap(Button::F1);

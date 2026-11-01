@@ -118,9 +118,6 @@ class ProjectService {
   // have no encode, load or request going on, stops the transport (asked each pass for up to 500 ms) and then resets; the autosave writes the change as it writes any edit.
   // true: asked. false: none is possible (no session) or one is already waiting. Main loop only.
   bool reset_session(o3sdk::app::Context& ctx) noexcept;
-  // The kit puts the settings it kept over the session once, before the first update() (the Config 303 and DEEP values): the boot load's "has the player edited?" baseline
-  // takes them in, so that only the player's own edits keep a project off [D18: the project then overrides the kit's copy of the DEEP values, as it does any sound]. No effect later.
-  void settings_moved(const o3sdk::dsp::Engine& e) noexcept;
   // The list: while a screen wants it (FILE is up) the service keeps the card's project folders read, one listing whenever it is stale. `projects()` and
   // `project(i)` are only meaningful while list_valid(); list_version() moves with every new list. Folders hidden by DELETE and the kit's own are not in it.
   void want_list(bool on) noexcept { list_wanted_ = on; }

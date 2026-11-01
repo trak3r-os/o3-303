@@ -270,16 +270,6 @@ void ProjectService::reset_step(Context& ctx) noexcept {
   notice("PROJECT RESET");
 }
 
-void ProjectService::settings_moved(const o3sdk::dsp::Engine& e) noexcept {
-  if (phase_ != Phase::Start || rig_ == nullptr || big_ == nullptr) {
-    return;
-  }
-  project::gather(*rig_, e, big_->probe);
-  copy_name(big_->probe.name, name_);
-  boot_crc_ = project::small_crc(big_->probe);
-  seen_crc_ = boot_crc_;
-}
-
 bool ProjectService::save_as(const char* name) noexcept {
   if (name == nullptr || !project_name_ok(name)) {
     return false;

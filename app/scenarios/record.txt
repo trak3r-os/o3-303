@@ -5,7 +5,7 @@
 # Start from an empty card directory: it ends up with Samples/take_001.wav (a 4 bar take, saved by F6) and take_002.wav (1 bar, Shift + Rec). Without --card (the scenarios test runs it so)
 # the same keys say NO CARD and the takes stay until F7 drops them; the pictures are the same but for the card line. The simulator has no codec input unless it is given one
 # (--audio-in), so F2 says NO AUDIO INPUT here: the input sources are the unit's and the audio-in scenarios'.
-# The pictures: 01 idle, 03 and 04 the tempo too slow for 8 bars, 06 armed (waiting for the bar), 07 recording, 08 done, 10 saved, 12 Shift + Rec armed on HOME, 13 the take on HOME, 19 and 20 the take refused on PERFORM and on HOOKS.
+# The pictures: 01 idle, 03 and 04 the tempo too slow for 8 bars, 06 armed (waiting for the bar), 07 recording, 08 done, 10 saved, 12 Shift + Rec armed on HOME, 13 the take on HOME, 19 and 20 the take refused on PERFORM and on GROWL.
 record on
 wait 300
 tap samplerec
@@ -94,7 +94,7 @@ tap play
 wait 100
 wav record
 # The take speaks on every screen, not on RECORD's alone: at 20 BPM 4 bars do not fit (BARS: FREE, 1, 2, 4), and Shift + Rec on PERFORM says so on its status line (picture 19); on
-# HOOKS too (20).
+# GROWL too (20: Sample Playback, which opens GROWL).
 tap samplerec
 tap f3
 tap f3
@@ -110,10 +110,10 @@ tap rec
 release shift
 wait 100
 snap 19_perform_refused
-tap sampleload
+tap sampleplay
 wait 3000
 press shift
 tap rec
 release shift
 wait 100
-snap 20_hooks_refused
+snap 20_growl_refused

@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The obsidian skin's MASTER, RECORD and HOOKS (docs/SKIN-PLAN.md 2.4, SK6): the pure rules of the LED-segment bars (which segments a level and a held peak light, which are amber, where each sits),
+// The obsidian skin's MASTER and RECORD (docs/SKIN-PLAN.md 2.4, SK6): the pure rules of the LED-segment bars (which segments a level and a held peak light, which are amber, where each sits),
 // of the tempo display's cells and of RECORD's envelope (the columns, the bar marks, how far a take has come), and the screens end to end in the simulator with the skin on: the F row's slot kinds,
 // ARM / STOP lit red while a take records, SAVE and DISCARD dim until one is finished, the bars against the view's levels, the TAKE LED in the header of every skinned screen, and the fullest frame of
 // each screen queued whole (`dropped() == 0`). The pictures are skin_master.txt's and skin_record.txt's.
 #include <doctest/doctest.h>
 
 #include "hands.h"
-#include "../app/src/hooks_screen.h"
 #include "../app/src/master_screen.h"
 #include "../app/src/record_screen.h"
 #include "../app/src/skin/frow.h"
-#include "../app/src/skin/hooks.h"
 #include "../app/src/skin/master.h"
 #include "../app/src/skin/meter.h"
 #include "../app/src/skin/panel.h"
@@ -300,9 +298,9 @@ TEST_CASE("skin record: two of the take's peaks make a column, the larger one; a
 
 // ---- The screens ---------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("skin screens: MASTER, RECORD and HOOKS take no kit chrome and the obsidian theme with the skin on, the kit's with it off") {
+TEST_CASE("skin screens: MASTER and RECORD take no kit chrome and the obsidian theme with the skin on, the kit's with it off") {
   Hands t;
-  for (const Button b : {Button::Master, Button::SampleRec, Button::SampleLoad}) {
+  for (const Button b : {Button::Master, Button::SampleRec}) {
     t.tap(b, 30);
     t.wait(60);
     app::Context& ctx = t.h->runtime().context();
@@ -315,7 +313,7 @@ TEST_CASE("skin screens: MASTER, RECORD and HOOKS take no kit chrome and the obs
   }
 }
 
-TEST_CASE("skin master: F1 TEMPO, F3 NUDGE and F4 MASTER knobs, F2 TAP an action key, four empty boxes; the tempo, the readouts and the bars") {
+TEST_CASE("skin master: F1 TEMPO, F3 NUDGE and F4 MASTER knobs, F2 TAP an action key, F5 DLY MODE a switch, three empty boxes; the tempo, the readouts and the bars") {
   Hands t;
   t.skin_on();
   t.tap(Button::Master, 30);
@@ -323,7 +321,7 @@ TEST_CASE("skin master: F1 TEMPO, F3 NUDGE and F4 MASTER knobs, F2 TAP an action
   const Queue q;
   CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 3u);
   CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 1u);
-  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 4u);                 // F5 to F8
+  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 3u);                 // F6 to F8 (F5 DLY MODE is a switch of the delay's two modes)
   CHECK(q.sprites(skin::Layer::Seg, skin_assets::Id::Seg, 66) == 4u);          // the tempo, in the glass: four cells (the header's are above y 66)
   CHECK(q.rects(skin::Layer::MeterOff) + q.rects(skin::Layer::MeterOn) == 2u * skin::kMasterSegments);
   CHECK(q.rects(skin::Layer::MeterOn) == 0u);                                  // stopped, nothing has played
@@ -497,7 +495,7 @@ TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red 
   t.wait(100);
   const Queue q;
   CHECK(same(q.take_led(), skin::pal::kLedOff));  // no take
-  set_bars(t, 0);  // a FREE take records until F1 stops it, so all seven screens are seen while it records
+  set_bars(t, 0);  // a FREE take records until F1 stops it, so all eight screens are seen while it records
   t.tap(Button::F1);
   REQUIRE(wait_state(t, hal_state::Recording, 4000));
   t.wait(300);
@@ -505,9 +503,9 @@ TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red 
     Button button;
     const char* name;
   };
-  // HOME, PERFORM, INSTRUMENT, MASTER, RECORD, HOOKS and SONG are the skinned screens that draw the header.
-  const Screen screens[] = {{Button::Pattern, "HOME"},  {Button::Performance, "PERFORM"}, {Button::Params, "INSTRUMENT"}, {Button::Master, "MASTER"},
-                            {Button::SampleRec, "RECORD"}, {Button::SampleLoad, "HOOKS"},   {Button::Song, "SONG"}};
+  // HOME, PERFORM, INSTRUMENT, GROWL, WOBBLE, MASTER, RECORD and SONG are the skinned screens that draw the header.
+  const Screen screens[] = {{Button::Pattern, "HOME"},     {Button::Performance, "PERFORM"}, {Button::Params, "INSTRUMENT"}, {Button::SamplePlay, "GROWL"},
+                            {Button::SampleEdit, "WOBBLE"}, {Button::Master, "MASTER"},      {Button::SampleRec, "RECORD"},    {Button::Song, "SONG"}};
   for (const Screen& s : screens) {
     t.tap(s.button, 30);
     t.wait(80);
@@ -555,40 +553,10 @@ TEST_CASE("skin record: the fullest frame (an 8 bar take done, a toast in the PA
   t.tap(Button::Play);
 }
 
-TEST_CASE("skin hooks: 48 dark lamps in four rows of twelve, the line, eight empty boxes and no knob") {
-  Hands t;
-  t.skin_on();
-  t.tap(Button::SampleLoad, 30);
-  t.wait(100);
-  const Queue q;
-  CHECK(std::strcmp(t.title(), "HOOKS") == 0);
-  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::Lamp) == 48u);
-  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 0u);
-  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 0u);
-  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 8u);
-  for (unsigned row = 0; row < 4; ++row) {
-    for (unsigned col = 0; col < 12; ++col) {
-      const ui::Rect b = skin::hooks_lamp_box(row, col);
-      ui::Rgb tint{};
-      REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::Lamp, b.x, b.y, tint));
-      CHECK(same(tint, skin::lamp_tint(LampTone::Off)));
-      CHECK(inside(b, ui::Rect{3, 69, 794, 297}));
-    }
-  }
-  const ui::Rect first = skin::hooks_lamp_box(0, 0);
-  const ui::Rect last = skin::hooks_lamp_box(0, 11);
-  const int slack = first.x - (ui::kScreenW - (last.x + last.w));
-  CHECK(slack >= -1);
-  CHECK(slack <= 1);  // centred, to a pixel
-  q.intact();
-  MESSAGE("HOOKS frame: " << q.q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.q.texts() << " texts of " << skin::Panel::kTexts);
-}
-
 // ---- Shift on the F row --------------------------------------------------------------------------------------------------------
 
-// The classic MASTER and RECORD draw their knob strip from the view whatever Shift says (their soft_keys() is empty, and the encoder still drives a knob under Shift, coarser), and HOOKS has
-// eight empty keys; so the skinned row under Shift is the row without it, slot for slot (FILE, whose classic row is empty under Shift, is in skin_file_test.cpp).
-TEST_CASE("skin screens: Shift on MASTER, RECORD and HOOKS leaves the F row's slots as they are, as the classic strip does") {
+// The classic MASTER and RECORD draw their knob strip from the view whatever Shift says (their soft_keys() is empty, and the encoder still drives a knob under Shift, coarser); so the skinned row under Shift is the row without it, slot for slot (FILE, whose classic row is empty under Shift, is in skin_file_test.cpp).
+TEST_CASE("skin screens: Shift on MASTER and RECORD leaves the F row's slots as they are, as the classic strip does") {
   Hands t;
   t.skin_on();
   const Queue q;
@@ -598,7 +566,7 @@ TEST_CASE("skin screens: Shift on MASTER, RECORD and HOOKS leaves the F row's sl
     unsigned keys;
     unsigned boxes;
   };
-  for (const Row& row : {Row{Button::Master, 3u, 1u, 4u}, Row{Button::SampleRec, 2u, 5u, 1u}, Row{Button::SampleLoad, 0u, 0u, 8u}}) {
+  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u}, Row{Button::SampleRec, 2u, 5u, 1u}}) {
     t.tap(row.button, 30);
     t.wait(100);
     CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == row.caps);

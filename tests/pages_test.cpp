@@ -430,7 +430,7 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(now[0] == doctest::Approx(1200.0f));
   CHECK(now[16] == doctest::Approx(-12.0f));  // the level, in dB
   CHECK(now[17] == doctest::Approx(30.0f));   // the send, in percent
-  // The growl's four are read in the units the MODS page shows (the unit's own: a vowel and the mixes 0..1, the formant's Q 1..20).
+  // The growl's four are read in the units GROWL shows (the unit's own: a vowel and the mixes 0..1, the formant's Q 1..20).
   rig.controls.set(rig.engine, snap_target(18), 0.5f);
   rig.controls.set(rig.engine, snap_target(19), 12.0f);
   rig.controls.set(rig.engine, snap_target(20), 0.25f);

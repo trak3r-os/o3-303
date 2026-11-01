@@ -71,12 +71,19 @@ TEST_CASE("every frame of a session fits the display list") {
   t.shift_tap(Button::F1);  // NEW (HOME's Shift row, at once)
   t.tap(Button::Play);
   t.wait(1500);
-  for (unsigned p = kInstVoice; p < kInstrumentPageCount; ++p) {  // every page of INSTRUMENT, playing
+  for (unsigned p = kInstVoice; p < instrument_group().count; ++p) {  // every page of INSTRUMENT, playing
     t.to_instrument(p);
     t.wait(60);
     CHECK(t.h->display().peak_frame_words() < 1800u);
     t.to_home();
   }
+  t.to_growl();  // GROWL and WOBBLE, playing
+  t.wait(60);
+  CHECK(t.h->display().peak_frame_words() < 1800u);
+  t.to_wobble();
+  t.wait(60);
+  CHECK(t.h->display().peak_frame_words() < 1800u);
+  t.to_home();
   t.press(Button::Pattern);
   t.wait(400);
   t.release(Button::Pattern);

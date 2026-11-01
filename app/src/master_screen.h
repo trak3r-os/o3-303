@@ -2,7 +2,7 @@
 #pragma once
 
 // MASTER (docs/UX-303.md 5.6, D5): the tempo and the output. A tap of Master opens it, at the release, with the encoder latched on TEMPO (F1); F2 TAP is
-// the tap tempo, F3 NUDGE (hold + turn) the tempo nudge, F4 the master level. The status line, the pads and the keyboard are the home map's (home_map.h), the
+// the tap tempo, F3 NUDGE (hold + turn) the tempo nudge, F4 the master level, F5 the delay's mode (MONO, PING). The status line, the pads and the keyboard are the home map's (home_map.h), the
 // very one HOME has; the colour buttons do nothing here. Readout: the tempo large, the nudge, where the clock comes from (INTERNAL, or MIDI while the kit
 // follows a master), and the master's peaks as two meters. (CPU % is left off MASTER, UX-303 D19: the kit's header strip already shows it.)
 //
@@ -129,7 +129,7 @@ class MasterScreen final : public o3sdk::app::Screen {
   Rig* rig_ = nullptr;
   Controls* controls_ = nullptr;
   HomeMap* home_ = nullptr;
-  PageKeys keys_;  // F1 TEMPO and F4 MASTER; F2 and F3 are blank in the table, the screen takes them itself
+  PageKeys keys_;  // F1 TEMPO, F4 MASTER and F5 DLY MODE; F2 and F3 are blank in the table, the screen takes them itself
 
   // The Master button.
   bool master_down_ = false;

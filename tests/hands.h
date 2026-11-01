@@ -117,7 +117,7 @@ struct Hands {
     wait(60);
   }
 
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX, MODS) on page `page` (o3_303::kInstVoice ...), from any screen but
+  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX) on page `page` (o3_303::kInstVoice ...), from any screen but
   // INSTRUMENT itself. to_home() leaves it.
   void to_instrument(unsigned page = o3_303::kInstVoice) {
     tap(Button::Params);
@@ -125,6 +125,9 @@ struct Hands {
       tap(Button::Params);
     }
   }
+  // GROWL (Sample Playback) and WOBBLE (Sample Editor), from any screen; to_home() leaves them.
+  void to_growl() { tap(Button::SamplePlay); }
+  void to_wobble() { tap(Button::SampleEdit); }
   // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.
   void to_perform() { tap(Button::Performance); }
   void to_home() { tap(Button::Pattern); }

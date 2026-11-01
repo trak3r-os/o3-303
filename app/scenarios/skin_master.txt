@@ -1,7 +1,7 @@
 # MASTER on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK6; mockup 09): the header (PAGE "MASTER", the ENC window naming F1 TEMPO), the glass in two columns of boxes (TEMPO with the tempo as a
 # seven-segment display, "BPM" and the tap chip; TIMING with the NUDGE, TAP and CLOCK readouts; OUTPUT with the master's L and R as LED-segment bars, green to amber, a held peak and the dB
-# scale; SYSTEM with the CPU load, "--" in the simulator, and the USB audio port) and the F row (F1 TEMPO and F4 MASTER knobs, F2 TAP an action key, F3 NUDGE a knob, F5 to F8 empty boxes). The
-# skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+# scale; SYSTEM with the CPU load, "--" in the simulator, and the USB audio port) and the F row (F1 TEMPO and F4 MASTER knobs, F2 TAP an action key, F3 NUDGE a knob, F5 DLY MODE a switch, F6 to F8 empty boxes). The
+# skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_master.txt --out <dir>
 #
@@ -13,7 +13,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

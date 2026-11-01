@@ -35,25 +35,24 @@ struct Buttons {
   }
 };
 
-enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Master, File, Naming, Library, Record, Hooks, Song };
+enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Growl, Wobble, Master, File, Naming, Library, Record, Song };
 
 constexpr void add_globals(Buttons& b, Where w) noexcept {
   const bool perform = w == Where::Perform || w == Where::PerformSetup;
-  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Master || w == Where::Record;
+  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
   b.add(Button::Play, "PLAY / STOP: SONG OR PATTERN", "RESTART FROM STEP 1");  // which one is SONG's F1 PLAYS; the status line says SONG while it is the song
   // Rec: the home map's step record (a press turns write / record mode on and off); PERFORM's Rec is the same switch (it records the ladder and the knob while the pattern plays);
   // elsewhere it does nothing alone. Shift + Rec is the audio take, from every screen.
   b.add(Button::Rec, home_map ? "WRITE / RECORD MODE ON / OFF" : (perform ? "RECORD KNOB + LADDER MOVES" : nullptr), "ARM / STOP AN AUDIO TAKE");
   b.add(Button::Pattern, w == Where::Home ? "TAP: SETUP. HOLD: PATTERNS" : (w == Where::Setup ? "TAP: HOME. HOLD: PATTERNS" : "BACK TO THE STEPS"));
-  b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: VOICE, FX, MODS" : "OPEN INSTRUMENT");
+  b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: VOICE, FX" : "OPEN INSTRUMENT");
   b.add(Button::Performance, w == Where::Perform ? "PERFORM SETUP" : (w == Where::PerformSetup ? "BACK TO PERFORM" : "OPEN PERFORM"));
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
-  const char* hooks = w == Where::Hooks ? nullptr : "OPEN HOOKS";
-  b.add(Button::SampleLoad, hooks);
-  b.add(Button::SamplePlay, hooks);
-  b.add(Button::SampleEdit, hooks);
+  // Sample Loader opens nothing until MODDED (docs/MODS-PLAN.md S2): it is not listed, so the kit draws it dimmed. Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
+  b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL");
+  b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE");
   b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
 }
 
@@ -130,11 +129,6 @@ constexpr Buttons make_library() noexcept {
   b.add(Button::Down, "SLOT + 8");
   return b;
 }
-constexpr Buttons make_hooks() noexcept {
-  Buttons b;
-  add_globals(b, Where::Hooks);
-  return b;
-}
 
 // SONG: the arrows move through the rows and pages, the four colour buttons pick the column the encoder edits (their colours are the columns' chips), Insert and Delete add and remove rows.
 constexpr Buttons make_song() noexcept {
@@ -158,12 +152,13 @@ constexpr Buttons kSetupButtons = make_home(Where::Setup);
 constexpr Buttons kPerformButtons = make_perform(Where::Perform);
 constexpr Buttons kPerformSetupButtons = make_perform(Where::PerformSetup);
 constexpr Buttons kInstrumentButtons = make_home(Where::Instrument);
+constexpr Buttons kGrowlButtons = make_home(Where::Growl);
+constexpr Buttons kWobbleButtons = make_home(Where::Wobble);
 constexpr Buttons kMasterButtons = make_home_map_only(Where::Master);
 constexpr Buttons kFileButtons = make_file();
 constexpr Buttons kNamingButtons = make_naming();
 constexpr Buttons kLibraryButtons = make_library();
 constexpr Buttons kRecordButtons = make_home_map_only(Where::Record);
-constexpr Buttons kHooksButtons = make_hooks();
 constexpr Buttons kSongButtons = make_song();
 
 // ---- The pad groups -----------------------------------------------------------------------------------------------------------------------
@@ -280,21 +275,32 @@ constexpr Text kTexts[kIdCount] = {
      kHomeGroups,
      count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
-    // Mods
-    {"MODS",
-     "THE GROWL (F1-F4) AND THE WOBBLE (F5-F8). TAP AN F KEY TO LATCH IT, THEN TURN. PARAMS GOES TO THE NEXT PAGE. SHIFT + F KEY: MIDI LEARN WHERE IT CAN.",
-     {"GROWL VOWEL", "GROWL FORMANT Q", "GROWL MIX", "GROWL COMB MIX", "WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "WOBBLE TARGET"},
+    // Growl
+    {"GROWL",
+     "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
+     {"GROWL VOWEL", "GROWL FORMANT Q", "FORMANT MIX", "COMB TUNE, SEMITONES", "COMB FEEDBACK", "GROWL COMB MIX", "WET / DRY OF THE GROWL", NONE},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
-     kInstrumentButtons.row,
-     kInstrumentButtons.n,
+     kGrowlButtons.row,
+     kGrowlButtons.n,
+     kHomeGroups,
+     count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
+     "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
+    // Wobble
+    {"WOBBLE",
+     "THE WOBBLE: A SLOW LFO ON THE CUTOFF OR THE VOWEL. IT RUNS WHILE PERFORM'S WOB ACTION IS ON. TAP AN F KEY TO LATCH IT, THEN TURN. THESE ARE NOT MIDI LEARNABLE.",
+     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF OR VOWEL", "RESTART ON EACH NOTE", NONE, NONE, NONE},
+     {},
+     "KNOB OR ROW; SHIFT = COARSE",
+     kWobbleButtons.row,
+     kWobbleButtons.n,
      kHomeGroups,
      count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Master
     {"MASTER",
-     "TEMPO AND OUTPUT. THE ENCODER STARTS ON F1 TEMPO. F2 TAPS THE TEMPO, F3 NUDGES IT WHILE HELD, F4 IS THE MASTER LEVEL. THE STEPS AND PADS WORK AS ON HOME.",
-     {"TEMPO IN BPM", "TAP 2 TO 4 TIMES", "HOLD + TURN: NUDGE 3 %", "MASTER LEVEL", NONE, NONE, NONE, NONE},
+     "TEMPO AND OUTPUT. THE ENCODER STARTS ON F1 TEMPO. F2 TAPS THE TEMPO, F3 NUDGES IT WHILE HELD, F4 IS THE MASTER LEVEL, F5 THE DELAY MODE. THE STEPS AND PADS WORK AS HOME'S.",
+     {"TEMPO IN BPM", "TAP 2 TO 4 TIMES", "HOLD + TURN: NUDGE 3 %", "MASTER LEVEL", "DELAY: MONO OR PING-PONG", NONE, NONE, NONE},
      {},
      "VALUE; SHIFT = COARSE",
      kMasterButtons.row,
@@ -346,17 +352,6 @@ constexpr Text kTexts[kIdCount] = {
      kHomeGroups,
      count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
-    // Hooks
-    {"HOOKS",
-     "HOOKS ARRIVES WITH M4. UNTIL THEN THIS SCREEN IS A PLACEHOLDER; THE SAMPLE RECORDER (SAMPLE REC) WORKS NOW.",
-     {},
-     {},
-     nullptr,
-     kHooksButtons.row,
-     kHooksButtons.n,
-     nullptr,
-     0,
-     nullptr},
     // Song
     {"SONG",
      "ROWS OF PATTERNS PLAYED IN ORDER, EACH AS MANY TIMES AS REPEAT SAYS, TRANSPOSED OR MUTED. F1 CHOOSES WHAT PLAY PLAYS: THE SONG FROM THE CURSOR ROW, OR THE PATTERN.",

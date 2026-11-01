@@ -44,20 +44,24 @@ constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entr
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 
-// FX and MODS: the table index is the page's number minus one (VOICE has none). FMT MIX, CMB TUNE, CMB FB, WOB RESET and DLY MODE are Config's page DEEP.
-constexpr Page kPages[kInstrumentPageCount - 1u] = {
-    {"FX",
-     {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"),
-      delay(units::Delay::Time, "DLY TIME"), delay(units::Delay::Feedback, "DLY FB"), app_item(Item::SendA, "DLY SEND"),
-      delay(units::Delay::Tone, "DLY TONE")}},
-    {"MODS",
-     {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX"),
-      wobble(kWobbleRate, "WOB RATE"), wobble(kWobbleShape, "WOB SHAPE"), wobble(kWobbleDepth, "WOB DEPTH"), wobble(kWobbleTarget, "WOB TGT")}},
-};
+// FX, GROWL and WOBBLE: each page is one constexpr table (VOICE has none: it is the SOUND page on Rig::sound_keys). DLY MODE is MASTER's F5; the growl's FMT MIX, CMB TUNE and CMB FB and the wobble's RESET,
+// which were Config's page DEEP, are keys of GROWL and WOBBLE now (docs/MODS-PLAN.md 5.4, 5.5, 7).
+constexpr Page kFxPage = {"FX",
+                          {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"), delay(units::Delay::Time, "DLY TIME"),
+                           delay(units::Delay::Feedback, "DLY FB"), app_item(Item::SendA, "DLY SEND"), delay(units::Delay::Tone, "DLY TONE")}};
+// The growl in signal order: the formant, the comb, then the growl's mix. F8 is free.
+constexpr Page kGrowlPage = {"GROWL",
+                             {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
+                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}};
+// The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 to F8 are free; F8 becomes the WOB switch in S2.
+constexpr Page kWobblePage = {"WOBBLE",
+                              {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
+                               Entry{}, Entry{}, Entry{}}};
 
 // ---- The read-out sections ---------------------------------------------------------------------------------------------------------------------
 
-enum Section : unsigned { kSecVoice = 1, kSecDist = 2, kSecDelay = 4, kSecMods = 8 };
+enum Section : unsigned { kSecVoice = 1, kSecDist = 2, kSecDelay = 4, kSecGrowl = 8, kSecWobble = 16 };
+constexpr unsigned kSectionCount = 5;
 
 struct ReadRow {
   const char* label;
@@ -73,20 +77,40 @@ struct SectionDef {
 
 constexpr Entry voice(AcidVoice::Param id) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}; }
 
-constexpr SectionDef kSections[4] = {
+constexpr SectionDef kSections[kSectionCount] = {
     {"VOICE", 4, {{"CUTOFF", voice(AcidVoice::Cutoff)}, {"RESO", voice(AcidVoice::Reso)}, {"ENV MOD", voice(AcidVoice::EnvMod)}, {"DECAY", voice(AcidVoice::Decay)}}},
     {"DISTORTION", 4, {{"MODEL", app_item(Item::DistMode)}, {"DRIVE", dist(Distortion::Drive)}, {"TONE", dist(Distortion::Tone)}, {"MIX", dist(Distortion::Mix)}}},
     {"DELAY", 4, {{"TIME", delay(units::Delay::Time)}, {"FB", delay(units::Delay::Feedback)}, {"SEND", app_item(Item::SendA)}, {"TONE", delay(units::Delay::Tone)}}},
-    {"MODS", 4, {{"VOWEL", growl(Growl::Vowel, nullptr)}, {"GRL", growl(Growl::Mix, nullptr)}, {"WOB RATE", wobble(kWobbleRate, nullptr)}, {"WOB", Entry{}, true}}},
+    {"GROWL", 4, {{"VOWEL", growl(Growl::Vowel, nullptr)}, {"FMT Q", growl(Growl::FormantQ, nullptr)}, {"CMB MIX", growl(Growl::CombMix, nullptr)}, {"GRL MIX", growl(Growl::Mix, nullptr)}}},
+    {"WOBBLE", 4, {{"RATE", wobble(kWobbleRate, nullptr)}, {"DEPTH", wobble(kWobbleDepth, nullptr)}, {"TGT", wobble(kWobbleTarget, nullptr)}, {"WOB", Entry{}, true}}},
 };
-static_assert(kSecVoice == 1u << 0 && kSecDist == 1u << 1 && kSecDelay == 1u << 2 && kSecMods == 1u << 3, "the sections are in the mask's order");
+static_assert(kSecVoice == 1u << 0 && kSecDist == 1u << 1 && kSecDelay == 1u << 2 && kSecGrowl == 1u << 3 && kSecWobble == 1u << 4, "the sections are in the mask's order");
+static_assert(kSectionCount <= 8u * sizeof(unsigned), "the sections fit a mask");
 
-// The sections each page shows as read-outs: the ones whose knobs it does not draw large.
-constexpr unsigned kShown[kInstrumentPageCount] = {
-    kSecDist | kSecDelay | kSecMods,  // VOICE
-    kSecVoice | kSecMods,             // FX
-    kSecVoice | kSecDist | kSecDelay, // MODS
-};
+// ---- The groups (docs/MODS-PLAN.md 5.1) -----------------------------------------------------------------------------------------------------------
+
+// What each page shows as read-outs: the sections whose knobs it does not draw large. INSTRUMENT's are the interim of MODS-PLAN 5.1.1 (the MODDED section joins in S2).
+constexpr const char* kInstrumentTitles[2] = {"INSTRUMENT VOICE", "INSTRUMENT FX"};
+constexpr const char* kInstrumentTabs[2] = {"VOICE", "FX"};
+constexpr const Page* kInstrumentPages[2] = {nullptr, &kFxPage};
+constexpr unsigned kInstrumentShown[2] = {kSecDist | kSecDelay | kSecGrowl, kSecVoice | kSecWobble};
+constexpr help_texts::Id kInstrumentHelp[2] = {help_texts::Id::Voice, help_texts::Id::Fx};
+
+constexpr const char* kGrowlTitles[1] = {"GROWL"};
+constexpr const Page* kGrowlPages[1] = {&kGrowlPage};
+constexpr unsigned kGrowlShown[1] = {kSecVoice | kSecWobble};
+constexpr help_texts::Id kGrowlHelp[1] = {help_texts::Id::Growl};
+
+constexpr const char* kWobbleTitles[1] = {"WOBBLE"};
+constexpr const Page* kWobblePages[1] = {&kWobblePage};
+constexpr unsigned kWobbleShown[1] = {kSecVoice | kSecGrowl};
+constexpr help_texts::Id kWobbleHelp[1] = {help_texts::Id::Wobble};
+
+constexpr InstrumentGroup kInstrumentGroup = {2, kInstrumentTitles, kInstrumentTabs, kInstrumentPages, kInstrumentShown, kInstrumentHelp,
+                                              "PARAMS AGAIN = NEXT PAGE   SHIFT + F = MIDI LEARN"};
+constexpr InstrumentGroup kGrowlGroup = {1, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SHIFT + F = MIDI LEARN"};
+constexpr InstrumentGroup kWobbleGroup = {1, kWobbleTitles, kWobbleTitles, kWobblePages, kWobbleShown, kWobbleHelp, "RUNS WHILE THE WOB ACTION IS ON"};
+static_assert(kInstrumentGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages, "a group has at most kMaxGroupPages pages");
 
 // The drawing's geometry (the area is the screen's, under the kit's header): the page's knobs large, the read-outs, the drawer's two lines.
 constexpr int kBigY = frame::kStatusH + 4;
@@ -95,8 +119,6 @@ constexpr int kSecY = kBigY + kBigH + 8;
 constexpr int kSecH = 100;
 constexpr int kDrawerY = kSecY + kSecH + 8;
 constexpr int kCellRowH = 24;
-
-constexpr const char* kTitles[kInstrumentPageCount] = {"INSTRUMENT VOICE", "INSTRUMENT FX", "INSTRUMENT MODS"};
 
 void cut(const char* s, unsigned max, char* out, unsigned cap) noexcept {
   unsigned n = 0;
@@ -310,13 +332,17 @@ void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept
   }
 }
 
-void fill_sections(const dsp::Engine& e, const Controls& controls, bool wobble_on, unsigned page, InstrumentView& view) noexcept {
+const InstrumentGroup& instrument_group() noexcept { return kInstrumentGroup; }
+const InstrumentGroup& growl_group() noexcept { return kGrowlGroup; }
+const InstrumentGroup& wobble_group() noexcept { return kWobbleGroup; }
+
+void fill_sections(const dsp::Engine& e, const Controls& controls, bool wobble_on, const InstrumentGroup& group, unsigned page, InstrumentView& view) noexcept {
   view.sections = 0;
-  if (page >= kInstrumentPageCount) {
+  if (page >= group.count) {
     return;
   }
-  for (unsigned s = 0; s < 4u; ++s) {
-    if ((kShown[page] >> s & 1u) == 0u) {
+  for (unsigned s = 0; s < kSectionCount && view.sections < InstrumentView::kMaxSections; ++s) {
+    if ((group.shown[page] >> s & 1u) == 0u) {
       continue;
     }
     InstrumentSection& sec = view.section[view.sections++];
@@ -378,17 +404,20 @@ bool learn_target(const Wiring& wiring, const Entry& entry, dsp::UnitId& unit, s
 
 // ---- Setup and screen hooks ------------------------------------------------------------------------------------------------------------------
 
-void InstrumentScreen::init(Rig& rig, HomeMap& home) noexcept {
+void InstrumentScreen::init(Rig& rig, HomeMap& home, const InstrumentGroup& group) noexcept {
   // Every piece of state starts afresh: the app object outlives a run in the simulator's tests.
   rig_ = &rig;
   controls_ = &rig.controls;
   live_ = rig.live;
   home_ = &home;
-  for (unsigned i = 0; i < kInstrumentPageCount - 1u; ++i) {
+  group_ = &group;
+  for (unsigned i = 0; i < kMaxGroupPages; ++i) {
     own_[i] = PageKeys{};
-    own_[i].set_table(&kPages[i], 1);
+    if (i < group.count && group.pages[i] != nullptr) {
+      own_[i].set_table(group.pages[i], 1);
+    }
   }
-  page_ = kInstVoice;
+  page_ = 0;
   tool_mask_ = 0;
   learn_armed_ = false;
   learn_page_ = 0;
@@ -405,16 +434,16 @@ void InstrumentScreen::release_keys() noexcept {
 void InstrumentScreen::open_first_page() noexcept {
   release_keys();  // a key held across the change would stay held in the keys it was pressed on
   home_->release_row();
-  page_ = kInstVoice;
+  page_ = 0;
 }
 
 void InstrumentScreen::next_page() noexcept {
   release_keys();
   home_->release_row();  // the page has its own knobs: the encoder is the knob's again
-  page_ = (page_ + 1u) % kInstrumentPageCount;
+  page_ = (page_ + 1u) % group_->count;
 }
 
-const char* InstrumentScreen::title() const noexcept { return kTitles[page_]; }
+const char* InstrumentScreen::title() const noexcept { return group_->titles[page_]; }
 
 void InstrumentScreen::enter(app::Context& ctx) noexcept {
   home_->enter(ctx);
@@ -580,7 +609,7 @@ void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { ho
 // HELP: the page's texts, LEARN on the keys of the Shift row that soft_keys() labels so (learn_target(): the unit's own parameters), and the home map's pads.
 void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
   (void)ctx;
-  help_texts::fill(h, help_texts::text(page_ == kInstFx ? help_texts::Id::Fx : (page_ == kInstMods ? help_texts::Id::Mods : help_texts::Id::Voice)));
+  help_texts::fill(h, help_texts::text(group_->help[page_]));
   const Page& pg = keys().page();
   for (unsigned k = 0; k < kKeys; ++k) {
     dsp::UnitId unit = dsp::kNoUnit;
@@ -626,10 +655,13 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   }
 
   view.page = page_;
+  view.tab_count = group_->count;
+  view.tabs = group_->tabs;
+  view.hint = group_->hint;
   for (unsigned k = 0; k < kKeys; ++k) {
     view.learn[k] = learn_of(ctx, k);
   }
-  fill_sections(e, *controls_, live_->wobble_on(), page_, view);
+  fill_sections(e, *controls_, live_->wobble_on(), *group_, page_, view);
 
   const seq::Bank& bank = *rig_->bank;
   view.marks = home_->drawer(ctx);

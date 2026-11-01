@@ -117,27 +117,29 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
 }
 
-TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (a latched wobble goes on across its pages), and the Vowel is a growl target") {
+TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a latched wobble goes on across the screens), and the Vowel is a growl target") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
   t.assign_perf(Button::Fx, PerfAction::Wobble, true);
   t.shift_tap(Button::Fx);  // latched on PERFORM: the colour buttons are the drawer's rows on INSTRUMENT, a hold cannot cross the change
-  t.to_instrument(o3_303::kInstMods);
-  t.config_set(o3_303::config::kWobReset, 0.0f);  // WOB RESET off, from Config DEEP (UX-303 5.12)
+  t.to_wobble();  // WOBBLE (Sample Editor): F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET
+  t.tap(Button::F5);  // RESET off (it was Config DEEP's WOB RESET until MODS-PLAN S0)
+  t.turn(-1);
   t.wait(10);
   CHECK(s.wobble().on);
   CHECK_FALSE(s.wobble().reset_on_note);
-  t.tap(Button::Params);  // VOICE, FX, MODS: the latch stays
+  t.to_growl();  // GROWL, INSTRUMENT VOICE and FX: the latch stays
   t.tap(Button::Params);
   t.tap(Button::Params);
   CHECK(s.wobble().on);
-  t.tap(Button::F8);  // WOB TARGET: the voice's Cutoff, the growl's Vowel
+  t.to_wobble();
+  t.tap(Button::F4);  // TARGET: the voice's Cutoff, the growl's Vowel
   t.turn(1);
   t.wait(10);
   CHECK(s.wobble().on);
   CHECK(s.wobble().target.target == o3_303::kLaneGrowl);
   CHECK(s.wobble().target.id == Growl::Vowel);
-  t.tap(Button::F5);  // WOB RATE
+  t.tap(Button::F1);  // RATE
   t.turn(2);          // 1/8 -> 1/16
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_16);
@@ -146,7 +148,7 @@ TEST_CASE("WOBBLE: INSTRUMENT's target and rate apply while it runs (a latched w
   t.wait(10);
   CHECK_FALSE(s.wobble().on);
   // Changed with the wobble off: the settings wait for the next hold.
-  t.to_instrument(o3_303::kInstMods);  // (WOB RATE, F5, is still the latched key of that page)
+  t.to_wobble();  // (RATE, F1, is still the latched key of that screen)
   t.turn(-2);
   CHECK_FALSE(s.wobble().on);
   t.to_perform();

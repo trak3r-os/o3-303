@@ -2,7 +2,7 @@
 # line, the list with its banded cursor row and the "*" on the current project, the empty states, the PADS line) and the F row (LOAD, SAVE, SAVE AS, NEW, REVERT and DELETE as action keys, dim
 # when the screen refuses them, an armed REVERT or DELETE lit red as "REVERT?" / "DELETE?"; F7 an empty box; F8 LIBRARY). SAVE AS and NEW put the kit's name keyboard in the glass (obsidian
 # theme) and the keyboard's own keys on the F row. LIBRARY keeps its classic layout with the kit's header and soft-key row, in the obsidian colours: a library_* snap is held to the 1,500 words of
-# that fallback, not to the skin's budgets (the scenarios test). The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs
+# that fallback, not to the skin's budgets (the scenarios test). The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left once is "303", five Downs
 # reach SKIN, the encoder clamps at OBSIDIAN). It needs a card (`card out` is the NO CARD snap), which the scenarios test gives it:
 #
 #   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/skin_file.txt --card <card> --out <dir>
@@ -15,7 +15,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

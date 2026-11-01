@@ -70,7 +70,7 @@ turn 1
 wait 100
 snap 12_instrument_gate
 # A ninth lane: INSTRUMENT FX, the knobs the default lanes do not drive (DRIVE TONE MIX, DLY TIME FB SEND TONE) take seven lanes with the cutoff's one; the
-# VOWEL of MODS finds none and the toast says so.
+# VOWEL of GROWL (Sample Playback, the screen the old MODS page's growl keys moved to; the same 62 ms as the Params tap it replaces) finds none and the toast says so.
 tap params
 tap f1
 tap fx
@@ -95,7 +95,7 @@ tap fx
 turn 5
 wait 100
 snap 13_seven_more_lanes
-tap params
+tap sampleplay
 tap f1
 tap fx
 turn 5

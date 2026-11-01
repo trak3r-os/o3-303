@@ -85,16 +85,20 @@ TEST_CASE("help texts: every table keeps the kit's limits") {
 }
 
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
-  // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has four keys, RECORD seven,
-  // HOOKS none.
-  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::Mods, Id::Library}) {
+  // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD seven,
+  // GROWL seven and WOBBLE five (the rest are empty wells).
+  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
       CHECK_MESSAGE(text(id).fkey[k] != nullptr, text(id).name << " F" << k + 1);
     }
   }
-  CHECK(text(Id::Hooks).fkey[0] == nullptr);
+  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 7), "GROWL F" << k + 1);
+    CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5), "WOBBLE F" << k + 1);
+  }
   CHECK(text(Id::Master).fkey[3] != nullptr);
-  CHECK(text(Id::Master).fkey[4] == nullptr);
+  CHECK(text(Id::Master).fkey[4] != nullptr);  // DLY MODE (S0 of docs/MODS-PLAN.md)
+  CHECK(text(Id::Master).fkey[5] == nullptr);
   CHECK(text(Id::Record).fkey[6] != nullptr);
   CHECK(text(Id::Record).fkey[7] == nullptr);
   CHECK(text(Id::File).fkey[6] == nullptr);  // F7 is empty on FILE
@@ -331,9 +335,6 @@ void check_screen(sim::Harness& h, Id id, unsigned knob_row, std::uint64_t pads,
       CHECK_MESSAGE((labels >> k & 1u) != 0u, text(id).name << ": F" << k + 1 << " has a text and no label on the screen");
     }
   }
-  if (id == Id::Hooks) {
-    CHECK(help.group_count == 0);
-  }
   // The kit takes the Text without cutting: the BUTTONS page shows a row of every entry (it scrolls past what fits).
   CHECK(h.runtime().help_overlay().rows() > 0u);
   close_help(h);
@@ -341,7 +342,7 @@ void check_screen(sim::Harness& h, Id id, unsigned knob_row, std::uint64_t pads,
 
 }  // namespace
 
-TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, MASTER, RECORD and HOOKS each give the kit their own Text") {
+TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, GROWL, WOBBLE, MASTER and RECORD each give the kit their own Text") {
   Hands t;
   sim::Harness& h = *t.h;
   const unsigned sound = page_mask(page_at(kPageSound));
@@ -362,23 +363,56 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
     check_screen(h, Id::Fx, page_mask(inst->page_table()), kAllPads, "INSTRUMENT FX");
   }
-  tap(h, app::Button::Params);
+  tap(h, app::Button::SamplePlay);
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
-    check_screen(h, Id::Mods, page_mask(inst->page_table()), kAllPads, "INSTRUMENT MODS");
+    check_screen(h, Id::Growl, page_mask(inst->page_table()), kAllPads, "GROWL");
+  }
+  tap(h, app::Button::SampleEdit);
+  {
+    app::Context& ctx = h.runtime().context();
+    const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
+    check_screen(h, Id::Wobble, page_mask(inst->page_table()), kAllPads, "WOBBLE");
   }
   tap(h, app::Button::Master);
-  check_screen(h, Id::Master, 0x0Fu, kAllPads, "MASTER");  // the knob row of MASTER: F1 TEMPO, F2 TAP, F3 NUDGE, F4 MASTER (master_screen.cpp kPage and the two action boxes)
+  check_screen(h, Id::Master, 0x1Fu, kAllPads, "MASTER");  // the knob row of MASTER: F1 TEMPO, F2 TAP, F3 NUDGE, F4 MASTER, F5 DLY MODE (master_screen.cpp kPage and the two action boxes)
   tap(h, app::Button::SampleRec);
   check_screen(h, Id::Record, 0x7Fu, kAllPads, "RECORD");  // F1 ARM / STOP .. F7 DISCARD; F8 has no box (record_screen.cpp)
-  tap(h, app::Button::SampleLoad);
-  check_screen(h, Id::Hooks, 0u, 0u, "HOOKS");
   tap(h, app::Button::Song);
   check_screen(h, Id::Song, 0xC7u, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F7 CLEAR, F8 UNDO (song_screen.cpp song_knobs)
   tap(h, app::Button::File);
   tap(h, app::Button::File);
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
+}
+
+TEST_CASE("help texts: Sample Playback opens GROWL and Sample Editor WOBBLE from every screen but their own; Sample Loader is listed nowhere (drawn dim) until S2") {
+  for (unsigned i = 0; i < kIdCount; ++i) {
+    const Text& t = text(static_cast<Id>(i));
+    const HelpButton* play = nullptr;
+    const HelpButton* edit = nullptr;
+    for (unsigned b = 0; b < t.button_count; ++b) {
+      if (t.buttons[b].button == app::Button::SamplePlay) {
+        play = &t.buttons[b];
+      }
+      if (t.buttons[b].button == app::Button::SampleEdit) {
+        edit = &t.buttons[b];
+      }
+      CHECK_MESSAGE(t.buttons[b].button != app::Button::SampleLoad, t.name << ": Sample Loader does nothing yet");
+    }
+    if (static_cast<Id>(i) == Id::Growl) {
+      CHECK_MESSAGE(play == nullptr, t.name << ": Sample Playback does nothing on GROWL (it is drawn dimmed)");
+    } else {
+      REQUIRE_MESSAGE(play != nullptr, t.name);
+      CHECK_MESSAGE(std::strcmp(play->text, "OPEN GROWL") == 0, t.name);
+    }
+    if (static_cast<Id>(i) == Id::Wobble) {
+      CHECK_MESSAGE(edit == nullptr, t.name << ": Sample Editor does nothing on WOBBLE (it is drawn dimmed)");
+    } else {
+      REQUIRE_MESSAGE(edit != nullptr, t.name);
+      CHECK_MESSAGE(std::strcmp(edit->text, "OPEN WOBBLE") == 0, t.name);
+    }
+  }
 }
 
 TEST_CASE("help texts: the Song button opens SONG from every screen but SONG itself") {

@@ -1,5 +1,5 @@
 # The obsidian skin's core and F row (docs/SKIN-PLAN.md section 8, SK2 and SK3): the panel's header over HOME and PATTERN SETUP, the glass with today's content, the F row under it
-# (knobs, the WAVE switch, action keys on the Shift row), and the pattern grid. The skin is off until SK8, so the scenario turns it on through Config, as a player does: Config opens on its first tab, Left twice is "303", five
+# (knobs, the WAVE switch, action keys on the Shift row), and the pattern grid. The skin is off until SK8, so the scenario turns it on through Config, as a player does: Config opens on its first tab, Left once is "303", five
 # Downs reach SKIN (the sixth row), and the encoder clamps at OBSIDIAN, so it is right whatever the default is.
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_home.txt --out <dir>
@@ -12,7 +12,7 @@
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down

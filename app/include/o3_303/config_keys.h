@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The keys of the app's Config pages "303" and "DEEP" (docs/UX-303.md 5.12). A key is the item's identity in the kit's settings file (system.o3s, APPV): it is fixed here and
+// The keys of the app's Config page "303" (docs/UX-303.md 5.12). A key is the item's identity in the kit's settings file (system.o3s, APPV): it is fixed here and
 // never reused or renumbered, like a unit's parameter id: an older settings file keeps meaning what it meant. Key 6 is reserved (SEQ MIDI OUT, deferred, D16); key 7 is SKIN.
 // Pure data and the two conversions of AUTOSAVE: no engine, no screen, so a host test holds them.
 
@@ -18,12 +18,8 @@ inline constexpr std::uint16_t kResetProject = 5;  // an action
 // 6: reserved.
 inline constexpr std::uint16_t kSkin = 7;          // CLASSIC, OBSIDIAN: the look of the screens that have a skin (CLASSIC until SK8; docs/SKIN-PLAN.md)
 
-// Page "DEEP": the sound settings no INSTRUMENT page has. They are also in the project (SND), which wins at a boot load (D18).
-inline constexpr std::uint16_t kFmtMix = 20;       // the growl's Formant Mix
-inline constexpr std::uint16_t kCmbTune = 21;      // the growl's Comb Tune
-inline constexpr std::uint16_t kCmbFb = 22;        // the growl's Comb Feedback
-inline constexpr std::uint16_t kWobReset = 23;     // OFF, ON (WobbleSettings::reset)
-inline constexpr std::uint16_t kDlyMode = 24;      // the delay's Mode (MONO, PING)
+// Keys 20..24 were the page "DEEP" (FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE): retired 2026-11-01 (docs/MODS-PLAN.md 7), never reused. A settings file that holds them loads with them dropped.
+// 20: retired (the growl's Formant Mix)   21: retired (Comb Tune)   22: retired (Comb Feedback)   23: retired (WobbleSettings::reset)   24: retired (the delay's Mode)
 
 // AUTOSAVE's three places (the value is the index) and the period each one is, in milliseconds (0: OFF).
 inline constexpr unsigned kAutosaveOff = 0;

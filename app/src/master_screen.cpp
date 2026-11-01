@@ -12,6 +12,7 @@
 #include <o3sdk/dsp/engine.h>
 #include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/components.h>
+#include <o3sdk/units/delay/delay.h>
 #include <o3_303/perform.h>
 
 #include <cmath>
@@ -28,8 +29,11 @@ using ui::Color;
 using ui::Face;
 using ui::Rect;
 
-// F1 TEMPO and F4 MASTER on the keys the latch can reach; F2 TAP and F3 NUDGE are the screen's own (blank here, so the keys pass them by).
-constexpr Page kPage = {"MASTER", {Entry{Item::Tempo, 0, nullptr}, Entry{}, Entry{}, Entry{Item::Master, 0, nullptr}, Entry{}, Entry{}, Entry{}, Entry{}}};
+// F1 TEMPO, F4 MASTER and F5 DLY MODE (MONO, PING: the output's stereo spread, docs/MODS-PLAN.md 5.6) on the keys the latch can reach; F2 TAP and F3 NUDGE are the screen's own (blank here, so the keys pass
+// them by).
+constexpr Page kPage = {"MASTER",
+                        {Entry{Item::Tempo, 0, nullptr}, Entry{}, Entry{}, Entry{Item::Master, 0, nullptr},
+                         Entry{Item::Delay, static_cast<std::uint16_t>(units::Delay::Mode), "DLY MODE"}, Entry{}, Entry{}, Entry{}}};
 
 constexpr unsigned kKeyTempo = 0;
 constexpr unsigned kKeyTap = 1;

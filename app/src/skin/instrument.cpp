@@ -237,19 +237,18 @@ void queue_strip_text(Panel& p, const InstrumentView& v, unsigned cursor_k, unsi
   }
 }
 
-// PAGES: a tab for each of VOICE, FX, MODS (the page shown is red), and what Params and Shift do.
-void queue_tabs(Panel& p, unsigned page) noexcept {
-  static constexpr const char* kPages[3] = {"VOICE", "FX", "MODS"};
+// PAGES: a tab for each page of the group (the page shown is red), and what the buttons do on it. A group of one page (GROWL, WOBBLE) has one tab.
+void queue_tabs(Panel& p, const InstrumentView& v) noexcept {
   p.text(16, kTabY + 4, "PAGES", Color::ChromeDim, Face::Micro);
   int x = 60;
-  for (unsigned i = 0; i < 3; ++i) {
-    const int w = len_of(kPages[i]) * char_w(Face::Label) + 16;
-    const bool on = i == page;
+  for (unsigned i = 0; i < v.tab_count; ++i) {
+    const int w = len_of(v.tabs[i]) * char_w(Face::Label) + 16;
+    const bool on = i == v.page;
     p.round_rect(Layer::Tab, Rect{x, kTabY, w, kTabH}, 3 * 16, on ? theme().rgb(Color::Rec) : kTabIdle);
-    p.text(x + 8, kTabY + 2, kPages[i], on ? Color::SelText : Color::TextDim, Face::Label);
+    p.text(x + 8, kTabY + 2, v.tabs[i], on ? Color::SelText : Color::TextDim, Face::Label);
     x += w + 8;
   }
-  p.text(x + 8, kTabY + 4, "PARAMS AGAIN = NEXT PAGE   SHIFT + F = MIDI LEARN", Color::TextDim, Face::Micro);
+  p.text(x + 8, kTabY + 4, v.hint, Color::TextDim, Face::Micro);
 }
 
 }  // namespace
@@ -313,7 +312,7 @@ void draw_instrument(ui::Renderer& r, const InstrumentView& v, const frame::Stat
   queue_keys(panel, v, cursor_k);
   char numbers[16][4];
   queue_strip_text(panel, v, cursor_k, playhead_k, numbers);
-  queue_tabs(panel, v.page);
+  queue_tabs(panel, v);
 
   ui::plot::Canvas canvas(r);
   canvas.open();

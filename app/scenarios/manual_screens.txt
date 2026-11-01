@@ -1,19 +1,19 @@
-# The player's manual's pictures of Config, MASTER, RECORD, HOOKS, FILE PROJECTS, the name keyboard, FILE LIBRARY and HELP's PADS pages (docs/MANUAL.md,
-# tools/manual_images.py), all with SKIN on OBSIDIAN. MASTER, RECORD, HOOKS, FILE PROJECTS and the name keyboard are skinned (SK6, SK7); FILE LIBRARY keeps its classic layout
+# The player's manual's pictures of Config, MASTER, RECORD, GROWL, FILE PROJECTS, the name keyboard, FILE LIBRARY and HELP's PADS pages (docs/MANUAL.md,
+# tools/manual_images.py), all with SKIN on OBSIDIAN. MASTER, RECORD, GROWL, FILE PROJECTS and the name keyboard are skinned (SK6, SK7); FILE LIBRARY keeps its classic layout
 # with the kit's chrome, in the obsidian colours (SK7's fallback, docs/SKIN-PLAN.md 2.4). Config stays the kit's in every look.
-# The skin is turned on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+# The skin is turned on through Config as skin_home.txt does (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
 #
 #   mkdir -p <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/manual_screens.txt --card <card> --out <dir>
 #
-# 01 Config's page 303 on the SKIN row; 02 its page DEEP; 03 MASTER while the line plays (the meters); 04 RECORD idle; 05 a take armed (it waits for the next
-# bar); 06 the take recording; 07 the take done; 08 HOOKS; 09 FILE PROJECTS' SAVE AS: the kit's keyboard with "acid" typed (a 24, c 38, i 19, d 26: the pads
+# 01 Config's page 303 on the SKIN row (02 was its page DEEP, retired with MODS-PLAN S0: the same 162 ms wait keeps the rest in time); 03 MASTER while the line plays (the meters); 04 RECORD idle; 05 a take armed (it waits for the next
+# bar); 06 the take recording; 07 the take done; 08 GROWL (Sample Playback); 09 FILE PROJECTS' SAVE AS: the kit's keyboard with "acid" typed (a 24, c 38, i 19, d 26: the pads
 # count from 0); 10 HELP's PADS page over the keyboard; 11 FILE PROJECTS after F7 saved "acid" and F4 NEW made "dub" (d 26, u 18, b 40), the current one
 # marked; 12 FILE LIBRARY; 13 HELP's PADS page over it; 14 HELP's
 # PADS page over SONG. Without a card (the scenarios test runs it so) FILE says NO CARD and the keyboard does not open; F7 twice drops the take either way.
 wait 300
 tap config
 tap left
-tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
 tap down
 tap down
 tap down
@@ -22,9 +22,7 @@ tap down
 turn 4
 wait 100
 snap 01_config_303
-tap right
-wait 100
-snap 02_config_deep
+wait 162
 tap config
 wait 100
 tap play
@@ -46,9 +44,9 @@ tap play
 tap f7
 tap f7
 wait 3000
-tap sampleload
+tap sampleplay
 wait 100
-snap 08_hooks
+snap 08_growl
 tap file
 wait 300
 tap f3
