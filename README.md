@@ -19,7 +19,7 @@ with its picture.
 | M3c | The bass-music round: growl, wobble, rolls, tape stop and reverse (crush, trance gate, pump, dive, riser and OTT are backlog) | built and unit-checked for growl, wobble and rolls (2026-10-26); by-ear checks owed (`docs/M3C-PLAN.md`) |
 | UX | The new way the app is used: PERFORM, the HOME map, PATTERN SETUP, INSTRUMENT, MASTER, FILE, RECORD, the Config pages, the project with autosave, HELP | waves 1 to 6 built (2026-10-30 and 2026-10-31), checked on the unit by console only; SONG built and host-verified, unit check owed (`docs/UX-PLAN.md`) |
 | SKIN | The obsidian skin, CLASSIC by default until SK8: the assets (SK1), the core, header and F row on HOME and SETUP (SK2, SK3), SONG (with SG2) and PERFORM (SK4) committed; INSTRUMENT (SK5), MASTER, RECORD and HOOKS (SK6), FILE PROJECTS with its name keyboard and LIBRARY's classic fallback in the obsidian colours (SK7) built and host-verified; OBSIDIAN by default (SK8) not started | in progress, unit check owed (SU1, then SU2; `docs/SKIN-PLAN.md`) |
-| M4 | The HOOKS screen (sample launcher, synced sampling) | planned; the three Sample buttons open a placeholder |
+| M4 | The HOOKS screen (sample launcher, synced sampling) | cancelled 2026-11-01: o3-303 is only a 303. The three Sample buttons will open MODDED (the 303 mods), GROWL and WOBBLE (`docs/MODS-PLAN.md`, planned); until then they open a placeholder |
 
 ### On the Tracker
 
@@ -34,12 +34,14 @@ by hand unless the session page says so.
 | 2026-10-30, U3 | `93382bf` | SETUP and INSTRUMENT on the screen; autosave with 0 underruns; the project back after a reboot |
 | 2026-10-30, U5 | `0f95cc5` | Waves 4 and 5: MASTER, FILE, the Shift row's labels, PERFORM SETUP; a 1-bar and a 30 s take written to the card, CPU 33 to 35 % while recording |
 | 2026-10-31, U6a | `767f33e` | Wave 6 (C1): the Config pages 303 and DEEP and their values after a reboot; a DEEP value no longer drops the project at boot |
+| 2026-11-01, SU1p | `c2e050c` | The skin's console rows: every main screen skinned, boot no slower, render max 49.4 % recording; the skin's draw peak 2.6 to 5.1 ms against its 2 ms budget, with 0 dropped frames. The rows by eye are owed |
+| 2026-11-01, MIDI | `c2e050c` | USB MIDI from a computer: notes on pitch, clock follow exact from 60 to 300 BPM, no drift in 10 minutes, clock out within 0.001 %, learn after a restart, a 20-minute soak clean; a cold Start is about 25 ms late (fix MC1) |
 
 U1 and U2 have no results recorded (their pages say `to fill`); U4 was superseded by U5 before it was installed.
 
-Still owed on the unit: the pads, the knobs and the LEDs by hand; the encoder rows, tap tempo, NameEntry, LOAD and REVERT; MIDI learn with
-a real controller; the SONG screen (a song with repeats by ear); HELP by eye; the growl's vowels and the wobble's rates by ear; SU1, the
-skin's first unit session. The card cases of U2 (a card pulled during a save, no card, write-protect, a card swap) were dropped by the
+Still owed on the unit: the pads, the knobs and the LEDs by hand; the encoder rows, tap tempo, NameEntry, LOAD and REVERT; DIN MIDI and
+MIDI learn with a real controller; the SONG screen (a song with repeats by ear); HELP by eye; the growl's vowels and the wobble's rates by
+ear; SU1's rows by eye. The card cases of U2 (a card pulled during a save, no card, write-protect, a card swap) were dropped by the
 maintainer and are not planned.
 
 USB audio out, saving to the card and MIDI come from o3-sdk's M2b and are used here: the project autosaves to the card, and MIDI notes

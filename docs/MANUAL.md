@@ -729,7 +729,12 @@ DEEP's values are part of the sound, so a project you load brings its own.
 
 ## 10. MIDI
 
-> Not yet checked on a unit: the MIDI in and out of this firmware have run on the host only.
+> Checked on a unit over USB (2026-11-01): notes play on pitch; FOLLOW CLOCK holds the master's tempo exactly from 60 to 300 BPM, with
+> no drift over 10 minutes (the unit's clock 0.3 ms from the master's); CLOCK OUT keeps time to 0.001 %; a learned knob stays learned
+> after a restart; 20 minutes of play dropped nothing. The DIN ports have not been checked on a unit yet.
+
+Over USB, a computer sees the unit as a MIDI port, next to its audio and console; nothing needs installing. The DIN ports work the same way:
+Config's MIDI section says which one is followed (FOLLOW PORT).
 
 - **Notes play the voice.** Notes that come in over MIDI play o3-303's voice. Config's MIDI section sets the channel (IN CHANNEL, OMNI
   takes them all).
@@ -737,6 +742,12 @@ DEEP's values are part of the sound, so a project you load brings its own.
   controller's knob. Shift + the same key again cancels. Config's MIDI section has CLEAR LEARN (F1 twice) to remove every binding.
 - **Clock.** Config's MIDI section has FOLLOW CLOCK and FOLLOW PORT (follow another machine's tempo), TRANSPORT IN, and CLOCK OUT and
   TRANSPORT OUT for the other direction. MASTER's CLOCK line says whether the tempo is INTERNAL.
+
+Known:
+- When the master sends Start together with its first clock (most computer sequencers do), o3-303's first beat comes about 25 ms after
+  the master's at 128 BPM, and the gap closes within six clocks. A fix is being made.
+- A long SysEx dump sent to the unit while it plays can cut notes and controllers that arrive at the same time. Send dumps while it is
+  stopped.
 
 ---
 
