@@ -173,6 +173,37 @@ TEST_CASE("header: the PERFORM slots: the actions that are on first, lit; then t
   CHECK(str(s[2].cap) == "");
 }
 
+TEST_CASE("header: a message is Label to 20 characters, Micro to 27, and cut at 26 with a dot after that") {
+  auto fit = [](unsigned n, char (&out)[28]) {
+    char in[64];
+    for (unsigned i = 0; i < n; ++i) {
+      in[i] = static_cast<char>('A' + i % 26u);
+    }
+    in[n] = '\0';
+    skin::cut_message(out, sizeof out, in);
+    return std::string(in);
+  };
+  char out[28];
+  for (const unsigned n : {1u, 20u}) {
+    const std::string in = fit(n, out);
+    CHECK(in == out);
+    CHECK(skin::message_face(static_cast<unsigned>(std::strlen(out))) == ui::Face::Label);
+  }
+  for (const unsigned n : {21u, 27u}) {
+    const std::string in = fit(n, out);
+    CHECK(in == out);
+    CHECK(skin::message_face(static_cast<unsigned>(std::strlen(out))) == ui::Face::Micro);
+  }
+  for (const unsigned n : {28u, 29u, 40u}) {
+    const std::string in = fit(n, out);
+    CHECK(std::string(out) == in.substr(0, 26) + ".");
+    CHECK(std::strlen(out) == 27u);
+    CHECK(skin::message_face(static_cast<unsigned>(std::strlen(out))) == ui::Face::Micro);
+  }
+  // 27 Micro characters fit the window: 162 px of 172, 6 in from the left.
+  CHECK(27 * 6 + 6 <= 172);
+}
+
 TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave, take, message, windows") {
   frame::StatusView st;
   HeaderInputs in;
@@ -240,7 +271,7 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   CHECK(v.take == Take::Saving);
   CHECK(v.take_lit);
 
-  // One message in the PAGE window: the toast, else the take's word; an outline when it says something did not happen; cut to the window.
+  // One message in the PAGE window: the toast, else the take's word; an outline when it says something did not happen; fitted to the window.
   st.take_msg = "SAVED";
   fill_header(v, st, in);
   CHECK(str(v.message) == "SAVED");
@@ -254,8 +285,8 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   CHECK(v.message_off);
   st.toast = "THIS TOAST IS MUCH TOO LONG FOR THE WINDOW";
   fill_header(v, st, in);
-  CHECK(str(v.message) == "THIS TOAST IS MUCH T");
-  CHECK(std::strlen(v.message) == 20);
+  CHECK(str(v.message) == "THIS TOAST IS MUCH TOO LON.");
+  CHECK(std::strlen(v.message) == 27);
   st.toast = "";
   st.take_msg = "NO CARD";
   st.take_msg_off = true;
@@ -357,6 +388,9 @@ TEST_CASE("panel: shapes are drawn layer by layer in the order of Layer, whateve
         case Layer::Glow:
         case Layer::SegDot: p.point(static_cast<Layer>(l), x * 16, 300, 64, rgb); break;
         case Layer::Led: p.sprite(Layer::Led, skin_assets::Id::Led, 0, x, 100, rgb); break;
+        case Layer::KeyBody: p.sprite(Layer::KeyBody, skin_assets::Id::Key, 0, x, 100, rgb); break;
+        case Layer::KeyLight: p.sprite(Layer::KeyLight, skin_assets::Id::Key, 1, x, 100, rgb); break;
+        case Layer::KeyDark: p.sprite(Layer::KeyDark, skin_assets::Id::Key, 2, x, 100, rgb); break;
         case Layer::Seg: p.sprite(Layer::Seg, skin_assets::Id::Seg, 3, x, 100, rgb); break;
         case Layer::Logo: p.sprite(Layer::Logo, skin_assets::Id::Logo, 0, x, 100, rgb); break;
         case Layer::kCount: break;
@@ -419,7 +453,8 @@ TEST_CASE("panel: a full queue drops what does not fit, counts it, and clear() e
   CHECK(p.shapes() == 0);
   CHECK(p.texts() == 0);
   CHECK(p.dropped() == 0);
-  static_assert(sizeof(Panel) < 10 * 1024, "the queue is a few KB");
+  // Measured: 11,552 B with 384 shapes and 192 texts (18 and 12 B each plus the queue's indices). The bound is the measured size and a little: a bigger queue is a decision (it lives in the SDRAM).
+  static_assert(sizeof(Panel) <= 11600, "the queue grew: raise the bound only on purpose");
 }
 
 TEST_CASE("panel: the texture bands are the tile's rows drawn 800 wide, and valid descs") {

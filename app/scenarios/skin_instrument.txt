@@ -1,0 +1,165 @@
+# INSTRUMENT on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK5; mockup 06): no glass, the panel at full height. The header (PAGE "INSTRUMENT VOICE", the ENC window), the page's eight knobs
+# as knob58 with "Fn NAME" over each, the latch LED and the readout under it; the sections of the other pages as boxes of read-outs; the step strip of the page of 16 (the note text, an
+# ACCENT, a SLIDE and a STEP LED and a key for each step, the cursor ringed, groups of four tinted, the step numbers); the page tabs VOICE FX MODS and the PADS line. The skin is off until
+# SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_instrument.txt --out <dir>
+#
+# 01 VOICE: F1 CUTOFF latched (lit LED, red readout), the sections DISTORTION, DELAY and MODS under the knobs, the factory line of A01 on the strip (an ACCENT or SLIDE LED where the step has
+# one, a dim STEP LED on a note, the cursor on step 1); 02 FX (VOICE and MODS as sections); 03 MODS (VOICE, DISTORTION and DELAY); 04 VOICE with step 6 held and F4 DECAY turned: its lock in the
+# knob's readout (LOCK 6 in the accent colour, an amber LED) and the amber ring round the held key; 05 the cursor on step 7: its key ringed in white, its note in blue; 06 the pattern plays: the
+# playhead's STEP LED lit and its note green, PLAY in the header; 07 Shift held: each label reads LEARN (and "-" on VOLUME, which is not a unit parameter), the tabs amber, the values still in
+# the readouts; 08 Shift + F1 arms LEARN for CUTOFF (the label in the accent colour, the LED amber); 09 the controller binds it; 10 the worst case (every step a note with an accent and a
+# slide, so every LED lit, 10a; then on MODS with the pattern playing, two held steps and a lock, LEARN armed and a toast: 10); help_* the kit's HELP over the skinned INSTRUMENT (Shift + Config): the page's texts and
+# the Shift row, readable in the obsidian tokens (the scenarios test checks that HELP is open at a help_* snap and holds it to the kit's 1,800 words, not to the skin's budgets).
+wait 300
+tap config
+tap left
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap params
+wait 100
+snap 01_voice
+tap params
+wait 50
+snap 02_fx
+tap params
+wait 50
+snap 03_mods
+tap params
+wait 50
+# Step 6 held, the latched knob (F4 DECAY after the tap) turned: its lock.
+tap f4
+paddown 5
+turn 10
+wait 100
+snap 04_lock_on_held_step
+padup 5
+# A tap on a step's pad puts the cursor there.
+pad 6
+wait 100
+snap 05_cursor_step7
+# The pattern plays: the playhead runs over the strip.
+tap play
+wait 700
+snap 06_playing
+tap play
+wait 100
+# Shift is the learn row; Shift + F1 arms CUTOFF; a control change (controller 74) binds it.
+press shift
+wait 100
+snap 07_shift_learn_row
+tap f1
+wait 100
+snap 08_learn_armed
+midi usb b0 4a 40
+wait 200
+snap 09_learned
+release shift
+wait 100
+# The worst case. Every step a note with an accent and a slide: the factory line has accents on steps 2, 7 and 11 and slides on 5 and 9, so toggle the other flag there, and give the rests
+# (steps 4 and 12) a note first. Pads: steps 1..8 are 0..7, steps 9..16 are 12..19; ACC is pad 8, SLIDE pad 9.
+paddown 3
+pad 40 200
+padup 3
+paddown 15
+pad 40 200
+padup 15
+paddown 0
+pad 8
+pad 9
+padup 0
+paddown 1
+pad 9
+padup 1
+paddown 2
+pad 8
+pad 9
+padup 2
+paddown 3
+pad 8
+pad 9
+padup 3
+paddown 4
+pad 8
+padup 4
+paddown 5
+pad 8
+pad 9
+padup 5
+paddown 6
+pad 9
+padup 6
+paddown 7
+pad 8
+pad 9
+padup 7
+paddown 12
+pad 8
+padup 12
+paddown 13
+pad 8
+pad 9
+padup 13
+paddown 14
+pad 9
+padup 14
+paddown 15
+pad 8
+pad 9
+padup 15
+paddown 16
+pad 8
+pad 9
+padup 16
+paddown 17
+pad 8
+pad 9
+padup 17
+paddown 18
+pad 8
+pad 9
+padup 18
+paddown 19
+pad 8
+pad 9
+padup 19
+wait 100
+snap 10a_all_lit
+# The worst frame: on MODS (three sections of read-outs, the switch of WOB TGT), the pattern playing, two steps held with a lock on F4 CMB MIX, Shift held with LEARN armed on F1, a toast.
+tap params
+tap params
+wait 50
+tap f4
+tap play
+wait 500
+paddown 1
+paddown 13
+turn 6
+press shift
+tap f1
+wait 100
+snap 10_worst_case
+release shift
+padup 1
+padup 13
+tap play
+wait 100
+# HELP over the skinned INSTRUMENT: Shift + Config opens it (its BUTTONS page, then its PADS page).
+tap params
+press shift
+tap config
+release shift
+wait 50
+snap help_00_instrument_buttons
+tap f2
+snap help_01_instrument_pads
+tap config
+wait 50

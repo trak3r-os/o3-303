@@ -2,12 +2,16 @@
 #include "instrument_screen.h"
 
 #include "help_texts.h"
+#include "skin/header.h"
+#include "skin/instrument.h"
+#include "skin/skin.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/widgets.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
+#include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/components.h>
 #include <o3_303/step_model.h>
 #include <o3_303/units/distortion/distortion.h>
@@ -291,9 +295,13 @@ void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept
     if (info.kind == Cell::Note) {
       (void)note_name(info.note, c.note, sizeof c.note);
       cut(info.accent && info.slide ? "AS" : (info.accent ? "A" : (info.slide ? "S" : "-")), 2, c.gate, sizeof c.gate);
+      c.accent = info.accent;
+      c.slide = info.slide;
+      c.on = true;
     } else if (info.kind == Cell::Tie) {
       cut("~", 1, c.note, sizeof c.note);
       cut("~", 1, c.gate, sizeof c.gate);
+      c.on = true;
     } else {
       cut("--", 2, c.note, sizeof c.note);
       cut(".", 1, c.gate, sizeof c.gate);
@@ -495,20 +503,31 @@ void InstrumentScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept
   if (!ctx.panel().shift()) {
     return;
   }
-  const Page& pg = keys().page();
   for (unsigned k = 0; k < kKeys; ++k) {
-    dsp::UnitId unit = dsp::kNoUnit;
-    std::uint16_t param = 0;
-    if (!learn_target(rig_->wiring, pg.entry[k], unit, param)) {
+    const Learn l = learn_of(ctx, k);
+    if (l == Learn::No) {
       out.label[k] = "-";
       out.dim = static_cast<std::uint8_t>(out.dim | (1u << k));
       continue;
     }
     out.label[k] = "LEARN";
-    if (learn_armed_ && learn_page_ == page_ && learn_key_ == k && ctx.midi().learning()) {
+    if (l == Learn::Armed) {
       out.hot = static_cast<std::uint8_t>(out.hot | (1u << k));
     }
   }
+}
+
+// What the Shift row says of key `k`: LEARN where the knob is a unit parameter (waiting for its controller while this key's learn is armed), "-" where it is not.
+Learn InstrumentScreen::learn_of(const app::Context& ctx, unsigned k) const noexcept {
+  if (!ctx.panel().shift()) {
+    return Learn::None;
+  }
+  dsp::UnitId unit = dsp::kNoUnit;
+  std::uint16_t param = 0;
+  if (!learn_target(rig_->wiring, keys().page().entry[k], unit, param)) {
+    return Learn::No;
+  }
+  return learn_armed_ && learn_page_ == page_ && learn_key_ == k && ctx.midi().learning() ? Learn::Armed : Learn::Can;
 }
 
 // Shift + F`k`: arms MIDI learn for the knob (the next control change binds to it; again on the same key cancels). A knob that is not a unit parameter says so.
@@ -606,6 +625,10 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     }
   }
 
+  view.page = page_;
+  for (unsigned k = 0; k < kKeys; ++k) {
+    view.learn[k] = learn_of(ctx, k);
+  }
   fill_sections(e, *controls_, live_->wobble_on(), page_, view);
 
   const seq::Bank& bank = *rig_->bank;
@@ -613,7 +636,45 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   fill_cells(bank.pattern(bank.selected()), static_cast<unsigned>(view.marks.page) * 16u, view);
 }
 
+app::Chrome InstrumentScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }
+
+const ui::Theme* InstrumentScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
+
 void InstrumentScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  if (skin::active(ctx)) {
+    draw_skinned(ctx, r);
+  } else {
+    draw_classic(ctx, r, area);
+  }
+}
+
+// The obsidian drawing (skin/instrument.cpp, mockup 06): the same view the classic drawing takes, filled the same way, and the header's status as the classic status line takes it.
+void InstrumentScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
+  const std::uint32_t t0 = o3sdk::hal::cycles();
+  home_->clamp_cursor();
+  frame::StatusView status;
+  home_->status(status);
+  status.save_failed = rig_->project.failed;
+  enc_text(ctx, status.enc, sizeof status.enc);
+  InstrumentView view;
+  fill_view(ctx, view);
+  skin::HeaderInputs in;
+  in.title = title();
+  in.pattern = rig_->bank->selected();
+  in.tempo_mbpm = ctx.engine().tempo();
+  in.playing = rig_->seq->playhead().playing;
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    in.perf[b] = rig_->wiring.perf[b];
+  }
+  in.now_ms = ctx.uptime_ms();
+  char line[128];
+  pads_line(ctx, line, sizeof line);
+  skin::draw_instrument(r, view, status, in, line);
+  constexpr std::uint32_t kCyclesPerUs = 180;  // the MK66's clock; the host's hal::cycles() is scaled to it
+  skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / kCyclesPerUs, ctx.uptime_ms());
+}
+
+void InstrumentScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   home_->clamp_cursor();
   frame::StatusView status;
   home_->status(status);

@@ -123,6 +123,24 @@ bool Panel::sprite_at(unsigned i, SpriteInfo& out) const noexcept {
   return true;
 }
 
+bool Panel::round_rect_at(unsigned i, RoundRectInfo& out) const noexcept {
+  if (i >= n_shapes_ || shape_[i].kind != Kind::RoundRect) {
+    return false;
+  }
+  const Shape& s = shape_[i];
+  out = RoundRectInfo{s.layer, Rect{s.a, s.b, s.c, s.d}, s.rgb};
+  return true;
+}
+
+bool Panel::text_at(unsigned i, TextInfo& out) const noexcept {
+  if (i >= n_texts_) {
+    return false;
+  }
+  const Text& t = text_[i];
+  out = TextInfo{t.x, t.y, t.s, t.color, t.face};
+  return true;
+}
+
 ui::plot::BitmapDesc Panel::texture_desc(int y, int h) noexcept {
   const skin_assets::Info& i = skin_assets::info(skin_assets::Id::TexObsidian);
   const unsigned rows = static_cast<unsigned>(h);
@@ -245,6 +263,14 @@ void queue_panel(Panel& p, int glass_top, int glass_bottom) noexcept {
   p.line(Layer::Sheen, 260 * 16, -40 * 16, 60 * 16, 230 * 16, 14 * 16, pal::kSheen, pal::kSheenAlpha);
   p.round_rect(Layer::GlassRim, Rect{0, glass_top, ui::kScreenW, glass_bottom - glass_top}, kRound * 16, pal::kBezel);
   p.round_rect(Layer::GlassFace, Rect{3, glass_top + 3, ui::kScreenW - 6, glass_bottom - glass_top - 6}, (kRound - 1) * 16, pal::kGlass);
+}
+
+void queue_panel_full(Panel& p, int header_h) noexcept {
+  p.rect(Layer::Base, Rect{0, 0, ui::kScreenW, ui::kScreenH}, pal::kBase);
+  p.texture(0, ui::kScreenH, pal::kTexTint);
+  p.set_sheen_clip(Rect{0, 0, ui::kScreenW, header_h});
+  p.line(Layer::Sheen, 120 * 16, -40 * 16, -60 * 16, 200 * 16, 36 * 16, pal::kSheen, pal::kSheenAlpha);
+  p.line(Layer::Sheen, 260 * 16, -40 * 16, 60 * 16, 230 * 16, 14 * 16, pal::kSheen, pal::kSheenAlpha);
 }
 
 void draw_ballast(ui::Renderer& r, std::uint32_t words) noexcept {

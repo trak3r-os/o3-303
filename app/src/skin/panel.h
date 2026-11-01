@@ -41,6 +41,9 @@ enum class Layer : std::uint8_t {
   Pointer,     // the knobs' pointers (lines)
   Glow,        // the halo of a lit LED (a point)
   Led,         // LED sprites
+  KeyBody,     // INSTRUMENT's step keys: the body (tinted), then its light (white) and its shadow (black), each for every key (one bitmap bind)
+  KeyLight,
+  KeyDark,
   Seg,         // 7-segment cells
   SegDot,      // their decimal points (points)
   Logo,        // the wordmark
@@ -50,8 +53,8 @@ inline constexpr unsigned kLayerCount = static_cast<unsigned>(Layer::kCount);
 
 class Panel {
  public:
-  static constexpr unsigned kShapes = 256;
-  static constexpr unsigned kTexts = 160;  // PERFORM queues its 48 lamp labels beside the header and the F row's ~70
+  static constexpr unsigned kShapes = 384;  // INSTRUMENT's worst frame queues 3xx of them (its strip alone: 48 LEDs and glows, 48 key sprites)
+  static constexpr unsigned kTexts = 192;   // PERFORM queues its 48 lamp labels beside the header and the F row's ~70; INSTRUMENT about 140
 
   // The queue empty again, the sheen's scissor the whole screen.
   void clear() noexcept;
@@ -83,6 +86,23 @@ class Panel {
     ui::Rgb rgb;
   };
   bool sprite_at(unsigned i, SpriteInfo& out) const noexcept;
+  // ... and shape `i` when it is a round rect (a ring, a window, a tab): where and in what colour.
+  struct RoundRectInfo {
+    Layer layer;
+    ui::Rect box;
+    ui::Rgb rgb;
+  };
+  bool round_rect_at(unsigned i, RoundRectInfo& out) const noexcept;
+  // ... and text `i` of the queue: where, what, in which colour token and face. `s` points into the buffers of the frame's drawing function (its locals): it dangles once the frame is
+  // drawn. A test compares it by address or place and never dereferences it.
+  struct TextInfo {
+    int x;
+    int y;
+    const char* s;
+    ui::Color color;
+    ui::Face face;
+  };
+  bool text_at(unsigned i, TextInfo& out) const noexcept;
 
   unsigned shapes() const noexcept { return n_shapes_; }
   unsigned texts() const noexcept { return n_texts_; }
@@ -132,6 +152,9 @@ void window(Panel& p, const ui::Rect& r, unsigned radius_px) noexcept;
 // The panel itself, for a screen whose glass runs from `glass_top` to `glass_bottom` (docs/SKIN-PLAN.md 2.1; HOME: 66 and 384): the base and the texture in the bands above and below
 // the glass, the sheen over the header, and the glass with its rim. The glass is the frame's CLEAR colour (skin::theme()'s Pane), so only its rim and the bands are queued.
 void queue_panel(Panel& p, int glass_top, int glass_bottom) noexcept;
+
+// The panel of a screen with no glass (INSTRUMENT, mockup 06): the base and the texture over the whole height, and the sheen over the header (y < `header_h`).
+void queue_panel_full(Panel& p, int header_h) noexcept;
 
 // The ballast of `skin ballast N` (skin.h): `words` words of one-pixel rects in a Canvas section of their own, to be called last in a frame's draw().
 void draw_ballast(ui::Renderer& r, std::uint32_t words) noexcept;

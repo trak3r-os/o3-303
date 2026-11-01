@@ -158,6 +158,22 @@ void fill_perform_slots(PerformSlot (&slots)[4], std::uint16_t on, const std::ui
   }
 }
 
+ui::Face message_face(unsigned length) noexcept { return length <= kMessageLabelMax ? Face::Label : Face::Micro; }
+
+void cut_message(char* out, unsigned cap, const char* s) noexcept {
+  const unsigned n = static_cast<unsigned>(std::strlen(s));
+  if (n <= kMessageMicroMax) {
+    cut_to(out, cap, s, kMessageMicroMax);
+    return;
+  }
+  cut_to(out, cap, s, kMessageMicroMax - 1u);
+  const unsigned at = static_cast<unsigned>(std::strlen(out));
+  if (at + 1u < cap) {
+    out[at] = '.';
+    out[at + 1u] = '\0';
+  }
+}
+
 void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderInputs& in) noexcept {
   out = HeaderView{};
   pattern_name(in.pattern, out.pattern, sizeof out.pattern);
@@ -174,12 +190,12 @@ void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderI
   fill_perform_slots(out.perform, status.actions, in.perf);
   cut_to(out.page, sizeof out.page, in.title, 17);
   cut_to(out.enc, sizeof out.enc, status.enc, 17);
-  // One message at a time in the PAGE window: the screen's toast, else what the take said. Cut to the 20 characters the window holds without its tag.
+  // One message at a time in the PAGE window: the screen's toast, else what the take said. Fitted to the window by cut_message().
   if (status.toast != nullptr && status.toast[0] != '\0') {
-    cut_to(out.message, sizeof out.message, status.toast, 20);
+    cut_message(out.message, sizeof out.message, status.toast);
     out.message_off = status.toast_off;
   } else if (status.take_msg != nullptr && status.take_msg[0] != '\0') {
-    cut_to(out.message, sizeof out.message, status.take_msg, 20);
+    cut_message(out.message, sizeof out.message, status.take_msg);
     out.message_off = status.take_msg_off;
   }
   out.save_failed = status.save_failed;
@@ -242,7 +258,8 @@ void draw_header(Panel& p, const HeaderView& v) noexcept {
       p.rect(Layer::Outline, Rect{620, 6, 1, 22}, red);
       p.rect(Layer::Outline, Rect{791, 6, 1, 22}, red);
     }
-    p.text(626, 9, v.message, v.message_off ? Color::Rec : Color::Accent, Face::Label);
+    const Face face = message_face(static_cast<unsigned>(std::strlen(v.message)));
+    p.text(626, face == Face::Label ? 9 : 11, v.message, v.message_off ? Color::Rec : Color::Accent, face);
   } else {
     value_window(p, 6, "PAGE", v.page, Color::Text);
   }

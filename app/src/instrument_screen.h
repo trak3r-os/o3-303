@@ -15,11 +15,13 @@
 // control change for that knob (`Context::midi().learn(unit, param)`; the kit's strip confirms LEARNED CC n), again on the same key cancels; a knob that is not a unit
 // parameter (VOLUME, DLY SEND, MODEL, the WOB knobs) shows "-" and cannot be armed. Leaving the screen or the page cancels an arm of this screen's.
 //
-// The view logic is apart from the drawing: InstrumentScreen::fill_view() makes an InstrumentView from the state with the free functions below (fill_cells(),
-// fill_sections(), apply_lock(): pure, host-tested), and draw() draws it, so the skin replaces the drawing and not the logic. Main loop only.
+// The view logic is apart from the drawing: InstrumentScreen::fill_view() makes an InstrumentView (instrument_view.h) from the state with the free functions below (fill_cells(),
+// fill_sections(), apply_lock(): pure, host-tested), and draw() draws it, with the classic drawing or, while the obsidian skin is on, with skin/instrument.cpp (mockup 06: the panel at full
+// height, the page's eight knobs on top, the sections, the step strip with its keys and LEDs, the page tabs): the skin replaces the drawing and not the logic. Main loop only.
 
 #include "frame.h"
 #include "home_map.h"
+#include "instrument_view.h"
 #include "knob_strip.h"
 #include "live_actions.h"
 #include "rig.h"
@@ -33,32 +35,6 @@ namespace o3_303 {
 
 inline constexpr unsigned kInstrumentPageCount = 3;
 enum InstrumentPage : unsigned { kInstVoice = 0, kInstFx = 1, kInstMods = 2 };
-
-// A read-out section: a title and up to four "NAME value" lines.
-struct InstrumentSection {
-  static constexpr unsigned kRows = 4;
-  const char* title = "";
-  unsigned count = 0;
-  const char* label[kRows] = {};
-  char value[kRows][12] = {};
-};
-
-// One step of the drawer's two lines.
-struct InstrumentCell {
-  char note[5] = "";  // "C2", "D#3", "--" a rest, "~" a tie
-  char gate[3] = "";  // ".", "-", "A", "S", "AS", "~"
-};
-
-struct InstrumentView {
-  static constexpr unsigned kMaxSections = 4;
-  view::Knob knob[view::kKnobs];  // the page's eight knobs (a blank one has no box)
-  InstrumentSection section[kMaxSections];
-  unsigned sections = 0;
-  InstrumentCell cell[16];  // the page of 16 steps shown
-  unsigned cells = 0;       // how many of them are inside the pattern
-  view::Marks marks;        // the cursor, the playhead and the held steps of the page
-  char lock_label[16] = "";  // "LOCK 5": the label of the knob the encoder locks on a held step
-};
 
 // The drawer's cells of the page of 16 steps that starts at step `first` of `p`: the note ("C2", "D#3", "--" a rest, "~" a tie) and the gate glyph
 // ("." rest, "-" note, "A", "S", "AS", "~" tie); `view.cells` is how many are inside the pattern.
@@ -82,6 +58,9 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   unsigned page() const noexcept { return page_; }
 
   const char* title() const noexcept override;
+  // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise the kit's.
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context& ctx) const noexcept override;
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void enter(o3sdk::app::Context& ctx) noexcept override;
   void leave(o3sdk::app::Context& ctx) noexcept override;
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
@@ -91,6 +70,9 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
   // HELP (Shift + Config, help_texts.h): the page shown, the Shift row (LEARN where the knob is a unit parameter), and the home map's pads.
   void help(const o3sdk::app::Context& ctx, o3sdk::app::Help& h) const noexcept override;
+
+  // What the screen shows now, as both drawings take it (public for the tests, which read the view and the skin's queue against it).
+  void fill_view(o3sdk::app::Context& ctx, InstrumentView& view) noexcept;
 
   // The F keys of the page shown and the entry the encoder drives (the tests read them).
   const Page& page_table() const noexcept { return keys().page(); }
@@ -105,7 +87,10 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   PageKeys& keys() noexcept { return page_ == kInstVoice ? rig_->sound_keys : own_[page_ - 1u]; }
   const PageKeys& keys() const noexcept { return page_ == kInstVoice ? rig_->sound_keys : own_[page_ - 1u]; }
 
-  void fill_view(o3sdk::app::Context& ctx, InstrumentView& view) noexcept;
+  void draw_classic(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
+  // What the Shift row says of key `k` (soft_keys() and the skin's knob labels): Learn::None while Shift is up.
+  Learn learn_of(const o3sdk::app::Context& ctx, unsigned k) const noexcept;
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   void pads_line(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
 

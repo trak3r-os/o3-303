@@ -41,7 +41,7 @@ struct HeaderView {
   PerformSlot perform[4];
   char page[24] = "";          // the PAGE window: the screen's title
   char enc[32] = "";           // the ENC window: what the encoder moves
-  char message[24] = "";       // a toast or a take message for its life, in the PAGE window in amber; "" none
+  char message[28] = "";       // a toast or a take message for its life, in the PAGE window in amber; "" none
   bool message_off = false;    // it says something did not happen: outlined in red
   bool save_failed = false;    // the tagline turns red: "SAVE FAILED"
 };
@@ -55,6 +55,14 @@ struct HeaderInputs {
   std::uint8_t perf[kPerfButtons] = {};                      // the PerfAction of Note, Instr, Vol, Fx (Wiring::perf)
   std::uint64_t now_ms = 0;                                  // for the armed take's blink
 };
+
+// The PAGE window's message: to 20 characters it is set in the 8x16 Label face, to 27 in the 6x12 Micro (27 x 6 = 162 px of the window's 172), and a longer one is cut at 26 characters and ends
+// in "." (the same window, Micro). Pure: tests/skin_core_test.cpp.
+inline constexpr unsigned kMessageLabelMax = 20;
+inline constexpr unsigned kMessageMicroMax = 27;
+ui::Face message_face(unsigned length) noexcept;
+// `s` into `out` (`cap` at least 28) as the rule above leaves it.
+void cut_message(char* out, unsigned cap, const char* s) noexcept;
 
 // The TEMPO display's text: tenths of a BPM, right aligned in four cells, "125.0", " 95.5". Returns `out`.
 const char* tempo_display(std::uint32_t mbpm, char (&out)[6]) noexcept;

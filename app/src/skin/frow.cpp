@@ -46,18 +46,19 @@ void centred(Panel& p, int cx, int top, int h, const char* s, Color c, Face f) n
   p.text(cx - len_of(s) * char_w(f) / 2, top + (h - char_h(f)) / 2, s, c, f);
 }
 
-// "Fn NAME": the red tab with the F-number, then the name, the pair centred on the slot. The Shift row's tabs are amber.
-void label_line(Panel& p, int cx, const FSlot& s, bool shift) noexcept {
-  const int total = kNameX + len_of(s.name) * char_w(Face::Label);
+}  // namespace
+
+void queue_label(Panel& p, int cx, int y, const char* fkey, const char* name, Color name_ink, Color tab, Color tab_ink, Face face) noexcept {
+  const int total = kNameX + len_of(name) * char_w(face);
   const int x0 = cx - total / 2;
-  p.round_rect(Layer::Tab, Rect{x0, kLabelY, kTabW, kTabH}, 3 * 16, theme().rgb(shift ? Color::Accent : Color::Rec));
-  p.text(x0 + (kTabW - len_of(s.fkey) * char_w(Face::Label)) / 2, kLabelY, s.fkey, shift ? Color::AccentText : Color::SelText, Face::Label);
-  p.text(x0 + kNameX, kLabelY, s.name, s.focus && !shift ? Color::ChromeText : Color::ChromeDim, Face::Label);
+  p.round_rect(Layer::Tab, Rect{x0, y, kTabW, kTabH}, 3 * 16, theme().rgb(tab));
+  p.text(x0 + (kTabW - len_of(fkey) * char_w(Face::Label)) / 2, y, fkey, tab_ink, Face::Label);
+  p.text(x0 + kNameX, y + (kTabH - char_h(face)) / 2, name, name_ink, face);
 }
 
 // The readout window under a slot with its state: the amber rim of a held key, the red fill of the focused knob (a lock is drawn in the accent colour instead), the text.
-void readout(Panel& p, int cx, const FSlot& s) noexcept {
-  const Rect win{cx - kReadoutW / 2, kReadoutY, kReadoutW, kReadoutH};
+void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s) noexcept {
+  const Rect win{cx - w / 2, y, w, kReadoutH};
   window(p, win, 3);
   if (s.held) {
     p.round_rect(Layer::HeldRim, Rect{win.x - 2, win.y - 3, win.w + 4, win.h + 5}, 5 * 16, theme().rgb(Color::Accent));
@@ -74,6 +75,30 @@ void readout(Panel& p, int cx, const FSlot& s) noexcept {
   centred(p, cx, win.y, win.h, s.readout, ink, face);
 }
 
+// A slide switch with its two names either side; the lever is at the side that is on.
+void queue_switch(Panel& p, int cx, int cy, const FSlot& s) noexcept {
+  const bool on = s.norm >= 0.5f;
+  p.text(cx - 20 - len_of(s.off_name) * char_w(Face::Micro), cy - 6, s.off_name, on ? Color::ChromeDim : Color::ChromeText, Face::Micro);
+  p.text(cx + 20, cy - 6, s.on_name, on ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  p.round_rect(Layer::Switch, Rect{cx - 17, cy - 5, 34, 12}, 88, pal::kWindowLip, 120);  // the lit lip under the track
+  p.round_rect(Layer::Switch, Rect{cx - 17, cy - 6, 34, 12}, 88, ui::Rgb{0, 0, 0});
+  const int lx = on ? cx + 8 : cx - 8;
+  p.round_rect(Layer::Switch, Rect{lx - 7, cy - 7, 14, 18}, 48, ui::Rgb{0, 0, 0}, 120);  // its shadow
+  p.round_rect(Layer::Switch, Rect{lx - 7, cy - 9, 14, 18}, 48, pal::kLever);
+  p.round_rect(Layer::Switch, Rect{lx - 6, cy - 8, 12, 5}, 32, ui::Rgb{255, 255, 255}, 90);  // its light
+  for (int k = 0; k < 3; ++k) {  // the grip
+    p.rect(Layer::Switch, Rect{lx - 4, cy - 1 + 3 * k, 9, 1}, ui::Rgb{0, 0, 0}, 110);
+  }
+}
+
+namespace {
+
+// "Fn NAME": the red tab with the F-number, then the name, the pair centred on the slot. The Shift row's tabs are amber.
+void label_line(Panel& p, int cx, const FSlot& s, bool shift) noexcept {
+  queue_label(p, cx, kLabelY, s.fkey, s.name, s.focus && !shift ? Color::ChromeText : Color::ChromeDim, shift ? Color::Accent : Color::Rec,
+              shift ? Color::AccentText : Color::SelText, Face::Label);
+}
+
 void knob(Panel& p, int cx, const FSlot& s) noexcept {
   const skin_assets::Info& scale = skin_assets::info(Id::Knob42Scale);
   const skin_assets::Info& body = skin_assets::info(Id::Knob42Body);
@@ -83,22 +108,6 @@ void knob(Panel& p, int cx, const FSlot& s) noexcept {
   p.sprite(Layer::KnobCap, Id::Knob42Cap, 0, cx - cap.cell_w / 2, kKnobCy - cap.cell_h / 2, pal::kCap);
   const Pointer pt = pointer(s.norm);
   p.line(Layer::Pointer, cx * 16 + pt.x0_q4, kKnobCy * 16 + pt.y0_q4, cx * 16 + pt.x1_q4, kKnobCy * 16 + pt.y1_q4, kPointerW_q4, pal::kPointer);
-}
-
-// A slide switch with its two names either side; the lever is at the side that is on.
-void slide_switch(Panel& p, int cx, const FSlot& s) noexcept {
-  const bool on = s.norm >= 0.5f;
-  p.text(cx - 20 - len_of(s.off_name) * char_w(Face::Micro), kSwitchCy - 6, s.off_name, on ? Color::ChromeDim : Color::ChromeText, Face::Micro);
-  p.text(cx + 20, kSwitchCy - 6, s.on_name, on ? Color::ChromeText : Color::ChromeDim, Face::Micro);
-  p.round_rect(Layer::Switch, Rect{cx - 17, kSwitchCy - 5, 34, 12}, 88, pal::kWindowLip, 120);  // the lit lip under the track
-  p.round_rect(Layer::Switch, Rect{cx - 17, kSwitchCy - 6, 34, 12}, 88, ui::Rgb{0, 0, 0});
-  const int lx = on ? cx + 8 : cx - 8;
-  p.round_rect(Layer::Switch, Rect{lx - 7, kSwitchCy - 7, 14, 18}, 48, ui::Rgb{0, 0, 0}, 120);  // its shadow
-  p.round_rect(Layer::Switch, Rect{lx - 7, kSwitchCy - 9, 14, 18}, 48, pal::kLever);
-  p.round_rect(Layer::Switch, Rect{lx - 6, kSwitchCy - 8, 12, 5}, 32, ui::Rgb{255, 255, 255}, 90);  // its light
-  for (int k = 0; k < 3; ++k) {  // the grip
-    p.rect(Layer::Switch, Rect{lx - 4, kSwitchCy - 1 + 3 * k, 9, 1}, ui::Rgb{0, 0, 0}, 110);
-  }
 }
 
 // A raised key with its name in it. The name takes the biggest face that fits the cap's 76 px.
@@ -164,7 +173,7 @@ void draw_frow(Panel& p, const FRowView& v) noexcept {
         led(p, cx + kLedDx, kLedCy, s.focus, s.locked ? pal::kLedAmber : pal::kLedRed);
         break;
       case SlotKind::Switch:
-        slide_switch(p, cx, s);
+        queue_switch(p, cx, kSwitchCy, s);
         led(p, cx + kLedDx, kLedCy, s.focus, s.locked ? pal::kLedAmber : pal::kLedRed);
         break;
       case SlotKind::Action:
@@ -174,7 +183,7 @@ void draw_frow(Panel& p, const FRowView& v) noexcept {
         break;
     }
     if (s.readout[0] != '\0') {
-      readout(p, cx, s);
+      queue_readout(p, cx, kReadoutY, kReadoutW, s);
     }
   }
 }
