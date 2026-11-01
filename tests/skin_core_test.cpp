@@ -369,7 +369,10 @@ TEST_CASE("panel: shapes are drawn layer by layer in the order of Layer, whateve
       switch (static_cast<Layer>(l)) {
         case Layer::Base:
         case Layer::Rule:
-        case Layer::Outline: p.rect(static_cast<Layer>(l), ui::Rect{x, 10, 20, 8}, rgb); break;
+        case Layer::Outline:
+        case Layer::MeterOff:
+        case Layer::MeterOn:
+        case Layer::Wave: p.rect(static_cast<Layer>(l), ui::Rect{x, 10, 20, 8}, rgb); break;
         case Layer::Texture: p.texture(k * 100, 20, rgb); break;
         case Layer::Sheen: p.line(Layer::Sheen, x * 16, 0, x * 16 + 160, 800, 64, rgb, 9); break;
         case Layer::GlassRim:

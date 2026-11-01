@@ -16,6 +16,7 @@
 #include <o3sdk/ui/renderer.h>
 
 #include <cstdint>
+#include <cstring>
 
 namespace o3_303::skin {
 
@@ -33,6 +34,9 @@ enum class Layer : std::uint8_t {
   Fill,        // the focused readout's red fill, over its face
   Tab,         // the F-number's tab on a slot's label line
   Outline,     // a one pixel frame over a window (a message that says something did not happen)
+  MeterOff,    // MASTER's and RECORD's LED-segment bars: the segments that are dark (one dim colour), over their window's recess
+  MeterOn,     // ... the lit ones, a pass a zone (green, then amber)
+  Wave,        // RECORD's envelope: the take's peaks as columns over the glass (one colour, red while it records, green once it is done)
   Switch,      // the WAVE switch: track, lever and its light, in the order queued
   ActKey,      // the action keys and PERFORM's lamps (sprites)
   KnobScale,   // the knobs' ticks, then their skirts, then their caps, each part for every knob (one bitmap bind a layer)
@@ -86,6 +90,13 @@ class Panel {
     ui::Rgb rgb;
   };
   bool sprite_at(unsigned i, SpriteInfo& out) const noexcept;
+  // ... and shape `i` when it is a plain rect (a rule, a bar's segment, an envelope column).
+  struct RectInfo {
+    Layer layer;
+    ui::Rect box;
+    ui::Rgb rgb;
+  };
+  bool rect_at(unsigned i, RectInfo& out) const noexcept;
   // ... and shape `i` when it is a round rect (a ring, a window, a tab): where and in what colour.
   struct RoundRectInfo {
     Layer layer;
@@ -149,12 +160,28 @@ void cut_to(char* out, unsigned cap, const char* s, unsigned max) noexcept;
 void led(Panel& p, int cx, int cy, bool on, ui::Rgb colour) noexcept;
 void window(Panel& p, const ui::Rect& r, unsigned radius_px) noexcept;
 
+// The faces' cell sizes (the kit's: Display 16x32, Data 10x20, Label 8x16, Micro 6x12) and a string's length, for the screens that lay text out by hand.
+constexpr int face_w(ui::Face f) noexcept { return f == ui::Face::Display ? 16 : (f == ui::Face::Data ? 10 : (f == ui::Face::Label ? 8 : 6)); }
+constexpr int face_h(ui::Face f) noexcept { return f == ui::Face::Display ? 32 : (f == ui::Face::Data ? 20 : (f == ui::Face::Label ? 16 : 12)); }
+inline int text_len(const char* s) noexcept { return static_cast<int>(std::strlen(s)); }
+
+// A box with its title in the gap of its top rule (the legend starts 10 px in from the corner).
+void queue_box(Panel& p, const ui::Rect& box, const char* title) noexcept;
+// The biggest of the Data, Label and Micro faces in which `s` fits a window `w` px wide with a margin of 4 px each side.
+ui::Face fitting(const char* s, int w) noexcept;
+// A readout: its window (corners of 3 px) and the text centred in it in the face `fitting()` picks.
+void queue_readout_window(Panel& p, const ui::Rect& win, const char* s, ui::Color ink) noexcept;
+
 // The panel itself, for a screen whose glass runs from `glass_top` to `glass_bottom` (docs/SKIN-PLAN.md 2.1; HOME: 66 and 384): the base and the texture in the bands above and below
 // the glass, the sheen over the header, and the glass with its rim. The glass is the frame's CLEAR colour (skin::theme()'s Pane), so only its rim and the bands are queued.
 void queue_panel(Panel& p, int glass_top, int glass_bottom) noexcept;
 
 // The panel of a screen with no glass (INSTRUMENT, mockup 06): the base and the texture over the whole height, and the sheen over the header (y < `header_h`).
 void queue_panel_full(Panel& p, int header_h) noexcept;
+
+// A section's box with its title in a gap of the top rule: the rule's five pieces (a one pixel line round `b`, the top one broken from `gap_x0` to `gap_x1` for the title, which the caller
+// draws). INSTRUMENT's sections, MASTER's and RECORD's boxes.
+void rule_box(Panel& p, const ui::Rect& b, int gap_x0, int gap_x1) noexcept;
 
 // The ballast of `skin ballast N` (skin.h): `words` words of one-pixel rects in a Canvas section of their own, to be called last in a frame's draw().
 void draw_ballast(ui::Renderer& r, std::uint32_t words) noexcept;

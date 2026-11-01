@@ -68,22 +68,6 @@ void parse_take(const char* take, HeaderView& v, std::uint64_t now_ms) noexcept 
 
 // ---- queueing helpers ---------------------------------------------------------------------------------------------------------
 
-// A 7-segment display: the window, the cells right aligned at a 22 px pitch, the point after cell `run.dot`.
-void seg_display(Panel& p, const Rect& win, const SegRun& run) noexcept {
-  constexpr int kPitch = 22;
-  const skin_assets::Info& cell = skin_assets::info(Id::Seg);
-  window(p, win, 4);
-  const int n = static_cast<int>(run.n);
-  const int gx = win.x + win.w - 6 - (n - 1) * kPitch - cell.cell_w + 1;
-  const int gy = win.y + (win.h - cell.cell_h) / 2;
-  for (int i = 0; i < n; ++i) {
-    p.sprite(Layer::Seg, Id::Seg, run.cell[i], gx + i * kPitch, gy, pal::kSeg);
-  }
-  if (run.dot >= 0) {
-    p.point(Layer::SegDot, (gx + run.dot * kPitch) * 16 + skin_assets::kSegDotX_q4, gy * 16 + skin_assets::kSegDotY_q4, 2 * 16, pal::kSeg);
-  }
-}
-
 // A group's silkscreen title at x and, when it leaves room, a rule from its end to x_end.
 void group(Panel& p, const char* title, int x, int x_end) noexcept {
   p.text(x, kTitleY, title, Color::ChromeDim, Face::Micro);
@@ -101,6 +85,21 @@ void value_window(Panel& p, int y, const char* tag, const char* value, Color ink
 }
 
 }  // namespace
+
+void seg_display(Panel& p, const Rect& win, const SegRun& run) noexcept {
+  constexpr int kPitch = 22;
+  const skin_assets::Info& cell = skin_assets::info(Id::Seg);
+  window(p, win, 4);
+  const int n = static_cast<int>(run.n);
+  const int gx = win.x + win.w - 6 - (n - 1) * kPitch - cell.cell_w + 1;
+  const int gy = win.y + (win.h - cell.cell_h) / 2;
+  for (int i = 0; i < n; ++i) {
+    p.sprite(Layer::Seg, Id::Seg, run.cell[i], gx + i * kPitch, gy, pal::kSeg);
+  }
+  if (run.dot >= 0) {
+    p.point(Layer::SegDot, (gx + run.dot * kPitch) * 16 + skin_assets::kSegDotX_q4, gy * 16 + skin_assets::kSegDotY_q4, 2 * 16, pal::kSeg);
+  }
+}
 
 const char* tempo_display(std::uint32_t mbpm, char (&out)[6]) noexcept {
   std::uint32_t tenths = static_cast<std::uint32_t>((static_cast<std::uint64_t>(mbpm) + 50u) / 100u);

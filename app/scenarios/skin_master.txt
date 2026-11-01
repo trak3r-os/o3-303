@@ -1,0 +1,93 @@
+# MASTER on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK6; mockup 09): the header (PAGE "MASTER", the ENC window naming F1 TEMPO), the glass in two columns of boxes (TEMPO with the tempo as a
+# seven-segment display, "BPM" and the tap chip; TIMING with the NUDGE, TAP and CLOCK readouts; OUTPUT with the master's L and R as LED-segment bars, green to amber, a held peak and the dB
+# scale; SYSTEM with the CPU load, "--" in the simulator, and the USB audio port) and the F row (F1 TEMPO and F4 MASTER knobs, F2 TAP an action key, F3 NUDGE a knob, F5 to F8 empty boxes). The
+# skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left twice is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_master.txt --out <dir>
+#
+# 01 opened and stopped: 125.0 on the seven-segment display, the bars dark, TAP "--", NUDGE +0 %; 02 TEMPO turned up 5 BPM; 03 four taps 500 ms apart: the chip "TAP 4", the TAP readout,
+# the tempo they make; 04 F3 NUDGE held and turned: +3 % in the readout (amber while it is not zero), the amber rim on the F3 box, the display nudged; 05 F4 MASTER takes the encoder: the
+# level knob lit and its readout red; 06 and 07 playing: the bars move with the factory line (two moments), the tick held past the level; 08 stopped, the peaks falling back; 09 Shift +
+# Master from MASTER taps the tempo (the chip counts) and the display follows; 10a and 10b the slowest tempo (two digits: the leading blank is a ghost 8) and the fastest (three); 11 a pad
+# held: the PADS line is HOME's; help_* the kit's HELP over the skinned MASTER (Shift + Config).
+wait 300
+tap config
+tap left
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap master
+wait 150
+snap 01_stopped
+turn 10
+wait 100
+snap 02_tempo_up
+tap f2 30
+wait 470
+tap f2 30
+wait 470
+tap f2 30
+wait 470
+tap f2 30
+wait 200
+snap 03_tapped_120
+press f3
+turn 3
+wait 200
+snap 04_nudge_f3_held
+release f3
+wait 100
+tap f4
+turn -6
+wait 100
+snap 05_master_level
+tap f1
+tap play
+wait 1500
+snap 06_playing_meters
+wait 400
+snap 07_playing_meters_later
+tap play
+wait 2500
+snap 08_stopped_peaks_falling
+press shift
+tap master
+release shift
+wait 600
+press shift
+tap master
+release shift
+wait 100
+snap 09_shift_master_tap
+turn -100
+turn -100
+turn -100
+wait 100
+snap 10a_tempo_slowest
+turn 100
+turn 100
+turn 100
+turn 100
+turn 100
+turn 100
+turn 100
+wait 100
+snap 10b_tempo_fastest
+paddown 30
+wait 50
+snap 11_a_pad_held
+padup 30
+wait 100
+press shift
+tap config
+release shift
+wait 50
+snap help_00_master
+tap config
+wait 50

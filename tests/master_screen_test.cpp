@@ -46,6 +46,28 @@ void open_master(Hands& t) {
 
 // ---- The view logic ----------------------------------------------------------------------------------------------------------
 
+TEST_CASE("cpu_text: the skin's CPU readout, the overrun flag and the no-meter dashes") {
+  char s[8];
+  CHECK_FALSE(cpu_text(true, 0, s, sizeof s));
+  CHECK(std::strcmp(s, "0 %") == 0);
+  CHECK_FALSE(cpu_text(true, 37, s, sizeof s));
+  CHECK(std::strcmp(s, "37 %") == 0);
+  CHECK_FALSE(cpu_text(true, 99, s, sizeof s));
+  CHECK(std::strcmp(s, "99 %") == 0);
+  CHECK(cpu_text(true, 100, s, sizeof s));  // 100 % is an overrun
+  CHECK(std::strcmp(s, "100 %") == 0);
+  CHECK(cpu_text(true, 250, s, sizeof s));
+  CHECK(std::strcmp(s, "250 %") == 0);
+  CHECK(cpu_text(true, 123456u, s, sizeof s));  // past the room: shown as 999 %
+  CHECK(std::strcmp(s, "999 %") == 0);
+  CHECK_FALSE(cpu_text(false, 250, s, sizeof s));  // no meter: dashes, whatever the number, never an overrun
+  CHECK(std::strcmp(s, "--") == 0);
+  char tiny[3];
+  CHECK_FALSE(cpu_text(true, 37, tiny, sizeof tiny));  // cut to the room, terminated
+  CHECK(std::strcmp(tiny, "37") == 0);
+  CHECK_FALSE(cpu_text(true, 37, tiny, 0));
+}
+
 TEST_CASE("tempo_text: a tenth of a BPM, rounded") {
   CHECK(tempo_str(125'000) == "125.0");
   CHECK(tempo_str(120'450) == "120.5");

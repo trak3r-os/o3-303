@@ -3,6 +3,9 @@
 
 #include "help_texts.h"
 #include "master_screen.h"
+#include "skin/header.h"
+#include "skin/record.h"
+#include "skin/skin.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
@@ -10,6 +13,7 @@
 #include <o3sdk/core/placement.h>
 #include <o3sdk/dsp/engine.h>
 #include <o3sdk/hal/audio.h>
+#include <o3sdk/hal/cycles.h>
 #include <o3sdk/hal/record.h>
 #include <o3sdk/ui/components.h>
 
@@ -1022,12 +1026,13 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
   }
 
   // The knob row.
-  for (view::Knob& k : view.knob) {
-    k = view::Knob{};
-    k.blank = true;
+  static constexpr const char* kFKeys[view::kKnobs] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
+  for (unsigned i = 0; i < view::kKnobs; ++i) {
+    view.knob[i] = view::Knob{};
+    view.knob[i].blank = true;
+    view.knob[i].fkey = kFKeys[i];  // the classic row draws no box for a blank key; the skin's empty box names it (F8)
   }
   const auto box = [&](unsigned i, const char* label, const char* value, const char* unit, float norm) -> view::Knob& {
-    static constexpr const char* kFKeys[view::kKnobs] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
     view::Knob& k = view.knob[i];
     k = view::Knob{};
     k.fkey = kFKeys[i];
@@ -1052,9 +1057,51 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
   box(kKeyMonitor, "MONITOR", mon != 0u ? num : "OFF", mon != 0u ? "%" : "", static_cast<float>(mon) / 100.0f).focus = owner_ == kKeyMonitor;
   box(kKeySave, "SAVE", saving_ ? "SAVING" : (st == State::Done ? "READY" : "--"), "", -1.0f);
   box(kKeyDiscard, "DISCARD", discard_until_ms_ != 0u && ctx.uptime_ms() < discard_until_ms_ ? "SURE?" : "--", "", -1.0f);
+
+  view.env = &env_;
+  view.scanned = scanned_;
+  view.env_bars = st == State::Idle ? kBars[bars_index_] : take_bars_;
+  view.recording = st == State::Recording;
+  view.take_any = st == State::Recording || st == State::Done;
 }
 
+app::Chrome RecordScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }
+
+const ui::Theme* RecordScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
+
 void RecordScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  if (skin::active(ctx)) {
+    draw_skinned(ctx, r);
+  } else {
+    draw_classic(ctx, r, area);
+  }
+}
+
+// The obsidian drawing (skin/record.cpp): the same view the classic drawing takes, filled the same way, and the header's status as the classic status line takes it.
+void RecordScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
+  const std::uint32_t t0 = o3sdk::hal::cycles();
+  home_->clamp_cursor();
+  frame::StatusView status;
+  home_->status(status);
+  status.save_failed = rig_->project.failed;
+  enc_text(status.enc, sizeof status.enc);
+  fill_view(ctx, view_);
+  skin::HeaderInputs in;
+  in.title = title();
+  in.pattern = rig_->bank->selected();
+  in.tempo_mbpm = ctx.engine().tempo();
+  in.playing = rig_->seq->playhead().playing;
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    in.perf[b] = rig_->wiring.perf[b];
+  }
+  in.now_ms = ctx.uptime_ms();
+  char line[128];
+  home_->pads_line(ctx, line, sizeof line);
+  skin::draw_record(r, view_, status, in, line);
+  skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / skin::kCyclesPerUs, ctx.uptime_ms());
+}
+
+void RecordScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   home_->clamp_cursor();
   frame::StatusView status;
   home_->status(status);

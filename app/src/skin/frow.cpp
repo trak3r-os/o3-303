@@ -112,10 +112,10 @@ void knob(Panel& p, int cx, const FSlot& s) noexcept {
 
 // A raised key with its name in it. The name takes the biggest face that fits the cap's 76 px.
 void action_key(Panel& p, int cx, const FSlot& s) noexcept {
-  p.sprite(Layer::ActKey, Id::ActKey, 0, cx - kKeyW / 2, kKeyY, s.dim ? pal::kKeyDim : pal::kKey);
+  p.sprite(Layer::ActKey, Id::ActKey, 0, cx - kKeyW / 2, kKeyY, s.lit ? pal::kFocusFill : (s.dim ? pal::kKeyDim : pal::kKey));
   const int n = len_of(s.name);
   const Face face = n * 10 <= 76 ? Face::Data : (n * 8 <= 76 ? Face::Label : Face::Micro);
-  centred(p, cx, kKeyY, kKeyH, s.name, s.dim ? Color::TextDim : Color::ChromeText, face);
+  centred(p, cx, kKeyY, kKeyH, s.name, s.lit ? Color::SelText : (s.dim ? Color::TextDim : Color::ChromeText), face);
 }
 
 }  // namespace

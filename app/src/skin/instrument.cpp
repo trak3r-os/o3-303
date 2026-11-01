@@ -71,15 +71,6 @@ constexpr ui::Rgb kTabIdle{30, 22, 24};
 
 int cx_of(unsigned slot) noexcept { return kSlotW / 2 + kSlotW * static_cast<int>(slot); }
 
-// A section's box with its title in a gap of the top rule: the rule's five pieces.
-void rule_box(Panel& p, const Rect& b, int gap_x0, int gap_x1) noexcept {
-  p.rect(Layer::Rule, Rect{b.x, b.y, gap_x0 - b.x, 1}, pal::kRule);
-  p.rect(Layer::Rule, Rect{gap_x1, b.y, b.x + b.w - gap_x1, 1}, pal::kRule);
-  p.rect(Layer::Rule, Rect{b.x, b.y, 1, b.h}, pal::kRule);
-  p.rect(Layer::Rule, Rect{b.x + b.w - 1, b.y, 1, b.h}, pal::kRule);
-  p.rect(Layer::Rule, Rect{b.x, b.y + b.h - 1, b.w, 1}, pal::kRule);
-}
-
 void queue_sections(Panel& p, const InstrumentView& v) noexcept {
   if (v.sections == 0u) {
     return;

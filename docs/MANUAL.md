@@ -783,9 +783,9 @@ and tempo, lamps, real-looking knobs, dark glass. The buttons and the pads do th
 
 - **To switch**: Config, page 303, the SKIN row (the last one), turn the encoder. The choice is kept.
 - **CLASSIC is the default today.** OBSIDIAN becomes the default later, once it has been tested on a unit. There is no date.
-- **Not every screen has its OBSIDIAN form yet.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT and SONG have it. MASTER, FILE
-  PROJECTS, FILE LIBRARY, RECORD and HOOKS keep their CLASSIC drawing for now, whatever the setting; the pictures of those screens in this
-  manual will change when they get theirs. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
+- **Not every screen has its OBSIDIAN form yet.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, SONG, MASTER, RECORD and HOOKS have
+  it. FILE PROJECTS and FILE LIBRARY keep their CLASSIC drawing for now, whatever the setting; the pictures of the screens in this
+  manual that have theirs now will change when the pictures are rebuilt. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
 
 ---
 

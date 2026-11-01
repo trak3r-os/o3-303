@@ -32,6 +32,8 @@ struct FrameStats {
   std::uint32_t last_us = 0;
   std::uint32_t peak_us = 0;     // the largest draw time in the second that just ended or is running
 };
+// The MK66's clock in cycles a microsecond; the host's hal::cycles() is scaled to it. The screens divide their draw's cycles by it for note_frame().
+inline constexpr std::uint32_t kCyclesPerUs = 180;
 void note_frame(std::uint32_t words, std::uint32_t draw_us, std::uint64_t now_ms) noexcept;
 FrameStats stats() noexcept;
 void reset_stats() noexcept;  // the counters and the peak back to zero (a test's; the console has no use for it)

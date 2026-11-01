@@ -2,11 +2,15 @@
 #include "master_screen.h"
 
 #include "help_texts.h"
+#include "skin/header.h"
+#include "skin/master.h"
+#include "skin/skin.h"
 #include "step_view.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/widgets.h>
 #include <o3sdk/dsp/engine.h>
+#include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/components.h>
 #include <o3_303/perform.h>
 
@@ -141,6 +145,22 @@ unsigned tempo_text(std::uint32_t mbpm, char* out, unsigned cap) noexcept {
   const char frac[3] = {'.', static_cast<char>('0' + tenths % 10u), '\0'};
   append(out, cap, frac);
   return static_cast<unsigned>(std::strlen(out));
+}
+
+bool cpu_text(bool has_meter, unsigned percent, char* out, unsigned cap) noexcept {
+  if (cap == 0) {
+    return false;
+  }
+  out[0] = '\0';
+  if (!has_meter) {
+    append(out, cap, "--");
+    return false;
+  }
+  char n[8];
+  (void)put_uint(percent > 999u ? 999u : percent, n, sizeof n);
+  append(out, cap, n);
+  append(out, cap, " %");
+  return percent >= 100u;
 }
 
 unsigned nudge_text(int pct, char* out, unsigned cap) noexcept {
@@ -546,9 +566,50 @@ void MasterScreen::fill_view(app::Context& ctx, MasterView& view) noexcept {
     view.level[c] = level_[c];
     view.peak[c] = peak_[c];
   }
+  // The skin's CPU and USB readouts.
+  view.cpu_over = cpu_text(ctx.cpu_meter(), ctx.cpu_percent(), view.cpu, sizeof view.cpu);
+  const app::UsbAudio& usb = ctx.usb_audio();
+  view.usb_streaming = usb.available() && usb.streaming();
+  std::strcpy(view.usb, !usb.available() ? "NO PORT" : (usb.changing() ? "CHANGING" : (usb.streaming() ? "STREAMING" : "READY")));
 }
 
+app::Chrome MasterScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }
+
+const ui::Theme* MasterScreen::theme(const app::Context& ctx) const noexcept { return skin::active(ctx) ? &skin::theme() : nullptr; }
+
 void MasterScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
+  if (skin::active(ctx)) {
+    draw_skinned(ctx, r);
+  } else {
+    draw_classic(ctx, r, area);
+  }
+}
+
+// The obsidian drawing (skin/master.cpp, mockup 09): the same view the classic drawing takes, filled the same way, and the header's status as the classic status line takes it.
+void MasterScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
+  const std::uint32_t t0 = o3sdk::hal::cycles();
+  home_->clamp_cursor();
+  frame::StatusView status;
+  home_->status(status);
+  status.save_failed = rig_->project.failed;
+  enc_text(ctx, status.enc, sizeof status.enc);
+  fill_view(ctx, view_);
+  skin::HeaderInputs in;
+  in.title = title();
+  in.pattern = rig_->bank->selected();
+  in.tempo_mbpm = ctx.engine().tempo();
+  in.playing = rig_->seq->playhead().playing;
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
+    in.perf[b] = rig_->wiring.perf[b];
+  }
+  in.now_ms = ctx.uptime_ms();
+  char line[128];
+  home_->pads_line(ctx, line, sizeof line);
+  skin::draw_master(r, view_, status, in, line);
+  skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / skin::kCyclesPerUs, ctx.uptime_ms());
+}
+
+void MasterScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& area) noexcept {
   home_->clamp_cursor();
   frame::StatusView status;
   home_->status(status);

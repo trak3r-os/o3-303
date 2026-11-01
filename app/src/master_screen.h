@@ -13,6 +13,9 @@
 //   hold + turn                                          the tempo nudge, 1 % a detent, at most 3 %, back at the release; no screen change
 //   Shift + Master                                       one tap of the tap tempo, from any screen; the release opens nothing
 //
+// The obsidian skin (skin/master.cpp, docs/SKIN-PLAN.md 2.4 and SK6) draws the same MasterView with no kit chrome: TEMPO as a seven-segment display, the NUDGE, TAP and CLOCK readouts, OUTPUT L and R
+// as LED-segment bars, CPU and USB; the F row is the view's knobs. The classic drawing is draw_classic().
+//
 // The view logic is apart from the drawing: the free functions below (pure, host-tested) make the text and the bars, MasterScreen::fill_view() makes a
 // MasterView from the state, and draw() draws it, so the skin replaces the drawing and not the logic. Main loop only.
 
@@ -37,6 +40,8 @@ inline constexpr float kMeterFloorDb = -48.0f;
 unsigned tempo_text(std::uint32_t mbpm, char* out, unsigned cap) noexcept;
 // "+0 %", "-2 %": the nudge's percent (clamped to the nudge's range).
 unsigned nudge_text(int pct, char* out, unsigned cap) noexcept;
+// The skin's CPU readout: "37 %" for a meter's percent (shown to 999 %), "--" with no meter (the simulator). Returns true when a block overran (100 % or more).
+bool cpu_text(bool has_meter, unsigned percent, char* out, unsigned cap) noexcept;
 // A linear peak (1.0 full scale) as a place on the meter, 0..kMeterMax, on a dB scale from kMeterFloorDb to 0 dB.
 unsigned meter_norm(float peak) noexcept;
 // A meter's value after `dt_ms` with `now` measured: it jumps up to `now` and falls back by `fall_per_s` of the scale a second (whole units: call it with
@@ -53,6 +58,12 @@ struct MasterView {
   char taps[4] = "";         // "2" the taps of the measure, "" none
   unsigned level[2] = {};    // the meters: the level and the held peak of L and R, 0..kMeterMax
   unsigned peak[2] = {};
+  // What the obsidian skin adds (UX-303 D19 left CPU % off the classic screen, where the kit's header strip shows it; the skin has no kit header): the CPU load as the header formula says it ("--" when the
+  // platform has no meter: the simulator), and the USB audio port.
+  char cpu[8] = "--";        // "37 %"
+  bool cpu_over = false;     // a block overran (100 % or more)
+  char usb[12] = "NO PORT";  // "NO PORT" (no device), "READY", "STREAMING" (the computer listens), "CHANGING" (the port is re-enumerating)
+  bool usb_streaming = false;
 };
 
 // F2 TAP and F3 NUDGE are actions, not values: the boxes the strip draws for them. `taps` is the measure's count (0: "--"), `pct` the nudge, `held` F3 is down.
@@ -88,6 +99,9 @@ class MasterScreen final : public o3sdk::app::Screen {
   void leave(o3sdk::app::Context& ctx) noexcept override;
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
+  // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise the kit's.
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context& ctx) const noexcept override;
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
@@ -108,6 +122,8 @@ class MasterScreen final : public o3sdk::app::Screen {
   void forget_base() noexcept;
   static std::uint32_t nudged_clamped(std::uint32_t base, int pct) noexcept;
   void fill_view(o3sdk::app::Context& ctx, MasterView& view) noexcept;
+  void draw_classic(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
 
   Rig* rig_ = nullptr;

@@ -57,6 +57,7 @@ struct FSlot {
   bool held = false;
   bool locked = false;
   bool dim = false;
+  bool lit = false;                         // Action: the key is lit red (RECORD's ARM / STOP while it records); the screen sets it after fill_frow(), no view::Knob has it
 };
 
 struct FRowView {

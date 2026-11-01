@@ -123,6 +123,15 @@ bool Panel::sprite_at(unsigned i, SpriteInfo& out) const noexcept {
   return true;
 }
 
+bool Panel::rect_at(unsigned i, RectInfo& out) const noexcept {
+  if (i >= n_shapes_ || shape_[i].kind != Kind::Rect) {
+    return false;
+  }
+  const Shape& s = shape_[i];
+  out = RectInfo{s.layer, Rect{s.a, s.b, s.c, s.d}, s.rgb};
+  return true;
+}
+
 bool Panel::round_rect_at(unsigned i, RoundRectInfo& out) const noexcept {
   if (i >= n_shapes_ || shape_[i].kind != Kind::RoundRect) {
     return false;
@@ -250,6 +259,32 @@ void led(Panel& p, int cx, int cy, bool on, ui::Rgb colour) noexcept {
 void window(Panel& p, const Rect& r, unsigned radius_px) noexcept {
   p.round_rect(Layer::WindowLip, Rect{r.x - 1, r.y, r.w + 2, r.h + 2}, (radius_px + 1u) * 16u, pal::kWindowLip, pal::kWindowLipAlpha);
   p.round_rect(Layer::WindowFace, Rect{r.x, r.y - 1, r.w, r.h + 1}, radius_px * 16u, pal::kWindow);
+}
+
+void rule_box(Panel& p, const Rect& b, int gap_x0, int gap_x1) noexcept {
+  p.rect(Layer::Rule, Rect{b.x, b.y, gap_x0 - b.x, 1}, pal::kRule);
+  p.rect(Layer::Rule, Rect{gap_x1, b.y, b.x + b.w - gap_x1, 1}, pal::kRule);
+  p.rect(Layer::Rule, Rect{b.x, b.y, 1, b.h}, pal::kRule);
+  p.rect(Layer::Rule, Rect{b.x + b.w - 1, b.y, 1, b.h}, pal::kRule);
+  p.rect(Layer::Rule, Rect{b.x, b.y + b.h - 1, b.w, 1}, pal::kRule);
+}
+
+void queue_box(Panel& p, const Rect& box, const char* title) noexcept {
+  constexpr int kLegendX = 10;  // the title starts this far in from the box's corner
+  const int tw = text_len(title) * face_w(ui::Face::Label);
+  rule_box(p, box, box.x + kLegendX - 4, box.x + kLegendX + tw + 4);
+  p.text(box.x + kLegendX, box.y - 8, title, ui::Color::ChromeDim, ui::Face::Label);
+}
+
+ui::Face fitting(const char* s, int w) noexcept {
+  const int n = text_len(s);
+  return n * face_w(ui::Face::Data) <= w - 8 ? ui::Face::Data : (n * face_w(ui::Face::Label) <= w - 8 ? ui::Face::Label : ui::Face::Micro);
+}
+
+void queue_readout_window(Panel& p, const Rect& win, const char* s, ui::Color ink) noexcept {
+  window(p, win, 3);
+  const ui::Face face = fitting(s, win.w);
+  p.text(win.x + (win.w - text_len(s) * face_w(face)) / 2, win.y + (win.h - face_h(face)) / 2, s, ink, face);
 }
 
 void queue_panel(Panel& p, int glass_top, int glass_bottom) noexcept {

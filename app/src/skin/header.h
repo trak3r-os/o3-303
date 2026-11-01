@@ -6,6 +6,7 @@
 // texts into the Panel. The brand, the PATTERN and TEMPO 7-segment displays, the TRANSPORT, KEYBOARD and PERFORM LEDs, and the PAGE and ENC windows.
 
 #include "panel.h"
+#include "seg.h"
 
 #include "../frame.h"
 
@@ -63,6 +64,9 @@ inline constexpr unsigned kMessageMicroMax = 27;
 ui::Face message_face(unsigned length) noexcept;
 // `s` into `out` (`cap` at least 28) as the rule above leaves it.
 void cut_message(char* out, unsigned cap, const char* s) noexcept;
+
+// A 7-segment display: the window `win`, the cells right aligned at a 22 px pitch, the point after cell `run.dot` (the header's two displays and MASTER's tempo).
+void seg_display(Panel& p, const ui::Rect& win, const SegRun& run) noexcept;
 
 // The TEMPO display's text: tenths of a BPM, right aligned in four cells, "125.0", " 95.5". Returns `out`.
 const char* tempo_display(std::uint32_t mbpm, char (&out)[6]) noexcept;

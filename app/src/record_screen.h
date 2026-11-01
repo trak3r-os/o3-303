@@ -15,6 +15,10 @@
 // carries the take's chip (Rig::take). A firmware update is refused while a take waits for its bar or records, and while one is finished and not saved (blocker(); the kit says SAVING itself while the WAV is written).
 // Everything the take says (ARMED, STOPPED, NO CARD, 8 BARS TOO LONG AT 55.0 ...) goes to the status line of every screen (Rig::take_msg), not to RECORD's alone.
 //
+// The obsidian skin (skin/record.cpp, docs/SKIN-PLAN.md 2.4 and SK6) draws the same RecordView with no kit chrome: the take's state and clock, SOURCE and BARS as readouts, IN and OUT as LED-segment bars,
+// the envelope, the file name; the F row is the view's knobs (F1 ARM / STOP lit red while it records, F2 and F3 action keys with their value, F4 GAIN and F5 MONITOR knobs, F6 SAVE, F7 DISCARD).
+// The classic drawing is draw_classic().
+//
 // The view logic (the bar arithmetic, the source list, the time text, the envelope) is apart from the drawing, as the free functions below (pure, host-tested). Main loop only.
 
 #include "frame.h"
@@ -105,6 +109,13 @@ struct RecordView {
   unsigned out[2] = {};
   unsigned out_peak[2] = {};
   bool input_meters = false;    // the input meters are live (the source is an input)
+  // The envelope as the screen draws it, both drawings: where to read it, how many frames of it the take has reached, the bars to mark, and whether there is a take to draw. `env` is the screen's
+  // own and stays valid as long as the screen does.
+  const Envelope* env = nullptr;
+  std::uint32_t scanned = 0;
+  unsigned env_bars = 0;        // the take's bars (the idle setting's before one starts); 0 FREE: no marks
+  bool recording = false;       // the envelope is red while it grows, green once the take is done
+  bool take_any = false;        // recording or done: the envelope is drawn, else the hint
 };
 
 class RecordScreen final : public o3sdk::app::Screen {
@@ -129,6 +140,9 @@ class RecordScreen final : public o3sdk::app::Screen {
   void leave(o3sdk::app::Context& ctx) noexcept override;
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
+  // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise the kit's.
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context& ctx) const noexcept override;
+  const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
   void soft_keys(o3sdk::app::Context& ctx, o3sdk::app::SoftKeys& keys) noexcept override;
   void leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept override;
@@ -174,6 +188,8 @@ class RecordScreen final : public o3sdk::app::Screen {
   void chip(o3sdk::app::Context& ctx) noexcept;
   bool take_on(o3sdk::app::Context& ctx) const noexcept;  // Waiting or Recording
   void fill_view(o3sdk::app::Context& ctx, RecordView& view) noexcept;
+  void draw_classic(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
+  void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
   void enc_text(char* out, unsigned cap) const noexcept;
 
   Rig* rig_ = nullptr;
