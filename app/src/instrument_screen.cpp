@@ -32,7 +32,7 @@ using ui::Color;
 using ui::Face;
 using ui::Rect;
 
-// ---- The pages (existing Items only; the SOUND page is the global table's, on Rig::sound_keys) -----------------------------------------------
+// ---- The entries of the read-out rows (the pages' key tables are pages.h's: kFxPage, kNotesPage, kTonePage, kGrowlPage, kWobblePage) -----------------------------------------------
 
 constexpr Entry dist(Distortion::Param id, const char* label = nullptr) noexcept {
   return Entry{Item::Dist, static_cast<std::uint16_t>(id), label};
@@ -45,27 +45,6 @@ constexpr Entry wobble(WobbleField field, const char* label) noexcept { return E
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 
 constexpr Entry voice(AcidVoice::Param id, const char* label = nullptr) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), label}; }
-
-// FX, MODDED, GROWL and WOBBLE: each page is one constexpr table (VOICE has none: it is the SOUND page on Rig::sound_keys). DLY MODE is MASTER's F5; the growl's FMT MIX, CMB TUNE and CMB FB and the
-// wobble's RESET, which were Config's page DEEP, are keys of GROWL and WOBBLE now (docs/MODS-PLAN.md 5.4, 5.5, 7).
-constexpr Page kFxPage = {"FX",
-                          {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"), delay(units::Delay::Time, "DLY TIME"),
-                           delay(units::Delay::Feedback, "DLY FB"), app_item(Item::SendA, "DLY SEND"), delay(units::Delay::Tone, "DLY TONE")}};
-// MODDED (5.3): NOTES is how each note moves (DECAY, the SOUND knob itself, sits beside ACC DECAY), TONE what the filter is fed and gives. F8 is the STOCK action key on both pages.
-constexpr Page kNotesPage = {"NOTES",
-                             {voice(AcidVoice::SoftAtk), voice(AcidVoice::Decay), voice(AcidVoice::AccDecay), voice(AcidVoice::AmpDecay), voice(AcidVoice::Slide), voice(AcidVoice::AccSweep),
-                              voice(AcidVoice::SwpSpeed), app_item(Item::Stock)}};
-constexpr Page kTonePage = {"TONE",
-                            {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), Entry{}, Entry{},
-                             app_item(Item::Stock)}};
-// The growl in signal order: the formant, the comb, then the growl's mix. F8 is free.
-constexpr Page kGrowlPage = {"GROWL",
-                             {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
-                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}};
-// The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 and F7 are free; F8 is the WOB action key (5.5).
-constexpr Page kWobblePage = {"WOBBLE",
-                              {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
-                               Entry{}, Entry{}, app_item(Item::WobOn, "WOB")}};
 
 // ---- The read-out sections ---------------------------------------------------------------------------------------------------------------------
 

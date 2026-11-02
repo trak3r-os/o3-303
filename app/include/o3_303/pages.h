@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The pages of F1..F8 (docs/DESIGN-303.md section 3): the kit's ParamPage is one unit a page, and the 303's pages are not (the FX page
-// reaches the distortion, the delay, a mixer send and the master; the SEQ page reaches the engine's tempo, the current pattern's
-// fields and the generator's settings). So the app has its own page type over `Entry`s, the same controls convention as the kit's
+// The pages of F1..F8 (docs/DESIGN-303.md section 3): the kit's ParamPage is one unit a page, and the 303's pages are not (INSTRUMENT's FX
+// page reaches the distortion, the delay and a mixer send; MASTER's page reaches the engine's tempo, the master level and the delay's
+// mode). So the app has its own page type over `Entry`s, the same controls convention as the kit's
 // ParamKeys (o3sdk/app/param_keys.h):
 //
 //   tap an F key           the encoder drives that entry from now on (latched)
@@ -84,16 +84,24 @@ struct Page {
   Entry entry[kKeys];
 };
 
-// SOUND, FX, GROWL, WOBBLE and PERF SETUP. GROWL (M3c G) is the growl's seven parameters and
-// WOBBLE (M3c W) the wobble's five settings: rate, shape, depth, reset on note, and target (the voice's Cutoff or the growl's Vowel). PERF SETUP is
-// PERFORM SETUP's page (UX-303 5.4): the four performance buttons' assignments, what FILL plays, the beat freeze's length, the ROLL mode (rate and
-// accelerate in one list) and the STOP time. The transport and the pattern's own
-// settings are MASTER's and PATTERN SETUP's (`setup_page()`, the generator's settings too); a step's ratchet and condition are the PLAYS row (UX-303 D8). HOME has no pages (UX-303 5.1): the table's SOUND page is its
-// eight knobs and the others are the screens' to take (INSTRUMENT, PERFORM SETUP); the SNAP page (R2) is PERFORM's row 2 now.
-inline constexpr unsigned kPageCount = 5;
-enum PageId : unsigned { kPageSound = 0, kPageFx = 1, kPageGrowl = 2, kPageWobble = 3, kPagePerfSetup = 4 };
+// The global table, two pages: SOUND is HOME's eight knobs (Rig::sound_keys; INSTRUMENT VOICE shares it) and PERF SETUP is PERFORM SETUP's page
+// (UX-303 5.4): the four performance buttons' assignments, what FILL plays, the beat freeze's length, the ROLL mode (rate and accelerate in one
+// list) and the STOP time. A PageKeys with no table of its own runs over it. The transport and the pattern's own settings are MASTER's and
+// PATTERN SETUP's (`setup_page()`, the generator's settings too); a step's ratchet and condition are the PLAYS row (UX-303 D8); the SNAP page (R2)
+// is PERFORM's row 2 now. The INSTRUMENT screen's pages are tables of their own, below.
+inline constexpr unsigned kPageCount = 2;
+enum PageId : unsigned { kPageSound = 0, kPagePerfSetup = 1 };
 
-const Page& page_at(unsigned index) noexcept;
+const Page& page_at(unsigned index) noexcept;  // an index past the table gives the first page
+
+// The INSTRUMENT screen's key tables (docs/MODS-PLAN.md 5), one definition each, which the screen's groups point at and the tests read: FX (INSTRUMENT's
+// second page), NOTES and TONE (MODDED), GROWL (the growl's seven parameters, in signal order) and WOBBLE (rate, shape, depth, target and reset, then F8
+// WOB). Each PageKeys of the screen runs over one of them (set_table).
+extern const Page kFxPage;
+extern const Page kNotesPage;
+extern const Page kTonePage;
+extern const Page kGrowlPage;
+extern const Page kWobblePage;
 
 // PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
 // (this pattern's), F5 SCALE, F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). SCALE locks the keyboard (Wiring::scale_set).
@@ -194,7 +202,7 @@ class Controls {
 class PageKeys {
  public:
   // The pages this one runs over: a table of `count` pages that lives as long as the keys (constexpr data of a screen). The default is the
-  // global table (page_at, kPageCount), which the SOUND latch and the older screens use; a screen with pages of its own sets its table and
+  // global table (page_at, kPageCount), which the SOUND latch and PERFORM SETUP use; a screen with pages of its own sets its table and
   // starts on page 0 with key 0 latched.
   void set_table(const Page* table, unsigned count) noexcept;
   void set_page(unsigned index) noexcept;

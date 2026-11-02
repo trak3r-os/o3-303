@@ -672,7 +672,7 @@ TEST_CASE("the keys of PageKeys run over a table of their own (set_table) and ov
   CHECK(keys.page_index() == 1);
   CHECK(&keys.page() == &kLocal[1]);
   CHECK(keys.focused().item == Item::Blank);  // key 0 is blank on page 2 ... the latch fell back to key 0, which is blank: nothing is driven
-  keys.next_page();  // wraps over the table's two pages, not the global seven
+  keys.next_page();  // wraps over the table's two pages, not the global table's
   CHECK(keys.page_index() == 0);
   keys.set_page(2);  // past the table
   CHECK(keys.page_index() == 0);
