@@ -425,21 +425,15 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
     out.sound[out.sound_n++] = SoundEntry{kSndApp, static_cast<std::uint16_t>(id), app_value(rig, e, id)};
   }
 
-  // The snapshots' values: a copy of the bank is asked for each used slot's end of the morph (a discrete read of the recalled one is that slot's
-  // value exactly), so that the live morph state is not touched.
+  // The snapshots' values, read from the bank's slots as they are (the live morph state is not touched); an empty slot is zeros.
   out.snap_values = static_cast<std::uint8_t>(kSnapTargetCount);
   out.snap_used = 0;
-  SnapBank copy = w.snaps;
   for (unsigned s = 0; s < kSnapSlots; ++s) {
-    if (copy.recall(s, nullptr)) {
+    if (w.snaps.used(s)) {
       out.snap_used = static_cast<std::uint8_t>(out.snap_used | (1u << s));
-      for (unsigned i = 0; i < kSnapValues; ++i) {
-        out.snap[s][i] = copy.value(i, true);
-      }
-    } else {
-      for (unsigned i = 0; i < kSnapValues; ++i) {
-        out.snap[s][i] = 0.0f;
-      }
+    }
+    for (unsigned i = 0; i < kSnapValues; ++i) {
+      out.snap[s][i] = w.snaps.stored(s, i);
     }
   }
 
@@ -740,6 +734,11 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     (void)find_entry(s, target, id, v);
     (void)e.set_param(unit, id, v);  // clamped by the engine
   });
+  // STOCK is never saved and always ends here (docs/MODS-PLAN.md 5.11): a boot, a LOAD, REVERT, NEW and RESET PROJECT are heard as saved first. The mods' stored values are in by now, so the
+  // voice changes once.
+  if (w.stock) {
+    rig.controls.set(e, Entry{Item::Stock, 0, nullptr}, 0.0f);
+  }
   for (unsigned id = 0; id < kAppValueCount; ++id) {
     float v = app_default(id);
     (void)find_entry(s, kSndApp, static_cast<std::uint16_t>(id), v);

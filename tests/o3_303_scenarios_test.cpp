@@ -37,6 +37,13 @@ std::string slurp(const fs::path& path) {
   return text.str();
 }
 
+std::string slurp_bytes(const fs::path& path) {
+  std::ifstream in(path, std::ios::binary);
+  std::stringstream bytes;
+  bytes << in.rdbuf();
+  return bytes.str();
+}
+
 // The words after `snap` (or `boot`, the boot screen's picture) and `wav` on each line of a scenario.
 void outputs(const std::string& text, std::vector<std::string>& snaps, std::vector<std::string>& wavs) {
   std::istringstream lines(text);
@@ -140,7 +147,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -206,7 +213,19 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
     CHECK(h->display().render_failures() == 0u);
     CHECK(h->display().peak_frame_words() < 1800u);
     CHECK(h->engine().dropped_commands() == 0u);
+    if (file.stem().string().rfind("mods_stock", 0) == 0) {  // the A/B's two takes are compared below: keep each one's `stock.wav` (the directory goes with the scenario)
+      const fs::path keep = out / (file.stem().string() + ".stock.wav");
+      fs::remove(keep);
+      fs::copy_file(sub / "stock.wav", keep);
+    }
     fs::remove_all(sub);
   }
+  // MODS-PLAN 5.11, 13: with STOCK on, every mod at an extreme (mods_stock_ab) is the stock voice (mods_stock) bit for bit: the two files are the same, byte for byte, and not "close".
+  const fs::path stock = out / "mods_stock.stock.wav";
+  const fs::path stock_ab = out / "mods_stock_ab.stock.wav";
+  REQUIRE(fs::exists(stock));
+  REQUIRE(fs::exists(stock_ab));
+  CHECK(fs::file_size(stock) == fs::file_size(stock_ab));
+  CHECK(slurp_bytes(stock) == slurp_bytes(stock_ab));
   fs::remove_all(out);
 }

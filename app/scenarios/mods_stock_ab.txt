@@ -1,0 +1,89 @@
+# The A/B of STOCK, with mods_stock_ab.txt (docs/MODS-PLAN.md 5.11, 13): `stock.wav` of the two scenarios, the factory line from step 1 for eight bars with STOCK on,
+# must be byte for byte the same file. Both have one timeline (the same gestures at the same milliseconds): STOCK on first, then each of the eleven mods learned to a
+# controller (Shift + F, a message of controller 20 to 30 binds it). Here, after each binding, the controller then goes through the knob to its end (pickup
+# mode needs the knob to cross the parameter): all eleven mods at an extreme, ACC DECAY, SLIDE, TRACKING, FILTER FM, OVERDRIVE (+36 dB), SOFT ATK 30 MS, SUB OSC HIGH, ACC SWEEP HI RES,
+# SWP SPEED SLOW and MUFFLER HARD at their maximum, AMP DECAY at 16 ms. A controller stores the value and does not end STOCK (only a turn of the encoder does), and STOCK was on before the first
+# one moved, so the voice never leaves its stock loop: the render is the stock's with no perturbation to wait out (the 0.4 s of MODS-PLAN 3.3 point 9).
+# A scenario's `wav` writes the audio from `record on`, so the A/B is two scenarios and not two takes of one.
+wait 300
+record on
+# STOCK on from HOME (Shift + Sample Loader), then MODDED NOTES and TONE: every mod is learned to a controller (20 to 30)
+press shift
+tap sampleload
+release shift
+wait 50
+tap sampleload
+press shift
+tap f1
+release shift
+midi usb b0 14 40
+midi usb b0 14 00 14 7f
+wait 20
+press shift
+tap f3
+release shift
+midi usb b0 15 40
+midi usb b0 15 00 15 7f
+wait 20
+press shift
+tap f4
+release shift
+midi usb b0 16 40
+midi usb b0 16 7f 16 00
+wait 20
+press shift
+tap f5
+release shift
+midi usb b0 17 40
+midi usb b0 17 00 17 7f
+wait 20
+press shift
+tap f6
+release shift
+midi usb b0 18 40
+midi usb b0 18 00 18 7f
+wait 20
+press shift
+tap f7
+release shift
+midi usb b0 19 40
+midi usb b0 19 00 19 7f
+wait 20
+tap sampleload
+press shift
+tap f1
+release shift
+midi usb b0 1a 40
+midi usb b0 1a 00 1a 7f
+wait 20
+press shift
+tap f2
+release shift
+midi usb b0 1b 40
+midi usb b0 1b 00 1b 7f
+wait 20
+press shift
+tap f3
+release shift
+midi usb b0 1c 40
+midi usb b0 1c 00 1c 7f
+wait 20
+press shift
+tap f4
+release shift
+midi usb b0 1d 40
+midi usb b0 1d 00 1d 7f
+wait 20
+press shift
+tap f5
+release shift
+midi usb b0 1e 40
+midi usb b0 1e 00 1e 7f
+wait 20
+wait 1000
+snap 01_stock_on
+tap play
+wait 15360
+tap play
+wait 600
+wav stock

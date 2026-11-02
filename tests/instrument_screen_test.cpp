@@ -124,13 +124,40 @@ TEST_CASE("Shift + Sample Playback and Sample Editor open GROWL and WOBBLE too")
   CHECK(is_title(t, "WOBBLE"));
 }
 
-TEST_CASE("Sample Loader opens nothing until S2 of docs/MODS-PLAN.md: the screen stays where it is") {
+TEST_CASE("Sample Loader opens MODDED NOTES from every screen; again it flips NOTES and TONE and wraps; Params and the other Sample buttons leave it") {
   Hands t;
+  t.to_modded();  // from HOME at boot
+  CHECK(is_title(t, "MODDED NOTES"));
+  const auto from = [&](const char* title, auto go) {
+    t.to_home();
+    go();
+    CHECK_MESSAGE(is_title(t, title), title);
+    t.to_modded();
+    CHECK_MESSAGE(is_title(t, "MODDED NOTES"), title);
+  };
+  from("INSTRUMENT FX", [&] { t.to_instrument(kInstFx); });
+  from("GROWL", [&] { t.to_growl(); });
+  from("PERFORM", [&] { t.tap(Button::Performance); });
+  from("MASTER", [&] { t.tap(Button::Master); });
+  from("RECORD", [&] { t.tap(Button::SampleRec); });
+  from("SONG", [&] { t.tap(Button::Song); });
+  from("FILE PROJECTS", [&] { t.tap(Button::File); });
+  from("FILE LIBRARY", [&] { t.tap(Button::File); t.tap(Button::File); });
   t.tap(Button::SampleLoad);
-  CHECK(is_title(t, "STEPS"));
+  CHECK(is_title(t, "MODDED TONE"));
+  t.tap(Button::SampleLoad);
+  CHECK(is_title(t, "MODDED NOTES"));
+  // Leaving and coming back opens the first page again, whichever page was up.
+  t.tap(Button::SampleLoad);
+  REQUIRE(is_title(t, "MODDED TONE"));
   t.to_growl();
-  t.tap(Button::SampleLoad);
-  CHECK(is_title(t, "GROWL"));
+  t.to_modded();
+  CHECK(is_title(t, "MODDED NOTES"));
+  t.tap(Button::Params);
+  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  t.to_modded();
+  t.tap(Button::SampleEdit);
+  CHECK(is_title(t, "WOBBLE"));
 }
 
 TEST_CASE("Params is INSTRUMENT from FILE and from the library, and File opens FILE PROJECTS from INSTRUMENT") {
@@ -428,14 +455,18 @@ TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the a
   }
 }
 
-TEST_CASE("every page of INSTRUMENT, GROWL and WOBBLE fits the display list, stopped, playing and with Shift held") {
+TEST_CASE("every page of INSTRUMENT, MODDED, GROWL and WOBBLE fits the display list, stopped, playing and with Shift held") {
   Hands t;
   t.tap(Button::Play);
   t.wait(300);
-  for (unsigned screen_no = 0; screen_no < instrument_group().count + 2; ++screen_no) {  // VOICE, FX, GROWL, WOBBLE
-    if (screen_no < instrument_group().count) {
+  const unsigned inst = instrument_group().count;
+  const unsigned mod = modded_group().count;
+  for (unsigned screen_no = 0; screen_no < inst + mod + 2; ++screen_no) {  // VOICE, FX, NOTES, TONE, GROWL, WOBBLE
+    if (screen_no < inst) {
       t.to_instrument(screen_no);
-    } else if (screen_no == instrument_group().count) {
+    } else if (screen_no < inst + mod) {
+      t.to_modded(screen_no - inst);
+    } else if (screen_no == inst + mod) {
       t.to_growl();
     } else {
       t.to_wobble();
@@ -600,25 +631,31 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   InstrumentView v;
   const InstrumentGroup& inst = instrument_group();
   fill_sections(e, c, false, inst, kInstVoice, v);  // VOICE draws its own knobs large: the others are read-outs
-  REQUIRE(v.sections == 3);
+  REQUIRE(v.sections == 3);  // MODS-PLAN 5.1.1: the distortion, the delay and the MODDED section
   CHECK(std::strcmp(v.section[0].title, "DISTORTION") == 0);
   CHECK(std::strcmp(v.section[1].title, "DELAY") == 0);
-  CHECK(std::strcmp(v.section[2].title, "GROWL") == 0);
-  CHECK(std::strcmp(v.section[2].label[0], "VOWEL") == 0);
+  CHECK(std::strcmp(v.section[2].title, "MODDED") == 0);
+  CHECK(std::strcmp(v.section[2].label[0], "ACC DEC") == 0);
+  CHECK(std::strcmp(v.section[2].label[1], "SLIDE") == 0);
+  CHECK(std::strcmp(v.section[2].label[2], "SUB") == 0);
+  CHECK(std::strcmp(v.section[2].label[3], "STOCK") == 0);
+  CHECK(std::strcmp(v.section[2].value[0], "180ms") == 0);  // the stock values
+  CHECK(std::strcmp(v.section[2].value[1], "60ms") == 0);
+  CHECK(std::strcmp(v.section[2].value[2], "OFF") == 0);
+  CHECK(std::strcmp(v.section[2].value[3], "OFF") == 0);
   CHECK(std::strcmp(v.section[0].label[0], "MODEL") == 0);
   CHECK(std::strcmp(v.section[0].value[0], "TUBE") == 0);
   CHECK(std::strcmp(v.section[1].label[2], "SEND") == 0);
   CHECK(std::strcmp(v.section[1].value[2], "30%") == 0);  // the base send, 30 % by default
-  CHECK(std::strcmp(v.section[2].label[3], "GRL MIX") == 0);
 
   fill_sections(e, c, false, inst, kInstFx, v);  // FX draws the distortion and the delay large
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
-  CHECK(std::strcmp(v.section[1].title, "WOBBLE") == 0);
-  CHECK(std::strcmp(v.section[1].label[3], "WOB") == 0);  // the wobble's state, ON or OFF
-  CHECK(std::strcmp(v.section[1].value[3], "OFF") == 0);
-  fill_sections(e, c, true, inst, kInstFx, v);
+  CHECK(std::strcmp(v.section[1].title, "MODDED") == 0);
+  c.set(e, Entry{Item::Stock, 0, nullptr}, 1.0f);  // STOCK reads ON
+  fill_sections(e, c, false, inst, kInstFx, v);
   CHECK(std::strcmp(v.section[1].value[3], "ON") == 0);
+  c.set(e, Entry{Item::Stock, 0, nullptr}, 0.0f);
   fill_sections(e, c, false, inst, kInstFx, v);
   CHECK(std::strcmp(v.section[0].label[0], "CUTOFF") == 0);
   char text[24];
@@ -631,10 +668,37 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
   CHECK(std::strcmp(v.section[1].title, "WOBBLE") == 0);
+  CHECK(std::strcmp(v.section[1].label[3], "WOB") == 0);  // the wobble's state, ON or OFF
+  CHECK(std::strcmp(v.section[1].value[3], "OFF") == 0);
+  fill_sections(e, c, true, growl_group(), 0, v);
+  CHECK(std::strcmp(v.section[1].value[3], "ON") == 0);
+  const InstrumentGroup& mod = modded_group();  // MODDED: NOTES shows the voice and TONE, TONE the voice and NOTES
+  REQUIRE(mod.count == 2);
+  fill_sections(e, c, false, mod, 0, v);
+  REQUIRE(v.sections == 2);
+  CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
+  CHECK(std::strcmp(v.section[1].title, "TONE") == 0);
+  CHECK(std::strcmp(v.section[1].label[0], "TRACK") == 0);
+  CHECK(std::strcmp(v.section[1].label[1], "FM") == 0);
+  CHECK(std::strcmp(v.section[1].label[2], "DRIVE") == 0);
+  CHECK(std::strcmp(v.section[1].label[3], "MUFFLER") == 0);
+  CHECK(std::strcmp(v.section[1].value[0], "0%") == 0);
+  CHECK(std::strcmp(v.section[1].value[2], "0.0dB") == 0);
+  CHECK(std::strcmp(v.section[1].value[3], "OFF") == 0);
+  fill_sections(e, c, false, mod, 1, v);
+  REQUIRE(v.sections == 2);
+  CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
+  CHECK(std::strcmp(v.section[1].title, "NOTES") == 0);
+  CHECK(std::strcmp(v.section[1].label[0], "SOFT ATK") == 0);
+  CHECK(std::strcmp(v.section[1].label[3], "SWEEP") == 0);
+  CHECK(std::strcmp(v.section[1].value[0], "OFF") == 0);
+  CHECK(std::strcmp(v.section[1].value[3], "NORMAL") == 0);
   fill_sections(e, c, false, wobble_group(), 0, v);  // WOBBLE: the voice and the growl
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
   CHECK(std::strcmp(v.section[1].title, "GROWL") == 0);
+  CHECK(std::strcmp(v.section[1].label[0], "VOWEL") == 0);
+  CHECK(std::strcmp(v.section[1].label[3], "GRL MIX") == 0);
 
   fill_sections(e, c, false, inst, inst.count, v);  // a page that does not exist: no sections
   CHECK(v.sections == 0);

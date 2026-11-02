@@ -5,6 +5,9 @@
 
 #include "hands.h"
 
+#include <o3sdk/core/param.h>
+#include <o3_303/app_access.h>
+#include <o3_303/seq/sequencer.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3_303/units/growl/growl.h>
@@ -129,4 +132,72 @@ TEST_CASE("snapshots: before a recall the encoder is the knob's, and leaving PER
   t.to_home();
   t.wait(300);
   CHECK(cutoff(t) == doctest::Approx(c1).epsilon(0.001));
+}
+
+TEST_CASE("snapshots: the eleven mods and the growl's FMT MIX, CMB TUNE and CMB FB are stored and recalled, switches included; a recall while STOCK is on leaves STOCK on and writes the stored values (MODS-PLAN 5.9)") {
+  Hands t;
+  // The mods as they are stored: values the factory does not have, each in its own units.
+  struct Mod {
+    unsigned id;
+    float value;
+  };
+  const Mod mods[] = {{AcidVoice::AccDecay, 900.0f}, {AcidVoice::Tracking, 80.0f}, {AcidVoice::Slide, 200.0f}, {AcidVoice::SoftAtk, 3.0f},   {AcidVoice::SubOsc, 2.0f},   {AcidVoice::FilterFm, 0.5f},
+                      {AcidVoice::AccSweep, 2.0f},   {AcidVoice::Muffler, 2.0f}, {AcidVoice::SwpSpeed, 0.0f}, {AcidVoice::Overdrive, 12.0f}, {AcidVoice::AmpDecay, 500.0f}};
+  const auto set_all = [&](bool stored) {
+    for (const Mod& m : mods) {
+      const core::ParamDesc* d = t.h->engine().param_desc(kVoice, static_cast<std::uint16_t>(m.id));
+      REQUIRE(d != nullptr);
+      REQUIRE(t.h->engine().set_param(kVoice, static_cast<std::uint16_t>(m.id), stored ? m.value : d->def));
+    }
+    REQUIRE(t.h->engine().set_param(kGrowl, Growl::FormantMix, stored ? 0.6f : 0.0f));
+    REQUIRE(t.h->engine().set_param(kGrowl, Growl::CombTune, stored ? 7.0f : 0.0f));
+    REQUIRE(t.h->engine().set_param(kGrowl, Growl::CombFeedback, stored ? 0.4f : 0.0f));
+    t.wait(5);
+  };
+  set_all(true);
+  t.to_perform();
+  store(t, 0);
+  set_all(false);
+  t.shift_tap(Button::SampleLoad);  // STOCK on
+  REQUIRE(t.param(kVoice, AcidVoice::Stock) >= 0.5f);
+  t.pad(snap_pad(0), 10);
+  t.wait(300);
+  for (const Mod& m : mods) {
+    INFO("voice id " << m.id);
+    CHECK(t.param(kVoice, static_cast<unsigned>(m.id)) == doctest::Approx(m.value).epsilon(0.01));
+  }
+  CHECK(t.param(kGrowl, Growl::FormantMix) == doctest::Approx(0.6f).epsilon(0.01));
+  CHECK(t.param(kGrowl, Growl::CombTune) == doctest::Approx(7.0f).epsilon(0.02));
+  CHECK(t.param(kGrowl, Growl::CombFeedback) == doctest::Approx(0.4f).epsilon(0.01));
+  CHECK(t.param(kVoice, AcidVoice::Stock) >= 0.5f);  // a recall does not end STOCK: it writes the stored values
+}
+
+TEST_CASE("snapshots: a recall does not write a mod or a new growl knob that the blend leaves where it is (the slew's round trip through the curve moves ACC DECAY 180 to 180.000015), and glides one that it moves") {
+  Hands t;
+  seq::Sequencer& seq = app_sequencer();
+  t.to_perform();
+  store(t, 0);  // the project as it is: every mod at its stock value
+  t.wait(20);
+  // Seventeen of the 22 older targets glide (counted on this build: the others are the four switches, WAVE, the distortion's ACTIVE and MODEL and the delay's MODE, which are written, and
+  // one that no glide starts here).
+  constexpr unsigned kOlderGliding = 17;
+  t.pad(snap_pad(0), 10);
+  t.wait(10);
+  CHECK(seq.slewing() > 0u);  // the recall did glide the older ones
+  CHECK(seq.slewing() <= kOlderGliding);  // and none of the fourteen new targets
+  t.wait(400);
+  // A snapshot with a mod and a growl knob that differ: those two glide with the older ones, and the new values land exactly.
+  (void)t.h->engine().set_param(kVoice, AcidVoice::AccDecay, 900.0f);
+  (void)t.h->engine().set_param(kGrowl, Growl::CombTune, 5.0f);
+  t.wait(20);
+  store(t, 1);
+  (void)t.h->engine().set_param(kVoice, AcidVoice::AccDecay, 180.0f);
+  (void)t.h->engine().set_param(kGrowl, Growl::CombTune, 0.0f);
+  t.wait(20);
+  t.pad(snap_pad(1), 10);
+  t.wait(10);
+  CHECK(seq.slewing() == kOlderGliding + 2u);
+  t.wait(400);
+  CHECK(t.param(kVoice, AcidVoice::AccDecay) == doctest::Approx(900.0f).epsilon(0.001));
+  CHECK(t.param(kGrowl, Growl::CombTune) == doctest::Approx(5.0f).epsilon(0.001));
 }

@@ -25,6 +25,7 @@ SECTIONS = ("firmware", "audio", "midi", "card", "display", "info")
 PORTS = ("none", "din", "usb", "din+usb")
 SCREEN_OF_KEY = {"master": "MASTER", "pattern": "STEPS", "performance": "PERFORM", "song": "SONG", "file": "FILE_PROJECTS", "samplerec": "RECORD", "sampleplay": "GROWL", "sampleedit": "WOBBLE"}
 INSTR_PAGES = ("INSTRUMENT_VOICE", "INSTRUMENT_FX")
+MODDED_PAGES = ("MODDED_NOTES", "MODDED_TONE")  # Sample Loader: MODDED NOTES, again TONE, and back
 BUTTONS = ("f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "params", "performance", "file", "config", "master", "sampleload", "sampleplay", "sampleedit", "samplerec", "song", "note",
            "instr", "vol", "fx", "pattern", "play", "copy", "insert", "up", "delete", "rec", "shift", "left", "down", "right")
 WINDOW = 36            # clocks in the follow fit
@@ -417,6 +418,13 @@ class Model:
                     self.start_emit()
                 else:
                     self.stop_emit()
+            elif name == "sampleload":
+                if self.shift:
+                    pass  # Shift + Sample Loader flips STOCK and changes no screen
+                elif self.screen in MODDED_PAGES:
+                    self.screen = MODDED_PAGES[(MODDED_PAGES.index(self.screen) + 1) % len(MODDED_PAGES)]
+                else:
+                    self.screen = MODDED_PAGES[0]
             elif name in SCREEN_OF_KEY:
                 self.screen = SCREEN_OF_KEY[name]
             elif name == "params":

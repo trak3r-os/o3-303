@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// INSTRUMENT (docs/UX-303.md 5.5) and its two siblings GROWL and WOBBLE (docs/MODS-PLAN.md 5.1): one screen class, three instances (the app holds them), each with an InstrumentGroup that says
-// what it shows. Params opens INSTRUMENT on VOICE, Params again cycles the pages; Sample Playback opens GROWL and Sample Editor WOBBLE (one page each):
+// INSTRUMENT (docs/UX-303.md 5.5) and its three siblings MODDED, GROWL and WOBBLE (docs/MODS-PLAN.md 5.1): one screen class, four instances (the app holds them), each with an InstrumentGroup that says
+// what it shows. Params opens INSTRUMENT on VOICE, Params again cycles the pages; Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens GROWL and Sample Editor
+// WOBBLE (one page each):
 //
 //   INSTRUMENT VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   INSTRUMENT FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
+//   MODDED NOTES       SOFT ATK DECAY ACC DECAY AMP DECAY SLIDE ACC SWEEP SWP SPEED, and F8 STOCK (the 303 mods that move each note)
+//   MODDED TONE        TRACKING FILTER FM OVERDRIVE MUFFLER SUB OSC (what the filter is fed and gives), F8 STOCK
 //   GROWL              VOWEL FMT Q FMT MIX CMB TUNE CMB FB CMB MIX GRL MIX (the growl's seven; F8 empty)
-//   WOBBLE             RATE SHAPE DEPTH TARGET RESET (the wobble's five settings; F6 to F8 empty for now)
+//   WOBBLE             RATE SHAPE DEPTH TARGET RESET (the wobble's five settings), and F8 WOB
+//
+// F8 of MODDED (STOCK) and of WOBBLE (WOB) is an action key and not a knob: it runs at its press, is lit while it is on and has no encoder latch. STOCK is the voice's switch over the mods and a
+// turn of any mod ends it (MODS-PLAN 5.11); WOB latches PERFORM's WOB action (LiveActions::toggle_latch).
 // (DLY MODE, which no page of these has, is MASTER's F5.)
 //
 // The eight knobs of the page are drawn large, the sections of the other pages as read-outs, and under them the two lines of the drawer (NOTE and
@@ -39,21 +45,22 @@ namespace o3_303 {
 // INSTRUMENT's pages (the index of `InstrumentScreen::page()` in the instrument group).
 inline constexpr unsigned kInstVoice = 0;
 inline constexpr unsigned kInstFx = 1;
-// The most pages a group has (INSTRUMENT: VOICE and FX; MODDED, from S2 of docs/MODS-PLAN.md: NOTES and TONE).
+// The most pages a group has (INSTRUMENT: VOICE and FX; MODDED: NOTES and TONE).
 inline constexpr unsigned kMaxGroupPages = 2;
 
-// What one instance of the screen shows (docs/MODS-PLAN.md 5.1): constexpr data in instrument_screen.cpp, one group for each of the three buttons.
+// What one instance of the screen shows (docs/MODS-PLAN.md 5.1): constexpr data in instrument_screen.cpp, one group for each of the four buttons.
 struct InstrumentGroup {
   unsigned count;                 // pages
-  const char* const* titles;      // "INSTRUMENT VOICE", "INSTRUMENT FX" | "GROWL" | "WOBBLE" (the screen's title, the header's)
-  const char* const* tabs;        // "VOICE", "FX" | "GROWL" | "WOBBLE" (the skin's tabs)
+  const char* const* titles;      // "INSTRUMENT VOICE", "INSTRUMENT FX" | "MODDED NOTES", "MODDED TONE" | "GROWL" | "WOBBLE" (the screen's title, the header's)
+  const char* const* tabs;        // "VOICE", "FX" | "NOTES", "TONE" | "GROWL" | "WOBBLE" (the skin's tabs)
   const Page* const* pages;       // the F keys of each page; a null one is the SOUND page on Rig::sound_keys (INSTRUMENT VOICE only, D3)
   const unsigned* shown;          // the read-out sections of each page (a mask of the sections of instrument_screen.cpp: what the page's own knobs do not draw)
   const help_texts::Id* help;     // HELP's Text of each page
   const char* hint;               // the line after the skin's tabs
 };
-// The three groups. Valid for the life of the program.
+// The four groups. Valid for the life of the program.
 const InstrumentGroup& instrument_group() noexcept;
+const InstrumentGroup& modded_group() noexcept;
 const InstrumentGroup& growl_group() noexcept;
 const InstrumentGroup& wobble_group() noexcept;
 
@@ -73,7 +80,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   // `home`: the home map HOME has; `group`: what this instance shows (instrument_group() ...).
   void init(Rig& rig, HomeMap& home, const InstrumentGroup& group) noexcept;
 
-  // The button of the group: from another screen it opens the first page; on this one (Params only: the other groups have one page) it goes to the next page and wraps.
+  // The button of the group: from another screen it opens the first page; on this one (Params and Sample Loader: the other groups have one page) it goes to the next page and wraps.
   void open_first_page() noexcept;
   void next_page() noexcept;
   unsigned page() const noexcept { return page_; }
@@ -106,6 +113,8 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void release_keys() noexcept;
   void learn_key(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void learn_drop(o3sdk::app::Context& ctx) noexcept;
+  void run_action(o3sdk::app::Context& ctx, const Entry& entry) noexcept;
+  bool action_on(const Entry& entry) const noexcept;
   PageKeys& keys() noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
   const PageKeys& keys() const noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
 

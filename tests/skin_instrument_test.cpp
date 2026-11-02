@@ -36,9 +36,33 @@ InstrumentCell cell(bool on, bool accent, bool slide) {
 }
 
 // The four skinned shapes of the one screen class: INSTRUMENT's pages VOICE and FX, then GROWL and WOBBLE (the Sample buttons', one page each).
-enum class Where : std::uint8_t { Voice, Fx, Growl, Wobble };
-constexpr Where kAllScreens[4] = {Where::Voice, Where::Fx, Where::Growl, Where::Wobble};
-const char* where_name(Where w) { return w == Where::Voice ? "VOICE" : (w == Where::Fx ? "FX" : (w == Where::Growl ? "GROWL" : "WOBBLE")); }
+enum class Where : std::uint8_t { Voice, Fx, Notes, Tone, Growl, Wobble };
+constexpr Where kAllScreens[6] = {Where::Voice, Where::Fx, Where::Notes, Where::Tone, Where::Growl, Where::Wobble};
+// The screen's title, which is the name too (INSTRUMENT's two pages share the word, so these two are their tabs).
+const char* where_name(Where w) {
+  switch (w) {
+    case Where::Voice: return "VOICE";
+    case Where::Fx: return "FX";
+    case Where::Notes: return "MODDED NOTES";
+    case Where::Tone: return "MODDED TONE";
+    case Where::Growl: return "GROWL";
+    case Where::Wobble: return "WOBBLE";
+  }
+  return "";
+}
+// The page of the group the screen shows (GROWL and WOBBLE have the one): the second tab for FX and TONE.
+unsigned where_page(Where w) { return w == Where::Fx || w == Where::Tone ? 1u : 0u; }
+// Opens the screen from the 303 screen the way a finger does.
+void go_to(Hands& t, Where w) {
+  switch (w) {
+    case Where::Voice: t.to_instrument(kInstVoice); break;
+    case Where::Fx: t.to_instrument(kInstFx); break;
+    case Where::Notes: t.to_modded(0); break;
+    case Where::Tone: t.to_modded(1); break;
+    case Where::Growl: t.to_growl(); break;
+    case Where::Wobble: t.to_wobble(); break;
+  }
+}
 
 // INSTRUMENT, GROWL or WOBBLE on the skin, with the last frame's queue to look at.
 struct OnInstrument {
@@ -46,12 +70,7 @@ struct OnInstrument {
   InstrumentScreen* s = nullptr;
   explicit OnInstrument(Where w = Where::Voice) {
     t.skin_on();
-    switch (w) {
-      case Where::Voice: t.to_instrument(kInstVoice); break;
-      case Where::Fx: t.to_instrument(kInstFx); break;
-      case Where::Growl: t.to_growl(); break;
-      case Where::Wobble: t.to_wobble(); break;
-    }
+    go_to(t, w);
     settle();
   }
   void settle() {
@@ -269,7 +288,7 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
 
 TEST_CASE("skin instrument: each page marks its own tab (GROWL and WOBBLE have the one), and the sections of the page are boxes of read-outs") {
   for (const Where w : kAllScreens) {
-    const unsigned page = w == Where::Fx ? 1u : 0u;  // the page of the group: GROWL and WOBBLE have one page
+    const unsigned page = where_page(w);
     OnInstrument o(w);
     if (w == Where::Voice || w == Where::Fx) {
       REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);
@@ -300,6 +319,48 @@ TEST_CASE("skin instrument: each page marks its own tab (GROWL and WOBBLE have t
     CHECK_MESSAGE(o.texts_in(190, 191, ui::Color::ChromeDim) == v.sections, where_name(w));
     CHECK_MESSAGE(o.texts_in(220, 250, ui::Color::Text) == values, where_name(w));
     o.intact();
+  }
+}
+
+TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would be (no pointer), dark while off and lit red while on; GROWL has none") {
+  const auto keys = [](const OnInstrument& o, bool lit) {
+    unsigned n = 0;
+    for (unsigned i = 0; i < o.q().shapes(); ++i) {
+      skin::Panel::SpriteInfo sp;
+      if (o.q().sprite_at(i, sp) && sp.layer == skin::Layer::ActKey && sp.id == skin_assets::Id::ActKey) {
+        n += same(sp.rgb, lit ? skin::pal::kFocusFill : skin::pal::kKey) ? 1u : 0u;
+      }
+    }
+    return n;
+  };
+  for (const Where w : {Where::Notes, Where::Tone}) {  // STOCK
+    OnInstrument o(w);
+    INFO(where_name(w));
+    CHECK(keys(o, false) == 1u);
+    CHECK(keys(o, true) == 0u);
+    // Seven knobs on NOTES, five on TONE: the key and the empty boxes have no cap (the sprites of the knob row are the 58 px caps).
+    CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) == (w == Where::Notes ? 7u : 5u));
+    o.t.tap(Button::F8);  // STOCK on: the key is lit
+    o.t.wait(60);
+    CHECK(keys(o, true) == 1u);
+    CHECK(keys(o, false) == 0u);
+    o.t.tap(Button::F8);
+    o.t.wait(60);
+    CHECK(keys(o, false) == 1u);
+    o.intact();
+  }
+  {  // WOB: the latch of PERFORM's wobble action
+    OnInstrument o(Where::Wobble);
+    CHECK(keys(o, false) == 1u);
+    o.t.tap(Button::F8);
+    o.t.wait(60);
+    CHECK(keys(o, true) == 1u);
+    o.intact();
+  }
+  {
+    OnInstrument o(Where::Growl);
+    CHECK(keys(o, false) == 0u);
+    CHECK(keys(o, true) == 0u);
   }
 }
 
@@ -475,12 +536,7 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
         p.steps[k].flags = static_cast<std::uint8_t>(kStepAccent | kStepSlide);
       }
     });
-    switch (w) {
-      case Where::Voice: t.to_instrument(kInstVoice); break;
-      case Where::Fx: t.to_instrument(kInstFx); break;
-      case Where::Growl: t.to_growl(); break;
-      case Where::Wobble: t.to_wobble(); break;
-    }
+    go_to(t, w);
     t.wait(60);
     t.tap(Button::Play);
     t.press(Button::Shift);

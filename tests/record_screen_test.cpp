@@ -286,14 +286,16 @@ TEST_CASE("Envelope: the columns of a span that does not divide by their count h
 
 // ---- The screens ---------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("the Sample buttons: Sample Recorder opens RECORD, Sample Playback and Sample Editor open GROWL and WOBBLE, Sample Loader nothing; Rec alone stays the step record") {
+TEST_CASE("the Sample buttons: Sample Recorder opens RECORD, Sample Playback and Sample Editor open GROWL and WOBBLE, Sample Loader MODDED; Rec alone stays the step record") {
   Session s;
   s.tap(Button::SampleRec);
   CHECK(std::strcmp(s.title(), "RECORD") == 0);
   s.tap(Button::SampleRec);  // again: nothing
   CHECK(std::strcmp(s.title(), "RECORD") == 0);
-  s.tap(Button::SampleLoad);  // nothing until MODDED (docs/MODS-PLAN.md S2)
-  CHECK(std::strcmp(s.title(), "RECORD") == 0);
+  s.tap(Button::SampleLoad);  // MODDED opens on NOTES, from RECORD as from any screen (docs/MODS-PLAN.md 4.3)
+  CHECK(std::strcmp(s.title(), "MODDED NOTES") == 0);
+  s.tap(Button::SampleLoad);  // again: TONE
+  CHECK(std::strcmp(s.title(), "MODDED TONE") == 0);
   s.tap(Button::SamplePlay);
   CHECK(std::strcmp(s.title(), "GROWL") == 0);
   s.tap(Button::SampleRec);

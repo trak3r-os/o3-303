@@ -28,6 +28,7 @@ struct StatusView {
   int octave = 0;             // the keyboard's octave shift: 0 is "OCT 2-3"
   bool rec = false;           // write / record mode is on
   bool song = false;          // Play plays the SONG (SONG's F1 PLAYS), from whatever screen is up: a "SONG" chip in the Fx colour; PATTERN draws nothing (Rig, fill_take_status)
+  bool stock = false;         // STOCK is on (docs/MODS-PLAN.md 5.12): every mod is out and the voice is the plain 303: a "STOCK" chip in the Accent colour after SONG's; the skin's tagline says so too
   const char* take = "";      // an audio take is armed or under way ("TAKE ARMED", "TAKE REC 0:05", Rig::take), "" none (UX-303 2.2, 5.10)
   const char* take_msg = "";  // what the take just said ("8 BARS TOO LONG AT 55.0", Rig::take_msg), from every screen; "" none
   bool take_msg_off = false;  // the message says something did not happen: an outline

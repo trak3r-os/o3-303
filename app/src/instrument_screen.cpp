@@ -44,24 +44,33 @@ constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entr
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 
-// FX, GROWL and WOBBLE: each page is one constexpr table (VOICE has none: it is the SOUND page on Rig::sound_keys). DLY MODE is MASTER's F5; the growl's FMT MIX, CMB TUNE and CMB FB and the wobble's RESET,
-// which were Config's page DEEP, are keys of GROWL and WOBBLE now (docs/MODS-PLAN.md 5.4, 5.5, 7).
+constexpr Entry voice(AcidVoice::Param id, const char* label = nullptr) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), label}; }
+
+// FX, MODDED, GROWL and WOBBLE: each page is one constexpr table (VOICE has none: it is the SOUND page on Rig::sound_keys). DLY MODE is MASTER's F5; the growl's FMT MIX, CMB TUNE and CMB FB and the
+// wobble's RESET, which were Config's page DEEP, are keys of GROWL and WOBBLE now (docs/MODS-PLAN.md 5.4, 5.5, 7).
 constexpr Page kFxPage = {"FX",
                           {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"), delay(units::Delay::Time, "DLY TIME"),
                            delay(units::Delay::Feedback, "DLY FB"), app_item(Item::SendA, "DLY SEND"), delay(units::Delay::Tone, "DLY TONE")}};
+// MODDED (5.3): NOTES is how each note moves (DECAY, the SOUND knob itself, sits beside ACC DECAY), TONE what the filter is fed and gives. F8 is the STOCK action key on both pages.
+constexpr Page kNotesPage = {"NOTES",
+                             {voice(AcidVoice::SoftAtk), voice(AcidVoice::Decay), voice(AcidVoice::AccDecay), voice(AcidVoice::AmpDecay), voice(AcidVoice::Slide), voice(AcidVoice::AccSweep),
+                              voice(AcidVoice::SwpSpeed), app_item(Item::Stock)}};
+constexpr Page kTonePage = {"TONE",
+                            {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), Entry{}, Entry{},
+                             app_item(Item::Stock)}};
 // The growl in signal order: the formant, the comb, then the growl's mix. F8 is free.
 constexpr Page kGrowlPage = {"GROWL",
                              {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
                               growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}};
-// The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 to F8 are free; F8 becomes the WOB switch in S2.
+// The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 and F7 are free; F8 is the WOB action key (5.5).
 constexpr Page kWobblePage = {"WOBBLE",
                               {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
-                               Entry{}, Entry{}, Entry{}}};
+                               Entry{}, Entry{}, app_item(Item::WobOn, "WOB")}};
 
 // ---- The read-out sections ---------------------------------------------------------------------------------------------------------------------
 
-enum Section : unsigned { kSecVoice = 1, kSecDist = 2, kSecDelay = 4, kSecGrowl = 8, kSecWobble = 16 };
-constexpr unsigned kSectionCount = 5;
+enum Section : unsigned { kSecVoice = 1, kSecDist = 2, kSecDelay = 4, kSecGrowl = 8, kSecWobble = 16, kSecModded = 32, kSecNotes = 64, kSecTone = 128 };
+constexpr unsigned kSectionCount = 8;
 
 struct ReadRow {
   const char* label;
@@ -75,26 +84,35 @@ struct SectionDef {
   ReadRow row[InstrumentSection::kRows];
 };
 
-constexpr Entry voice(AcidVoice::Param id) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}; }
-
 constexpr SectionDef kSections[kSectionCount] = {
     {"VOICE", 4, {{"CUTOFF", voice(AcidVoice::Cutoff)}, {"RESO", voice(AcidVoice::Reso)}, {"ENV MOD", voice(AcidVoice::EnvMod)}, {"DECAY", voice(AcidVoice::Decay)}}},
     {"DISTORTION", 4, {{"MODEL", app_item(Item::DistMode)}, {"DRIVE", dist(Distortion::Drive)}, {"TONE", dist(Distortion::Tone)}, {"MIX", dist(Distortion::Mix)}}},
     {"DELAY", 4, {{"TIME", delay(units::Delay::Time)}, {"FB", delay(units::Delay::Feedback)}, {"SEND", app_item(Item::SendA)}, {"TONE", delay(units::Delay::Tone)}}},
     {"GROWL", 4, {{"VOWEL", growl(Growl::Vowel, nullptr)}, {"FMT Q", growl(Growl::FormantQ, nullptr)}, {"CMB MIX", growl(Growl::CombMix, nullptr)}, {"GRL MIX", growl(Growl::Mix, nullptr)}}},
     {"WOBBLE", 4, {{"RATE", wobble(kWobbleRate, nullptr)}, {"DEPTH", wobble(kWobbleDepth, nullptr)}, {"TGT", wobble(kWobbleTarget, nullptr)}, {"WOB", Entry{}, true}}},
+    {"MODDED", 4, {{"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SUB", voice(AcidVoice::SubOsc)}, {"STOCK", app_item(Item::Stock)}}},
+    {"NOTES", 4, {{"SOFT ATK", voice(AcidVoice::SoftAtk)}, {"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SWEEP", voice(AcidVoice::AccSweep)}}},
+    {"TONE", 4, {{"TRACK", voice(AcidVoice::Tracking)}, {"FM", voice(AcidVoice::FilterFm)}, {"DRIVE", voice(AcidVoice::Overdrive)}, {"MUFFLER", voice(AcidVoice::Muffler)}}},
 };
-static_assert(kSecVoice == 1u << 0 && kSecDist == 1u << 1 && kSecDelay == 1u << 2 && kSecGrowl == 1u << 3 && kSecWobble == 1u << 4, "the sections are in the mask's order");
+static_assert(kSecVoice == 1u << 0 && kSecDist == 1u << 1 && kSecDelay == 1u << 2 && kSecGrowl == 1u << 3 && kSecWobble == 1u << 4 && kSecModded == 1u << 5 && kSecNotes == 1u << 6 &&
+                  kSecTone == 1u << 7,
+              "the sections are in the mask's order");
 static_assert(kSectionCount <= 8u * sizeof(unsigned), "the sections fit a mask");
 
 // ---- The groups (docs/MODS-PLAN.md 5.1) -----------------------------------------------------------------------------------------------------------
 
-// What each page shows as read-outs: the sections whose knobs it does not draw large. INSTRUMENT's are the interim of MODS-PLAN 5.1.1 (the MODDED section joins in S2).
+// What each page shows as read-outs: the sections whose knobs it does not draw large (MODS-PLAN 5.1.1: VOICE, the anchor of the sound, and the page's closest neighbours).
 constexpr const char* kInstrumentTitles[2] = {"INSTRUMENT VOICE", "INSTRUMENT FX"};
 constexpr const char* kInstrumentTabs[2] = {"VOICE", "FX"};
 constexpr const Page* kInstrumentPages[2] = {nullptr, &kFxPage};
-constexpr unsigned kInstrumentShown[2] = {kSecDist | kSecDelay | kSecGrowl, kSecVoice | kSecWobble};
+constexpr unsigned kInstrumentShown[2] = {kSecDist | kSecDelay | kSecModded, kSecVoice | kSecModded};
 constexpr help_texts::Id kInstrumentHelp[2] = {help_texts::Id::Voice, help_texts::Id::Fx};
+
+constexpr const char* kModdedTitles[2] = {"MODDED NOTES", "MODDED TONE"};
+constexpr const char* kModdedTabs[2] = {"NOTES", "TONE"};
+constexpr const Page* kModdedPages[2] = {&kNotesPage, &kTonePage};
+constexpr unsigned kModdedShown[2] = {kSecVoice | kSecTone, kSecVoice | kSecNotes};
+constexpr help_texts::Id kModdedHelp[2] = {help_texts::Id::ModdedNotes, help_texts::Id::ModdedTone};
 
 constexpr const char* kGrowlTitles[1] = {"GROWL"};
 constexpr const Page* kGrowlPages[1] = {&kGrowlPage};
@@ -108,9 +126,11 @@ constexpr help_texts::Id kWobbleHelp[1] = {help_texts::Id::Wobble};
 
 constexpr InstrumentGroup kInstrumentGroup = {2, kInstrumentTitles, kInstrumentTabs, kInstrumentPages, kInstrumentShown, kInstrumentHelp,
                                               "PARAMS AGAIN = NEXT PAGE   SHIFT + F = MIDI LEARN"};
+constexpr InstrumentGroup kModdedGroup = {2, kModdedTitles, kModdedTabs, kModdedPages, kModdedShown, kModdedHelp, "SHIFT + SAMPLE LOAD = STOCK  SHIFT + F = LEARN"};
 constexpr InstrumentGroup kGrowlGroup = {1, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SHIFT + F = MIDI LEARN"};
 constexpr InstrumentGroup kWobbleGroup = {1, kWobbleTitles, kWobbleTitles, kWobblePages, kWobbleShown, kWobbleHelp, "RUNS WHILE THE WOB ACTION IS ON"};
-static_assert(kInstrumentGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages, "a group has at most kMaxGroupPages pages");
+static_assert(kInstrumentGroup.count <= kMaxGroupPages && kModdedGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages,
+              "a group has at most kMaxGroupPages pages");
 
 // The drawing's geometry (the area is the screen's, under the kit's header): the page's knobs large, the read-outs, the drawer's two lines.
 constexpr int kBigY = frame::kStatusH + 4;
@@ -167,7 +187,7 @@ void draw_big_knobs(ui::Renderer& r, const Rect& area, const view::Knob (&knobs)
     view::translucent(r, pass == 0 ? 120 : 225, [&] {
       for (unsigned k = 0; k < view::kKnobs; ++k) {
         const Rect b = big_box(area, k);
-        const int w = fill_w(knobs[k].norm, b.w);
+        const int w = knobs[k].lit ? b.w : fill_w(knobs[k].norm, b.w);
         if (!knobs[k].blank && knobs[k].focus == (pass == 1) && w > 0) {
           r.panel(Rect{b.x, b.y + b.h - 12, w, 12}, Color::Sel);
         }
@@ -299,6 +319,12 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
   }
 }
 
+// The two action keys (docs/MODS-PLAN.md 5.3, 5.5): a key that runs at its press and is lit while it is on, not a knob the encoder latches. F8 of MODDED is STOCK, F8 of WOBBLE the WOB action.
+constexpr bool is_action(const Entry& entry) noexcept { return entry.item == Item::Stock || entry.item == Item::WobOn; }
+
+// The eleven mods (voice ids 8..18): turning one while STOCK is on ends STOCK. DECAY is the 303's own knob and STOCK itself is not one.
+constexpr bool is_mod(const Entry& entry) noexcept { return entry.item == Item::Voice && entry.id >= AcidVoice::kFirstMod && entry.id < AcidVoice::Stock; }
+
 }  // namespace
 
 // ---- The view logic ---------------------------------------------------------------------------------------------------------------------------
@@ -333,6 +359,7 @@ void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept
 }
 
 const InstrumentGroup& instrument_group() noexcept { return kInstrumentGroup; }
+const InstrumentGroup& modded_group() noexcept { return kModdedGroup; }
 const InstrumentGroup& growl_group() noexcept { return kGrowlGroup; }
 const InstrumentGroup& wobble_group() noexcept { return kWobbleGroup; }
 
@@ -490,6 +517,11 @@ void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   }
   const std::uint32_t affected = pk.held() != 0u ? pk.held() : (1u << pk.focus());
   const Page& pg = pk.page();
+  for (unsigned k = 0; k < kKeys && rig_->wiring.stock; ++k) {  // a player who reaches for a mod wants to hear it (MODS-PLAN 5.3): STOCK ends before the turn lands (a lock, a lane or a CC does not end it)
+    if ((affected >> k & 1u) != 0u && is_mod(pg.entry[k])) {
+      toggle_stock(*rig_, ctx);
+    }
+  }
   (void)pk.input(ctx, in, *controls_);
   for (unsigned k = 0; k < kKeys; ++k) {  // Rec while the pattern plays: the move is written as motion under the playhead (the home map's)
     if ((affected >> k & 1u) != 0u) {
@@ -508,6 +540,10 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
         ctx.redraw();
         return;
       }
+      if (is_action(keys().page().entry[k])) {  // F8 STOCK / WOB: it runs at the press, and the encoder and the latch stay where they were
+        run_action(ctx, keys().page().entry[k]);
+        return;
+      }
       if (keys().page().entry[k].item != Item::Blank) {
         home_->release_row();  // an F key gives the encoder back to the knob (UX-303 2.3); an empty box does nothing
       }
@@ -517,12 +553,28 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
         tool_mask_ &= ~(1u << k);
         return;
       }
+      if (is_action(keys().page().entry[k])) {  // its press did the work; the release has no latch to give back
+        return;
+      }
       (void)keys().input(ctx, in, *controls_);
     }
     return;
   }
   (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows)
 }
+
+// An action key's press: STOCK flips the voice's switch (the same gesture as Shift + Sample Loader), WOB latches or releases PERFORM's WOB action (LiveActions::toggle_latch).
+void InstrumentScreen::run_action(app::Context& ctx, const Entry& entry) noexcept {
+  if (entry.item == Item::Stock) {
+    toggle_stock(*rig_, ctx);
+  } else {
+    live_->toggle_latch(ctx, PerfAction::Wobble);
+  }
+  ctx.redraw();
+}
+
+// Whether an action key is on now: STOCK's mirror, or the WOB action latched (a held one cannot be here: a screen change lets it go, and no colour button holds it on this screen).
+bool InstrumentScreen::action_on(const Entry& entry) const noexcept { return entry.item == Item::Stock ? rig_->wiring.stock : live_->latched(PerfAction::Wobble); }
 
 // ---- Soft keys and LEDs -----------------------------------------------------------------------------------------------------
 
@@ -645,6 +697,14 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     view::Knob& kn = view.knob[k];
     frame::fill_knob(ctx, *controls_, k, pg.entry[k], kn);
     if (kn.blank) {
+      continue;
+    }
+    if (is_action(pg.entry[k])) {  // a key and not a knob: no pointer (norm below 0 is the skin's Action slot), its state ON / OFF as the hint, lit while on
+      kn.norm = -1.0f;
+      kn.toggle = false;
+      kn.lit = action_on(pg.entry[k]);
+      cut(kn.lit ? "ON" : "OFF", sizeof kn.value - 1u, kn.value, sizeof kn.value);
+      kn.unit = "";
       continue;
     }
     kn.focus = k == pk.focus() && (home_->row() == DrawerRow::None || home_->row() == DrawerRow::Lock);

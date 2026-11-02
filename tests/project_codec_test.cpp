@@ -891,12 +891,88 @@ TEST_CASE("project: a SNAP with fewer values is filled from the sound as loaded"
   CHECK(live[16] == a.rig.wiring.level_db);  // target 16 is the level
 }
 
+TEST_CASE("project: a SNAP saved before the mods (22 values a slot) loads, and the mods' and the growl's new targets 22..35 are filled from the sound as loaded") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  constexpr unsigned kOld = 22;  // the targets of kSnapTargetCount before MODS S2 (docs/MODS-PLAN.md 5.9)
+  static_assert(kSnapTargetCount == kOld + 14, "MODS S2 appended eleven mods and FMT MIX, CMB TUNE, CMB FB");
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (!is(id, "SNAP")) {
+      return true;
+    }
+    // slots 8, values 22, used = slots 0 and 6, then 8 x 22 floats: slot s value i = 100 s + i
+    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
+    for (unsigned s = 0; s < 8; ++s) {
+      for (unsigned i = 0; i < kOld; ++i) {
+        const float v = static_cast<float>(100 * s + i);
+        std::uint32_t bits;
+        std::memcpy(&bits, &v, 4);
+        for (int sh = 24; sh >= 0; sh -= 8) {
+          out.push_back(static_cast<std::uint8_t>(bits >> sh));
+        }
+      }
+    }
+    p = out;
+    return true;
+  });
+  project::ProjectState s;
+  REQUIRE(load(old, s).status == project::Status::Ok);
+  CHECK(s.snap_values == kOld);
+  Session b;
+  project::apply(b.rig, b.engine, s);
+  REQUIRE(b.rig.wiring.snaps.used(0));
+  REQUIRE(b.rig.wiring.snaps.used(6));
+  float live[kSnapValues];
+  b.rig.controls.snap_capture(b.engine, live);
+  const project::ProjectState g = b.gather();
+  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
+    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
+    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
+  }
+  // The sound the new targets are filled from is the project's: the scrambled voice's ACC DECAY is target 22.
+  CHECK(live[22] == doctest::Approx(a.engine.param(a.rig.wiring.voice, AcidVoice::AccDecay)));
+}
+
+TEST_CASE("project: a SNAP with more values than this build holds (an image of a later build) keeps the first kSnapValues of every slot and reads on in step") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  constexpr unsigned kMore = kSnapValues + 6;  // what a build with six more targets would write
+  const auto more = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (!is(id, "SNAP")) {
+      return true;
+    }
+    std::vector<std::uint8_t> out = {p[0], p[1], 8, kMore, 0xFF};
+    for (unsigned s = 0; s < 8; ++s) {
+      for (unsigned i = 0; i < kMore; ++i) {
+        const float v = static_cast<float>(100 * s + i);
+        std::uint32_t bits;
+        std::memcpy(&bits, &v, 4);
+        for (int sh = 24; sh >= 0; sh -= 8) {
+          out.push_back(static_cast<std::uint8_t>(bits >> sh));
+        }
+      }
+    }
+    p = out;
+    return true;
+  });
+  project::ProjectState s;
+  REQUIRE(load(more, s).status == project::Status::Ok);
+  CHECK(s.snap_values == kSnapValues);  // the bound is the build's (an older image's clamp: it keeps what it has room for)
+  for (unsigned slot = 0; slot < 8; ++slot) {  // the extra values did not push the next slot out of place
+    for (unsigned i = 0; i < kSnapValues; ++i) {
+      CHECK(s.snap[slot][i] == static_cast<float>(100 * slot + i));
+    }
+  }
+}
+
 TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the growl's four targets are filled from the sound as loaded") {
   Session a;
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   constexpr unsigned kOld = 18;  // the targets of kSnapTargetCount before P2: SOUND, distortion, delay, level, send
-  static_assert(kSnapTargetCount == kOld + 4, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX");
+  static_assert(kSnapTargetCount == kOld + 4 + 14, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX, MODS S2 the eleven mods and FMT MIX, CMB TUNE, CMB FB");
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SNAP")) {
       return true;
@@ -930,7 +1006,7 @@ TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the gro
   b.rig.controls.snap_capture(b.engine, live);
   const project::ProjectState g = b.gather();
   for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    // The old targets keep what the file held; the four new ones are the sound as loaded (the growl's vowel, Q, mix and comb mix of the project).
+    // The old targets keep what the file held; the new ones are the sound as loaded (the growl's vowel, Q, mix and comb mix of the project, then the mods').
     CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
     CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
   }

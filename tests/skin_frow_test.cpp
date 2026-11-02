@@ -224,6 +224,8 @@ TEST_CASE("frow: the states are copied: focus, held, locked and dim, and a switc
   in[4].toggle = true;
   in[4].off_name = "SAW";
   in[4].on_name = "SQUARES";
+  in[7] = knob("STOCK", "ON", "", -1.0f);
+  in[7].lit = true;  // MODDED's F8 while STOCK is on
   in[5] = knob("WAVE", "SAW", "", 0.49f);
   in[5].toggle = true;
   in[5].off_name = "SAW";
@@ -253,6 +255,10 @@ TEST_CASE("frow: the states are copied: focus, held, locked and dim, and a switc
   CHECK(v.slot[4].norm == 1.0f);
   CHECK(v.slot[5].norm == 0.0f);
   CHECK(v.slot[6].norm == 1.0f);
+  CHECK(v.slot[7].kind == SlotKind::Action);
+  CHECK(v.slot[7].lit);  // an action key that is on is lit; the others are not
+  CHECK_FALSE(v.slot[3].lit);
+  CHECK_FALSE(v.slot[0].lit);
 }
 
 TEST_CASE("frow: the voice's WAVE is a two-place list, so HOME's fill_knob makes it a switch") {

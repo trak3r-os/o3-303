@@ -1,0 +1,71 @@
+# The mods in the sound (docs/MODS-PLAN.md 3, 10 S2): the factory line (125 bpm, 16 steps) played from step 1 through twelve sections of two bars (3.84 s) each:
+# the stock voice, then each of the eleven mods alone at a setting that is easy to hear (set at the section's start by a turn of its key on MODDED NOTES or TONE, put back
+# by the opposite turn at its end). The WAV is the evidence: `mods.wav`, which starts at the first Play. Where each section begins in it, give or take the few
+# milliseconds of the gestures:
+#    1    0.00 s  STOCK (no mod)
+#    2    3.84 s  SOFT ATK: 30 ms soft attack: the click goes
+#    3    7.68 s  ACC DECAY: accents ring longer
+#    4   11.52 s  AMP DECAY: a short amp decay: plucked
+#    5   15.36 s  SLIDE: slower slides
+#    6   19.20 s  ACC SWEEP: HI RES: the accent sweep is the full one
+#    7   23.04 s  SWP SPEED: SLOW sweep speed
+#    8   26.88 s  TRACKING: the cutoff follows the note
+#    9   30.72 s  FILTER FM: the filter is fed by its own oscillator
+#   10   34.56 s  OVERDRIVE: +10 dB into the ladder
+#   11   38.40 s  MUFFLER: HARD muffler: the output clipped
+#   12   42.24 s  SUB OSC: a sub oscillator, MID
+wait 300
+record on
+tap play
+wait 3778
+# sampleload opens MODDED NOTES
+tap sampleload
+tap f1
+turn 5
+wait 3714
+turn -5
+tap f3
+turn 30
+wait 3776
+turn -30
+tap f4
+turn -60
+wait 3776
+turn 60
+tap f5
+turn 30
+wait 3776
+turn -30
+tap f6
+turn 1
+wait 3776
+turn -1
+tap f7
+turn 1
+wait 3776
+turn -1
+tap sampleload
+tap f1
+turn 100
+wait 3714
+turn -100
+tap f2
+turn 50
+wait 3776
+turn -50
+tap f3
+turn 20
+wait 3776
+turn -20
+tap f4
+turn 2
+wait 3776
+turn -2
+tap f5
+turn 2
+wait 3776
+turn -2
+tap play
+wait 600
+wav mods
+snap 01_end

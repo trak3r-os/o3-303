@@ -31,6 +31,24 @@ TEST_CASE("snapshots: a fresh bank is empty and recalls nothing") {
   CHECK_FALSE(b.morphing());
 }
 
+TEST_CASE("snapshots: stored() reads a slot as it was stored, whatever the morph is doing, and zeros for an empty or bad slot or target") {
+  SnapBank b;
+  float a[kSnapValues];
+  float live[kSnapValues];
+  fill(a, 100.0f);
+  fill(live, 7.0f);
+  a[kSnapValues - 1] = 5.0f;
+  b.store(2, a);
+  CHECK(b.stored(2, 0) == 100.0f);
+  CHECK(b.stored(2, kSnapValues - 1) == 5.0f);
+  REQUIRE(b.recall(2, live));
+  b.turn(-static_cast<int>(kMorphSteps), false);  // the morph is at its start (the live sound): the slot is still what it holds
+  CHECK(b.stored(2, 0) == 100.0f);
+  CHECK(b.stored(3, 0) == 0.0f);
+  CHECK(b.stored(kSnapSlots, 0) == 0.0f);
+  CHECK(b.stored(2, kSnapValues) == 0.0f);
+}
+
 TEST_CASE("snapshots: the first recall morphs back to the sound as it was, the next ones to the snapshot before") {
   SnapBank b;
   float a[kSnapValues];

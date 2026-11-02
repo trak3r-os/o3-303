@@ -198,13 +198,16 @@ void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderI
     out.message_off = status.take_msg_off;
   }
   out.save_failed = status.save_failed;
+  out.stock = status.stock;
 }
 
 void draw_header(Panel& p, const HeaderView& v) noexcept {
-  // The brand and its tagline (red while the last autosave has failed).
+  // The brand and its tagline (red while the last autosave has failed, amber while STOCK has the mods out).
   p.sprite(Layer::Logo, Id::Logo, 0, 12, 4, pal::kLogo);
   if (v.save_failed) {
     p.text(14, 52, "SAVE FAILED", Color::Rec, Face::Micro);
+  } else if (v.stock) {
+    p.text(14, 52, "STOCK . MODS OFF", Color::Accent, Face::Micro);
   } else {
     p.text(14, 52, "ACID BASS VOICE", Color::ChromeDim, Face::Micro);
   }

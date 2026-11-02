@@ -549,9 +549,17 @@ No change:
     targets (D29).
 - The wobble stays out (D29). STOCK is not a target.
 - A snapshot holds the stored values, so a recall during STOCK is heard at STOCK OFF.
+- **A recall or a morph does not write a new target it leaves where it is** (`kSnapTargetsBeforeMods`, `LiveActions::snap_apply` and
+  `snap_finish`). The older targets glide on the sequencer's slews, and `Sequencer::slew_value` maps the value through
+  `param_denorm(param_norm(x))` even when from equals the goal. Measured: ACC DECAY 180 comes back 180.000015, so the Log time row takes
+  its exp path instead of the stock constant, a few ulps off (SLIDE at its minimum, AMP DECAY at its maximum, TRACKING, OVERDRIVE and
+  FILTER FM come back exact, and ACC DECAY is not in `mods_needed()`, so no modded loop is involved). Left alone, a recall on a
+  project that never used the mods moved `perform_pads.wav` and both `snapshots` WAVs by those last bits. Only the 14 new targets are
+  skipped, so the older ones keep their writes and their WAVs. A mod that a glide of the same morph had started is stopped and set exactly.
 - **Morph:** `snap_discrete()` is true for Enum, so SUB OSC, MUFFLER, ACC SWEEP and SWP SPEED switch at the middle of the morph, as WAVE
   and MODEL do. The continuous ones glide.
-- `SnapBank` grows from 8 × 24 + 2 × 24 floats to 8 × 40 + 2 × 40, 640 B more of SRAM.
+- `SnapBank` grows from 8 × 24 + 2 × 24 floats to 8 × 40 + 2 × 40, 640 B more of SRAM. `project.cpp` `gather()` reads the slots with
+  `SnapBank::stored()` and no longer copies the bank onto the stack (the copy would have been about 1.6 KB).
 
 ### 5.10 MIDI learn
 
@@ -566,8 +574,11 @@ No change:
 
 - `Item::Stock` is an app item (not a unit item, so no lane, no learn and no snapshot). It writes voice id 19 through `Controls`, and
   `Rig` keeps a mirror for the chip.
-- STOCK is OFF at boot. A project load, NEW and RESET PROJECT also turn it OFF, so a project is always heard as saved first. It is never
-  saved.
+- STOCK is OFF at boot. A project load, NEW, REVERT and RESET PROJECT also turn it OFF (`project::apply()`, the one entry of all of them),
+  so a project is always heard as saved first. It is never saved.
+- A turn of the encoder on any of the eleven mods (not DECAY, not a lock) ends STOCK first, with the words STOCK OFF: a player who reaches
+  for a mod wants to hear it. A controller, a lane, a lock or a snapshot recall writes the stored value and leaves STOCK as it is. MODDED's HELP summary says both ("A TURN ENDS STOCK. A CC, LANE, LOCK OR
+  SNAPSHOT MOVES A MOD UNDER STOCK"); S4's manual says it in full.
 - STOCK takes only the eleven mods to stock. The 303's own knobs (CUTOFF..TUNE, DECAY included), FX, the growl and the wobble are
   untouched. "Stock" means o3-303's plain voice (Replicant's model), not a hardware TB-303.
 
@@ -807,11 +818,16 @@ Common to every slice:
   - new `mods.txt`, the sound: the factory line through twelve sections, stock and then each mod alone at a telling setting, with one
     WAV at the end and the sections' times in its comment;
   - new `mods_stock.txt` and `mods_stock_ab.txt`, the A/B. A scenario's `wav` writes all the audio since the start
-    (`Harness::write_wav`), so the A/B takes two scenarios with the same timeline. With the transport stopped and the voice silent,
-    `mods_stock` waits, while `mods_stock_ab` sets every mod to an extreme and turns STOCK on in the same time. Both then play the
-    factory line from step 1 for 8 bars and write `stock.wav`;
+    (`Harness::write_wav`), so the A/B takes two scenarios with the same timeline. **As built (S2), STOCK goes on first and the mods
+    reach their extremes afterwards by a path that does not end STOCK**: both scenarios turn STOCK on with Shift + Sample Loader and
+    learn the eleven mods to controllers 20 to 30 (Shift + F, a binding message); `mods_stock` stops there, so the controllers do
+    nothing, and `mods_stock_ab` then sends each controller through its knob to the end (pickup mode needs it to cross the
+    parameter). The voice never leaves its stock loop, so there is no perturbation to wait out (3.3 point 9) and the two files can be
+    equal to the byte. The first design here (the mods set, then STOCK, with the voice silent) would need the state to converge, which
+    it does not where the idle ladder rings. Both then play the factory line from step 1 for 8 bars and write `stock.wav`;
   - **the scenario-test change:** `tests/o3_303_scenarios_test.cpp` gains a check, after every scenario has run, that
-    `mods_stock/stock.wav` and `mods_stock_ab/stock.wav` are byte-identical. The four new scenarios join the required list (143).
+    `mods_stock/stock.wav` and `mods_stock_ab/stock.wav` are byte-identical. The four new scenarios join the required list (the
+    `for` over the names at line 143 of that file: 31 names before S2, 35 after; "143" in section 8's table is that line, not a count).
 - **Acceptance:**
   - the tests;
   - every earlier WAV byte-identical;
@@ -825,8 +841,9 @@ Common to every slice:
   - tabs per group; blank slots; the lit STOCK and WOB keys;
   - the tagline under STOCK, and SAVE FAILED winning;
   - the fullest frame of each new page, queue use with `dropped() == 0`.
-- **Scenario:** new `skin_modded.txt`: MODDED NOTES and TONE, GROWL, WOBBLE, STOCK on HOME, the worst frame. It joins the scenarios
-  test's required list (143).
+- **Scenario:** new `skin_modded.txt`: MODDED NOTES and TONE, GROWL, WOBBLE, STOCK on HOME, the worst frame, and HOME right after a
+  MIDI learn toast (5,296 px a line today, over the 4,800 ceiling: section 13), which S3 measures and fixes. It joins the scenarios
+  test's required list (that same `for`, 36 names then).
 - **Acceptance:** every skinned frame under 1,350 words, 100 primitives and 4,800 px. The numbers are recorded in the slice report and
   SKIN-PLAN, and everything else is byte-identical. The host cannot show A9; the pages inherit its failure (section 9).
 
@@ -915,10 +932,20 @@ A host test is not this check. The slices name the unit check they leave to it.
 - **The host pin depends on glibc:** on another glibc the test reports that it did not check, so S1's before-and-after comparison must
   run on one machine.
 - **Lanes on mods in older images,** and the STOCK lane guard: 5.8.
-- **S2's `mods_stock_ab` scenario is byte-identical to a stock render only if the sets and STOCK land before any block renders.** Mods
-  that are set or removed while the voice runs leave the voice state perturbed for about 0.4 s (3.3 point 9), so a scenario that sets
-  them mid-run and compares with a never-modded run differs for that long, and that is the plan, not a defect. S2 also owns resetting
-  STOCK when a project loads (5.11): S1's `apply()` does not.
+- **S2's `mods_stock_ab` scenario is byte-identical to a stock render only if the voice never leaves its stock loop.** Mods that are
+  set or removed while the voice runs leave the voice state perturbed for about 0.4 s (3.3 point 9), and never converge where the idle
+  ladder rings, so a scenario that sets them mid-run with STOCK off and compares with a never-modded run differs, and that is the
+  plan, not a defect. S2's design: STOCK first, then the mods by controllers (a controller, a lane, a lock and a snapshot recall write
+  the stored value and do not end STOCK; only a turn of the encoder on a mod does, 5.11). The unit test
+  (`modded_screen_test.cpp`, "mods_stock_ab") checks the same by the engine's own set_param, with every mod at its maximum and at its
+  minimum, three orders (STOCK then mods, mods and STOCK in one block, STOCK alone), and that the same mods without STOCK are heard.
+  S2 also owns resetting STOCK when a project loads (5.11): S1's `apply()` does not, and S2's does.
+- **A skinned frame over the ceiling already exists.** HOME right after a MIDI learn toast is 5,296 px on its busiest line (ceiling
+  4,800), at 9fdb583 and after S2 alike; it settles to 4,306 px. The scenarios test never snaps that frame. S2 leaves the drawing;
+  S3 snaps the frame in `skin_modded.txt` and fixes it (SKIN-PLAN 4.3).
+- **Follow-up for a re-baseline slice: `Sequencer::slew_value` returns the goal exactly when from equals goal.** Today it goes through
+  `param_denorm(param_norm(x))` and ACC DECAY 180 comes back 180.000015 (5.9). The clean fix would let snapshots write the mods like
+  every other target, but it moves older WAVs by their last bits, so it waits for a deliberate re-baseline. S2 does not do it.
 - **Skin draw time: A9 failed** (`peak_us` 3 to 5 ms against 2,000 µs), and MODDED, GROWL and WOBBLE inherit the failure. SK8 stays
   blocked on A9; it is not fixed here.
 - **The MIDI tools** belong to the MIDI lane until the orchestrator hands them to S0. S0 cannot pass `midi_check_selftest` without them.

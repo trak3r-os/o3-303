@@ -43,7 +43,6 @@ static_assert(kTakeFrames >= 30u * 44'118u, "30 s at the faster of the engine's 
 
 constexpr std::uint32_t kStepsPerBar = 16;      // the recorder's Bar: 16 sixteenths
 constexpr unsigned kGainDefault = 50;           // the input's gain when the player has not chosen one (percent)
-constexpr std::uint64_t kMessageMs = 2500;      // how long a take message stays on the status lines (as the toasts)
 constexpr std::uint64_t kDiscardAskMs = 5000;   // a destructive key asks for a second press within this (UX-303 2.4)
 constexpr std::uint32_t kScanFrames = 8192;     // the envelope reads at most this many frames a pass (the main loop's bounded work)
 
@@ -463,13 +462,7 @@ const char* RecordScreen::blocker(const app::Context& ctx) const noexcept {
 }
 
 // A word from the take on every screen's status line (Rig::take_msg), for a moment.
-void RecordScreen::say(app::Context& ctx, const char* text, bool off) noexcept {
-  std::strncpy(rig_->take_msg, text, sizeof rig_->take_msg - 1u);
-  rig_->take_msg[sizeof rig_->take_msg - 1u] = '\0';
-  rig_->take_msg_off = off;
-  rig_->take_msg_until_ms = ctx.uptime_ms() + kMessageMs;
-  ctx.redraw();
-}
+void RecordScreen::say(app::Context& ctx, const char* text, bool off) noexcept { say_on_status(*rig_, ctx, text, off); }
 
 // ---- The take ---------------------------------------------------------------------------------------------------------------------------
 

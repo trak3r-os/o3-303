@@ -231,6 +231,11 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   CHECK(str(v.page) == "PATTERN SETUP");
   CHECK(str(v.enc) == "F1 CUTOFF");
   CHECK(v.save_failed);
+  CHECK_FALSE(v.stock);
+  st.stock = true;  // STOCK has the mods out: the header carries it (the tagline says so, see the next test)
+  fill_header(v, st, in);
+  CHECK(v.stock);
+  st.stock = false;
   CHECK(v.take == Take::None);
   CHECK_FALSE(v.take_lit);
   CHECK(str(v.take_text) == "TAKE");
@@ -328,6 +333,49 @@ TEST_CASE("header: PLAYS: SONG changes the TRANSPORT legend and nothing else") {
   draw_header(p, song);
   CHECK(p.shapes() == shapes);
   CHECK(p.texts() == texts);
+}
+
+TEST_CASE("header: the tagline is ACID BASS VOICE, STOCK . MODS OFF in the accent colour while STOCK is on, and a failed save (red) wins over both") {
+  const auto taglines = [](const frame::StatusView& st, unsigned& dim, unsigned& accent, unsigned& red) {
+    Panel p;
+    p.clear();
+    queue_panel(p, kHeaderH, 384);
+    HeaderInputs in;
+    in.title = "STEPS";
+    for (unsigned b = 0; b < kPerfButtons; ++b) {
+      in.perf[b] = kDefaultPerf[b];
+    }
+    HeaderView v;
+    fill_header(v, st, in);
+    draw_header(p, v);
+    dim = accent = red = 0;
+    for (unsigned i = 0; i < p.texts(); ++i) {
+      Panel::TextInfo tx;
+      if (p.text_at(i, tx) && tx.x == 14 && tx.y == 52) {  // the brand's line
+        dim += tx.color == ui::Color::ChromeDim ? 1u : 0u;
+        accent += tx.color == ui::Color::Accent ? 1u : 0u;
+        red += tx.color == ui::Color::Rec ? 1u : 0u;
+      }
+    }
+  };
+  frame::StatusView st;
+  unsigned dim = 0;
+  unsigned accent = 0;
+  unsigned red = 0;
+  taglines(st, dim, accent, red);
+  CHECK(dim == 1u);
+  CHECK(accent == 0u);
+  CHECK(red == 0u);
+  st.stock = true;
+  taglines(st, dim, accent, red);
+  CHECK(dim == 0u);
+  CHECK(accent == 1u);
+  CHECK(red == 0u);
+  st.save_failed = true;
+  taglines(st, dim, accent, red);
+  CHECK(dim == 0u);
+  CHECK(accent == 0u);
+  CHECK(red == 1u);
 }
 
 TEST_CASE("header: a full header, with every lamp and window lit, is far inside the queue") {

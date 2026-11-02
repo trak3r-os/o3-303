@@ -57,7 +57,7 @@ struct FSlot {
   bool held = false;
   bool locked = false;
   bool dim = false;
-  bool lit = false;                         // Action: the key is lit red (RECORD's ARM / STOP while it records); the screen sets it after fill_frow(), no view::Knob has it
+  bool lit = false;                         // Action: the key is lit red (RECORD's ARM / STOP while it records, MODDED's STOCK, WOBBLE's WOB while on): fill_frow() takes Knob::lit, and a screen may set it after
 };
 
 struct FRowView {
@@ -78,5 +78,9 @@ void queue_label(Panel& p, int cx, int y, const char* fkey, const char* name, ui
 void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s) noexcept;
 // The slide switch of a two-place list, its track centred on (`cx`, `cy`), both names either side.
 void queue_switch(Panel& p, int cx, int cy, const FSlot& s) noexcept;
+// The cap's face of an action key (the bitmap is 40 high with its lower lip).
+inline constexpr int kKeyH = 36;
+// The raised key of an action slot, its cap's top at `y` (the F row's is at kKeyY; INSTRUMENT's knob row puts it where a knob would be).
+void queue_action_key(Panel& p, int cx, int y, const FSlot& s) noexcept;
 
 }  // namespace o3_303::skin

@@ -45,6 +45,7 @@ struct HeaderView {
   char message[28] = "";       // a toast or a take message for its life, in the PAGE window in amber; "" none
   bool message_off = false;    // it says something did not happen: outlined in red
   bool save_failed = false;    // the tagline turns red: "SAVE FAILED"
+  bool stock = false;          // STOCK is on: the tagline says "STOCK . MODS OFF" in Accent (a failed save, which is red, wins)
 };
 
 // What the header needs besides the StatusView: the context's, as plain values.

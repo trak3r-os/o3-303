@@ -29,6 +29,7 @@ struct Knob {
   const char* off_name = "";
   const char* on_name = "";
   bool dim = false;         // an action key (norm below 0) with nothing to do now: the skin's key is dimmed, the classic strip fades its texts (the layout does not move)
+  bool lit = false;         // an action key that is on (MODDED's F8 STOCK, WOBBLE's F8 WOB): the classic box is filled whole, the skin's key is lit red (skin/frow.h)
 };
 
 // The boxes under the top line of `area` (the strip's rectangle: kKnobStripTopH of PADS line, then the boxes).

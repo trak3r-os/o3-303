@@ -1,0 +1,72 @@
+# MODDED (docs/MODS-PLAN.md 4.3, 5.3, 5.8 to 5.12): Sample Loader opens MODDED on NOTES (SOFT ATK, DECAY, ACC DECAY, AMP DECAY, SLIDE, ACC SWEEP, SWP SPEED; F8 is the STOCK key) and again goes to
+# TONE (TRACKING, FILTER FM, OVERDRIVE, MUFFLER, SUB OSC) and back: INSTRUMENT's screen class, with its large knobs, the read-outs of the neighbouring sections, the drawer and the Shift row, which
+# is MIDI learn (LEARN on every mod and on DECAY, "-" on STOCK). F8 is a key and not a knob: it flips STOCK at the press (lit while the mods are out), and the status line carries a STOCK chip on
+# every screen. A turn of a mod ends STOCK (STOCK OFF, said on the status line); a lock does not, and Shift + Sample Loader flips STOCK from any screen with no change of screen. The sound is
+# mods.txt's, and the A/B of STOCK is mods_stock.txt's and mods_stock_ab.txt's.
+wait 300
+tap sampleload
+snap 01_notes
+# ACC DECAY (F3) to the right, SOFT ATK (F1, six steps) to 3 MS: the knobs, and the read-outs of VOICE and TONE under them.
+tap f3
+turn 40
+tap f1
+turn 3
+wait 100
+snap 02_notes_edited
+# The same button again goes to TONE: TRACKING to 60 %, SUB OSC to MID.
+tap sampleload
+tap f1
+turn 60
+tap f5
+turn 2
+wait 100
+snap 03_tone_edited
+# The Shift row: LEARN on the five mods, "-" on the empty keys and on STOCK (F8). Shift + F2 arms FILTER FM; controller 75 binds it and the kit's strip says LEARNED CC 75.
+press shift
+wait 800
+snap 04_shift_row_is_learn
+tap f2
+wait 100
+snap 05_learn_armed
+midi usb b0 4b 40
+wait 200
+snap 06_learned
+# Shift + F8 is not a learn: STOCK is a switch of the app's and says so.
+tap f8
+wait 100
+snap 07_stock_cannot_learn
+release shift
+# F8 on its own: STOCK on. The key is lit, the tagline says so, and the knobs keep their values (the mods are stored, not lost).
+wait 700
+tap f8
+wait 100
+snap 08_stock_on
+# The chip on HOME and on PERFORM: STOCK is the voice's, not this screen's.
+tap pattern
+wait 100
+snap 09_stock_on_home
+tap performance
+wait 100
+snap 10_stock_on_perform
+# Sample Loader from another screen opens NOTES: a turn of SOFT ATK (a mod) ends STOCK: the toast, the key dark, the chip gone.
+tap sampleload
+tap f1
+turn 1
+wait 100
+snap 11_a_turn_ends_stock
+# A lock does not end STOCK, and does not need it off: Shift + Sample Loader from HOME flips STOCK on again with no change of screen, a step is held and ACC DECAY (F3 of NOTES, which Sample Loader opens) is locked on it.
+tap pattern
+press shift
+tap sampleload
+release shift
+wait 100
+snap 12_stock_from_home
+tap sampleload
+tap f3
+paddown 5
+turn 10
+wait 100
+snap 13_lock_on_a_step
+padup 5
+wait 100
+snap 14_lock_kept_stock_on

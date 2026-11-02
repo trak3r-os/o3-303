@@ -84,17 +84,26 @@ TEST_CASE("help texts: every table keeps the kit's limits") {
   }
 }
 
+TEST_CASE("help texts: MODDED's summary says what ends STOCK and what does not (MODS-PLAN 5.11)") {
+  for (Id id : {Id::ModdedNotes, Id::ModdedTone}) {
+    const std::string s = text(id).summary;
+    CHECK_MESSAGE(s.find("A TURN ENDS STOCK") != std::string::npos, text(id).name);
+    CHECK_MESSAGE(s.find("A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK") != std::string::npos, text(id).name);
+  }
+}
+
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
   // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD seven,
-  // GROWL seven and WOBBLE five (the rest are empty wells).
-  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::Library}) {
+  // GROWL seven, WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE six (F1..F5 and F8 STOCK); MODDED NOTES names all eight (the rest are empty wells).
+  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::ModdedNotes, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
       CHECK_MESSAGE(text(id).fkey[k] != nullptr, text(id).name << " F" << k + 1);
     }
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
     CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 7), "GROWL F" << k + 1);
-    CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5), "WOBBLE F" << k + 1);
+    CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
+    CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5 || k == 7), "MODDED TONE F" << k + 1);
   }
   CHECK(text(Id::Master).fkey[3] != nullptr);
   CHECK(text(Id::Master).fkey[4] != nullptr);  // DLY MODE (S0 of docs/MODS-PLAN.md)
@@ -342,7 +351,7 @@ void check_screen(sim::Harness& h, Id id, unsigned knob_row, std::uint64_t pads,
 
 }  // namespace
 
-TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, GROWL, WOBBLE, MASTER and RECORD each give the kit their own Text") {
+TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD each give the kit their own Text") {
   Hands t;
   sim::Harness& h = *t.h;
   const unsigned sound = page_mask(page_at(kPageSound));
@@ -362,6 +371,18 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
     check_screen(h, Id::Fx, page_mask(inst->page_table()), kAllPads, "INSTRUMENT FX");
+  }
+  tap(h, app::Button::SampleLoad);
+  {
+    app::Context& ctx = h.runtime().context();
+    const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
+    check_screen(h, Id::ModdedNotes, page_mask(inst->page_table()), kAllPads, "MODDED NOTES");
+  }
+  tap(h, app::Button::SampleLoad);
+  {
+    app::Context& ctx = h.runtime().context();
+    const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
+    check_screen(h, Id::ModdedTone, page_mask(inst->page_table()), kAllPads, "MODDED TONE");
   }
   tap(h, app::Button::SamplePlay);
   {
@@ -386,11 +407,12 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
 }
 
-TEST_CASE("help texts: Sample Playback opens GROWL and Sample Editor WOBBLE from every screen but their own; Sample Loader is listed nowhere (drawn dim) until S2") {
+TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift flips STOCK on every screen; Sample Playback and Sample Editor open GROWL and WOBBLE from every screen but their own") {
   for (unsigned i = 0; i < kIdCount; ++i) {
     const Text& t = text(static_cast<Id>(i));
     const HelpButton* play = nullptr;
     const HelpButton* edit = nullptr;
+    const HelpButton* load = nullptr;
     for (unsigned b = 0; b < t.button_count; ++b) {
       if (t.buttons[b].button == app::Button::SamplePlay) {
         play = &t.buttons[b];
@@ -398,8 +420,14 @@ TEST_CASE("help texts: Sample Playback opens GROWL and Sample Editor WOBBLE from
       if (t.buttons[b].button == app::Button::SampleEdit) {
         edit = &t.buttons[b];
       }
-      CHECK_MESSAGE(t.buttons[b].button != app::Button::SampleLoad, t.name << ": Sample Loader does nothing yet");
+      if (t.buttons[b].button == app::Button::SampleLoad) {
+        load = &t.buttons[b];
+      }
     }
+    REQUIRE_MESSAGE(load != nullptr, t.name << ": Sample Loader is not listed");
+    const bool on_modded = static_cast<Id>(i) == Id::ModdedNotes || static_cast<Id>(i) == Id::ModdedTone;
+    CHECK_MESSAGE(std::strcmp(load->text, on_modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED") == 0, t.name);
+    CHECK_MESSAGE(std::strcmp(load->shift, "STOCK: ALL MODS OFF / ON") == 0, t.name << ": Shift + Sample Loader");
     if (static_cast<Id>(i) == Id::Growl) {
       CHECK_MESSAGE(play == nullptr, t.name << ": Sample Playback does nothing on GROWL (it is drawn dimmed)");
     } else {

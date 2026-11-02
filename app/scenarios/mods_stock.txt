@@ -1,0 +1,75 @@
+# The A/B of STOCK, with mods_stock_ab.txt (docs/MODS-PLAN.md 5.11, 13): `stock.wav` of the two scenarios, the factory line from step 1 for eight bars with STOCK on,
+# must be byte for byte the same file. Both have one timeline (the same gestures at the same milliseconds): STOCK on first, then each of the eleven mods learned to a
+# controller (Shift + F, a message of controller 20 to 30 binds it). Here the controllers only bind: no mod moves, so this is the stock voice, heard.
+# A scenario's `wav` writes the audio from `record on`, so the A/B is two scenarios and not two takes of one.
+wait 300
+record on
+# STOCK on from HOME (Shift + Sample Loader), then MODDED NOTES and TONE: every mod is learned to a controller (20 to 30)
+press shift
+tap sampleload
+release shift
+wait 50
+tap sampleload
+press shift
+tap f1
+release shift
+midi usb b0 14 40
+wait 20
+press shift
+tap f3
+release shift
+midi usb b0 15 40
+wait 20
+press shift
+tap f4
+release shift
+midi usb b0 16 40
+wait 20
+press shift
+tap f5
+release shift
+midi usb b0 17 40
+wait 20
+press shift
+tap f6
+release shift
+midi usb b0 18 40
+wait 20
+press shift
+tap f7
+release shift
+midi usb b0 19 40
+wait 20
+tap sampleload
+press shift
+tap f1
+release shift
+midi usb b0 1a 40
+wait 20
+press shift
+tap f2
+release shift
+midi usb b0 1b 40
+wait 20
+press shift
+tap f3
+release shift
+midi usb b0 1c 40
+wait 20
+press shift
+tap f4
+release shift
+midi usb b0 1d 40
+wait 20
+press shift
+tap f5
+release shift
+midi usb b0 1e 40
+wait 20
+wait 1000
+snap 01_stock_on
+tap play
+wait 15360
+tap play
+wait 600
+wav stock

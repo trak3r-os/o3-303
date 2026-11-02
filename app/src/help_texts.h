@@ -25,6 +25,8 @@ enum class Id : std::uint8_t {
   PerformSetup,  // PERFORM SETUP
   Voice,         // INSTRUMENT, page VOICE
   Fx,            // INSTRUMENT, page FX
+  ModdedNotes,   // MODDED, page NOTES (the Sample Loader button)
+  ModdedTone,    // MODDED, page TONE
   Growl,         // GROWL (the Sample Playback button)
   Wobble,        // WOBBLE (the Sample Editor button)
   Master,        // MASTER
@@ -74,7 +76,7 @@ struct HomePads {
   std::uint32_t out_of_scale = 0;
 };
 
-// The home map (HOME, PATTERN SETUP, INSTRUMENT, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
+// The home map (HOME, PATTERN SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
 // keys' note names (the labels point into it). `h` already has the screen's Text (fill()).
 void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noexcept;
 // PERFORM and PERFORM SETUP: row 1 the eleven live actions and ALL OFF, row 2 the snapshots and the variations, row 3 the ladder, row 4 the keys.

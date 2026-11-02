@@ -125,7 +125,13 @@ struct Hands {
       tap(Button::Params);
     }
   }
-  // GROWL (Sample Playback) and WOBBLE (Sample Editor), from any screen; to_home() leaves them.
+  // MODDED (Sample Loader opens NOTES; again, TONE) on page `page` (0 NOTES, 1 TONE), from any screen but MODDED itself; GROWL (Sample Playback) and WOBBLE (Sample Editor), from any screen. to_home() leaves them.
+  void to_modded(unsigned page = 0) {
+    tap(Button::SampleLoad);
+    for (unsigned i = 0; i < page; ++i) {
+      tap(Button::SampleLoad);
+    }
+  }
   void to_growl() { tap(Button::SamplePlay); }
   void to_wobble() { tap(Button::SampleEdit); }
   // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.

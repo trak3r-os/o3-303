@@ -187,6 +187,10 @@ sprites. Add about 25 to it for the binds and the section. The estimates include
   - **PERFORM** is 1,310 estimated but about 1,415 modelled, which is over 1,350. The smallest cut is the colour-buttons line and the PADS
     line, about 100 words together. Both repeat what the header's PERFORM LEDs and the lamps already show. If PERFORM is still over
     after that, it falls back to classic.
+- **A known breach (found in MODS S2's review).** HOME right after a MIDI learn toast ("LEARNED CC n", window over the knob rows) draws
+  5,296 px on its busiest line, over the 4,800 ceiling, at o3-303 9fdb583 and after S2 alike; it settles to 4,306 px when the toast
+  ends. The scenarios test never snaps that frame, so nothing flags it. S3's `skin_modded.txt` adds the frame (MODS-PLAN S3) and
+  measures it, and S3 fixes the drawing (the toast's width or the line it shares). S2 does not touch it.
 
 ### 4.4 Load on a scan line
 

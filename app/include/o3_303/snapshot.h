@@ -17,7 +17,7 @@
 namespace o3_303 {
 
 inline constexpr unsigned kSnapSlots = 8;
-inline constexpr unsigned kSnapValues = 24;  // the targets a snapshot can hold: SOUND, the distortion, the delay, the level and the send now, MODS later
+inline constexpr unsigned kSnapValues = 40;  // the targets a snapshot can hold (pages.h kSnapTargetCount of them are used: SOUND, the distortion, the delay, the level, the send, the growl, the mods)
 inline constexpr unsigned kMorphSteps = 32;  // encoder detents from one end of the morph to the other (a coarse step is kMorphCoarse of them)
 inline constexpr unsigned kMorphCoarse = 4;
 
@@ -38,6 +38,8 @@ class SnapBank {
   // Moves the position by `detents` (a coarse step is kMorphCoarse of them), clamped; returns the new one.
   unsigned turn(int detents, bool coarse) noexcept;
   float value(unsigned target, bool discrete) const noexcept;
+  // What snapshot `slot` holds for `target`, whatever the morph is doing (0 for a bad slot or target; an empty slot holds zeros).
+  float stored(unsigned slot, unsigned target) const noexcept { return slot < kSnapSlots && target < kSnapValues ? slot_[slot][target] : 0.0f; }
 
  private:
   bool used_[kSnapSlots] = {};

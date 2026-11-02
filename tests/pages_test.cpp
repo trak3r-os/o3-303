@@ -415,8 +415,8 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(rig.wiring.snaps.used(2));
 
   // The targets: SOUND's seven, the distortion's five, the delay's four, the level and the send, then (P2, D29) the growl's VOWEL, FMT Q, GRL MIX and
-  // CMB MIX, each a real entry the lanes know.
-  CHECK(kSnapTargetCount == 22);
+  // CMB MIX, then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven mods in id order and the growl's FMT MIX, CMB TUNE and CMB FB, each a real entry the lanes know.
+  CHECK(kSnapTargetCount == 36);
   CHECK(snap_target(18).item == Item::Growl);
   CHECK(snap_target(18).id == Growl::Vowel);
   CHECK(snap_target(19).id == Growl::FormantQ);
@@ -430,7 +430,7 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
     CHECK(rig.controls.lane_ref(t, ref));  // every target can be slewed
     discrete += rig.controls.snap_discrete(rig.engine, i) ? 1u : 0u;
   }
-  CHECK(discrete == 5);  // the wave, the distortion's switch and model, the delay's time (a list of note values) and mode
+  CHECK(discrete == 10);  // the wave, the distortion's switch and model, the delay's time (a list of note values) and mode; the mods' SOFT ATK, SUB OSC, ACC SWEEP, MUFFLER and SWP SPEED
   rig.controls.set(rig.engine, rig.entry(kPageSound, 0), 1200.0f);
   rig.controls.set(rig.engine, rig.entry(kPageSound, 7), -12.0f);
   float now[kSnapValues];
@@ -449,7 +449,31 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(now[20] == doctest::Approx(0.25f));
   CHECK(now[21] == doctest::Approx(0.75f));
   CHECK(now[kSnapTargetCount] == 0.0f);
-  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for two more targets stays zero
+  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for four more targets stays zero
+
+  // The mods: targets 22..32 are the voice's ids 8..18 in id order (never STOCK, id 19), and 33..35 the growl's FMT MIX, CMB TUNE and CMB FB; each is read and written in its own units.
+  static_assert(kSnapValues - kSnapTargetCount == 4, "room for four more targets");
+  for (unsigned i = 0; i < 11; ++i) {
+    CHECK(snap_target(22 + i).item == Item::Voice);
+    CHECK(snap_target(22 + i).id == AcidVoice::AccDecay + i);
+    CHECK(snap_target(22 + i).id != AcidVoice::Stock);
+  }
+  CHECK(snap_target(33).id == Growl::FormantMix);
+  CHECK(snap_target(34).id == Growl::CombTune);
+  CHECK(snap_target(35).id == Growl::CombFeedback);
+  CHECK(snap_target(35).item == Item::Growl);
+  rig.controls.set(rig.engine, snap_target(22), 900.0f);                    // ACC DECAY, ms
+  rig.controls.set(rig.engine, snap_target(26), 3.0f);                      // SUB OSC: HIGH
+  rig.controls.set(rig.engine, snap_target(32), 250.0f);                    // AMP DECAY, ms
+  rig.controls.set(rig.engine, snap_target(34), 7.0f);                      // CMB TUNE
+  rig.controls.snap_capture(rig.engine, now);
+  CHECK(now[22] == doctest::Approx(900.0f).epsilon(0.01));
+  CHECK(now[26] == doctest::Approx(3.0f));
+  CHECK(now[32] == doctest::Approx(250.0f).epsilon(0.01));
+  CHECK(now[34] == doctest::Approx(7.0f).epsilon(0.02));
+  CHECK(rig.controls.snap_discrete(rig.engine, 26));
+  CHECK_FALSE(rig.controls.snap_discrete(rig.engine, 22));
+  CHECK_FALSE(rig.controls.snap_discrete(rig.engine, 34));
 }
 
 TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the wobble's five settings, PERF the freeze's roll and stop (M3c)") {

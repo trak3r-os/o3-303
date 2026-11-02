@@ -40,7 +40,7 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
   });
   translucent(r, 120, [&] {
     for (int k = 0; k < kKnobs; ++k) {
-      const int w = knobs[k].blank || knobs[k].focus ? 0 : clamp_w(knobs[k].norm, box[k].w);
+      const int w = knobs[k].blank || knobs[k].focus ? 0 : (knobs[k].lit ? box[k].w : clamp_w(knobs[k].norm, box[k].w));
       if (w > 0) {
         r.panel(Rect{box[k].x, box[k].y, w, box[k].h}, Color::Sel);
       }
@@ -48,7 +48,7 @@ void draw_knobs(ui::Renderer& r, const Rect& area, const Knob (&knobs)[kKnobs]) 
   });
   translucent(r, 225, [&] {
     for (int k = 0; k < kKnobs; ++k) {
-      const int w = knobs[k].blank || !knobs[k].focus ? 0 : clamp_w(knobs[k].norm, box[k].w);
+      const int w = knobs[k].blank || !knobs[k].focus ? 0 : (knobs[k].lit ? box[k].w : clamp_w(knobs[k].norm, box[k].w));
       if (w > 0) {
         r.panel(Rect{box[k].x, box[k].y, w, box[k].h}, Color::Sel);
       }

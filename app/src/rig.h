@@ -6,6 +6,7 @@
 
 #include "frame.h"
 
+#include <o3sdk/app/context.h>
 #include <o3sdk/dsp/engine.h>
 #include <o3_303/pages.h>
 #include <o3_303/seq/bank.h>
@@ -14,6 +15,7 @@
 #include <o3_303/units/freeze/freeze.h>
 
 #include <cstdint>
+#include <cstring>
 
 namespace o3_303 {
 
@@ -56,9 +58,33 @@ struct Rig {
   std::uint64_t take_msg_until_ms = 0;
 };
 
-// The take's chip and message, and the song mode, into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks and Play's mode shows wherever the player is).
+// A word on every screen's status line for a moment (Rig::take_msg): what the take says (RecordScreen::say) and STOCK's "STOCK ON" / "STOCK OFF". `off`: something did not happen.
+inline constexpr std::uint64_t kStatusMessageMs = 2500;  // as the toasts last
+inline void say_on_status(Rig& rig, o3sdk::app::Context& ctx, const char* text, bool off) noexcept {
+  std::strncpy(rig.take_msg, text, sizeof rig.take_msg - 1u);
+  rig.take_msg[sizeof rig.take_msg - 1u] = '\0';
+  rig.take_msg_off = off;
+  rig.take_msg_until_ms = ctx.uptime_ms() + kStatusMessageMs;
+  ctx.redraw();
+}
+
+// STOCK (docs/MODS-PLAN.md 4.1, 5.11): the voice's switch flips, and the status line says which way ("STOCK ON": the eleven mods are out and the voice is the plain 303). Shift + Sample Loader
+// (the app) and MODDED's F8 are this one gesture. If the engine's command ring refused the write the mirror did not move and the message says so.
+inline void toggle_stock(Rig& rig, o3sdk::app::Context& ctx) noexcept {
+  const bool before = rig.wiring.stock;
+  rig.controls.set(ctx.engine(), Entry{Item::Stock, 0, nullptr}, before ? 0.0f : 1.0f);
+  if (rig.wiring.stock == before) {
+    say_on_status(rig, ctx, "STOCK: TRY AGAIN", true);
+    return;
+  }
+  say_on_status(rig, ctx, rig.wiring.stock ? "STOCK ON" : "STOCK OFF", false);
+}
+
+// The take's chip and message, the song mode and STOCK, into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks and Play's mode and
+// STOCK show wherever the player is).
 inline void fill_take_status(const Rig& rig, frame::StatusView& status) noexcept {
   status.song = rig.seq != nullptr && rig.seq->play_song();  // PLAYS: SONG is the sequencer's, whatever screen is up (SONG's F1)
+  status.stock = rig.wiring.stock;
   status.take = rig.take;
   status.take_msg = rig.take_msg;
   status.take_msg_off = rig.take_msg_off;

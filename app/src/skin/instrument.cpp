@@ -141,6 +141,8 @@ void queue_knobs(Panel& p, const InstrumentView& v, const FRowView& row, char (&
     queue_knob_label(p, cx, v.knob[i], s, learn, names[i]);
     if (s.kind == SlotKind::Switch) {
       queue_switch(p, cx, kKnobCy - 2, s);
+    } else if (s.kind == SlotKind::Action) {  // MODDED's and WOBBLE's F8: a key where a knob would be, its state (ON / OFF) in the window under it
+      queue_action_key(p, cx, kKnobCy - kKeyH / 2, s);
     } else {
       queue_knob(p, cx, s.norm);
     }

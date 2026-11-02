@@ -35,11 +35,11 @@ struct Buttons {
   }
 };
 
-enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Growl, Wobble, Master, File, Naming, Library, Record, Song };
+enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Modded, Growl, Wobble, Master, File, Naming, Library, Record, Song };
 
 constexpr void add_globals(Buttons& b, Where w) noexcept {
   const bool perform = w == Where::Perform || w == Where::PerformSetup;
-  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
+  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
   b.add(Button::Play, "PLAY / STOP: SONG OR PATTERN", "RESTART FROM STEP 1");  // which one is SONG's F1 PLAYS; the status line says SONG while it is the song
   // Rec: the home map's step record (a press turns write / record mode on and off); PERFORM's Rec is the same switch (it records the ladder and the knob while the pattern plays);
   // elsewhere it does nothing alone. Shift + Rec is the audio take, from every screen.
@@ -50,7 +50,8 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
-  // Sample Loader opens nothing until MODDED (docs/MODS-PLAN.md S2): it is not listed, so the kit draws it dimmed. Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
+  // Sample Loader opens MODDED (again: its next page) and, with Shift, flips STOCK from every screen; Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
+  b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "STOCK: ALL MODS OFF / ON");
   b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL");
   b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE");
   b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
@@ -152,6 +153,7 @@ constexpr Buttons kSetupButtons = make_home(Where::Setup);
 constexpr Buttons kPerformButtons = make_perform(Where::Perform);
 constexpr Buttons kPerformSetupButtons = make_perform(Where::PerformSetup);
 constexpr Buttons kInstrumentButtons = make_home(Where::Instrument);
+constexpr Buttons kModdedButtons = make_home(Where::Modded);
 constexpr Buttons kGrowlButtons = make_home(Where::Growl);
 constexpr Buttons kWobbleButtons = make_home(Where::Wobble);
 constexpr Buttons kMasterButtons = make_home_map_only(Where::Master);
@@ -275,6 +277,28 @@ constexpr Text kTexts[kIdCount] = {
      kHomeGroups,
      count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
+    // ModdedNotes
+    {"MODDED NOTES",
+     "THE 303 MODS FOR HOW A NOTE MOVES. TAP AN F KEY, THEN TURN: A TURN ENDS STOCK. A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK. SHIFT + F KEY: LEARN.",
+     {"NOTE FADE-IN, OFF = 303", "ENVELOPE DECAY", "ACCENT DECAY TIME", "NOTE AMP DECAY TIME", "SLIDE TIME", "SWEEP: OFF, NORMAL, HI RES", "SWEEP SPEED", "STOCK: ALL MODS OFF / ON"},
+     {},
+     "KNOB OR ROW; SHIFT = COARSE",
+     kModdedButtons.row,
+     kModdedButtons.n,
+     kHomeGroups,
+     count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
+     "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
+    // ModdedTone
+    {"MODDED TONE",
+     "THE 303 MODS FOR WHAT THE FILTER IS FED AND GIVES. TAP AN F KEY, THEN TURN: A TURN ENDS STOCK. A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK. SHIFT + F KEY: LEARN.",
+     {"FILTER FOLLOWS KEYS", "FILTER FM DEPTH", "DRIVE INTO FILTER", "MUFFLER: OFF, SOFT, HARD", "SUB OCTAVE LEVEL", NONE, NONE, "STOCK: ALL MODS OFF / ON"},
+     {},
+     "KNOB OR ROW; SHIFT = COARSE",
+     kModdedButtons.row,
+     kModdedButtons.n,
+     kHomeGroups,
+     count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
+     "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Growl
     {"GROWL",
      "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
@@ -288,8 +312,8 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Wobble
     {"WOBBLE",
-     "THE WOBBLE: A SLOW LFO ON THE CUTOFF OR THE VOWEL. IT RUNS WHILE PERFORM'S WOB ACTION IS ON. TAP AN F KEY TO LATCH IT, THEN TURN. THESE ARE NOT MIDI LEARNABLE.",
-     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF OR VOWEL", "RESTART ON EACH NOTE", NONE, NONE, NONE},
+     "THE WOBBLE: A SLOW LFO ON THE CUTOFF OR THE VOWEL. IT RUNS WHILE PERFORM'S WOB ACTION IS ON: F8 LATCHES IT. TAP AN F KEY TO LATCH IT, THEN TURN. NOT MIDI LEARNABLE.",
+     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF OR VOWEL", "RESTART ON EACH NOTE", NONE, NONE, "WOB ACTION ON / OFF"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kWobbleButtons.row,

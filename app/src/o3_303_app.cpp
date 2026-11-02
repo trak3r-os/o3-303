@@ -12,7 +12,8 @@
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master or the input to Samples/; Shift + REC arms and stops a take from every screen
-//   SAMPLE PLAY   GROWL (one page of INSTRUMENT's screen class: instrument_screen.h); SAMPLE EDIT   WOBBLE (the same); SAMPLE LOAD opens nothing until MODDED (docs/MODS-PLAN.md S2)
+//   SAMPLE LOAD   MODDED, the 303 mods (NOTES; on it: TONE, and back; INSTRUMENT's screen class, instrument_screen.h); Shift + SAMPLE LOAD flips STOCK, all mods out, from every screen with no change of screen
+//   SAMPLE PLAY   GROWL (one page of INSTRUMENT's screen class); SAMPLE EDIT   WOBBLE (the same)
 //   SONG          SONG (song_screen.h): the saved chain of patterns, in the project; F1 chooses what Play plays; a song that ends with its loop off stops the transport from every screen
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO) and the app's page 303 (config_pages.h); the app never sees the key
 //
@@ -166,7 +167,8 @@ class O3_303App final : public app::App {
     main_.init(rig_);
     perform_.init(rig_, main_);
     instrument_.init(rig_, main_.home_map(), o3_303::instrument_group());  // the home map HOME has: one cursor, one keyboard, one Rec
-    growl_screen_.init(rig_, main_.home_map(), o3_303::growl_group());            // GROWL and WOBBLE are INSTRUMENT's class on the same home map
+    modded_.init(rig_, main_.home_map(), o3_303::modded_group());                  // MODDED, GROWL and WOBBLE are INSTRUMENT's class on the same home map
+    growl_screen_.init(rig_, main_.home_map(), o3_303::growl_group());
     wobble_screen_.init(rig_, main_.home_map(), o3_303::wobble_group());
     master_.init(rig_, main_.home_map());  // the home map HOME has, as INSTRUMENT
     record_.init(rig_, main_.home_map());  // the home map HOME has, as MASTER
@@ -232,10 +234,19 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // RECORD, GROWL and WOBBLE (UX-303 2.1, docs/MODS-PLAN.md 4.3): the Sample Recorder button opens RECORD, Sample Playback GROWL and Sample Editor WOBBLE, each with or without Shift and, on its own
-    // screen, nothing (one page each). Sample Loader opens nothing until MODDED (MODS-PLAN S2): the app takes its press, so that no screen sees it. Shift + Rec is RECORD's F1 from every screen, with no change
-    // of screen (the plain Rec stays the home map's step record).
+    // MODDED, RECORD, GROWL and WOBBLE (UX-303 2.1, docs/MODS-PLAN.md 4.3): Sample Loader opens MODDED NOTES, and on it flips to TONE and back; Shift + Sample Loader flips STOCK from every screen with no
+    // change of screen. The Sample Recorder button opens RECORD, Sample Playback GROWL and Sample Editor WOBBLE, each with or without Shift and, on its own screen, nothing (one page each). The app takes
+    // these presses, so that no screen sees them. Shift + Rec is RECORD's F1 from every screen, with no change of screen (the plain Rec stays the home map's step record).
     if (in.press(Button::SampleLoad)) {
+      if (in.shift) {
+        o3_303::toggle_stock(rig_, ctx);
+      } else if (ctx.screen() == &modded_) {
+        modded_.next_page();
+        ctx.redraw();
+      } else {
+        modded_.open_first_page();
+        ctx.show(modded_);
+      }
       return true;
     }
     if (in.press(Button::SampleRec)) {
@@ -345,8 +356,9 @@ class O3_303App final : public app::App {
   o3_303::MainScreen main_;
   o3_303::PerformScreen perform_;
   o3_303::InstrumentScreen& instrument_ = sdram_instance<o3_303::InstrumentScreen, 0>();    // SDRAM (sdram_instance)
-  o3_303::InstrumentScreen& growl_screen_ = sdram_instance<o3_303::InstrumentScreen, 1>();  // GROWL and WOBBLE: INSTRUMENT's class with the groups of instrument_screen.cpp (growl_ is the unit)
+  o3_303::InstrumentScreen& growl_screen_ = sdram_instance<o3_303::InstrumentScreen, 1>();  // GROWL, WOBBLE and MODDED: INSTRUMENT's class with the groups of instrument_screen.cpp (growl_ is the unit)
   o3_303::InstrumentScreen& wobble_screen_ = sdram_instance<o3_303::InstrumentScreen, 2>();
+  o3_303::InstrumentScreen& modded_ = sdram_instance<o3_303::InstrumentScreen, 3>();
   o3_303::MasterScreen master_;
   o3_303::RecordScreen record_;
   o3_303::SongScreen song_;

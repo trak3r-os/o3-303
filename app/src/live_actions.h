@@ -45,6 +45,9 @@ class LiveActions {
   // unlatches it. ALL OFF lets every latched action go (pads and buttons) and the wobble's rate override with them (UX-303 D27).
   void action_press(o3sdk::app::Context& ctx, PerfAction a, bool shift) noexcept;
   void action_release(o3sdk::app::Context& ctx, PerfAction a) noexcept;
+  // The latch of `a` flips, as Shift + its pad would (docs/MODS-PLAN.md 5.5, WOBBLE's F8): a latched action lets go of every latch source (its pad bit and any colour button that carries it), else it is
+  // latched on the pad bit; then it is applied. An action held down is not touched here, and the latch survives a screen change (D4); ALL OFF still lets it go.
+  void toggle_latch(o3sdk::app::Context& ctx, PerfAction a) noexcept;
   void all_off(o3sdk::app::Context& ctx) noexcept;
 
   // The actions latched on a pad (a bit per PerfAction).
@@ -105,6 +108,7 @@ class LiveActions {
   std::uint32_t seed_ = 0x303u;
   // The morph's slews are running (R2): at `snap_deadline_ms_` the blend is stored in the engine (sequencer.h, slew(): store = false).
   bool snap_pending_ = false;
+  std::uint64_t snap_slewing_ = 0;  // a bit for each snapshot target (< 64: kSnapTargetCount) that this morph set gliding; main loop only
   std::uint64_t snap_deadline_ms_ = 0;
 };
 

@@ -55,6 +55,7 @@ void LiveActions::init(Rig& rig) noexcept {
   was_playing_ = false;
   seed_ = 0x303u;
   snap_pending_ = false;
+  snap_slewing_ = 0;
   snap_deadline_ms_ = 0;
   rig.wiring.snaps.clear();
 }
@@ -157,6 +158,8 @@ void LiveActions::action_release(app::Context& ctx, PerfAction a) noexcept {
   pad_held_ = static_cast<std::uint16_t>(pad_held_ & ~perf_bit(a));
   apply(ctx);
 }
+
+void LiveActions::toggle_latch(app::Context& ctx, PerfAction a) noexcept { action_press(ctx, a, true); }
 
 void LiveActions::all_off(app::Context& ctx) noexcept {
   pad_latched_ = 0;
@@ -288,6 +291,8 @@ bool LiveActions::snap_turn(app::Context& ctx, int detents, bool coarse, Message
   return true;
 }
 
+static_assert(kSnapTargetCount <= 64, "snap_slewing_ has one bit a snapshot target");
+
 // The blend at the morph's position on the sequencer's slews: a gliding target (a voice, distortion or delay parameter, the level, the send)
 // is `slew(..., store = false)`; a discrete one (a wave, the distortion's model, the delay's mode) is written when the blend changes it.
 void LiveActions::snap_apply(app::Context& ctx, float ms) noexcept {
@@ -306,8 +311,17 @@ void LiveActions::snap_apply(app::Context& ctx, float ms) noexcept {
         (void)rig_->seq->slew_stop(ref.target, ref.id);
         controls_->set(e, en, v);
       }
+    } else if (i >= kSnapTargetsBeforeMods && controls_->get(e, en) == v) {
+      // A mod (or a growl knob) the blend leaves where it is is not written: Sequencer::slew_value maps the value through the curve and back even when from == goal, so ACC DECAY's 180 ms
+      // would come back 180.000015 and its Log time row would leave the stock constant by a few ulps. One that a glide of this morph had started is put back exactly.
+      if ((snap_slewing_ >> i & 1u) != 0u) {
+        snap_slewing_ &= ~(std::uint64_t{1} << i);
+        (void)rig_->seq->slew_stop(ref.target, ref.id);
+        controls_->set(e, en, v);
+      }
     } else {
       (void)rig_->seq->slew(ref.target, ref.id, controls_->to_lane(en, v), ms, false);
+      snap_slewing_ |= std::uint64_t{1} << i;
     }
   }
   snap_pending_ = true;
@@ -323,10 +337,15 @@ void LiveActions::snap_finish(app::Context& ctx, bool at_once) noexcept {
   snap_pending_ = false;
   dsp::Engine& e = ctx.engine();
   const SnapBank& snaps = rig_->wiring.snaps;
+  const std::uint64_t slewing = snap_slewing_;  // the glides of this morph end with this call
+  snap_slewing_ = 0;
   for (unsigned i = 0; i < kSnapTargetCount; ++i) {
     const Entry& en = snap_target(i);
     LaneRef ref{kLaneNone, 0};
     if (!controls_->lane_ref(en, ref) || controls_->snap_discrete(e, i)) {
+      continue;
+    }
+    if (i >= kSnapTargetsBeforeMods && (slewing >> i & 1u) == 0u) {  // never set gliding: it is where the blend is (snap_apply)
       continue;
     }
     if (at_once) {

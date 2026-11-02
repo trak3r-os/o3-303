@@ -25,7 +25,6 @@ constexpr int kLedDx = -37;       // the latch LED, left of the knob and under i
 constexpr int kLedCy = 446;
 constexpr int kKeyY = 405;
 constexpr int kKeyW = 84;
-constexpr int kKeyH = 36;         // the cap's face (the bitmap is 40 high with its lower lip)
 constexpr int kReadoutY = 457;
 constexpr int kReadoutW = 92;
 constexpr int kReadoutH = 22;
@@ -110,15 +109,15 @@ void knob(Panel& p, int cx, const FSlot& s) noexcept {
   p.line(Layer::Pointer, cx * 16 + pt.x0_q4, kKnobCy * 16 + pt.y0_q4, cx * 16 + pt.x1_q4, kKnobCy * 16 + pt.y1_q4, kPointerW_q4, pal::kPointer);
 }
 
+}  // namespace
+
 // A raised key with its name in it. The name takes the biggest face that fits the cap's 76 px.
-void action_key(Panel& p, int cx, const FSlot& s) noexcept {
-  p.sprite(Layer::ActKey, Id::ActKey, 0, cx - kKeyW / 2, kKeyY, s.lit ? pal::kFocusFill : (s.dim ? pal::kKeyDim : pal::kKey));
+void queue_action_key(Panel& p, int cx, int y, const FSlot& s) noexcept {
+  p.sprite(Layer::ActKey, Id::ActKey, 0, cx - kKeyW / 2, y, s.lit ? pal::kFocusFill : (s.dim ? pal::kKeyDim : pal::kKey));
   const int n = len_of(s.name);
   const Face face = n * 10 <= 76 ? Face::Data : (n * 8 <= 76 ? Face::Label : Face::Micro);
-  centred(p, cx, kKeyY, kKeyH, s.name, s.lit ? Color::SelText : (s.dim ? Color::TextDim : Color::ChromeText), face);
+  centred(p, cx, y, kKeyH, s.name, s.lit ? Color::SelText : (s.dim ? Color::TextDim : Color::ChromeText), face);
 }
-
-}  // namespace
 
 void fill_frow(FRowView& out, const view::Knob (&knobs)[kSlots], bool shift) noexcept {
   out = FRowView{};
@@ -136,6 +135,7 @@ void fill_frow(FRowView& out, const view::Knob (&knobs)[kSlots], bool shift) noe
     s.held = k.held;
     s.locked = k.locked;
     s.dim = k.dim;
+    s.lit = k.lit;
     if (s.kind == SlotKind::Action) {  // the hint under the key
       cut_to(s.readout, sizeof s.readout, k.value, kReadoutChars);
       continue;
@@ -177,7 +177,7 @@ void draw_frow(Panel& p, const FRowView& v) noexcept {
         led(p, cx + kLedDx, kLedCy, s.focus, s.locked ? pal::kLedAmber : pal::kLedRed);
         break;
       case SlotKind::Action:
-        action_key(p, cx, s);
+        queue_action_key(p, cx, kKeyY, s);
         break;
       case SlotKind::Empty:
         break;

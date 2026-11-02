@@ -66,13 +66,18 @@ constexpr Page kSetupPage = {"SETUP",
                               app_item(Item::Density), app_item(Item::AccPct), app_item(Item::SldPct)}};
 
 // What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
-// delay's four, the level and the send, then (P2) the growl's four: append, never insert (a saved project's SNAP is read by position).
+// delay's four, the level and the send, then (P2) the growl's four, then (MODS S2) the voice's mods in id order and the growl's three others: append, never insert (a saved
+// project's SNAP is read by position).
 constexpr Entry kSnapTargets[kSnapTargetCount] = {
     voice(AcidVoice::Cutoff), voice(AcidVoice::Reso), voice(AcidVoice::EnvMod), voice(AcidVoice::Decay), voice(AcidVoice::Accent), voice(AcidVoice::Wave), voice(AcidVoice::Tune),
     dist(Distortion::Active), dist(Distortion::Type), dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix),
     delay(units::Delay::Time, nullptr), delay(units::Delay::Feedback, nullptr), delay(units::Delay::Tone, nullptr), delay(units::Delay::Mode, nullptr),
     app_item(Item::Level, "VOLUME"), app_item(Item::SendA),
-    growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX")};
+    growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX"),
+    voice(AcidVoice::AccDecay), voice(AcidVoice::Tracking), voice(AcidVoice::Slide), voice(AcidVoice::SoftAtk), voice(AcidVoice::SubOsc), voice(AcidVoice::FilterFm),
+    voice(AcidVoice::AccSweep), voice(AcidVoice::Muffler), voice(AcidVoice::SwpSpeed), voice(AcidVoice::Overdrive), voice(AcidVoice::AmpDecay),
+    growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB")};
+static_assert(AcidVoice::AmpDecay - AcidVoice::AccDecay == 10, "the snapshot holds the eleven mods, ids 8 to 18, in order");
 
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
 // curve, flags, page) ---------------------------------------------------------------------------------------------------------
@@ -124,6 +129,8 @@ constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr
 // The wobble's settings (M3c W); the order is WobbleField's. Rate and shape are the sequencer's own tables (seq/wobble.h).
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
 constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL"};
+// WOBBLE's F8 key (Item::WobOn): the action's name and its two places; the value is the screen's (the latch), not a setting.
+constexpr core::ParamDesc kWobOn = {"WOB", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
     {"RATE", "", seq::kWobbleRateNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleRateCount - 1u), static_cast<float>(seq::kWobble1_8),
      static_cast<std::uint16_t>(seq::kWobbleRateCount - 1u), 1, static_cast<std::uint8_t>(seq::kWobbleRateCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
@@ -202,6 +209,10 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return e.param_desc(w_->growl, entry.id);
     case Item::Wobble:
       return entry.id < kWobbleFieldCount ? &kWobbleDescs[entry.id] : nullptr;
+    case Item::Stock:
+      return e.param_desc(w_->voice, AcidVoice::Stock);
+    case Item::WobOn:
+      return &kWobOn;
     case Item::Blank:
       break;
   }
@@ -276,6 +287,10 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
           break;
       }
       return 0.0f;
+    case Item::Stock:
+      return w_->stock ? 1.0f : 0.0f;
+    case Item::WobOn:
+      return w_->seq != nullptr && w_->seq->wobble().on ? 1.0f : 0.0f;
     case Item::Blank:
       break;
   }
@@ -404,6 +419,12 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       }
       break;
     }
+    case Item::Stock:
+      if (e.set_param(w_->voice, AcidVoice::Stock, v)) {  // the mirror follows only what the engine took
+        w_->stock = v >= 0.5f;
+      }
+      break;
+    case Item::WobOn:  // the screen's key latches the action (LiveActions::toggle_latch); there is no setting to write
     case Item::Blank:
       break;
   }
