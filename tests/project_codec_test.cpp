@@ -90,10 +90,10 @@ unsigned param_count(const dsp::Engine& e, dsp::UnitId u) {
   return n;
 }
 
-// The parameters a project carries (project.cpp carried()): not the voice's Volume, the growl's Note, the freeze's Active, Mode and Mix.
+// The parameters a project carries (project.cpp carried()): not the voice's Volume and Stock, the growl's Note, the freeze's Active, Mode and Mix.
 bool carried(const Wiring& w, dsp::UnitId u, unsigned id) {
   if (u == w.voice) {
-    return id != AcidVoice::Volume;
+    return id != AcidVoice::Volume && id != AcidVoice::Stock;
   }
   if (u == w.growl) {
     return id != Growl::Note;
@@ -676,6 +676,172 @@ TEST_CASE("project: a parameter the file lacks keeps its default; one this build
   CHECK(a.engine.master_level() == 1.0f);
   CHECK(a.sequencer->fill_variant() == seq::FillVariant::Mutate);
   CHECK(a.rig.wiring.wobble.rate == WobbleSettings{}.rate);
+}
+
+namespace {
+
+struct SndEntry {
+  std::uint8_t target;
+  std::uint16_t id;
+  float value;
+};
+
+// The entries of the image's SND chunk, as written ({u8 target, u8 0, u16 id, f32 value}, big endian, after {u16 version, u16 count}).
+std::vector<SndEntry> snd_entries(const std::vector<std::uint8_t>& img) {
+  std::vector<SndEntry> out;
+  chunk::Reader r;
+  REQUIRE(r.open(img.data(), img.size(), "303P") == chunk::Error::None);
+  chunk::Chunk c;
+  while (r.next(c)) {
+    if (std::memcmp(c.id, "SND ", 4) != 0) {
+      continue;
+    }
+    const unsigned n = (static_cast<unsigned>(c.data[2]) << 8) | c.data[3];
+    for (unsigned i = 0; i < n; ++i) {
+      const std::uint8_t* e = c.data + 4 + i * 8;
+      const std::uint32_t bits = (static_cast<std::uint32_t>(e[4]) << 24) | (static_cast<std::uint32_t>(e[5]) << 16) | (static_cast<std::uint32_t>(e[6]) << 8) | e[7];
+      float f;
+      std::memcpy(&f, &bits, 4);
+      out.push_back(SndEntry{e[0], static_cast<std::uint16_t>((e[2] << 8) | e[3]), f});
+    }
+  }
+  return out;
+}
+
+unsigned voice_entries(const std::vector<SndEntry>& v, unsigned lo, unsigned hi) {
+  unsigned n = 0;
+  for (const SndEntry& e : v) {
+    n += (e.target == kLaneVoice && e.id >= lo && e.id <= hi) ? 1u : 0u;
+  }
+  return n;
+}
+
+}  // namespace
+
+TEST_CASE("project: the voice's mods (ids 8..18) are carried and round-trip; a project from before them loads with every mod at its stock value") {
+  Session a;
+  scramble(a);
+  const Wiring& wa = a.rig.wiring;
+  // Every mod away from its stock value (the far end of its range, the near one where the far one is the stock: AMP DECAY).
+  for (unsigned id = AcidVoice::AccDecay; id < AcidVoice::Stock; ++id) {
+    const core::ParamDesc& d = *a.engine.param_desc(wa.voice, static_cast<std::uint16_t>(id));
+    (void)a.engine.set_param(wa.voice, static_cast<std::uint16_t>(id), d.def == d.max ? d.min : d.max);
+    REQUIRE(a.engine.param(wa.voice, static_cast<std::uint16_t>(id)) != d.def);
+  }
+  const std::vector<std::uint8_t> img = encode_session(a);
+  const std::vector<SndEntry> entries = snd_entries(img);
+  CHECK(voice_entries(entries, AcidVoice::AccDecay, AcidVoice::AmpDecay) == 11);  // all eleven are written
+  CHECK(voice_entries(entries, AcidVoice::Volume, AcidVoice::Volume) == 0);       // as before
+  CHECK(voice_entries(entries, AcidVoice::Stock, AcidVoice::Stock) == 0);         // Stock never is
+
+  // The round trip: the same values in another session whose mods were elsewhere.
+  Session b;
+  for (unsigned id = AcidVoice::AccDecay; id < AcidVoice::Stock; ++id) {
+    const core::ParamDesc& d = *b.engine.param_desc(b.rig.wiring.voice, static_cast<std::uint16_t>(id));
+    (void)b.engine.set_param(b.rig.wiring.voice, static_cast<std::uint16_t>(id), d.def == d.min ? d.max : d.min);
+  }
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  project::apply(b.rig, b.engine, s);
+  for (unsigned id = AcidVoice::AccDecay; id < AcidVoice::Stock; ++id) {
+    INFO("voice parameter " << id);
+    CHECK(b.engine.param(b.rig.wiring.voice, static_cast<std::uint16_t>(id)) == a.engine.param(wa.voice, static_cast<std::uint16_t>(id)));
+  }
+  CHECK(encode_session(b) == img);
+
+  // An image from before the mods: no entries for ids 8..18 (and the 303's own are all there).
+  const auto before = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (!is(id, "SND ")) {
+      return true;
+    }
+    std::vector<std::uint8_t> out(p.begin(), p.begin() + 4);
+    unsigned kept = 0;
+    const unsigned n = (static_cast<unsigned>(p[2]) << 8) | p[3];
+    for (unsigned i = 0; i < n; ++i) {
+      const std::uint8_t* e = &p[4 + i * 8];
+      const unsigned pid = (static_cast<unsigned>(e[2]) << 8) | e[3];
+      if (e[0] == kLaneVoice && pid >= AcidVoice::AccDecay) {
+        continue;
+      }
+      out.insert(out.end(), e, e + 8);
+      ++kept;
+    }
+    out[2] = static_cast<std::uint8_t>(kept >> 8);
+    out[3] = static_cast<std::uint8_t>(kept);
+    p = out;
+    return true;
+  });
+  CHECK(voice_entries(snd_entries(before), AcidVoice::AccDecay, AcidVoice::Stock) == 0);
+  Session c;
+  for (unsigned id = AcidVoice::AccDecay; id < AcidVoice::Stock; ++id) {
+    const core::ParamDesc& d = *c.engine.param_desc(c.rig.wiring.voice, static_cast<std::uint16_t>(id));
+    (void)c.engine.set_param(c.rig.wiring.voice, static_cast<std::uint16_t>(id), d.def == d.min ? d.max : d.min);
+  }
+  REQUIRE(load(before, s).status == project::Status::Ok);
+  project::apply(c.rig, c.engine, s);
+  for (unsigned id = AcidVoice::AccDecay; id < AcidVoice::Stock; ++id) {
+    const core::ParamDesc& d = *c.engine.param_desc(c.rig.wiring.voice, static_cast<std::uint16_t>(id));
+    INFO("voice parameter " << id);
+    CHECK(c.engine.param(c.rig.wiring.voice, static_cast<std::uint16_t>(id)) == d.def);  // the stock value: it sounds as it did
+  }
+  CHECK(c.engine.param(c.rig.wiring.voice, AcidVoice::Cutoff) == a.engine.param(wa.voice, AcidVoice::Cutoff));  // the 303's own came through
+  CHECK(c.engine.param(c.rig.wiring.voice, AcidVoice::Reso) == a.engine.param(wa.voice, AcidVoice::Reso));
+}
+
+TEST_CASE("project: Stock is never written, and an entry for it in a file is not applied") {
+  Session a;
+  const Wiring& wa = a.rig.wiring;
+  (void)a.engine.set_param(wa.voice, AcidVoice::Stock, 1.0f);
+  REQUIRE(a.engine.param(wa.voice, AcidVoice::Stock) == 1.0f);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  CHECK(voice_entries(snd_entries(img), AcidVoice::Stock, AcidVoice::Stock) == 0);
+
+  // A file that names it anyway (written by hand, or by a build that carried it): the entry is not looked up.
+  const auto forged = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "SND ")) {
+      const std::uint8_t e[8] = {kLaneVoice, 0, 0, static_cast<std::uint8_t>(AcidVoice::Stock), 0x3F, 0x80, 0, 0};  // 1.0f
+      p.insert(p.end(), e, e + 8);
+      const unsigned n = ((static_cast<unsigned>(p[2]) << 8) | p[3]) + 1u;
+      p[2] = static_cast<std::uint8_t>(n >> 8);
+      p[3] = static_cast<std::uint8_t>(n);
+    }
+    return true;
+  });
+  CHECK(voice_entries(snd_entries(forged), AcidVoice::Stock, AcidVoice::Stock) == 1);
+  project::ProjectState s;
+  REQUIRE(load(forged, s).status == project::Status::Ok);
+  Session b;
+  REQUIRE(b.engine.param(b.rig.wiring.voice, AcidVoice::Stock) == 0.0f);
+  project::apply(b.rig, b.engine, s);
+  CHECK(b.engine.param(b.rig.wiring.voice, AcidVoice::Stock) == 0.0f);
+}
+
+TEST_CASE("project: a pattern with a hand-built lane on the voice's Stock loads with that lane dropped, the others kept") {
+  Session a;
+  Pattern p = random_pattern(5);
+  p.lanes[2] = LaneRef{kLaneVoice, AcidVoice::Stock};
+  p.lanes[3] = LaneRef{kLaneVoice, AcidVoice::AmpDecay};  // the mod before it is a lane like any other
+  p.lanes[4] = LaneRef{kLaneVoice, 7};
+  (void)a.bank->restore(0, p);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  Session b;
+  project::apply(b.rig, b.engine, s);
+  const Pattern& got = b.bank->pattern(0);
+  CHECK(got.lanes[2].target == kLaneNone);
+  CHECK(got.lanes[2].id == 0);
+  CHECK(got.lanes[3].target == kLaneVoice);
+  CHECK(got.lanes[3].id == AcidVoice::AmpDecay);
+  CHECK(got.lanes[4].target == kLaneVoice);
+  CHECK(got.lanes[4].id == 7);
+  for (unsigned i = 0; i < kMotionLanes; ++i) {
+    if (i != 2) {
+      CHECK(got.lanes[i].target == p.lanes[i].target);
+      CHECK(got.lanes[i].id == p.lanes[i].id);
+    }
+  }
+  CHECK(b.engine.param(b.rig.wiring.voice, AcidVoice::Stock) == 0.0f);  // and nothing moved it
 }
 
 TEST_CASE("project: a SNAP with fewer values is filled from the sound as loaded") {

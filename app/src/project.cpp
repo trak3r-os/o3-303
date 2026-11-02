@@ -83,12 +83,15 @@ dsp::UnitId unit_of(const Wiring& w, std::uint8_t target) noexcept {
   return dsp::kNoUnit;
 }
 
-// Which of a unit's parameters are the sound. Not: the voice's own Volume (the app keeps it at 0 dB, the level is slot 0's), the growl's Note (the
-// sequencer sets it at every note), the freeze's Active, Mode and Mix (what is held now, not a setting).
+static_assert(kLaneVoiceStock == AcidVoice::Stock, "pattern.h's lane guard names the voice's Stock parameter");
+
+// Which of a unit's parameters are the sound. Not: the voice's own Volume (the app keeps it at 0 dB, the level is slot 0's), the voice's Stock (a
+// switch over the mods: the stored mod values are the sound, and Stock is a view that starts off), the growl's Note (the sequencer sets it at every
+// note), the freeze's Active, Mode and Mix (what is held now, not a setting).
 bool carried(std::uint8_t target, std::uint16_t id) noexcept {
   switch (target) {
     case kLaneVoice:
-      return id != AcidVoice::Volume;
+      return id != AcidVoice::Volume && id != AcidVoice::Stock;
     case kLaneGrowl:
       return id != Growl::Note;
     case kSndFreeze:
@@ -236,7 +239,8 @@ void sanitize(Pattern& p) noexcept {
   p.transpose = p.transpose < -24 ? std::int8_t{-24} : (p.transpose > 24 ? std::int8_t{24} : p.transpose);
   p.gate = p.gate < 5u ? std::uint8_t{5} : (p.gate > 100u ? std::uint8_t{100} : p.gate);
   for (LaneRef& l : p.lanes) {
-    if (l.target >= kLaneTargetCount) {
+    // A lane on a target this build has not, or on the voice's Stock (a switch, never a lane's: a hand-built file could name it), is dropped.
+    if (l.target >= kLaneTargetCount || (l.target == kLaneVoice && l.id == kLaneVoiceStock)) {
       l = LaneRef{kLaneNone, 0};
     }
   }

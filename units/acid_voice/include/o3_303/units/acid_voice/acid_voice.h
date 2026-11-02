@@ -33,15 +33,34 @@
 //   1 Reso    0..1 (shown as %), default 0.65                           5 Wave    0 SAW, 1 SQR
 //   2 Env Mod 0..1 (shown as %), default 0.6                            6 Tune    semitones, -12..+12
 //   3 Decay   ms, 200..2500 (the filter envelope's time constant)       7 Volume  dB, -60..+6; at or below -59.5 silence
+// The mods (docs/MODS-PLAN.md section 3, appended after Volume). Each default is today's voice, bit for bit: at their stock values the
+// stock loop runs, which is the loop of the voice before the mods existed.
+//   8 Acc Decay  ms, 30..3000 (Log), 180  the accent's filter envelope and sweep pulse   14 Acc Sweep  0 OFF, 1 NORMAL, 2 HI RES
+//   9 Tracking   %, 0..150, 0             the cutoff follows the note's pitch            15 Muffler    0 OFF, 1 SOFT, 2 HARD
+//  10 Slide      ms, 60..360 (Log), 60    the pitch glide's time constant                16 Swp Speed  0 FAST, 1 NORMAL, 2 SLOW
+//  11 Soft Atk   0 OFF, 1..5 = 0.3, 1, 3,                                               17 Overdrive  dB, -24..+36, 0 (the level into the ladder)
+//                10, 30 ms (non-accented notes fade in)                                 18 Amp Decay  ms, 16..4000 (Log), 4000 (the amplifier's hold)
+//  12 Sub Osc    0 OFF, 1 LOW, 2 MID, 3 HIGH (a square an octave down)                  19 Stock      0 OFF, 1 ON: every mod above at its stock value
+//  13 Filter FM  0..1 (shown as %), 0    the output frequency-modulates the filter
+// Stock is not a sound setting: it reads the stored mod values as they are, so they are heard again when it goes off. A value that is not
+// a finite number reads as that parameter's stock value.
 //
 // Events. NoteOn: dsp::kNoteAccent is the accent; dsp::kNoteSlide, or a NoteOn while another note is held, glides (60 ms one pole) from
 // the sounding pitch without retriggering the envelopes. NoteOff releases (25 ms) only when it names the note that holds the gate: a
 // slide's NoteOn before the old note's NoteOff leaves the gate open. AllNotesOff releases at once. The note stack holds kHeld notes.
 //
-// Cost [est]: about 445 cycles a sample for SAW and 465 for SQR (13 divisions of 14 cycles, 25 multiply-accumulates; 187 resp. 199
+// Cost [est]: stock, about 445 cycles a sample for SAW and 465 for SQR (13 divisions of 14 cycles, 25 multiply-accumulates; 187 resp. 199
 // instructions in the sample loop from the disassembly at -O2 with a cost table, 424 resp. 443 cycles, plus the control period and the
 // call overhead, about 22): 28.5k-29.8k cycles a block, 10.9-11.4 % of 261,224. Not measured on a unit; the CPU % of the render there
-// is the figure.
+// is the figure. The mods cost nothing at stock: the block runs the stock loop (run<Square, false>) until a mod needs the other one
+// (run<Square, true>, three short passes over at most kControlPeriod samples: oscillator with the sub and the overdrive, envelopes with
+// the soft attack, and the ladder with the filter FM and the muffler).
+// Cost of the modded loop [est, from the disassembly at -O2 with the same cost table, no `bl` in it and no more stack traffic than the stock
+// loop's]: about 510 cycles a sample for SAW and 525 for SQR, so +85 and +85..89 over the stock loop, and about +100 with the control period and
+// the call overhead: 6,400 cycles a block, 2.5 % of 261,224, on top of the 11 % above. It is a fixed price: the loop computes every stage
+// whenever it runs, so one mod alone costs as much as all of them (the plan's 3.4 counted each stage only when it is on). By stage, SAW: the
+// loop skeleton and the guards of the saturators about 19, the sub oscillator 11 (SQR 19), the overdrive 2, the soft attack 5, the filter FM
+// 18..20, the muffler 40. Not measured on a unit: the render's CPU % there, mod by mod, is the figure (docs/MODS-PLAN.md section 11).
 
 #include <o3sdk/dsp/smooth.h>
 #include <o3sdk/dsp/unit.h>
@@ -52,7 +71,14 @@ namespace o3_303 {
 
 class AcidVoice final : public o3sdk::dsp::Unit {
  public:
-  enum Param : std::uint16_t { Cutoff, Reso, EnvMod, Decay, Accent, Wave, Tune, Volume, kParamCount };
+  // Ids 0..7 are the 303's own; 8..19 are the mods (docs/MODS-PLAN.md 3.1), appended in M3-PLAN's reserved order and then four more.
+  enum Param : std::uint16_t {
+    Cutoff, Reso, EnvMod, Decay, Accent, Wave, Tune, Volume,
+    AccDecay, Tracking, Slide, SoftAtk, SubOsc, FilterFm, AccSweep, Muffler, SwpSpeed, Overdrive, AmpDecay, Stock,
+    kParamCount
+  };
+  static constexpr unsigned kFirstMod = AccDecay;                       // the mods that keep a raw value: ids 8..18 (Stock is a switch)
+  static constexpr unsigned kModValues = Stock - AccDecay;
 
   static constexpr unsigned kControlPeriod = 16;  // samples between two recomputations of the filter coefficient (a power of two)
   static constexpr unsigned kHeld = 8;           // notes the stack remembers (the oldest is dropped past that)
@@ -66,6 +92,8 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   // True while a note is held or its amplifier has not released (Replicant's Envelope303::isActive). For a test, on the thread that calls
   // process(): it reads the render's state without synchronisation (a screen reads the engine's statistics instead).
   bool sounding() const noexcept;
+
+  friend struct AcidVoiceTestAccess;  // tests read the state (the 576-corner sweep asserts it stays inside its limits); no code in the unit
 
  private:
   // A parameter glided by a one pole at the control rate (dsp/smooth.h); `moving` is false once it has settled on the target.
@@ -85,10 +113,28 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   float ladder_g(float x) const noexcept;
   void snap() noexcept;
   void retune_filter() noexcept;
-  template <bool Square>
+  template <bool Square, bool Modded>
   void run(float* out, std::uint32_t n) noexcept;
   static void jump(Smoothed& s, float v) noexcept;
   float step(Smoothed& s, float eps) noexcept;
+
+  // The mods. A value ramped by `step` a sample inside a run (a per-sample linear ramp set at the control rate) or, for the two that only
+  // multiply once a sample, by a stair at the control rate; `target` is where it is going and it lands on it exactly.
+  struct Ramp {
+    float v = 0.0f;
+    float target = 0.0f;
+    float step = 0.0f;
+  };
+  void set_mod(std::uint16_t id, float v) noexcept;
+  void apply_mod(unsigned id) noexcept;
+  void refresh_mods() noexcept;
+  float eff(unsigned id) const noexcept;
+  void advance_mods() noexcept;
+  void load_muffler() noexcept;
+  float tail_estimate() const noexcept;
+  bool mods_needed() const noexcept;
+  float cutoff_base() const noexcept;
+  float sweep_term(float acc_now, float swp_now) const noexcept;
 
   float fs_ = 44100.0f;
   float inv_fs_ = 1.0f / 44100.0f;
@@ -147,6 +193,61 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   float gain_ = 0.0f;
   std::uint32_t ctl_ = 0;       // samples left until the next control()
   bool fresh_ = true;           // a note started: the next control() sets the coefficient to its value at once instead of ramping
+
+  // ---- The mods (docs/MODS-PLAN.md 3). Appended after the stock state on purpose: the stock loop reads the members above at offsets that
+  // are today's, and the objdump of run<Square, false> is compared against the voice before the mods. All of it is written and read on the
+  // render's thread (set() arrives as an event).
+  float raw_[kModValues] = {};          // each mod's value as set() received it, clamped (a non-finite value is its stock): Stock reads these back
+  bool stock_ = false;                  // Stock: every mod uses its stock value
+  bool modded_ = false;                 // a mod needs run<Square, true> for the coming period (decided in control())
+  bool ramp_pending_ = false;           // set() moved a target: the next control() starts the ramp
+
+  float stock_accent_c_ = 0.9999f;      // the coefficients prepare() computes from the constants: assigned back at the stock value, never recomputed
+  float stock_accent_cn_ = 0.9999f;
+  float stock_slide_c_ = 0.0004f;
+  float stock_hold_c_ = 0.99999f;
+  float reso_ = 0.0f;                   // Reso as set: the feedback gain is derived from it (doubled by Acc Sweep HI RES)
+  float last_out_ = 0.0f;               // the last sample of the last run: seeds the states a mod left stale while it was off
+
+  float track_ = 0.0f;                  // Tracking: octaves of cutoff per octave of pitch; track_on_ is false at 0 %, where no term is added
+  bool track_on_ = false;
+  std::uint8_t sweep_mode_ = 1;         // Acc Sweep: 0 OFF, 1 NORMAL, 2 HI RES
+  std::uint8_t swp_mode_ = 1;           // Swp Speed: 0 FAST, 1 NORMAL, 2 SLOW
+  bool hires_ = false;
+  float swp_ = 0.0f;                    // the sweep follower of SLOW and FAST (control rate), and FAST's slow follower m_
+  float swp_m_ = 0.0f;
+  float swp_slow_c_ = 0.0f;
+  float swp_fast_c_ = 0.0f;
+
+  float att_ = 1.0f;                    // Soft Atk: the attack's charge, 1 = done; att_c_ is its coefficient a sample, 0 when Soft Atk is OFF
+  float att_c_ = 0.0f;
+  std::uint8_t att_idx_ = 0;
+
+  Ramp sub_;                            // Sub Osc: the level (a ramp a sample); the square's sign flips on the main oscillator's wrap
+  float subq_ = 1.0f;
+  float od_db_ = 0.0f;                  // Overdrive: its dB at the end of the last period, the target, the gain now and its step a sample
+  float od_db_t_ = 0.0f;
+  float od_g_ = 1.0f;
+  float od_step_ = 0.0f;
+  Ramp fm_;                             // Filter FM: the depth k (twice the amount), a stair at the control rate
+  float fm_xm1_ = 0.0f;                 // the DC blocker of the output that modulates the filter, and the output of the last sample
+  float fm_ym1_ = 0.0f;
+  float fm_y_ = 0.0f;
+  Ramp mix_;                            // Muffler: the wet/dry mix, a stair; muf_type_ is the type the loop computes, muf_want_ the one asked for
+  float muf_lp_ = 0.0f;
+  float muf_a_ = 0.0f;
+  float muf_t_ = 0.7f;
+  float muf_inv_t_ = 1.0f / 0.7f;
+  std::uint8_t muf_type_ = 0;
+  std::uint8_t muf_want_ = 0;
+
+  float ramp_sub_rate_ = 0.0f;          // per control period (about 5 ms for the whole range)
+  float ramp_mix_rate_ = 0.0f;
+  float ramp_fm_rate_ = 0.0f;
+  float ramp_od_rate_ = 0.0f;
+  float fm_dc_r_ = 0.999f;
+  float g_half_min_ = 0.0f;             // half of the ladder's g at the lowest cutoff: the floor of Filter FM's modulated g
+  float muf_hard_a_ = 0.0f;
 };
 
 }  // namespace o3_303

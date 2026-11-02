@@ -47,7 +47,7 @@ TEST_CASE("acid_voice: the parameter table is valid, in the contract's order, wi
   CHECK(AcidVoice::Wave == 5);
   CHECK(AcidVoice::Tune == 6);
   CHECK(AcidVoice::Volume == 7);
-  CHECK(AcidVoice::kParamCount == 8);
+  CHECK(AcidVoice::kParamCount == 20);  // the mods are ids 8..19 (acid_voice_mods_test.cpp)
   const float defaults[] = {350.0f, 0.65f, 0.6f, 750.0f, 0.7f, 0.0f, 0.0f, -3.0f};
   const float lo[] = {25.0f, 0.0f, 0.0f, 200.0f, 0.0f, 0.0f, -12.0f, -60.0f};
   const float hi[] = {4500.0f, 1.0f, 1.0f, 2500.0f, 1.0f, 1.0f, 12.0f, 6.0f};

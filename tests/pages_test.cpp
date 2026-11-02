@@ -109,6 +109,14 @@ TEST_CASE("pages: the entries a motion lane can drive are the voice's, the disto
   REQUIRE(rig.controls.lane_ref(rig.entry(kPageSound, 7), ref));
   CHECK(ref.target == kLaneMixer);
   CHECK(ref.id == kMixerLevel);
+  // The voice's mods are lanes like its knobs (ids 8..18); Stock, the switch over them (id 19), is not one, nor is an id past the knobs.
+  for (unsigned id = AcidVoice::AccDecay; id < AcidVoice::Stock; ++id) {
+    REQUIRE(rig.controls.lane_ref(Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}, ref));
+    CHECK(ref.target == kLaneVoice);
+    CHECK(ref.id == id);
+  }
+  CHECK_FALSE(rig.controls.lane_ref(Entry{Item::Voice, AcidVoice::Stock, nullptr}, ref));
+  CHECK_FALSE(rig.controls.lane_ref(Entry{Item::Voice, 32, nullptr}, ref));
   // The FX page: the distortion (Drive, Tone, Mix), the delay (time, feedback), the send; not DIST (a mode) and not the master.
   REQUIRE(rig.controls.lane_ref(rig.entry(kPageFx, 0), ref));
   CHECK(ref.target == kLaneDist);

@@ -1294,6 +1294,9 @@ TEST_CASE("a motion point on the slewed target also overrides the slew for its q
   CHECK(resumed == doctest::Approx(along(cutoff, from, core::param_clamp(cutoff, 3000.0f), static_cast<std::uint32_t>(off), 44100)).epsilon(1e-3));
 }
 
+// The k-th of the voice's knobs a slew test may drive: the ids in order, but not the voice's Stock (id 19), which is no slew's target.
+static std::uint8_t voice_knob(unsigned k) { return static_cast<std::uint8_t>(k < kLaneVoiceStock ? k : k + 1u); }
+
 TEST_CASE("many slews at once: no event is lost, the notes are as without them, every slew lands on its goal") {
   const std::uint32_t tempo = 300'000;
   Pattern p = play_all(16);
@@ -1311,7 +1314,7 @@ TEST_CASE("many slews at once: no event is lost, the notes are as without them, 
     rig->start(tempo);
     if (slews) {
       for (unsigned id = 0; id < 20; ++id) {  // store = false: one event each in the first block, as a morph starts them
-        CHECK(rig->seq.slew(kLaneVoice, static_cast<std::uint8_t>(id), 90.0f - static_cast<float>(id), 40.0f, false));
+        CHECK(rig->seq.slew(kLaneVoice, voice_knob(id), 90.0f - static_cast<float>(id), 40.0f, false));
       }
       for (unsigned id = 0; id < 12; ++id) {
         CHECK(rig->seq.slew(kLaneDist, static_cast<std::uint8_t>(id), 10.0f + static_cast<float>(id), 40.0f, false));
@@ -1324,7 +1327,7 @@ TEST_CASE("many slews at once: no event is lost, the notes are as without them, 
       // The morph is done: it stores the values (these writes are the main loop's, one event each).
       stores_at = rig->now();
       for (unsigned id = 0; id < 20; ++id) {
-        rig->engine.set_param(rig->vid, static_cast<std::uint16_t>(id), 90.0f - static_cast<float>(id));
+        rig->engine.set_param(rig->vid, voice_knob(id), 90.0f - static_cast<float>(id));
       }
       rig->seq.update();
     }
@@ -1366,7 +1369,7 @@ TEST_CASE("many slews at once: no event is lost, the notes are as without them, 
   }
   // Every slew's last event before the stores is its goal; the lock on id 0 later restores the stored goal as well.
   for (unsigned id = 0; id < 20; ++id) {
-    const auto ev = only_params(with->voice.log, static_cast<int>(id));
+    const auto ev = only_params(with->voice.log, voice_knob(id));
     REQUIRE(!ev.empty());
     CHECK(ev.back().value == doctest::Approx(90.0f - static_cast<float>(id)));
   }
@@ -1382,17 +1385,18 @@ TEST_CASE("more slews than the table holds: the extra ones jump to their goal, s
   o.wide = true;
   Rig rig(o);
   rig.start();
-  for (unsigned id = 0; id < 32; ++id) {
-    CHECK(rig.seq.slew(kLaneVoice, static_cast<std::uint8_t>(id), 80.0f, 50.0f, false));
+  for (unsigned k = 0; k < 31; ++k) {  // the voice's 32 ids but Stock (id 19), which is no slew's target
+    CHECK(rig.seq.slew(kLaneVoice, voice_knob(k), 80.0f, 50.0f, false));
   }
-  for (unsigned id = 0; id < 8; ++id) {  // the 33rd .. 40th: store = false, nothing is written on the main side
+  CHECK(rig.seq.slew(kLaneDist, 0, 80.0f, 50.0f, false));  // the 32nd: the table is full
+  for (unsigned id = 1; id < 9; ++id) {                      // the 33rd .. 40th: store = false, nothing is written on the main side
     CHECK(rig.seq.slew(kLaneDist, static_cast<std::uint8_t>(id), 80.0f, 50.0f, false));
   }
   CHECK(rig.seq.slew(kLaneMixer, kMixerLevel, 0.3f, 50.0f, false));  // the 41st: a mixer field
   rig.run(64);
   CHECK(rig.seq.slewing() == kMaxSlews);
   CHECK(rig.seq.slew_overflow() == 9);
-  for (unsigned id = 0; id < 8; ++id) {
+  for (unsigned id = 1; id < 9; ++id) {
     const auto ev = only_params(rig.dist.log, static_cast<int>(id));
     REQUIRE(ev.size() == 1);  // the hook wrote the goal itself, in the first block
     CHECK(ev[0].frame == 0);

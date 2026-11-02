@@ -257,6 +257,16 @@ lock and no MIDI learn (`Item::Stock` is an app item).
    - SOFT ATK only starts at a note-on, so a toggle mid-note never starts a ramp; a toggle during one ends it (the attack's own edge).
    - HI RES and the control-rate mods change as RESO and CUTOFF do today: per block, with the cutoff stepped across the control period.
    - A fresh voice has every ramp at its target, so "STOCK ON from the start is bit for bit stock" holds.
+9. **Back to stock is stock arithmetic at once, not stock bits at once.** When the last mod leaves (a value turned back, or STOCK), the
+   next control period runs the stock loop. The voice state (the ladder, the feedback high-pass, the envelopes, the pitch glide) still
+   carries what the modded run left in it, because the modded loop is not bit-identical to the stock loop in the last bits and a mod
+   changes the state while it runs. The bits equal a never-modded voice's only after that state has decayed: measured, a note 1,000
+   frames after the return differs by up to 0.04, and a note 18,000 frames after (about 0.4 s of silence) is bit-identical. Where the
+   idle ladder rings on its own feedback (RESO high with a very low drive, OVERDRIVE at -24 dB) the state never converges to the same
+   phase, and such a case is compared by level, not by bits.
+10. **A mod set live reaches the loop that computes it.** Every mod whose stage lives in the modded loop (SUB OSC, FILTER FM, MUFFLER,
+    OVERDRIVE, HI RES) sets `ramp_pending_` when its value moves, so the next `control()` takes the modded loop even with no note and no
+    ramp going; the control-rate mods and SOFT ATK (chosen at a note-on) need no such flag.
 
 ### 3.4 CPU (Cortex-M4F at 180 MHz, a 64-sample block at 44.1 kHz = 261,224 cycles; 1 % = 2,612 cycles = 41 cycles a sample)
 
@@ -740,9 +750,12 @@ Common to every slice:
   3. The cost comment in `acid_voice.h` updated with the 3.4 estimates.
   4. `carried()` excludes `Stock`.
 - **Tests** (new `acid_voice_mods_test.cpp`):
-  - exactness: golden checksums unchanged (on the recorded host, 3.3 point 6); each parameter set explicitly to its stock value, or set
-    to an extreme and back once the ramp lands, renders bit for bit as a fresh voice; STOCK ON with every mod at an extreme renders bit
-    for bit as stock; every descriptor passes `param_desc_valid()`;
+  - exactness: golden checksums unchanged (on the recorded host, 3.3 point 6); each parameter set explicitly to its stock value renders
+    bit for bit as a fresh voice; STOCK ON, before the first block, with every mod at an extreme renders bit for bit as stock. A mod set
+    to an extreme and back, or STOCK toggled while the voice runs, is stock arithmetic at once, and renders bit for bit as a voice that
+    was never modded only after the voice state has decayed (3.3 point 9: about 0.4 s of silence; the tests leave 40,000 to 100,000
+    frames). A mod set live, between notes, sounds as if it had been set before the start (the same bits, but for OVERDRIVE at -24 dB,
+    where the idle ladder rings and the two rings are not in step); every descriptor passes `param_desc_valid()`;
   - no click at a toggle (3.3 point 8): a held note with every mod at an extreme, STOCK toggled mid-note both ways and each switch mod
     changed mid-note. The largest sample-to-sample step within 10 ms of the change must not exceed 1.25 times the largest step of the
     same note rendered without the change (stock and modded alike);
@@ -902,6 +915,10 @@ A host test is not this check. The slices name the unit check they leave to it.
 - **The host pin depends on glibc:** on another glibc the test reports that it did not check, so S1's before-and-after comparison must
   run on one machine.
 - **Lanes on mods in older images,** and the STOCK lane guard: 5.8.
+- **S2's `mods_stock_ab` scenario is byte-identical to a stock render only if the sets and STOCK land before any block renders.** Mods
+  that are set or removed while the voice runs leave the voice state perturbed for about 0.4 s (3.3 point 9), so a scenario that sets
+  them mid-run and compares with a never-modded run differs for that long, and that is the plan, not a defect. S2 also owns resetting
+  STOCK when a project loads (5.11): S1's `apply()` does not.
 - **Skin draw time: A9 failed** (`peak_us` 3 to 5 ms against 2,000 µs), and MODDED, GROWL and WOBBLE inherit the failure. SK8 stays
   blocked on A9; it is not fixed here.
 - **The MIDI tools** belong to the MIDI lane until the orchestrator hands them to S0. S0 cannot pass `midi_check_selftest` without them.

@@ -456,7 +456,7 @@ bool Controls::lane_ref(const Entry& entry, LaneRef& out) const noexcept {
   switch (entry.item) {
     case Item::Voice:
       out = LaneRef{kLaneVoice, static_cast<std::uint8_t>(entry.id)};
-      return entry.id < seq::kKnobs;
+      return entry.id < seq::kKnobs && entry.id != kLaneVoiceStock;  // Stock (the switch over the mods) is no lane's target
     case Item::Dist:
       out = LaneRef{kLaneDist, static_cast<std::uint8_t>(entry.id)};
       return entry.id < seq::kKnobs;

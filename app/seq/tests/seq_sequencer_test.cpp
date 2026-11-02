@@ -81,7 +81,7 @@ struct Rig {
   Sequencer seq;
   dsp::UnitId id = dsp::kNoUnit;
 
-  Rig() : bank(std::make_unique<Bank>()), seq(init(*bank)) {}
+  explicit Rig(std::uint16_t voice_params = 8) : voice(voice_params), bank(std::make_unique<Bank>()), seq(init(*bank)) {}
 
   static Bank& init(Bank& b) {
     b.init();
@@ -771,6 +771,38 @@ TEST_CASE("motion: a p-lock goes to the voice before the step's note, and the kn
     }
   }
   CHECK(at_param < at_note);
+}
+
+TEST_CASE("motion: the voice's Stock (id 19) is nobody's lane, record, slew or wobble target; the mod before it (id 18) is") {
+  Rig rig(AcidVoice::kParamCount);
+  Pattern p = play_all(8);
+  p.lanes[0] = LaneRef{kLaneVoice, AcidVoice::Stock};      // hand-built: a project of a hand or of damage
+  p.lanes[1] = LaneRef{kLaneVoice, AcidVoice::AmpDecay};   // the control: a mod's lane works
+  set_plock(p, 0, 2, 254);
+  set_motion_point(p, 0, 3, 1, 254);
+  set_plock(p, 1, 2, 200);
+  rig.bank->replace(0, p);
+  rig.start(120'000);
+  rig.engine.play();
+  rig.run(frame_of(6 * kStep, 120'000));
+  unsigned stock_events = 0;
+  unsigned mod_events = 0;
+  for (const Rec& e : rig.params()) {
+    stock_events += e.param == AcidVoice::Stock ? 1u : 0u;
+    mod_events += e.param == AcidVoice::AmpDecay ? 1u : 0u;
+  }
+  CHECK(stock_events == 0);
+  CHECK(mod_events >= 1);
+  CHECK(rig.engine.param(rig.id, AcidVoice::Stock) == 0.0f);
+
+  // The other doors: motion recorded onto the lane (the playhead is inside the pattern), a slew, a wobble.
+  CHECK_FALSE(rig.seq.record_motion(0, 1.0f));
+  CHECK(rig.seq.record_motion(1, 1000.0f));
+  CHECK_FALSE(rig.seq.slew(kLaneVoice, AcidVoice::Stock, 1.0f, 10.0f, true));
+  CHECK(rig.seq.slew(kLaneVoice, AcidVoice::AmpDecay, 1000.0f, 10.0f, true));
+  CHECK_FALSE(rig.seq.set_wobble(true, 0, 0, 0.5f, LaneRef{kLaneVoice, AcidVoice::Stock}));
+  CHECK(rig.seq.set_wobble(true, 0, 0, 0.5f, LaneRef{kLaneVoice, AcidVoice::AmpDecay}));
+  CHECK(rig.engine.param(rig.id, AcidVoice::Stock) == 0.0f);
 }
 
 TEST_CASE("motion: four points a step, each at its quarter of the step, only sent when they change") {

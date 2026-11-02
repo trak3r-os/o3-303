@@ -252,7 +252,7 @@ bool Sequencer::resolvable(std::uint8_t target, std::uint8_t id) const noexcept 
   if (target == kLaneSeq) {
     return id < kSeqValueCount;
   }
-  if (!is_unit_target(target)) {
+  if (!is_unit_target(target) || (target == kLaneVoice && id == kLaneVoiceStock)) {  // Stock is a switch over the mods, never a lane's or a slew's target
     return false;
   }
   const UnitTable& t = tab_[target];

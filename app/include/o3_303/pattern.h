@@ -164,6 +164,12 @@ inline constexpr std::uint8_t kLaneGrowl = 5;  // M3c: the growl (units/growl), 
 inline constexpr std::uint8_t kLaneSeq = 6;    // M3c: the sequencer's own performance values: id = the kSeq* ids below
 inline constexpr unsigned kLaneTargetCount = 7;
 
+// The one parameter of the voice that is never a lane's target: acid_voice's Stock (id 19), the switch that reads every mod at its stock value. It
+// is not a sound setting, and a lane on it would flip every mod at a step (docs/MODS-PLAN.md 5.8). The sequencer's resolvable(), the LOCK row's
+// lane_ref() and the project's sanitize() refuse (kLaneVoice, kLaneVoiceStock); project.cpp checks the number against AcidVoice::Stock (this
+// header does not include the voice).
+inline constexpr std::uint8_t kLaneVoiceStock = 19;
+
 // The values of kLaneSeq (a motion lane on them sequences the wobble per step): the wobble rate is an Enum 0..10 (seq/wobble.h: 1/1 ... 1/16D),
 // the depth 0..1. A point of kNoLock leaves the rate and depth that set_wobble() and the pad override say.
 inline constexpr std::uint8_t kSeqWobbleRate = 0;
