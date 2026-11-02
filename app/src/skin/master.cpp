@@ -162,7 +162,7 @@ const char* master_tempo_cells(const char* tempo, char (&out)[6]) noexcept {
 
 void draw_master(ui::Renderer& r, const MasterView& v, const frame::StatusView& status, const HeaderInputs& in, const char* pads_line) noexcept {
   Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(in.covered);
   queue_panel(panel, kHeaderH, kGlassBottom);
 
   HeaderView header;

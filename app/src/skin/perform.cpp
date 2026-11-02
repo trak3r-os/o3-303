@@ -142,7 +142,7 @@ Color lamp_ink(LampTone tone) noexcept {
 void draw_perform(ui::Renderer& r, const PerformView& v, bool setup, const frame::StatusView& status, const HeaderInputs& in, const view::Knob (&knobs)[view::kKnobs], bool shift_row,
                   const char* pads_line) noexcept {
   Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(in.covered);
   queue_panel(panel, kHeaderH, kGlassBottom);
 
   HeaderView header;

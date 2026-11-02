@@ -56,6 +56,7 @@ struct HeaderInputs {
   bool playing = false;
   std::uint8_t perf[kPerfButtons] = {};                      // the PerfAction of Note, Instr, Vol, Fx (Wiring::perf)
   std::uint64_t now_ms = 0;                                  // for the armed take's blink
+  ui::Rect covered{0, 0, 0, 0};                              // the area the kit's opaque system strip will cover in this frame (Context::strip_area(), empty with no strip): Panel::clear() leaves out what lies wholly in it
 };
 
 // The PAGE window's message: to 20 characters it is set in the 8x16 Label face, to 27 in the 6x12 Micro (27 x 6 = 162 px of the window's 172), and a longer one is cut at 26 characters and ends

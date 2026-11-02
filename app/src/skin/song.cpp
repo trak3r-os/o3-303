@@ -63,7 +63,7 @@ Face value_face(const char* s) noexcept {
 
 void draw_song(ui::Renderer& r, const SongView& v, const frame::StatusView& status, const HeaderInputs& in, const view::Knob (&knobs)[view::kKnobs], const char* pads_line) noexcept {
   Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(in.covered);
   queue_panel(panel, kHeaderH, kGlassBottom);
 
   HeaderView header;

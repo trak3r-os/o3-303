@@ -698,6 +698,7 @@ void PerformScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
     in.perf[b] = rig_->wiring.perf[b];
   }
   in.now_ms = ctx.uptime_ms();
+  in.covered = ctx.strip_area();
   view::Knob knobs[view::kKnobs];
   const bool shift_row = fill_knob_row(ctx, knobs, true);
   char line[128];

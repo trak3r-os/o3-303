@@ -607,6 +607,7 @@ void MasterScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
     in.perf[b] = rig_->wiring.perf[b];
   }
   in.now_ms = ctx.uptime_ms();
+  in.covered = ctx.strip_area();
   char line[128];
   home_->pads_line(ctx, line, sizeof line);
   skin::draw_master(r, view_, status, in, line);

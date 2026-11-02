@@ -292,7 +292,7 @@ Face value_face(unsigned n, int w) noexcept {
 
 void draw_instrument(ui::Renderer& r, const InstrumentView& v, const frame::StatusView& status, const HeaderInputs& in, const char* pads_line) noexcept {
   Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(in.covered);
   queue_panel_full(panel, kHeaderH);
 
   HeaderView header;

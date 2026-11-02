@@ -587,6 +587,7 @@ void FileScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
     in.perf[b] = rig_->wiring.perf[b];
   }
   in.now_ms = ctx.uptime_ms();
+  in.covered = ctx.strip_area();
   const char* pads = names_.active() ? "THE 48 PADS ARE THE KEYS . DELETE ERASES" : (view_.card[0] != '\0' ? view_.card : "LIST ROWS . TAP = SELECT");
   skin::draw_file(r, view_, status, in, names_.active() ? &names_ : nullptr, pads);
   skin::note_frame(static_cast<std::uint32_t>(r.words()), (o3sdk::hal::cycles() - t0) / skin::kCyclesPerUs, ctx.uptime_ms());

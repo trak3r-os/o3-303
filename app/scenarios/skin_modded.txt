@@ -7,8 +7,8 @@
 # knobs, F6 and F7 empty wells, the F8 key; TONE red); 03 GROWL (one tab; seven knobs, F8 an empty well); 04 WOBBLE (five knobs, F6 and F7 empty wells, F8 WOB a dark key); 05 F8 latches WOB: the key lit
 # red, ON under it; 06 NOTES with STOCK on (Shift + Sample Loader from any screen is the same switch): the key lit, the tagline "STOCK . MODS OFF" in amber, the PAGE window's toast; 07 TONE with STOCK on;
 # 08 HOME with STOCK on: the tagline, the F row as ever; strip_09a NOTES just after a MIDI learn: the PAGE window's toast, and the kit's strip LEARNED CC 75 CHANNEL 1 under it for three seconds; strip_09 HOME
-# the same moment: the strip runs over the F row's readouts and the line is over 4,800 px (MODS-PLAN 13, SKIN-PLAN 4.3: the strip is the kit's, drawn last over the bottom 28 px; the scenarios test
-# requires it up in a strip_* snap and down in every other, and holds such a snap to its own bound); 09b the strip gone; 10 NOTES with STOCK on, the pattern playing, every step a note with an
+# the same moment: the strip runs over the F row's readouts, which the skin leaves out (MODS-PLAN 13, SKIN-PLAN 4.3: the strip is the kit's, drawn last over the bottom 28 px, and
+# Context::strip_area() tells the skin where; the scenarios test requires it up in a strip_* snap and down in every other); 09b the strip gone; 10 NOTES with STOCK on, the pattern playing, every step a note with an
 # accent and a slide, two steps held with a lock on F2 DECAY, Shift held with LEARN armed on F1.
 wait 300
 tap config

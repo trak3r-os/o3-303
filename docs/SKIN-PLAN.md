@@ -187,26 +187,40 @@ sprites. Add about 25 to it for the binds and the section. The estimates include
   - **PERFORM** is 1,310 estimated but about 1,415 modelled, which is over 1,350. The smallest cut is the colour-buttons line and the PADS
     line, about 100 words together. Both repeat what the header's PERFORM LEDs and the lamps already show. If PERFORM is still over
     after that, it falls back to classic.
-- **A known breach, found in MODS S2's review and measured in S3: the kit's system strip, not the skin. It is not one frame.**
+- **The kit's system strip over the F row: found in MODS S2's review, measured in S3, fixed in KS1 (o3-sdk `Context::strip_area()`).**
   - **Cause:** while any kit strip is up (a MIDI learn, a save, a card change, USB: 3 s each), `Runtime` draws it last, over the bottom 28
-    px of every `Chrome::None` screen, as an 800 px panel plus 10 px a character, over the F-row readouts the skin already queued.
-    `Context` has no query for it, so the skin cannot leave out what the strip hides.
-  - **Scope:** every HOME and PERFORM frame is over 4,800 px on the F row's lines (y 457 to 478) while a strip is up. Measured under the
-    learn strip ("LEARNED CC 75 CHANNEL 1", 990 px more than the same frame without it; the last two by the S3 review):
-    HOME 5,296 (4,306 without), HOME SETUP with F3 held 5,366, PERFORM SETUP 5,470. A notice can be up to 71 characters
-    (`kStripChars` 72 with the terminator), 10 px each, so the worst strip adds about 1,500 px. MASTER, FILE, SONG and the INSTRUMENT-class
-    pages stay under 4,800 by arithmetic: their maxima are 3,596 px or less, and about 990 more is 4,586.
-  - **On the unit:** 5,296 px is 83 % of MIX's clean 6,400 px (the budget is 75 %, the table above); the primitives, 86, are under the
-    clean 128. So the frame is over the rule the budget keeps, not over a measured failure, and A9 decides what it costs.
-  - **Why not an app-side fix:** every drawing change that cuts those px (cropping the knob scale, dropping the windows under the
-    strip) moves the digests of the F row on every skinned screen, or needs the strip's state, which only the kit has.
-  - **What S3 did:** `skin_modded.txt` snaps HOME and NOTES under a learn strip as `strip_09_home_after_learn` and
-    `strip_09a_notes_after_learn`, and `skin_instrument.txt`'s `strip_09_learned` (renamed from `09_learned`, the same pixels) is
-    the third. The scenarios test requires the runtime's strip to be up in a `strip_*` snap and down in every other, holds a strip
-    frame to 1,350 words and 100 primitives as any other and to 5,300 px (the 5,296 measured, 4 px of margin), `kSkinStripMaxLinePx`.
-    The 4,800 ceiling is not met for these frames, by exactly the strip.
-  - **The fix (o3-sdk slice, not here):** `ui::Rect Context::strip_area()`, and the skin then drops the shapes inside the rect. The
-    `strip_*` rule and its bound then go, and a strip frame meets 4,800 like the rest.
+    px of every `Chrome::None` screen, as an 800 px panel plus 10 px a character, over the F-row readouts the skin had already queued. Every
+    HOME and PERFORM frame was over 4,800 px on the F row's lines (y 457 to 478) while it was up: HOME just after a learn ("LEARNED CC 75
+    CHANNEL 1", 990 px more than without it) 5,296 (4,306 without), HOME SETUP with F3 held 5,366, PERFORM SETUP 5,470. A notice of the 71
+    characters `kStripChars` allows (10 px each) took them to 5,816, 5,886 and 5,990 at the first KS1 measure, on the same frames.
+  - **The fix:** the kit now tells a screen where the strip is (`Context::strip_area()`: the exact rect, `{0, 452, 800, 28}` under
+    `Chrome::None`, empty when no strip is up; `docs/FRAMEWORK.md`, "Runtime"). The strip is opaque, so the skin leaves out what it covers:
+    `Panel::clear(covered)` takes the rect, and a shape or a text wholly inside it, cut to the screen (the readout windows' lip runs a pixel
+    past the bottom), is not queued at all (`Panel::skipped()`). The screens pass `ctx.strip_area()` through `HeaderInputs::covered` (HOME
+    takes it from the context at once); one rule in one place, so every skinned screen has it, F row and the rest of those lines.
+  - **What it changed and did not:** every PNG and WAV of the scenarios is byte-identical to o3-303 main at afbacd9, rendered from its own
+    build with each card scenario on its own empty card: 545 files there (526 PNG, 19 WAV), 549 with the four new `skin_strip` snaps.
+    What is left out lay under an opaque strip. `tests/skin_frow_test.cpp` pins it: a skinned probe screen is drawn under the kit's real strip
+    twice, with the Panel cleared with no rect and with `strip_area()`, and the 800 x 480 pixels are equal (two notices, 23 and 65 characters);
+    a rect taller than the strip, or a rect skipped with no strip up, makes them differ. The scenarios test's digests are of the display
+    list, not of the pixels, so they say only that the strip frames got shorter (their digests moved, the plain frames' did not). With the rect
+    empty (no strip) `Panel` queues everything, as before.
+  - **The numbers (words, primitives, px on the busiest line):** `skin_strip.txt`, all within the learn strip's three seconds:
+
+    | Frame | Words | Prims | Px (before) |
+    |---|---|---|---|
+    | HOME just after a learn (`strip_01`; `skin_modded`'s `strip_09`) | 1,027 | 74 | 4,458 (5,296) |
+    | PATTERN SETUP with F3 held (`strip_02`) | 1,043 | 75 | 4,616 (5,366) |
+    | PERFORM (`strip_03`) | 959 | 85 | 4,458 |
+    | PERFORM SETUP (`strip_04`) | 845 | 85 | 4,616 (5,470) |
+    | the same four under a 71-character notice (the scenarios test, `strip_0n_..._notice`) | 1,066 / 1,089 / 1,012 / 898 | 89 / 91 / 89 / 91 | 4,458 / 4,616 / 4,458 / 4,616 (5,816 / 5,886 / 5,990 for the first, second, fourth) |
+
+    The 71-character notice costs no more than the 22-character one: the busiest line is the strip's top rows, above its text (the knobs'
+    sprites that start above the strip and end in it are not wholly inside it, so they are kept, with the strip's 800 px panel). The
+    ceiling of 4,800 is met by every frame, strip frames included, with 184 px to spare; the scenarios test's `strip_*` bound (5,300) is gone,
+    and it still requires the strip up in a `strip_*` snap and down in every other.
+  - **On the unit:** 4,616 px is 72 % of MIX's clean 6,400 px, under the 75 % rule (the table above); 91 primitives, under the clean 128.
+    A9's draw time is a separate matter (below).
 
 - **The MODS pages (S3, `skin_modded.txt`; words, primitives on the busiest line, box px on it):**
 
@@ -218,7 +232,7 @@ sprites. Add about 25 to it for the binds and the section. The estimates include
   | WOBBLE / with WOB on | 1,015 / 1,019 | 72 / 72 | 3,654 / 3,654 |
   | HOME with STOCK on / after the toast is gone | 1,056 / 1,056 | 74 / 74 | 4,306 / 4,306 |
   | NOTES just after a learn (`strip_09a`: the PAGE window's toast, under the kit's strip) | 1,069 | 92 | 4,166 |
-  | HOME just after a learn (`strip_09`, under the kit's strip) | 1,102 | 86 | 5,296 |
+  | HOME just after a learn (`strip_09`, under the kit's strip; the skin leaves out what the strip covers, KS1) | 1,028 | 74 | 4,458 |
   | NOTES with STOCK on, playing, every step a note with accent and slide, two steps held with a lock, Shift + LEARN armed (`10_worst_case`) | 1,040 | 68 | 3,734 |
 
   Every other skinned frame of the scenarios peaks at 1,132 words, 92 primitives and 4,480 px.

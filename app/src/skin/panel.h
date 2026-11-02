@@ -60,8 +60,10 @@ class Panel {
   static constexpr unsigned kShapes = 384;  // INSTRUMENT's worst frame queues 3xx of them (its strip alone: 48 LEDs and glows, 48 key sprites)
   static constexpr unsigned kTexts = 192;   // PERFORM queues its 48 lamp labels beside the header and the F row's ~70; INSTRUMENT about 140
 
-  // The queue empty again, the sheen's scissor the whole screen.
-  void clear() noexcept;
+  // The queue empty again, the sheen's scissor the whole screen. `covered` is where the kit will draw its opaque system strip over this frame (Context::strip_area(), empty when none is up):
+  // a shape or a text that lies wholly inside it, taken as far as it is on the screen, is not queued at all (skipped() counts them), because nothing of it would be seen. A shape that is
+  // partly outside is queued whole. The queue then holds what is visible, and the frame under a strip costs what the strip adds to the shapes it does not cover.
+  void clear(const ui::Rect& covered = ui::Rect{0, 0, 0, 0}) noexcept;
   // Where the Sheen layer's lines are cut (the header).
   void set_sheen_clip(const ui::Rect& r) noexcept { sheen_clip_ = r; }
 
@@ -118,6 +120,7 @@ class Panel {
   unsigned shapes() const noexcept { return n_shapes_; }
   unsigned texts() const noexcept { return n_texts_; }
   unsigned dropped() const noexcept { return dropped_; }
+  unsigned skipped() const noexcept { return skipped_; }  // shapes and texts left out for lying under the strip (clear())
 
   // The texture's bitmap for the band [y, y + h): the app's tile starting at row y.
   static ui::plot::BitmapDesc texture_desc(int y, int h) noexcept;
@@ -141,6 +144,9 @@ class Panel {
     ui::Face face;
   };
 
+  bool covering() const noexcept { return covered_.w > 0 && covered_.h > 0; }  // a strip is up: the boxes below are worth working out
+  // True (and counted) when the box `x y w h`, cut to the screen, is wholly inside the covered rect: the caller queues nothing.
+  bool hidden(int x, int y, int w, int h) noexcept;
   Shape* add(Kind kind, Layer layer, ui::Rgb rgb, std::uint8_t alpha) noexcept;
   void draw(ui::plot::Canvas& canvas, const Shape& s) const noexcept;
 
@@ -149,6 +155,8 @@ class Panel {
   unsigned n_shapes_ = 0;
   unsigned n_texts_ = 0;
   unsigned dropped_ = 0;
+  unsigned skipped_ = 0;
+  ui::Rect covered_{0, 0, 0, 0};
   ui::Rect sheen_clip_{0, 0, ui::kScreenW, ui::kScreenH};
 };
 

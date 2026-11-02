@@ -670,7 +670,7 @@ struct MainScreen::Body {
 // texts (docs/SKIN-PLAN.md section 5, N6: shapes by layer, then text).
 void MainScreen::draw_skin_frame(app::Context& ctx, ui::Renderer& r) noexcept {
   skin::Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(ctx.strip_area());
   skin::queue_panel(panel, skin::kHeaderH, kGlassBottom);
 
   frame::StatusView status;

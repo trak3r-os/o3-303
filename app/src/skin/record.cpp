@@ -153,7 +153,7 @@ int envelope_mark_x(unsigned bar, unsigned bars) noexcept {
 
 void draw_record(ui::Renderer& r, const RecordView& v, const frame::StatusView& status, const HeaderInputs& in, const char* pads_line) noexcept {
   Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(in.covered);
   queue_panel(panel, kHeaderH, kGlassBottom);
 
   HeaderView header;

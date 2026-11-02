@@ -147,7 +147,7 @@ void fill_file_frow(FRowView& out, const FileView& v) noexcept {
 
 void draw_file(ui::Renderer& r, const FileView& v, const frame::StatusView& status, const HeaderInputs& in, const o3sdk::app::NameEntry* names, const char* pads_line) noexcept {
   Panel& panel = skin::panel();
-  panel.clear();
+  panel.clear(in.covered);
   queue_panel(panel, kHeaderH, kGlassBottom);
 
   HeaderView header;

@@ -1,0 +1,43 @@
+# The kit's system strip over the obsidian skin (docs/SKIN-PLAN.md 4.3, docs/MODS-PLAN.md 13): while a strip is up (here a MIDI learn's LEARNED CC 75 CHANNEL 1, three seconds), the runtime draws it last over the
+# bottom 28 px, and the skin leaves out every shape and text the strip covers (Context::strip_area(), Panel::clear). The strip is opaque, so the pictures are what they were before the skin left them out; what
+# changed is the cost, which the scenarios test holds to the same 4,800 box px on a line as every other frame (the 5,296, 5,366 and 5,470 px of these frames before the kit told the skin where the strip is).
+# Every snap here is a strip_* snap: the test requires the strip up in it.
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_strip.txt --out <dir>
+#
+# strip_01 HOME just after the learn; strip_02 PATTERN SETUP with F3 held (the amber rim under the strip); strip_03 PERFORM; strip_04 PERFORM SETUP. All within the strip's three seconds.
+wait 300
+tap config
+tap left
+wait 62  # the second Left of the old two-page Config: the time of every later event is unchanged
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap sampleload
+press shift
+tap f1
+wait 100
+midi usb b0 4b 40
+wait 200
+release shift
+wait 100
+tap pattern
+wait 100
+snap strip_01_home_after_learn
+tap pattern
+wait 100
+press f3
+wait 100
+snap strip_02_setup_f3_held
+release f3
+tap performance
+wait 100
+snap strip_03_perform
+tap performance
+wait 100
+snap strip_04_perform_setup

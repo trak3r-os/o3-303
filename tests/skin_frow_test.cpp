@@ -14,12 +14,15 @@
 #include <o3sdk/app/app.h>
 #include <o3sdk/app/diag.h>
 #include <o3sdk/core/param.h>
+#include <o3sdk/sim/harness.h>
+#include <o3_303/skin_assets.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <vector>
 
 using namespace o3_303;
 using namespace o3_303::skin;
@@ -329,6 +332,237 @@ TEST_CASE("frow: the header and a row of every kind and state fit the queue with
     CHECK(p.shapes() < Panel::kShapes * 3 / 4);
     CHECK(p.texts() < Panel::kTexts * 3 / 4);
   }
+}
+
+// ---- under the kit's system strip -------------------------------------------------------------------------------------------------------
+
+namespace {
+
+constexpr ui::Rect kStrip{0, 452, 800, 28};  // Context::strip_area() under Chrome::None while a strip is up
+
+bool inside_strip(int x, int y, int w, int h) {
+  const int y1 = y + h < 480 ? y + h : 480;
+  const int x1 = x + w < 800 ? x + w : 800;
+  return x >= kStrip.x && y >= kStrip.y && x1 <= kStrip.x + kStrip.w && y1 <= kStrip.y + kStrip.h;
+}
+
+}  // namespace
+
+TEST_CASE("strip: a panel cleared with the strip's rect queues nothing wholly inside it, cut to the screen, and everything else whole") {
+  Panel p;
+  p.clear(kStrip);
+  // Rects and round rects: wholly inside, the exact rect, one pixel above it, one past its right edge, and a window whose lip runs a pixel off the screen's bottom.
+  CHECK(p.rect(Layer::Rule, ui::Rect{10, 460, 50, 10}, pal::kRule));
+  CHECK(p.rect(Layer::Rule, ui::Rect{0, 452, 800, 28}, pal::kRule));
+  CHECK(p.skipped() == 2);
+  CHECK(p.shapes() == 0);
+  p.round_rect(Layer::WindowLip, ui::Rect{100, 457, 94, 24}, 64, pal::kWindowLip);  // y 457 to 481: the last row is off the screen
+  CHECK(p.skipped() == 3);
+  p.rect(Layer::Rule, ui::Rect{10, 451, 50, 10}, pal::kRule);   // a row above the strip
+  p.rect(Layer::Rule, ui::Rect{760, 460, 41, 10}, pal::kRule);  // a column past it, off the screen: still wholly inside as far as it is seen
+  CHECK(p.skipped() == 4);
+  CHECK(p.shapes() == 1);
+  // Sprites by their drawn size: the 16 x 16 LED in the strip is out, the same LED straddling its top is kept.
+  p.sprite(Layer::Led, skin_assets::Id::Led, 0, 100, 460, pal::kLedRed);
+  p.sprite(Layer::Led, skin_assets::Id::Led, 0, 100, 440, pal::kLedRed);
+  CHECK(p.skipped() == 5);
+  CHECK(p.shapes() == 2);
+  // A point and a line count their reach: a glow of 12 px radius centred 4 px below the strip's top spills out of it, a small point and a short thin line in the middle do not.
+  p.point(Layer::Glow, 400 * 16, 456 * 16, 12 * 16, pal::kLedRed, 50);
+  CHECK(p.shapes() == 3);
+  p.point(Layer::Glow, 400 * 16, 466 * 16, 4 * 16, pal::kLedRed, 50);
+  p.line(Layer::Pointer, 400 * 16, 460 * 16, 420 * 16, 470 * 16, 18, pal::kPointer);
+  CHECK(p.skipped() == 7);
+  CHECK(p.shapes() == 3);
+  // Texts by the face's cell: a Data text in the strip is out, one that starts above it is kept; the string is read, not kept.
+  const char* const word = "LEARNED";
+  p.text(10, 456, word, ui::Color::Text, ui::Face::Data);
+  CHECK(p.skipped() == 8);
+  p.text(10, 440, word, ui::Color::Text, ui::Face::Data);
+  CHECK(p.texts() == 1);
+  // A null string has no box: queued under a strip as without one, as Renderer::text takes it, and never read.
+  CHECK(p.text(10, 456, nullptr, ui::Color::Text, ui::Face::Data));
+  CHECK(p.texts() == 2);
+  CHECK(p.skipped() == 8);
+  // clear() with no rect drops nothing, and forgets the strip.
+  p.clear();
+  CHECK(p.text(10, 456, nullptr, ui::Color::Text, ui::Face::Data));
+  CHECK(p.texts() == 1);
+  p.clear();
+  CHECK(p.skipped() == 0);
+  p.rect(Layer::Rule, ui::Rect{10, 460, 50, 10}, pal::kRule);
+  p.text(10, 456, word, ui::Color::Text, ui::Face::Data);
+  CHECK(p.shapes() == 1);
+  CHECK(p.texts() == 1);
+  CHECK(p.skipped() == 0);
+}
+
+TEST_CASE("strip: the F row under a strip leaves out what the strip covers and queues the rest as it is") {
+  view::Knob in[view::kKnobs];
+  in[0] = knob("CUTOFF", "350", "Hz", 0.3f);
+  in[0].focus = true;
+  in[1] = knob("LOCK 12", "65", "%", 0.65f);
+  in[1].locked = true;
+  in[1].held = true;
+  in[2] = knob("ENV MOD", "100", "%", 1.0f);
+  in[4] = knob("REVERSE", "backwards", "", -1.0f);
+  in[5] = knob("WAVE", "SAW", "", 0.0f);
+  in[5].toggle = true;
+  in[5].off_name = "SAW";
+  in[5].on_name = "SQR";
+  in[6].blank = true;
+  in[7] = knob("UNDO", "step back", "", -1.0f);
+  for (unsigned i = 0; i < view::kKnobs; ++i) {
+    static constexpr const char* kF[view::kKnobs] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
+    in[i].fkey = kF[i];
+  }
+  FRowView v;
+  fill_frow(v, in, false);
+  Panel plain;
+  plain.clear();
+  draw_frow(plain, v);
+  Panel under;
+  under.clear(kStrip);
+  draw_frow(under, v);
+  CHECK(plain.skipped() == 0);
+  CHECK(under.skipped() > 16);  // the eight readout windows alone are two shapes and a text each
+  CHECK(under.shapes() + under.texts() + under.skipped() == plain.shapes() + plain.texts());
+  CHECK(under.dropped() == 0);
+  // What is left is not wholly inside the strip, and what was left out is: every text and rect of the plain queue that is in the strip is gone.
+  for (unsigned i = 0; i < under.shapes(); ++i) {
+    Panel::RectInfo r;
+    Panel::RoundRectInfo rr;
+    if (under.rect_at(i, r)) {
+      CHECK_FALSE(inside_strip(r.box.x, r.box.y, r.box.w, r.box.h));
+    }
+    if (under.round_rect_at(i, rr)) {
+      CHECK_FALSE(inside_strip(rr.box.x, rr.box.y, rr.box.w, rr.box.h));
+    }
+  }
+  for (unsigned i = 0; i < under.texts(); ++i) {
+    Panel::TextInfo t;
+    REQUIRE(under.text_at(i, t));
+    CHECK_FALSE(inside_strip(t.x, t.y, static_cast<int>(std::strlen(t.s)) * face_w(t.face), face_h(t.face)));
+  }
+}
+
+namespace {
+
+// A skinned screen of its own (the obsidian panel and the F row, drawn with the skin's bitmaps and flushed as the real screens do), whose Panel is cleared with whatever rect the test says,
+// under the kit's real strip, drawn by the runtime over it: what the pixels are with the skin leaving the strip's area out, against what they are with it all queued.
+class StripProbeScreen final : public o3sdk::app::Screen {
+ public:
+  enum class Cover { Nothing, Reported, Taller, Always };
+  const char* title() const noexcept override { return "STRIP"; }
+  o3sdk::app::Chrome chrome(const o3sdk::app::Context&) const noexcept override { return o3sdk::app::Chrome::None; }
+  const ui::Theme* theme(const o3sdk::app::Context&) const noexcept override { return &skin::theme(); }
+  void draw(o3sdk::app::Context& ctx, ui::Renderer& r, const ui::Rect&) noexcept override {
+    Panel& p = skin::panel();
+    switch (cover) {
+      case Cover::Nothing:  // everything queued, the strip hides what it hides
+        p.clear();
+        break;
+      case Cover::Reported:  // what the skin does: the kit's strip_area()
+        p.clear(ctx.strip_area());
+        break;
+      case Cover::Taller:  // as if the strip were drawn smaller than the rect the kit reports: the skin leaves out 84 px, the keys above the readouts too
+        p.clear(ctx.strip_area().w > 0 ? ui::Rect{0, 396, 800, 84} : ui::Rect{0, 0, 0, 0});
+        break;
+      case Cover::Always:  // as if the strip were not drawn at all: the rect is skipped whether a strip is up or not
+        p.clear(ui::Rect{0, 452, 800, 28});
+        break;
+    }
+    queue_panel(p, kHeaderH, 384);
+    view::Knob in[view::kKnobs];
+    in[0] = knob("CUTOFF", "350", "Hz", 0.3f);
+    in[0].focus = true;
+    in[1] = knob("LOCK 12", "65", "%", 0.65f);
+    in[1].held = true;
+    in[3] = knob("REVERSE", "backwards", "", -1.0f);
+    in[4] = knob("WAVE", "SAW", "", 0.0f);
+    in[4].toggle = true;
+    in[4].off_name = "SAW";
+    in[4].on_name = "SQR";
+    in[5].blank = true;
+    in[6] = knob("UNDO", "step back", "", -1.0f);
+    in[6].dim = true;
+    in[2] = knob("DECAY", "750", "ms", 0.8f);
+    in[7] = knob("RES", "12", "%", 0.1f);
+    for (unsigned i = 0; i < view::kKnobs; ++i) {
+      static constexpr const char* kF[view::kKnobs] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
+      in[i].fkey = kF[i];
+    }
+    FRowView v;
+    fill_frow(v, in, false);
+    draw_frow(p, v);
+    skipped = p.skipped();
+    ui::plot::Canvas canvas(r);
+    canvas.open();
+    p.flush_shapes(canvas);
+    canvas.close();
+    p.flush_text(r);
+  }
+  Cover cover = Cover::Nothing;
+  unsigned skipped = 0;
+};
+
+class StripProbeApp final : public o3sdk::app::App {
+ public:
+  const o3sdk::app::AppInfo& info() const noexcept override {
+    static constexpr o3sdk::app::AppInfo kInfo{"STRIP", "1"};
+    return kInfo;
+  }
+  std::size_t assets(const o3sdk::app::AppAsset*& rows) const noexcept override {
+    rows = skin_assets::kRows;
+    return skin_assets::kCount;
+  }
+  void setup(o3sdk::app::Context& ctx) noexcept override { ctx.show(screen); }
+  StripProbeScreen screen;
+};
+
+}  // namespace
+
+namespace {
+
+std::vector<std::uint8_t> pixels_of(const o3sdk::sim::Harness& h) {
+  const std::uint8_t* p = h.raster().rgba();
+  return std::vector<std::uint8_t>(p, p + 800u * 480u * 4u);
+}
+
+}  // namespace
+
+TEST_CASE("strip: the picture under the kit's strip is the same whether the skin leaves out what it covers or queues it, and it is not when the rect is wrong") {
+  StripProbeApp app;
+  o3sdk::sim::Harness h(app);
+  REQUIRE(h.start());
+  h.run_ms(100);
+  auto frame = [&](StripProbeScreen::Cover cover) {
+    app.screen.cover = cover;
+    h.runtime().context().redraw();
+    h.run_ms(80);
+    return pixels_of(h);
+  };
+  for (const char* notice : {"LEARNED CC 75 CHANNEL 1", "THE USB PORT CANNOT CHANGE NOW (THE CARD IS OUT OR A CHANGE RUNS)"}) {
+    INFO(notice);
+    h.runtime().system_strip(notice, -1, 3000);
+    const auto all_queued = frame(StripProbeScreen::Cover::Nothing);
+    REQUIRE(h.runtime().system().strip_active());
+    CHECK(app.screen.skipped == 0);
+    const auto left_out = frame(StripProbeScreen::Cover::Reported);
+    REQUIRE(h.runtime().system().strip_active());
+    CHECK(app.screen.skipped > 16);                  // the skin really did leave things out
+    CHECK(left_out == all_queued);                   // and the opaque strip hid every one of them: the same 384,000 pixels
+    // A strip drawn smaller than the rect the kit reports would show the hole: the pixels differ.
+    CHECK(frame(StripProbeScreen::Cover::Taller) != all_queued);
+    h.runtime().system_strip(nullptr);
+    h.run_ms(80);
+    REQUIRE_FALSE(h.runtime().system().strip_active());
+  }
+  // And a strip that is not drawn at all (the rect skipped with none up) shows the F row's missing readouts.
+  const auto no_strip = frame(StripProbeScreen::Cover::Nothing);
+  CHECK(frame(StripProbeScreen::Cover::Reported) == no_strip);  // no strip, no rect: the skin leaves nothing out
+  CHECK(app.screen.skipped == 0);
+  CHECK(frame(StripProbeScreen::Cover::Always) != no_strip);
 }
 
 // ---- the console ------------------------------------------------------------------------------------------------------------------------

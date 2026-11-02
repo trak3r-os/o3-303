@@ -821,6 +821,7 @@ void SongScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
     in.perf[b] = rig_->wiring.perf[b];
   }
   in.now_ms = ctx.uptime_ms();
+  in.covered = ctx.strip_area();
   view::Knob knobs[view::kKnobs];
   song_knobs(view_, knobs, true);
   char line[96];

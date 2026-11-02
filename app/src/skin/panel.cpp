@@ -17,11 +17,25 @@ constexpr std::uint16_t u16(unsigned v) noexcept { return static_cast<std::uint1
 
 }  // namespace
 
-void Panel::clear() noexcept {
+void Panel::clear(const Rect& covered) noexcept {
   n_shapes_ = 0;
   n_texts_ = 0;
   dropped_ = 0;
+  skipped_ = 0;
+  covered_ = covered;
   sheen_clip_ = Rect{0, 0, ui::kScreenW, ui::kScreenH};
+}
+
+bool Panel::hidden(int x, int y, int w, int h) noexcept {
+  const int x0 = x > 0 ? x : 0;
+  const int y0 = y > 0 ? y : 0;
+  const int x1 = x + w < ui::kScreenW ? x + w : ui::kScreenW;
+  const int y1 = y + h < ui::kScreenH ? y + h : ui::kScreenH;
+  if (x0 >= x1 || y0 >= y1 || x0 < covered_.x || y0 < covered_.y || x1 > covered_.x + covered_.w || y1 > covered_.y + covered_.h) {
+    return false;
+  }
+  ++skipped_;
+  return true;
 }
 
 Panel::Shape* Panel::add(Kind kind, Layer layer, ui::Rgb rgb, std::uint8_t alpha) noexcept {
@@ -35,6 +49,9 @@ Panel::Shape* Panel::add(Kind kind, Layer layer, ui::Rgb rgb, std::uint8_t alpha
 }
 
 bool Panel::rect(Layer layer, const Rect& r, ui::Rgb rgb, std::uint8_t alpha) noexcept {
+  if (covering() && hidden(r.x, r.y, r.w, r.h)) {
+    return true;
+  }
   Shape* s = add(Kind::Rect, layer, rgb, alpha);
   if (s == nullptr) {
     return false;
@@ -47,6 +64,9 @@ bool Panel::rect(Layer layer, const Rect& r, ui::Rgb rgb, std::uint8_t alpha) no
 }
 
 bool Panel::round_rect(Layer layer, const Rect& r, unsigned radius_q4, ui::Rgb rgb, std::uint8_t alpha) noexcept {
+  if (covering() && hidden(r.x, r.y, r.w, r.h)) {
+    return true;
+  }
   Shape* s = add(Kind::RoundRect, layer, rgb, alpha);
   if (s == nullptr) {
     return false;
@@ -60,6 +80,12 @@ bool Panel::round_rect(Layer layer, const Rect& r, unsigned radius_q4, ui::Rgb r
 }
 
 bool Panel::sprite(Layer layer, skin_assets::Id id, unsigned cell, int x, int y, ui::Rgb rgb, std::uint8_t alpha) noexcept {
+  if (covering()) {
+    const skin_assets::Info& size = skin_assets::info(id);
+    if (hidden(x, y, size.draw_w, size.draw_h)) {
+      return true;
+    }
+  }
   Shape* s = add(Kind::Sprite, layer, rgb, alpha);
   if (s == nullptr) {
     return false;
@@ -72,6 +98,9 @@ bool Panel::sprite(Layer layer, skin_assets::Id id, unsigned cell, int x, int y,
 }
 
 bool Panel::texture(int y, int h, ui::Rgb tint) noexcept {
+  if (covering() && hidden(0, y, ui::kScreenW, h)) {
+    return true;
+  }
   Shape* s = add(Kind::Texture, Layer::Texture, tint, 255);
   if (s == nullptr) {
     return false;
@@ -82,6 +111,13 @@ bool Panel::texture(int y, int h, ui::Rgb tint) noexcept {
 }
 
 bool Panel::point(Layer layer, int cx_q4, int cy_q4, unsigned radius_q4, ui::Rgb rgb, std::uint8_t alpha) noexcept {
+  if (covering()) {
+    // The disc, and a pixel for its edge.
+    const int r_px = static_cast<int>(radius_q4 / 16u) + 1;
+    if (hidden(cx_q4 / 16 - r_px - 1, cy_q4 / 16 - r_px - 1, 2 * r_px + 2, 2 * r_px + 2)) {
+      return true;
+    }
+  }
   Shape* s = add(Kind::Point, layer, rgb, alpha);
   if (s == nullptr) {
     return false;
@@ -93,6 +129,17 @@ bool Panel::point(Layer layer, int cx_q4, int cy_q4, unsigned radius_q4, ui::Rgb
 }
 
 bool Panel::line(Layer layer, int x0_q4, int y0_q4, int x1_q4, int y1_q4, unsigned w_q4, ui::Rgb rgb, std::uint8_t alpha) noexcept {
+  if (covering()) {
+    // The two ends, grown by the line's width (its caps reach that far) and a pixel; the Q4 values divide towards the smaller coordinate (an arithmetic shift).
+    const int grow = static_cast<int>(w_q4 / 16u) + 2;
+    const int lx = (x0_q4 < x1_q4 ? x0_q4 : x1_q4) >> 4;
+    const int ly = (y0_q4 < y1_q4 ? y0_q4 : y1_q4) >> 4;
+    const int hx = ((x0_q4 > x1_q4 ? x0_q4 : x1_q4) >> 4) + 1;
+    const int hy = ((y0_q4 > y1_q4 ? y0_q4 : y1_q4) >> 4) + 1;
+    if (hidden(lx - grow, ly - grow, hx - lx + 2 * grow, hy - ly + 2 * grow)) {
+      return true;
+    }
+  }
   Shape* s = add(Kind::Line, layer, rgb, alpha);
   if (s == nullptr) {
     return false;
@@ -106,6 +153,10 @@ bool Panel::line(Layer layer, int x0_q4, int y0_q4, int x1_q4, int y1_q4, unsign
 }
 
 bool Panel::text(int x, int y, const char* s, ui::Color c, ui::Face face) noexcept {
+  // (a null string is queued as it always was: Renderer::text takes it; it has no box to hide)
+  if (covering() && s != nullptr && hidden(x, y, text_len(s) * face_w(face), face_h(face))) {
+    return true;
+  }
   if (n_texts_ >= kTexts) {
     ++dropped_;
     return false;

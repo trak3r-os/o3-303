@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include <o3sdk/app/app.h>
+#include <o3sdk/app/system_config.h>
 #include <o3sdk/platform/host/dir_card.h>
 #include <o3sdk/platform/host/fake_midi.h>
 #include <o3sdk/sim/harness.h>
@@ -66,12 +67,9 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 constexpr std::size_t kSkinMaxWords = 1350;
 constexpr unsigned kSkinMaxLinePrims = 100;
 constexpr unsigned kSkinMaxLinePx = 4800;
-// The kit's system strip (a notice such as LEARNED CC 75 CHANNEL 1, up for 3 s) is drawn last by the runtime, over the bottom 28 px of a screen that draws its own chrome, and Context has no
-// query for it, so the skin cannot leave out what it covers. While any strip is up, HOME's and PERFORM's F rows are over 4,800 (docs/SKIN-PLAN.md 4.3). A snap named strip_* is a frame taken
-// under a strip: the runtime's strip must be up in it, and in every other snap it must not be, so no strip frame passes for a plain one. Such a frame keeps the budgets of words and
-// primitives; its line is held to what the scenario's own strip measures, HOME just after the learn above: 5,296 px (the plain frame's 4,306 and the strip's 990), and 4 px of margin.
-// The rule goes away with the kit's Context::strip_area(), when the skin drops what the strip covers and a strip frame meets 4,800 like the rest.
-constexpr unsigned kSkinStripMaxLinePx = 5300;
+// The kit's system strip (a notice such as LEARNED CC 75 CHANNEL 1, up for 3 s) is drawn last by the runtime, over the bottom 28 px of a screen that draws its own chrome. The skin leaves out what
+// it covers (Context::strip_area(), Panel::clear), so a frame under a strip meets the same budgets as any other. A snap named strip_* is a frame taken under a strip: the runtime's strip must be
+// up in it, and in every other snap it must not be, so no strip frame passes for a plain one.
 // FILE LIBRARY with the skin on is the one screen that is not skinned (docs/SKIN-PLAN.md 2.4, 4.3 and SK7): its classic layout with the kit's header and soft-key row, in the obsidian colours,
 // peaks at 1,481 words (the `library` scenario). A snap named library_* in a skin_* file must show it so (VaultScreen, Chrome::Full, the obsidian theme) and is held to this bound, and to the
 // kit's 1,800 for the whole run, instead of the skin's three budgets and "is skinned".
@@ -134,7 +132,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
       CHECK_MESSAGE(prims <= kSkinMaxLinePrims, name << ": " << prims << " primitives on a line");
       const bool strip_snap = name.rfind("strip_", 0) == 0;
       CHECK_MESSAGE(h.runtime().system().strip_active() == strip_snap, name << (strip_snap ? ": a strip_* snap is taken under the kit's strip" : ": the kit's strip is up (name the snap strip_*)"));
-      CHECK_MESSAGE(px <= (strip_snap ? kSkinStripMaxLinePx : kSkinMaxLinePx), name << ": " << px << " box px on a line");
+      CHECK_MESSAGE(px <= kSkinMaxLinePx, name << ": " << px << " box px on a line");
     }
   };
   for (std::string line; std::getline(lines, line);) {
@@ -155,7 +153,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab", "skin_modded"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab", "skin_modded", "skin_strip"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }
@@ -236,4 +234,34 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
   CHECK(fs::file_size(stock) == fs::file_size(stock_ab));
   CHECK(slurp_bytes(stock) == slurp_bytes(stock_ab));
   fs::remove_all(out);
+}
+
+// The longest notice the strip takes, kStripChars - 1 characters: 10 px each on top of the strip's 800. Over HOME, PATTERN SETUP with F3 held, PERFORM and PERFORM SETUP, in the skin, every
+// frame meets the same ceiling as a frame with no strip (docs/SKIN-PLAN.md 4.3). The notice is put up by the runtime, as a save or a learn does, and kept up by its hold.
+TEST_CASE("scenarios: the longest strip notice over the skinned HOME, SETUP and PERFORM stays under the ceiling") {
+  const std::string longest(app::SystemConfig::kStripChars - 1u, 'M');  // wide letters; the Data face is 10 px a character whatever they are
+  const fs::path dir = fs::temp_directory_path() / ("o3_303_strip_notice_" + std::to_string(static_cast<long>(getpid())));
+  fs::remove_all(dir);
+  fs::create_directories(dir);
+  auto h = std::make_unique<sim::Harness>(o3sdk_app(), nullptr, nullptr);
+  REQUIRE(h->start());
+  sim::ScenarioResult total;
+  // The skin on, as the scenarios do, then HOME with no strip: the reference picture and its cost.
+  run_skin_scenario(*h,
+                    "wait 300\ntap config\ntap left\nwait 62\ntap down\ntap down\ntap down\ntap down\ntap down\nturn 4\ntap config\nwait 100\n"
+                    "snap 00_home_plain\n",
+                    dir.string(), total);
+  const unsigned plain_px = h->raster().last_frame_peak_line_px();
+  CHECK_FALSE(h->runtime().system().strip_active());
+  h->runtime().system_strip(longest.c_str(), -1, 3000);
+  run_skin_scenario(*h, "wait 100\nsnap strip_01_home_notice\n", dir.string(), total);
+  const unsigned strip_px = h->raster().last_frame_peak_line_px();
+  CHECK_MESSAGE(strip_px <= kSkinMaxLinePx, strip_px << " box px on a line with a 71 character notice over HOME (plain " << plain_px << ")");
+  run_skin_scenario(*h,
+                    "tap pattern\nwait 100\npress f3\nwait 100\nsnap strip_02_setup_f3_held_notice\nrelease f3\n"
+                    "tap performance\nwait 100\nsnap strip_03_perform_notice\ntap performance\nwait 100\nsnap strip_04_perform_setup_notice\n",
+                    dir.string(), total);
+  CHECK_MESSAGE(total.ok, "line " << total.line << ": " << total.error);
+  CHECK(h->runtime().frame_failures() == 0u);
+  fs::remove_all(dir);
 }
