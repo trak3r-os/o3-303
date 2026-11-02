@@ -1,7 +1,7 @@
 # o3-303: the obsidian skin (plan)
 
-Status (2026-11-01): SK1 committed (the assets); SK2 and SK3 built and host-verified (the core, the header, the glass, the F row, the
-`skin` console command); SG2's SONG screen drawn on the skin too; SK4 (PERFORM and PERFORM SETUP), SK5 (INSTRUMENT), SK6 (MASTER, RECORD, HOOKS) and SK7 (FILE PROJECTS, LIBRARY's fallback) built and host-verified; SK8 not started; SU1, the first unit session, owed. Planned
+Status (2026-11-02): SK1 committed (the assets); SK2 and SK3 built and host-verified (the core, the header, the glass, the F row, the
+`skin` console command); SG2's SONG screen drawn on the skin too; SK4 (PERFORM and PERFORM SETUP), SK5 (INSTRUMENT), SK6 (MASTER, RECORD; its HOOKS page went with HOOKS in MODS S0) and SK7 (FILE PROJECTS, LIBRARY's fallback) built and host-verified; MODDED, GROWL and WOBBLE skinned and measured (MODS S3); the kit's strip left its area, every strip frame under the ceiling (KS1, 4.3); SK8 not started; SU1p, the first unit session, recorded its console rows (4.6), the rows by eye owed. Planned
 2026-10-30. The maintainer approved the obsidian look (mockup A as HOME, B as INSTRUMENT) and asked on 2026-10-30 to queue
 the skin and the o3-sdk changes it needs. UX-303 section 15 says what the skin is: a new drawing of the same view structs, with no change to
 the interaction. This plan says what each screen draws, what it costs, the kit contracts it needs (UX-PLAN section 7: N4 to N7, plus N0 and N9),
@@ -93,12 +93,12 @@ While Shift is held, the row is the screen's Shift row (the same SoftKeys labels
 | PATTERN SETUP | `MainScreen` page 2 | HOME's glass with the generator line on top (`draw_info_generator`) | LENGTH SWING GATE TRANSP SCALE DENSITY ACC % SLD % as knobs | Shift row: COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, UNDO as action keys, the rest empty boxes |
 | PERFORM | `PerformView` (48 `PadLamp`, captions) | four rows of twelve `lamp` sprites, tinted by the pad's LED level (off, dim, mid, on) with a frame when latched, labels live; row captions in small caps (ACTIONS, SNAPSHOTS, LADDER <knob> or WOBBLE RATE, KEYS <mode>); the colour-buttons line (four chips in the buttons' colours with their actions); PADS line | the sound knobs | Mockup 05's layout. The mockup's raised lamps (four primitives each) cost 1,773 words modelled, so they are one sprite each here |
 | PERFORM SETUP | `PerformScreen` setup page | the row-1 reminder and the panel text, in the glass | its eight knobs (NOTE, INSTR, VOL, FX, FILL, FREEZE, ROLL, STOP) | |
-| INSTRUMENT VOICE / FX / MODS | `InstrumentView` | Mockup 06: no glass, the panel at full height. Top: the page's eight knobs as `knob58`, with labels, latch LEDs and readouts. Middle: the section boxes (DISTORTION, DELAY, MODS) with their readouts, from `InstrumentSection`. Then the step strip of the page: note text, ACCENT, SLIDE and STEP LEDs, a `key` sprite each (cursor ringed, groups of four tinted), step numbers. Bottom: page tabs VOICE FX MODS, PADS line | the top knobs are the F row | Shift: each label reads LEARN (lit while armed) or "-" (dim), as C1 built it. A held step shows its lock in the knob's readout (`apply_lock`) |
+| INSTRUMENT VOICE / FX (MODDED, GROWL and WOBBLE, MODS S3, use the same drawing) | `InstrumentView` | Mockup 06: no glass, the panel at full height. Top: the page's eight knobs as `knob58`, with labels, latch LEDs and readouts. Middle: the section boxes (DISTORTION, DELAY, MODDED) with their readouts, from `InstrumentSection`. Then the step strip of the page: note text, ACCENT, SLIDE and STEP LEDs, a `key` sprite each (cursor ringed, groups of four tinted), step numbers. Bottom: the group's page tabs (VOICE FX on INSTRUMENT, NOTES TONE on MODDED, one tab on GROWL and on WOBBLE), PADS line | the top knobs are the F row | Shift: each label reads LEARN (lit while armed) or "-" (dim), as C1 built it. A held step shows its lock in the knob's readout (`apply_lock`) |
 | MASTER | `MasterView` | glass: TEMPO as a second `seg` display with BPM; NUDGE, TAP and CLOCK readouts; OUTPUT L and R as LED-segment bars (RECTS, green to amber); CPU % (`Context::cpu_percent`, N7; "--" in the simulator); USB | F1 TEMPO knob, F2 TAP action key, F3 NUDGE knob, F4 MASTER knob, F5-F8 empty | Mockup 09 |
 | FILE PROJECTS | `FileView` | glass: the path, NOW and AUTOSAVED line, the list (cursor row highlighted, "*" current, NO CARD), today's help text, PADS line; NameEntry (SAVE AS, NEW) is the kit's keyboard drawn in the glass with the obsidian theme | LOAD SAVE SAVE AS NEW REVERT DELETE action keys, F7 empty, F8 LIBRARY | Mockup 08, with F7 empty as UX-303 D17 says |
 | FILE LIBRARY | `VaultScreen` | **today's layout with the kit chrome** (`Chrome::Full`), in the obsidian theme | the kit's soft-key row | The fallback: skinned it would be about 1,700 to 1,800 words (section 4.3). Revisit after SU1 |
 | RECORD | `RecordView` | glass: SOURCE, BARS and the take's state as readouts; IN and OUT as LED-segment bars; the envelope as drawn today; the file name `Samples/take_NNN.wav` | F1 ARM/STOP action key (lit red while recording), F2 SOURCE and F3 BARS action keys with their value as hint, F4 GAIN knob, F5 MONITOR action key, F6 SAVE, F7 DISCARD, F8 empty | The take also shows on TRANSPORT's TAKE LED on every screen |
-| HOOKS | `HooksScreen` | the 4 x 12 grid as dark `lamp` sprites, the one line of text | eight empty boxes | |
+| MODDED NOTES, MODDED TONE, GROWL, WOBBLE (MODS S3) | `InstrumentView`, one class in four instances | Mockup 06 as INSTRUMENT (MODS-PLAN 9): one or two tabs, the read-out boxes of the page, a blank slot where a page has an empty key, and a lit action key (STOCK, WOB) with its ON / OFF read-out | the page's eight keys as knobs; F8 STOCK or WOB as the lit action key | No new asset. The MODS plan's estimates are in MODS-PLAN 9 |
 | SONG (SG2, built) | new `SongView` | Mockup 07: list columns # / PATTERN / REPEAT / TRANSP / MUTE with chip headers in the buttons' colours; the cursor row highlighted, the playing row with a green bar; a right panel with SONG, LENGTH, LOOP and PLAY readouts and help; PADS line | F1 PLAYS (hint SONG or PATTERN), F2 LOOP (hint on/off), F3 CHAIN (hint "to song"), F4-F6 empty, F7 CLEAR (hint "tap twice"), F8 UNDO, all action keys | SG2 builds both drawings from its first commit |
 | Config | the kit's system screen | **unchanged**: the runtime always draws Config with its full chrome and the context theme (N7) | the kit's | The skin adds only the SKIN item (key 7) to page "303" |
 | Boot screen | the kit's | unchanged | | |
@@ -114,7 +114,7 @@ While Shift is held, the row is the screen's Shift row (the same SoftKeys labels
 | `seg` | L4 | 27 x 38 x 20 (0-9, A-H, "-", blank; ghost and glow in each cell) | 10,640 | PATTERN, TEMPO, MASTER |
 | `logo` | L4 | 150 x 50 (the wordmark, no tagline) | 3,752 | header |
 | `led` | L8 | 16 x 16 (socket, lens, specular; tinted by state) | 256 | every LED |
-| `lamp` | L8 | 58 x 40 (a raised pad cap) | 2,320 | PERFORM, HOOKS |
+| `lamp` | L8 | 58 x 40 (a raised pad cap) | 2,320 | PERFORM |
 | `actkey` | L8 | 84 x 40 (a raised key cap) | 3,360 | F-row actions |
 | **Total** | | | **100,440** | |
 
@@ -167,7 +167,7 @@ sprites. Add about 25 to it for the binds and the section. The estimates include
 | FILE PROJECTS (NameEntry) | 910 | 900 (1,170) | 870 | ceiling |
 | FILE LIBRARY | 1,481 (`library`) | **1,481, classic** | skinned about 1,700 to 1,800 | 1,800 |
 | RECORD | 952 | 1,210 | | ceiling |
-| HOOKS | under 847 | 1,030 | | ceiling |
+| HOOKS | under 847 | 1,030 | | cancelled 2026-11-01 (MODS-PLAN 9 has the MODDED, GROWL and WOBBLE estimates) |
 | SONG (SG2) | | 780 to 930 | 730 | ceiling |
 | Config (kit) | 848 | 848 | | 1,800 |
 
@@ -634,7 +634,7 @@ std::uint32_t cpu_percent() const noexcept; // the header's formula: 0 or more, 
 | `app/src/skin/header.{h,cpp}` | `HeaderView` (pattern, tempo, playing, rec, take, keys, octave, four PERFORM slots, page, enc, message, save failed), `fill_header()` from `StatusView` and the context (2.2), `draw_header()` |
 | `app/src/skin/frow.{h,cpp}` | the slot kind (2.3), `draw_frow()` from `view::Knob[8]` or a Shift row |
 | `app/src/skin/seg.h`, `knob.h` | pure: a string to 7-segment cells and decimal point; `norm` to the pointer's end points in 1/16 px |
-| `app/src/skin/<screen>.cpp` | one drawing per view struct (home, perform, instrument, master, record, hooks, file; song in SG2) |
+| `app/src/skin/<screen>.cpp` | one drawing per view struct (home, perform, instrument, also MODDED, GROWL and WOBBLE, master, record, file; song in SG2; hooks was deleted with HOOKS in MODS S0) |
 | the screens | `chrome()` and `theme()` overrides, and in `draw()` one branch: `skin::active(ctx) ? skin::draw_x(...) : draw_classic(...)` |
 
 ## 8. Slices

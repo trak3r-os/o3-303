@@ -1,10 +1,11 @@
 # o3-303: design (draft)
 
-Status: draft, 2026-10-25, from the design conversation with the maintainer; checked against the tree on 2026-10-31. The plan for
+Status: draft, 2026-10-25, from the design conversation with the maintainer; checked against the tree on 2026-10-31. Amended 2026-11-02 for MODS S4: HOOKS was cancelled on 2026-11-01 (section 7), and the
+Sample buttons open MODDED, GROWL and WOBBLE instead (`docs/MODS-PLAN.md`). The plan for
 milestone M3, now built (`docs/M3-PLAN.md`), continued by M3b (`docs/M3B-PLAN.md`) and M3c (`docs/M3C-PLAN.md`). Open decisions are in
 section 8.
 
-**Where the design moved on.** The sound and HOOKS (section 7) still hold as written. The sequencer's data is section 6 plus what M3b and
+**Where the design moved on.** The sound (sections 1 and 6) still holds as written. HOOKS (section 7) was cancelled. The sequencer's data is section 6 plus what M3b and
 the song added. The controls and the screens moved on, and their current text is elsewhere:
 
 - The screens and the buttons (sections 2 to 5): `docs/UX-303.md` is the specification now. It replaces the controls of sections 2 to 5 of
@@ -20,8 +21,8 @@ the song added. The controls and the screens moved on, and their current text is
 - The unit's own measurements (sound, CPU, sessions) are in `docs/hw/`, not here. Section 1's "15.5-22 % of a block" is track3r-os's figure.
 
 An improved TB-303 clone as an o3sdk app: a 303 voice with Devil Fish-style extras, drive and delay, a 303-style step sequencer
-without the original's pitch/time-mode split, motion recording and parameter locks, and a second screen (HOOKS) that loads or
-samples phrases and launches them in time.
+without the original's pitch/time-mode split, motion recording and parameter locks, and a second screen, HOOKS, that was to load or
+sample phrases and launch them in time. HOOKS is cancelled (section 7): o3-303 is only a 303.
 
 ## 1. Hardware facts the design rests on
 
@@ -67,7 +68,10 @@ change it for a moment; hold two and turn to move both; Shift + turn for coarse.
 | Page | F1 | F2 | F3 | F4 | F5 | F6 | F7 | F8 |
 |---|---|---|---|---|---|---|---|---|
 | SOUND | Cutoff | Reso | Env Mod | Decay | Accent | Wave | Tune | Volume |
-| MODS | Acc Decay | Filter Track | Slide time | Soft Attack* | Sub Osc* | Filter FM* | Sweep* | Muffler* |
+| MODDED NOTES (Sample Loader) | Soft Attack* | Decay (SOUND's) | Acc Decay | Amp Decay | Slide time | Acc Sweep* | Swp Speed* | STOCK |
+| MODDED TONE (Sample Loader, again) | Filter Track | Filter FM* | Overdrive* | Muffler* | Sub Osc* | — | — | STOCK |
+| GROWL (Sample Playback) | Vowel | Formant Q | Formant Mix | Comb Tune | Comb Feedback | Comb Mix | Growl Mix | — |
+| WOBBLE (Sample Editor) | Rate | Shape | Depth | Target | Reset | — | — | WOB |
 | FX | Drive* | Drive Tone* | Delay time (sync) | Delay FB | Delay send | Reverb send* | — | Master |
 | SEQ | Tempo | Swing | Length | Gate | Transpose | FILL's variant | Ratchet (of the step) | Trig condition (of the step) |
 | PERF | Note's action | Instr's | Vol's | Fx's | Freeze length | — | — | — |
@@ -83,8 +87,8 @@ Acc / Slide % (the accent chance, with the slide chance at four fifths of it; th
 scale lock engages), F8 makes a new line (again and again, the settings stay), F7 or Shift + F1 or Params closes it. The encoder can also be
 latched on the tempo (tap Master) or the swing (Shift + tap Master), whatever page the F keys are on.
 
-SNAP (M3b R2) is the page of eight snapshots of the sound: SOUND, the distortion, the delay, the level and the delay send (MODS joins when it
-exists), in RAM, not saved. A tap on its F key recalls (the values glide in 30 ms), Shift + an F key stores what the sound is now. The encoder
+SNAP (M3b R2) is the page of eight snapshots of the sound: SOUND, the distortion, the delay, the level and the delay send (the mods and the
+growl's knobs join it in MODS S0 to S2), in RAM, not saved. A tap on its F key recalls (the values glide in 30 ms), Shift + an F key stores what the sound is now. The encoder
 morphs from the snapshot recalled before (the sound as it was, for the first recall) to the one recalled last: 32 detents, Shift + turn four
 at a time; a switch (the wave, the distortion's model, the delay's time and mode) changes at the middle. It runs on the sequencer's slew, and
 the engine stores the blend when the glide is over. SNAP is the last page of the PARAMS cycle and what Shift + Params gives; Shift + Params
@@ -106,10 +110,11 @@ popup, no wait), each one UNDO step; DOUBLE is PATTERN SETUP's LENGTH up and INV
 | Note / Instr / Vol / Fx | the four performance buttons, each one of MUTE, ACC ALL, SLIDE ALL, OCT UP, FILL, THROW (the delay send to unity) or FREEZE (the beat freeze), assigned on the PERF page; momentary; the defaults are MUTE, ACC ALL, FILL, FREEZE | latch them |
 | Pattern | tap: the 303 screen (again: step view / piano roll); hold: the 48 pads are 48 patterns, a tap queues one, several taps make a chain (as the original firmware does) | — |
 | Copy / Insert / Delete | step or pattern: copy, insert, clear | paste / duplicate / clear the whole pattern |
-| Params | the next page of F keys (SOUND, FX, GROWL, WOBBLE, SEQ, PERF, SNAP) | the SNAP page, and back |
+| Params | INSTRUMENT, VOICE and FX (UX-303 5.5); the other pages moved to the Sample buttons and their screens | |
 | Song | the chain, with repeats and a transpose per entry | |
-| Performance | the HOOKS screen | the split mode (section 7) |
-| SampleLoad / Play / Edit / Rec | the HOOKS sub-pages | |
+| Performance | PERFORM (UX-303 5.3) | PERFORM SETUP (UX-303 5.4) |
+| SampleLoad / SamplePlay / SampleEdit | MODDED (NOTES, TONE), GROWL, WOBBLE (UX-303 5.11) | Shift + SampleLoad: STOCK |
+| SampleRec | RECORD (UX-303 5.10) | |
 | Master | tap: the encoder latches TEMPO (Shift: SWING); hold + turn: a tempo nudge of 1 % a detent, at most 3 %, back at the release (the mixer and master FX come later) | |
 | File / Config | projects, WAV and MIDI export / MIDI, clock, pads | |
 
@@ -171,7 +176,11 @@ struct Pattern {
 The sequencer is a clocked hook (FRAMEWORK.md, "The engine"): steps from `for_each_step()` with swing, accent as `kNoteAccent`, slide as
 `kNoteSlide`, motion as `Param` events at their frames.
 
-## 7. HOOKS (milestone M4)
+## 7. HOOKS (milestone M4): cancelled 2026-11-01
+
+Cancelled by the maintainer on 2026-11-01 ("no vamos a meter hooks, así que podemos quitar esos botones"): o3-303 is "exclusivamente una
+303". The three Sample buttons open MODDED (the 303 mods), GROWL and WOBBLE instead (`docs/MODS-PLAN.md`, UX-303 5.11). The text below is
+the plan as it was, kept as the record of what was cancelled; nothing in it is built.
 
 - 48 slots in 4 rows of 12; a row is a lane (one voice, one hook at a time, like a track in a clip launcher), e.g. VOX / LOOPS /
   CHOPS / ONE-SHOTS. LEDs: off empty, dim loaded, bright playing, slow blink queued, fast blink recording.

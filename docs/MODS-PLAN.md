@@ -1,6 +1,8 @@
 # o3-303: the 303 mods on the Sample buttons, GROWL and WOBBLE on their own buttons, HOOKS cancelled (plan)
 
-Status (2026-11-01): planned, nothing built. Reviewed the same day ("ready with fixes, no blocker"), and the fixes are folded in:
+Status (2026-11-02): S0 to S4 are built, with KS1 (o3-sdk `Context::strip_area()`, and the skin leaving the strip its area). Commits: S0
+c345e39, S1 9fdb583, S2 2661735, S3 afbacd9; KS1 and S4 (the docs and the manual) follow them, and the first release, v0.1.0 (a
+pre-release), carries them all. The unit gate (section 11) is next and is owed: nothing here has been on a unit. Status (2026-11-01) below: planned, nothing built. Reviewed the same day ("ready with fixes, no blocker"), and the fixes are folded in:
 descriptors, FILTER FM's cost, the pin's portability, the MIDI tools in S0, F8 WOB's API, clicks, stock paths, the lane guard and the
 slice tests (MD19 to MD23). The maintainer decided on 2026-11-01 that o3-303 will not get HOOKS: "no vamos a meter hooks,
 así que podemos quitar esos botones". o3-303 is "exclusivamente una 303". The three Sample buttons then get "las modificaciones de la 303
@@ -847,7 +849,7 @@ Common to every slice:
 - **Acceptance:** every skinned frame under 1,350 words, 100 primitives and 4,800 px. The numbers are recorded in the slice report and
   SKIN-PLAN, and everything else is byte-identical. The host cannot show A9; the pages inherit its failure (section 9).
 
-### S4: the docs and the manual (S; doc-keeper)
+### S4: the docs and the manual (S; doc-keeper). Done 2026-11-02 (reviewed against the code, accepted with fixes, the fixes folded; the pictures made again from the scenarios)
 
 - **Changes:**
   - section 8's S4 rows; README's status table; `acid_voice.h`'s "same and different" list;

@@ -1,5 +1,7 @@
 # UX: the new way o3-303 is used (plan, waves and ownership)
 
+HOOKS was cancelled on 2026-11-01 (see docs/MODS-PLAN.md): the HOOKS placeholder of R1 was replaced by MODDED, GROWL and WOBBLE in MODS S0.
+
 Status: waves 1 to 6 built (2026-10-30 and 2026-10-31); wave 7 (SG2, the SONG screen) built and host-verified, unit check owed. Each
 slice's state is in the table under section 3. The specification is `docs/UX-303.md` (the maintainer's approved concept of 2026-10-29,
 questions answered 1a, 2a, 3a, 4a, 5a). This plan cut it into slices for firmware engineers, in waves that give the tester something

@@ -1,5 +1,7 @@
 # M3b: Fable's round (plan, contracts and ownership)
 
+HOOKS was cancelled on 2026-11-01 (see docs/MODS-PLAN.md); the HOOKS mentions below are history.
+
 Status: built 2026-10-25 and 2026-10-26 (commits 989208a, f3c08e6, 40e4636, 0bc38b2; L1 done 2026-10-25, see its row). On the
 unit (`docs/hw/2026-10-26-m3ba.md`, `docs/hw/2026-10-26-m3c.md`): the beat freeze (R6) and the snapshot morph (R2). Owed on the unit:
 ratchets, trig conditions, FILL, the ladders (R1) and the slew; the SEQ page (C3) and the assignable performance buttons (C4) by hand. The original brief follows. The maintainer asked Fable what it

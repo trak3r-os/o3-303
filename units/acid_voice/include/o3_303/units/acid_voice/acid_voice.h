@@ -27,6 +27,8 @@
 // envelopes are flushed to zero below 1e-9 (denormal safety); accent and slide come as note flags, not as a velocity threshold. Like the
 // original the oscillator and the filter run all the time (a free-running VCO into a free-running VCF, gated by the amplifier): a note
 // after a rest starts on a filter in steady state, not from zero.
+// Not in the original at all: the mods, parameter ids 8 to 19 (docs/MODS-PLAN.md section 3). They are new code, written from public descriptions
+// of the Devil Fish-style mods, not from the original; at their stock values the voice is the original's, as described above.
 //
 // Parameters (the id is the index in the table: append, never insert). Values are in the descriptor's own units:
 //   0 Cutoff  Hz, 25..4500, Replicant's skew 0.35 (a table curve)      4 Accent  0..1 (shown as %), default 0.7

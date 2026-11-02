@@ -1,14 +1,18 @@
 # o3-303
 
 An improved TB-303 for the Tracker hardware (NXP MK66FX1M0, 800×480 display, 48 pads with LEDs, 33 buttons, one encoder), built as an
-app on the [o3-sdk](https://github.com/trak3r-os/o3-sdk) framework: a 303 voice with drive and delay (Devil Fish-style extras planned, `docs/DESIGN-303.md` section 3), a 303-style step sequencer with
-motion recording and parameter locks, and later a HOOKS screen that launches phrases in time. The design is `docs/DESIGN-303.md`. The
+app on the [o3-sdk](https://github.com/trak3r-os/o3-sdk) framework: a 303 voice with Devil Fish-style mods (MODDED), a growl and a wobble, drive and delay, and a 303-style step sequencer with
+motion recording and parameter locks. HOOKS was cancelled on 2026-11-01: o3-303 is only a 303. The design is `docs/DESIGN-303.md`. The
 app is a whole firmware image; o3-sdk, checked out next to this repository, is the library under it and is used as it is.
 
 Unofficial; not affiliated with or endorsed by Polyend. "Tracker" is used only to describe the hardware it runs on.
 
 **To play it, read the [player's manual](docs/MANUAL.md)**: installing and going back, the panel, the first five minutes, and every screen
 with its picture.
+
+**The image** is on the [releases](https://github.com/trak3r-os/o3-303/releases) page: `o3-303-<version>.ptf` and its `SHA256SUMS`.
+Each release's notes say what the unit has shown, and [CHANGELOG.md](docs/CHANGELOG.md) what changed. The first, v0.1.0, is a pre-release:
+MODDED, GROWL and WOBBLE have not run on a unit yet.
 
 ## Status
 
@@ -18,8 +22,9 @@ with its picture.
 | M3b | The performance round: pad filter ladders, snapshots and morph, momentary FILL, ratchets, trig conditions, beat freeze, tempo nudge, scale-locked keyboard, assignable performance buttons | built 2026-10-25 and 2026-10-26; the beat freeze and the snapshot morph checked on the unit, the rest owed (`docs/M3B-PLAN.md`) |
 | M3c | The bass-music round: growl, wobble, rolls, tape stop and reverse (crush, trance gate, pump, dive, riser and OTT are backlog) | built and unit-checked for growl, wobble and rolls (2026-10-26); by-ear checks owed (`docs/M3C-PLAN.md`) |
 | UX | The new way the app is used: PERFORM, the HOME map, PATTERN SETUP, INSTRUMENT, MASTER, FILE, RECORD, the Config pages, the project with autosave, HELP | waves 1 to 6 built (2026-10-30 and 2026-10-31), checked on the unit by console only; SONG built and host-verified, unit check owed (`docs/UX-PLAN.md`) |
-| SKIN | The obsidian skin, CLASSIC by default until SK8: the assets (SK1), the core, header and F row on HOME and SETUP (SK2, SK3), SONG (with SG2) and PERFORM (SK4) committed; INSTRUMENT (SK5), MASTER, RECORD and HOOKS (SK6), FILE PROJECTS with its name keyboard and LIBRARY's classic fallback in the obsidian colours (SK7) built and host-verified; OBSIDIAN by default (SK8) not started | in progress, unit check owed (SU1, then SU2; `docs/SKIN-PLAN.md`) |
-| M4 | The HOOKS screen (sample launcher, synced sampling) | cancelled 2026-11-01: o3-303 is only a 303. The three Sample buttons will open MODDED (the 303 mods), GROWL and WOBBLE (`docs/MODS-PLAN.md`, planned); until then they open a placeholder |
+| SKIN | The obsidian skin, CLASSIC by default until SK8: the assets (SK1), the core, header and F row on HOME and SETUP (SK2, SK3), SONG (with SG2) and PERFORM (SK4) committed; INSTRUMENT (SK5), MASTER and RECORD (SK6), MODDED, GROWL and WOBBLE (MODS S3), FILE PROJECTS with its name keyboard and LIBRARY's classic fallback in the obsidian colours (SK7) built and host-verified; OBSIDIAN by default (SK8) not started | in progress, unit check owed (SU1, then SU2; `docs/SKIN-PLAN.md`) |
+| M4 | The HOOKS screen (sample launcher, synced sampling) | cancelled 2026-11-01: o3-303 is only a 303. The three Sample buttons open MODDED, GROWL and WOBBLE instead (`docs/MODS-PLAN.md`) |
+| MODS | The 303 mods on MODDED (eleven controls, and STOCK to turn them off), GROWL and WOBBLE on the Sample buttons: slices S0 to S3, the kit's strip area (KS1) | built and host-tested: host ctest 73 of 73 passed, built with `-Wall -Werror`; the unit check is owed (`docs/MODS-PLAN.md` section 11) |
 
 ### On the Tracker
 
@@ -41,7 +46,7 @@ U1 and U2 have no results recorded (their pages say `to fill`); U4 was supersede
 
 Still owed on the unit: the pads, the knobs and the LEDs by hand; the encoder rows, tap tempo, NameEntry, LOAD and REVERT; DIN MIDI and
 MIDI learn with a real controller; the SONG screen (a song with repeats by ear); HELP by eye; the growl's vowels and the wobble's rates by
-ear; SU1's rows by eye. The card cases of U2 (a card pulled during a save, no card, write-protect, a card swap) were dropped by the
+ear; SU1's rows by eye; the MODDED, GROWL and WOBBLE pages and their mods, all of them (MODS-PLAN section 11). The card cases of U2 (a card pulled during a save, no card, write-protect, a card swap) were dropped by the
 maintainer and are not planned.
 
 USB audio out, saving to the card and MIDI come from o3-sdk's M2b and are used here: the project autosaves to the card, and MIDI notes
@@ -52,14 +57,16 @@ play the voice.
 | Document | What it is | Read it when |
 |---|---|---|
 | `docs/MANUAL.md` | The player's manual: install, the panel, the first five minutes, every screen with its picture, projects, settings, MIDI, troubleshooting | to play the instrument |
+| `docs/CHANGELOG.md` | What changes for a player in each release, and what the unit has shown of it | before installing a release |
 | `CLAUDE.md` | The rules for agents and contributors: the framework, the hard rules, the build and the tests | before changing anything |
-| `docs/DESIGN-303.md` | The design: the sound, the sequencer's data, HOOKS and the open decisions (section 8). Its status block says which controls have moved on | for what the app is and why |
+| `docs/DESIGN-303.md` | The design: the sound, the sequencer's data and the open decisions (section 8); HOOKS (section 7) is cancelled. Its status block says which controls have moved on | for what the app is and why |
 | `docs/UX-303.md` | The specification of the screens, buttons, pads, Config, HELP and the project | before touching a screen, a button or a pad |
 | `docs/UX-PLAN.md` | The slice plan for the UX waves, with each slice's state and the unit checks owed | to see what is built and what the unit still has to show |
 | `docs/SKIN-PLAN.md` | The obsidian skin: the look, the budgets, the o3-sdk contracts and slices SK1 to SK8 | before working on the skin |
 | `docs/M3-PLAN.md` | M3, the first playable 303: the voice, the distortion, the sequencer and the vault | for the voice, the distortion and the sequencer's first form |
 | `docs/M3B-PLAN.md` | M3b, the performance round: ladders, snapshots, FILL, ratchets, the freeze | for the performance features |
 | `docs/M3C-PLAN.md` | M3c, the bass-music round: growl, wobble, rolls; the cut items as backlog | for the growl, the wobble, the rolls |
+| `docs/MODS-PLAN.md` | The 303 mods on MODDED, GROWL and WOBBLE on the Sample buttons, HOOKS cancelled: the slices S0 to S4, the unit gate and the decisions | for the mods, the Sample buttons and what the unit still has to show |
 | `docs/hw/` | The unit sessions: one page per session with its image, checklist, results and what was left | before a unit run, and to know what the unit has shown |
 | `../o3-sdk/docs/FRAMEWORK.md` | The kit's guide: layers, units, the engine, the controls convention, HELP, the file API and the rules | before writing a unit or a screen |
 

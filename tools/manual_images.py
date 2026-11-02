@@ -11,7 +11,7 @@ own, into a temporary directory. The pictures are written again without loss and
 the PNG filter that packs best. Nothing is compared byte for byte: --check only asks that every picture the manual shows is here and named in the table,
 and that every row names a scenario that exists and a snap that it really takes.
 
-MASTER, RECORD, HOOKS, FILE PROJECTS and its name keyboard are skinned (SK6, SK7 in docs/SKIN-PLAN.md); FILE LIBRARY keeps its classic layout with the kit's chrome,
+MASTER, RECORD, FILE PROJECTS and its name keyboard are skinned (SK6, SK7 in docs/SKIN-PLAN.md); FILE LIBRARY keeps its classic layout with the kit's chrome,
 in the obsidian colours. All of them are taken by manual_screens.txt with SKIN on OBSIDIAN, so running this script again is the whole update.
 Python 3 standard library only.
 """
@@ -61,9 +61,11 @@ IMAGES = [
     ("perform-setup", "skin_perform", "08_setup", "screen"),
     ("instrument-voice", "skin_instrument", "01_voice", "screen"),
     ("instrument-fx", "skin_instrument", "02_fx", "screen"),
-    # Until S4: run this generator only with --check; a plain run would overwrite hooks.png and config-deep.png with other pictures (stopgap rows: instrument-mods, hooks, config-deep).
-    ("instrument-mods", "skin_instrument", "03_growl", "screen"),  # S0 stopgap: the MODS page is GROWL now; S4 rewrites this row and the manual
     ("instrument-learn", "skin_instrument", "07_shift_learn_row", "screen"),
+    ("modded-notes", "skin_modded", "01_notes", "screen"),
+    ("modded-tone", "skin_modded", "02_tone", "screen"),
+    ("growl", "skin_modded", "03_growl", "screen"),
+    ("wobble", "skin_modded", "04_wobble", "screen"),
     ("master", "manual_screens", "03_master", "screen"),
     ("song", "skin_song", "03_playing", "screen"),
     ("song-empty", "skin_song", "01_empty", "screen"),
@@ -72,7 +74,6 @@ IMAGES = [
     ("library", "manual_screens", "12_library", "screen"),
     ("record", "manual_screens", "04_record", "screen"),
     ("record-done", "manual_screens", "07_record_done", "screen"),
-    ("hooks", "manual_screens", "08_growl", "screen"),  # S0 stopgap: HOOKS is cancelled; S4 deletes this row and the picture
     # 6 The pads
     ("help-home-pads", "help_skin", "01_home_pads", "screen"),
     ("help-perform-pads", "skin_perform", "help_01_perform_pads", "screen"),
@@ -81,7 +82,6 @@ IMAGES = [
     ("help-library-pads", "manual_screens", "13_help_library_pads", "screen"),
     # 9 Settings
     ("config-303", "manual_screens", "01_config_303", "screen"),
-    ("config-deep", "manual_screens", "01_config_303", "screen"),  # S0 stopgap: the page DEEP is retired; S4 deletes this row and the picture
     # 13 Two looks
     ("look-classic-home", "home", "01_plain", "screen"),
     ("look-obsidian-home", "skin_home", "01_stopped", "screen"),

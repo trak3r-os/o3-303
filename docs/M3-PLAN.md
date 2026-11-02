@@ -1,5 +1,7 @@
 # M3: o3-303 on o3sdk (plan, contracts and ownership)
 
+HOOKS was cancelled on 2026-11-01 (see docs/MODS-PLAN.md); the id reservation below is used by MODS-PLAN (ids 8 to 19).
+
 Status: built and verified on the host, 2026-10-25; the image is gated. Done when item 4 (the sound and the controls on the Tracker)
 has no record in `docs/hw/`: the 2026-10-26 pages (`m3ba`, `m3c`) compare against an earlier 2026-10-25 run that has no page there. Owed:
 that unit record, or the maintainer's word on it. The later rounds are in `docs/M3B-PLAN.md`, `docs/M3C-PLAN.md` and `docs/UX-PLAN.md`. The working brief for the parallel slices of milestone M3, the first playable o3-303. The design
@@ -29,7 +31,7 @@ every control of DESIGN-303 sections 2 to 5 that does not need the card or MIDI.
 4. On the unit (the maintainer's, later): the 303 sounds, every control works, the render's CPU % stays under the budget.
 
 Not in this round: the MODS page's new mods (W4), the reverb (W5), the song mode, MIDI, saving to the card (needs o3sdk M2b),
-HOOKS (M4).
+HOOKS (M4), cancelled 2026-11-01 (docs/MODS-PLAN.md).
 
 ## Contracts (the slices build against these; a change goes through the integrator)
 
@@ -53,7 +55,7 @@ indices: append, never insert.
 | 5 | Wave | SAW / SQR | SAW | a choice, as Replicant |
 | 6 | Tune | -12.0..+12.0 st, step 0.1 | 0 | |
 | 7 | Volume | -60..+6 dB | -3 dB | at or below -59.5 dB silence; the app holds it at 0 dB (see the topology) |
-| 8..15 | (W4, reserved in this order) Acc Decay, Filter Track, Slide Time, Soft Attack, Sub Osc, Filter FM, Sweep, Muffler | | | each default reproduces Replicant (acc decay 180 ms, slide 60 ms, the rest off) |
+| 8..15 | (W4, reserved in this order) Acc Decay, Filter Track, Slide Time, Soft Attack, Sub Osc, Filter FM, Sweep, Muffler | | | each default reproduces Replicant (acc decay 180 ms, slide 60 ms, the rest off). Used by MODS-PLAN (ids 8 to 19) |
 
 Events: note-on with `dsp::kNoteAccent` = accent (Replicant: velocity 100 or more); `dsp::kNoteSlide` = legato glide (60 ms one-pole,
 no envelope retrigger); a note-on while a note is held also glides (Replicant's legato); note-off releases (25 ms).
