@@ -187,10 +187,41 @@ sprites. Add about 25 to it for the binds and the section. The estimates include
   - **PERFORM** is 1,310 estimated but about 1,415 modelled, which is over 1,350. The smallest cut is the colour-buttons line and the PADS
     line, about 100 words together. Both repeat what the header's PERFORM LEDs and the lamps already show. If PERFORM is still over
     after that, it falls back to classic.
-- **A known breach (found in MODS S2's review).** HOME right after a MIDI learn toast ("LEARNED CC n", window over the knob rows) draws
-  5,296 px on its busiest line, over the 4,800 ceiling, at o3-303 9fdb583 and after S2 alike; it settles to 4,306 px when the toast
-  ends. The scenarios test never snaps that frame, so nothing flags it. S3's `skin_modded.txt` adds the frame (MODS-PLAN S3) and
-  measures it, and S3 fixes the drawing (the toast's width or the line it shares). S2 does not touch it.
+- **A known breach, found in MODS S2's review and measured in S3: the kit's system strip, not the skin. It is not one frame.**
+  - **Cause:** while any kit strip is up (a MIDI learn, a save, a card change, USB: 3 s each), `Runtime` draws it last, over the bottom 28
+    px of every `Chrome::None` screen, as an 800 px panel plus 10 px a character, over the F-row readouts the skin already queued.
+    `Context` has no query for it, so the skin cannot leave out what the strip hides.
+  - **Scope:** every HOME and PERFORM frame is over 4,800 px on the F row's lines (y 457 to 478) while a strip is up. Measured under the
+    learn strip ("LEARNED CC 75 CHANNEL 1", 990 px more than the same frame without it; the last two by the S3 review):
+    HOME 5,296 (4,306 without), HOME SETUP with F3 held 5,366, PERFORM SETUP 5,470. A notice can be up to 71 characters
+    (`kStripChars` 72 with the terminator), 10 px each, so the worst strip adds about 1,500 px. MASTER, FILE, SONG and the INSTRUMENT-class
+    pages stay under 4,800 by arithmetic: their maxima are 3,596 px or less, and about 990 more is 4,586.
+  - **On the unit:** 5,296 px is 83 % of MIX's clean 6,400 px (the budget is 75 %, the table above); the primitives, 86, are under the
+    clean 128. So the frame is over the rule the budget keeps, not over a measured failure, and A9 decides what it costs.
+  - **Why not an app-side fix:** every drawing change that cuts those px (cropping the knob scale, dropping the windows under the
+    strip) moves the digests of the F row on every skinned screen, or needs the strip's state, which only the kit has.
+  - **What S3 did:** `skin_modded.txt` snaps HOME and NOTES under a learn strip as `strip_09_home_after_learn` and
+    `strip_09a_notes_after_learn`, and `skin_instrument.txt`'s `strip_09_learned` (renamed from `09_learned`, the same pixels) is
+    the third. The scenarios test requires the runtime's strip to be up in a `strip_*` snap and down in every other, holds a strip
+    frame to 1,350 words and 100 primitives as any other and to 5,300 px (the 5,296 measured, 4 px of margin), `kSkinStripMaxLinePx`.
+    The 4,800 ceiling is not met for these frames, by exactly the strip.
+  - **The fix (o3-sdk slice, not here):** `ui::Rect Context::strip_area()`, and the skin then drops the shapes inside the rect. The
+    `strip_*` rule and its bound then go, and a strip frame meets 4,800 like the rest.
+
+- **The MODS pages (S3, `skin_modded.txt`; words, primitives on the busiest line, box px on it):**
+
+  | Frame | Words | Prims | Px |
+  |---|---|---|---|
+  | MODDED NOTES / with STOCK on | 1,033 / 1,023 | 80 / 80 | 3,654 / 3,654 |
+  | MODDED TONE / with STOCK on | 995 / 988 | 72 / 72 | 3,654 / 3,654 |
+  | GROWL | 951 | 72 | 3,654 |
+  | WOBBLE / with WOB on | 1,015 / 1,019 | 72 / 72 | 3,654 / 3,654 |
+  | HOME with STOCK on / after the toast is gone | 1,056 / 1,056 | 74 / 74 | 4,306 / 4,306 |
+  | NOTES just after a learn (`strip_09a`: the PAGE window's toast, under the kit's strip) | 1,069 | 92 | 4,166 |
+  | HOME just after a learn (`strip_09`, under the kit's strip) | 1,102 | 86 | 5,296 |
+  | NOTES with STOCK on, playing, every step a note with accent and slide, two steps held with a lock, Shift + LEARN armed (`10_worst_case`) | 1,040 | 68 | 3,734 |
+
+  Every other skinned frame of the scenarios peaks at 1,132 words, 92 primitives and 4,480 px.
 
 ### 4.4 Load on a scan line
 

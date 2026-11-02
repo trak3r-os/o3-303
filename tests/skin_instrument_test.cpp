@@ -7,22 +7,34 @@
 #include "hands.h"
 #include "../app/src/instrument_screen.h"
 #include "../app/src/skin/instrument.h"
+#include "../app/src/project_service.h"
 #include "../app/src/skin/panel.h"
 
+#include <o3sdk/platform/host/dir_card.h>
 #include <o3sdk/platform/host/fake_midi.h>
 #include <o3_303/app_access.h>
 #include <o3_303/pages.h>
+#include <o3_303/seq/bank.h>
 #include <o3_303/step_model.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <memory>
 
 using namespace hands;
 using namespace o3_303;
 
 namespace {
 
-constexpr int kTabsY = 428;  // the page tabs' row (skin/instrument.cpp kTabY)
+constexpr int kTabsY = 428;         // the page tabs' row (skin/instrument.cpp kTabY)
+constexpr int kLabelY = 70;         // the label line of a knob slot: its tab is a round rect at this y
+constexpr int kReadoutFaceY = 163;  // a readout window's face, one px above the window (y 164)
+constexpr int kEmptyFaceY = 105;    // a blank slot's well face, one px above the well (y 106)
+constexpr int kTaglineX = 14;    // the brand's line under the wordmark (skin/header.cpp)
+constexpr int kTaglineY = 52;
 
 bool same(const ui::Rgb& a, const ui::Rgb& b) { return a.r == b.r && a.g == b.g && a.b == b.b; }
 bool same(const ui::Rect& a, const ui::Rect& b) { return a.x == b.x && a.y == b.y && a.w == b.w && a.h == b.h; }
@@ -68,7 +80,15 @@ void go_to(Hands& t, Where w) {
 struct OnInstrument {
   Hands t;
   InstrumentScreen* s = nullptr;
-  explicit OnInstrument(Where w = Where::Voice) {
+  explicit OnInstrument(Where w = Where::Voice) { start(w); }
+  // On a card (the simulator has none by itself): the harness is made again with it.
+  OnInstrument(Where w, platform::host::HostCard& card) {
+    t.h.reset();
+    t.h = std::make_unique<sim::Harness>(o3sdk_app(), nullptr, nullptr, &card, "o3_303");
+    t.boot();
+    start(w);
+  }
+  void start(Where w) {
     t.skin_on();
     go_to(t, w);
     settle();
@@ -286,28 +306,40 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   o.intact();
 }
 
-TEST_CASE("skin instrument: each page marks its own tab (GROWL and WOBBLE have the one), and the sections of the page are boxes of read-outs") {
+TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and MODDED, one on GROWL and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
   for (const Where w : kAllScreens) {
     const unsigned page = where_page(w);
+    const unsigned tabs_expected = w == Where::Growl || w == Where::Wobble ? 1u : 2u;
     OnInstrument o(w);
     if (w == Where::Voice || w == Where::Fx) {
       REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);
     } else {
       REQUIRE(std::strcmp(o.t.title(), where_name(w)) == 0);
     }
+    unsigned tabs = 0;
     unsigned red = 0;
     int red_x = -1;
+    int last_x = -1;
     const ui::Rgb rec = skin::theme().rgb(ui::Color::Rec);
     for (unsigned i = 0; i < o.q().shapes(); ++i) {
       skin::Panel::RoundRectInfo rr;
-      if (o.q().round_rect_at(i, rr) && rr.layer == skin::Layer::Tab && rr.box.y == kTabsY && same(rr.rgb, rec)) {
+      if (!o.q().round_rect_at(i, rr) || rr.layer != skin::Layer::Tab || rr.box.y != kTabsY) {
+        continue;
+      }
+      CHECK_MESSAGE(rr.box.x > last_x, where_name(w));  // left to right, in page order
+      last_x = rr.box.x;
+      ++tabs;
+      if (same(rr.rgb, rec)) {
         ++red;
         red_x = rr.box.x;
       }
     }
+    CHECK_MESSAGE(tabs == tabs_expected, where_name(w));
     CHECK_MESSAGE(red == 1u, where_name(w));
-    // The tabs run left to right in page order: the red one is the page's.
+    // The red one is the page's: the first tab, or the second after VOICE's (56 px and a gap of 8).
     CHECK_MESSAGE(red_x == (page == 0u ? 60 : 60 + 5 * 8 + 16 + 8), where_name(w));
+    CHECK_MESSAGE(o.texts_in(kTabsY, kTabsY + 4, ui::Color::SelText) == 1u, where_name(w));  // the shown page's name; the others' are dim
+    CHECK_MESSAGE(o.texts_in(kTabsY, kTabsY + 4, ui::Color::TextDim) == tabs_expected - 1u, where_name(w));
     InstrumentView v;
     o.s->fill_view(o.t.h->runtime().context(), v);
     CHECK_MESSAGE(v.page == page, where_name(w));
@@ -362,6 +394,107 @@ TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would 
     CHECK(keys(o, false) == 0u);
     CHECK(keys(o, true) == 0u);
   }
+}
+
+TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and no label, latch LED or readout; the other slots have all three") {
+  struct Blanks {
+    Where w;
+    unsigned count;  // F6 and F7 on TONE and WOBBLE, F8 on GROWL; INSTRUMENT and NOTES have none (F8 of NOTES is the STOCK key)
+  };
+  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 0}, {Where::Tone, 2}, {Where::Growl, 1}, {Where::Wobble, 2}};
+  for (const Blanks& expect : kBlanks) {
+    OnInstrument o(expect.w);
+    INFO(where_name(expect.w));
+    unsigned wells = 0;
+    unsigned labels = 0;
+    unsigned readouts = 0;
+    for (unsigned i = 0; i < o.q().shapes(); ++i) {
+      skin::Panel::RoundRectInfo rr;
+      if (!o.q().round_rect_at(i, rr)) {
+        continue;
+      }
+      wells += rr.layer == skin::Layer::WindowFace && rr.box.y == kEmptyFaceY && rr.box.w == 80 && rr.box.h == 41 ? 1u : 0u;
+      labels += rr.layer == skin::Layer::Tab && rr.box.y == kLabelY ? 1u : 0u;
+      readouts += rr.layer == skin::Layer::WindowFace && rr.box.y == kReadoutFaceY && rr.box.w == 92 ? 1u : 0u;
+    }
+    unsigned leds = 0;
+    for (unsigned i = 0; i < o.q().shapes(); ++i) {
+      skin::Panel::SpriteInfo sp;
+      leds += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == 146 ? 1u : 0u;  // the latch LEDs' row (the strip's are lower)
+    }
+    CHECK(wells == expect.count);
+    CHECK(o.texts_in(118, 119, ui::Color::TextDim) == expect.count);  // each well's "Fn", centred in it
+    CHECK(labels == 8u - expect.count);
+    CHECK(readouts == 8u - expect.count);
+    CHECK(leds == 8u - expect.count);
+    o.intact();
+  }
+}
+
+TEST_CASE("skin instrument: the ON under a lit key is read at full strength, the OFF under a dark one is quiet") {
+  // The hint window of F8 (x 700..800, y 164..186): its text's colour.
+  const auto hint = [](const OnInstrument& o) {
+    unsigned n = 0;
+    ui::Color c = ui::Color::Empty;
+    for (unsigned i = 0; i < o.q().texts(); ++i) {
+      skin::Panel::TextInfo tx;
+      if (o.q().text_at(i, tx) && tx.x >= 700 && tx.y >= 164 && tx.y < 186) {
+        c = tx.color;
+        ++n;
+      }
+    }
+    REQUIRE(n == 1u);
+    return c;
+  };
+  for (const Where w : {Where::Notes, Where::Tone, Where::Wobble}) {  // STOCK on both pages of MODDED, WOB on WOBBLE
+    OnInstrument o(w);
+    INFO(where_name(w));
+    CHECK(hint(o) == ui::Color::TextDim);  // OFF
+    o.t.tap(Button::F8);
+    o.t.wait(60);
+    CHECK(hint(o) == ui::Color::Text);  // ON
+    o.t.tap(Button::F8);
+    o.t.wait(60);
+    CHECK(hint(o) == ui::Color::TextDim);
+  }
+}
+
+TEST_CASE("skin instrument: the tagline says STOCK . MODS OFF in amber while STOCK is on, and SAVE FAILED in red wins over it") {
+  // The colour of the brand's line (the one text at x 14, y 52) in the last frame.
+  const auto tagline = [](const OnInstrument& o) {
+    unsigned n = 0;
+    ui::Color c = ui::Color::Empty;
+    for (unsigned i = 0; i < o.q().texts(); ++i) {
+      skin::Panel::TextInfo tx;
+      if (o.q().text_at(i, tx) && tx.x == kTaglineX && tx.y == kTaglineY) {
+        c = tx.color;
+        ++n;
+      }
+    }
+    REQUIRE(n == 1u);
+    return c;
+  };
+  // A card whose UNTITLED folder is marked deleted cannot autosave: the project service says FAILED (project_service_test.cpp makes the same card).
+  platform::host::ScratchDir dir{"o3303-s3"};
+  platform::host::DirCard card{dir.path()};
+  REQUIRE(dir.ok());
+  const std::filesystem::path folder = std::filesystem::path(dir.path()) / "Apps" / "o3_303" / "UNTITLED";
+  std::filesystem::create_directories(folder);
+  { std::ofstream out(folder / ".deleted"); }
+  OnInstrument o(Where::Notes, card);
+  CHECK(tagline(o) == ui::Color::ChromeDim);  // ACID BASS VOICE
+  o.t.shift_tap(Button::SampleLoad);          // the same switch as F8, from any screen
+  o.t.wait(60);
+  CHECK(tagline(o) == ui::Color::Accent);
+  app_project().set_autosave_period(1'000);
+  REQUIRE(seq::project_bank().set_note(0, 3, seq::project_bank().pattern(0).steps[3].note == 40u ? 41u : 40u));
+  o.t.wait(2'500);
+  REQUIRE(app_project().info().failed);
+  go_to(o.t, Where::Tone);
+  o.t.wait(60);
+  CHECK(o.t.param(kVoice, AcidVoice::Stock) >= 0.5f);
+  CHECK(tagline(o) == ui::Color::Rec);
+  o.intact();
 }
 
 TEST_CASE("skin instrument: the cursor's key is ringed in white, a held step's in amber, both on a held cursor") {

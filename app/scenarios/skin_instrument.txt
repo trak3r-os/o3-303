@@ -65,7 +65,8 @@ wait 100
 snap 08_learn_armed
 midi usb b0 4a 40
 wait 200
-snap 09_learned
+# (the kit's strip LEARNED CC 74 is up: a strip_* snap, tests/o3_303_scenarios_test.cpp)
+snap strip_09_learned
 release shift
 wait 100
 # The worst case. Every step a note with an accent and a slide: the factory line has accents on steps 2, 7 and 11 and slides on 5 and 9, so toggle the other flag there, and give the rests

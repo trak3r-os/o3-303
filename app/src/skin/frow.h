@@ -74,8 +74,9 @@ void draw_frow(Panel& p, const FRowView& v) noexcept;
 // The parts of a slot that INSTRUMENT (skin/instrument.h) draws at its own places, so that both screens' knobs are one look. `cx` is the slot's centre, `y` the top of the part.
 // A label line "Fn NAME": a tab of colour `tab` with the F-number in `tab_ink`, then the name in `name_ink` in `face` (Label or Micro), the pair centred on `cx`.
 void queue_label(Panel& p, int cx, int y, const char* fkey, const char* name, ui::Color name_ink, ui::Color tab, ui::Color tab_ink, ui::Face face) noexcept;
-// The readout window of `w` px (22 high) with the slot's state: the held rim, the focused knob's fill, a lock in the accent colour, the text.
-void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s) noexcept;
+// The readout window of `w` px (22 high) with the slot's state: the held rim, the focused knob's fill, a lock in the accent colour, the text. The hint under an action key is quiet; with
+// `state_hint` it is a state (STOCK's ON), read at full strength while the key is lit.
+void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s, bool state_hint = false) noexcept;
 // The slide switch of a two-place list, its track centred on (`cx`, `cy`), both names either side.
 void queue_switch(Panel& p, int cx, int cy, const FSlot& s) noexcept;
 // The cap's face of an action key (the bitmap is 40 high with its lower lip).

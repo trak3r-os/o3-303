@@ -66,6 +66,12 @@ void outputs(const std::string& text, std::vector<std::string>& snaps, std::vect
 constexpr std::size_t kSkinMaxWords = 1350;
 constexpr unsigned kSkinMaxLinePrims = 100;
 constexpr unsigned kSkinMaxLinePx = 4800;
+// The kit's system strip (a notice such as LEARNED CC 75 CHANNEL 1, up for 3 s) is drawn last by the runtime, over the bottom 28 px of a screen that draws its own chrome, and Context has no
+// query for it, so the skin cannot leave out what it covers. While any strip is up, HOME's and PERFORM's F rows are over 4,800 (docs/SKIN-PLAN.md 4.3). A snap named strip_* is a frame taken
+// under a strip: the runtime's strip must be up in it, and in every other snap it must not be, so no strip frame passes for a plain one. Such a frame keeps the budgets of words and
+// primitives; its line is held to what the scenario's own strip measures, HOME just after the learn above: 5,296 px (the plain frame's 4,306 and the strip's 990), and 4 px of margin.
+// The rule goes away with the kit's Context::strip_area(), when the skin drops what the strip covers and a strip frame meets 4,800 like the rest.
+constexpr unsigned kSkinStripMaxLinePx = 5300;
 // FILE LIBRARY with the skin on is the one screen that is not skinned (docs/SKIN-PLAN.md 2.4, 4.3 and SK7): its classic layout with the kit's header and soft-key row, in the obsidian colours,
 // peaks at 1,481 words (the `library` scenario). A snap named library_* in a skin_* file must show it so (VaultScreen, Chrome::Full, the obsidian theme) and is held to this bound, and to the
 // kit's 1,800 for the whole run, instead of the skin's three budgets and "is skinned".
@@ -126,7 +132,9 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
       }
       CHECK_MESSAGE(words < kSkinMaxWords, name << ": " << words << " words");
       CHECK_MESSAGE(prims <= kSkinMaxLinePrims, name << ": " << prims << " primitives on a line");
-      CHECK_MESSAGE(px <= kSkinMaxLinePx, name << ": " << px << " box px on a line");
+      const bool strip_snap = name.rfind("strip_", 0) == 0;
+      CHECK_MESSAGE(h.runtime().system().strip_active() == strip_snap, name << (strip_snap ? ": a strip_* snap is taken under the kit's strip" : ": the kit's strip is up (name the snap strip_*)"));
+      CHECK_MESSAGE(px <= (strip_snap ? kSkinStripMaxLinePx : kSkinMaxLinePx), name << ": " << px << " box px on a line");
     }
   };
   for (std::string line; std::getline(lines, line);) {
@@ -147,7 +155,7 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab", "skin_modded"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }

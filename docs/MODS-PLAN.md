@@ -842,7 +842,7 @@ Common to every slice:
   - the tagline under STOCK, and SAVE FAILED winning;
   - the fullest frame of each new page, queue use with `dropped() == 0`.
 - **Scenario:** new `skin_modded.txt`: MODDED NOTES and TONE, GROWL, WOBBLE, STOCK on HOME, the worst frame, and HOME right after a
-  MIDI learn toast (5,296 px a line today, over the 4,800 ceiling: section 13), which S3 measures and fixes. It joins the scenarios
+  MIDI learn toast (5,296 px a line, over the 4,800 ceiling: section 13), which S3 measured: it is the kit's strip, and not that frame alone (SKIN-PLAN 4.3). It joins the scenarios
   test's required list (that same `for`, 36 names then).
 - **Acceptance:** every skinned frame under 1,350 words, 100 primitives and 4,800 px. The numbers are recorded in the slice report and
   SKIN-PLAN, and everything else is byte-identical. The host cannot show A9; the pages inherit its failure (section 9).
@@ -940,9 +940,16 @@ A host test is not this check. The slices name the unit check they leave to it.
   (`modded_screen_test.cpp`, "mods_stock_ab") checks the same by the engine's own set_param, with every mod at its maximum and at its
   minimum, three orders (STOCK then mods, mods and STOCK in one block, STOCK alone), and that the same mods without STOCK are heard.
   S2 also owns resetting STOCK when a project loads (5.11): S1's `apply()` does not, and S2's does.
-- **A skinned frame over the ceiling already exists.** HOME right after a MIDI learn toast is 5,296 px on its busiest line (ceiling
-  4,800), at 9fdb583 and after S2 alike; it settles to 4,306 px. The scenarios test never snaps that frame. S2 leaves the drawing;
-  S3 snaps the frame in `skin_modded.txt` and fixes it (SKIN-PLAN 4.3).
+- **Skinned frames over the ceiling already exist, and they are the kit's strip: not one frame.** While any kit strip is up (learn,
+  save, card, USB: 3 s each), every HOME and PERFORM F-row frame is over 4,800 px on its busiest line: HOME 5,296 just after a MIDI
+  learn (4,306 without the strip), HOME SETUP with F3 held 5,366, PERFORM SETUP 5,470, and a notice of the 71 characters
+  `kStripChars` allows adds 10 px each. MASTER, FILE, SONG and the INSTRUMENT pages stay under (3,596 at most, plus about 990). It was so
+  at 9fdb583 and after S2. S3 found the cause: the strip `Runtime` draws over the bottom 28 px (an 800 px panel and 10 px a
+  character), over the F row's readouts that the skin already queued; `Context` has no query for it. On the unit 5,296 px is 83 % of
+  the 6,400 clean point, over the 75 % rule (the primitives, 86, are under the clean 128). S3's interim: the strip frames are snapped
+  as `strip_*` (HOME, NOTES and INSTRUMENT after a learn), the scenarios test requires the strip up in them and down in every other
+  snap, and holds them to 5,300 px. The fix is an o3-sdk `ui::Rect Context::strip_area()`, after which the skin drops the shapes
+  inside the rect and the `strip_*` exception goes (SKIN-PLAN 4.3).
 - **Follow-up for a re-baseline slice: `Sequencer::slew_value` returns the goal exactly when from equals goal.** Today it goes through
   `param_denorm(param_norm(x))` and ACC DECAY 180 comes back 180.000015 (5.9). The clean fix would let snapshots write the mods like
   every other target, but it moves older WAVs by their last bits, so it waits for a deliberate re-baseline. S2 does not do it.

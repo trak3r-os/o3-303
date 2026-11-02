@@ -149,7 +149,7 @@ void queue_knobs(Panel& p, const InstrumentView& v, const FRowView& row, char (&
     // The latch LED: lit for the knob the encoder drives (amber on a lock); on the Shift row it is the learn that is waiting.
     const bool on = learn != Learn::None ? learn == Learn::Armed : s.focus;
     led(p, cx + kLedDx, kLedCy, on, s.locked || learn == Learn::Armed ? pal::kLedAmber : pal::kLedRed);
-    queue_readout(p, cx, kReadoutY, kReadoutW, s);
+    queue_readout(p, cx, kReadoutY, kReadoutW, s, true);  // an action key's hint here is its state: ON reads at full strength under the lit key
   }
 }
 

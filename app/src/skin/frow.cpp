@@ -45,6 +45,14 @@ void centred(Panel& p, int cx, int top, int h, const char* s, Color c, Face f) n
   p.text(cx - len_of(s) * char_w(f) / 2, top + (h - char_h(f)) / 2, s, c, f);
 }
 
+// The ink of the hint under an action key. A key with nothing to do is as quiet as the key; with `state_hint` (INSTRUMENT's keys: the hint is a state, STOCK's ON) a lit key's is read at full strength.
+Color hint_ink(const FSlot& s, bool state_hint) noexcept {
+  if (s.dim) {
+    return Color::Empty;
+  }
+  return state_hint && s.lit ? Color::Text : Color::TextDim;
+}
+
 }  // namespace
 
 void queue_label(Panel& p, int cx, int y, const char* fkey, const char* name, Color name_ink, Color tab, Color tab_ink, Face face) noexcept {
@@ -56,13 +64,13 @@ void queue_label(Panel& p, int cx, int y, const char* fkey, const char* name, Co
 }
 
 // The readout window under a slot with its state: the amber rim of a held key, the red fill of the focused knob (a lock is drawn in the accent colour instead), the text.
-void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s) noexcept {
+void queue_readout(Panel& p, int cx, int y, int w, const FSlot& s, bool state_hint) noexcept {
   const Rect win{cx - w / 2, y, w, kReadoutH};
   window(p, win, 3);
   if (s.held) {
     p.round_rect(Layer::HeldRim, Rect{win.x - 2, win.y - 3, win.w + 4, win.h + 5}, 5 * 16, theme().rgb(Color::Accent));
   }
-  Color ink = s.kind == SlotKind::Action ? (s.dim ? Color::Empty : Color::TextDim) : Color::Text;  // the hint of a key with nothing to do is as quiet as the key
+  Color ink = s.kind == SlotKind::Action ? hint_ink(s, state_hint) : Color::Text;
   if (s.locked) {
     ink = Color::Accent;
   } else if (s.focus && s.kind != SlotKind::Action) {
