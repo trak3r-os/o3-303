@@ -19,12 +19,12 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 3 | 13 (with 3) Delete, Insert, Up and Down on a step | small | nothing (proposal 2026-11-03) |
 | 4 | 1 ROOT control | small | the place: Shift + F5 on PATTERN SETUP, proposed |
 | 4b | 12 FILE LIBRARY: Shift + pad for slots 16 to 63 | small | nothing |
-| 5 | 7 Left and Right move the held F key's value, 1/20 of its range, accelerating when held | small | nothing (decided 2026-11-03) |
-| 6 | 8 the ladder rows take any F key's knob | medium | nothing (proposal 2026-11-03) |
+| 5 | 7 Left and Right move the held F key's value, 1/20 of its range | small | nothing; the held repeat waits on 9 in o3-sdk |
+| 6 | 8 one ladder model: HOME's FILT rows and PERFORM's row 3 take any F key's knob | medium | nothing (decided 2026-11-03) |
 | 7 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
 | 7b | 6 the key LEDs: scale at mid, root highlighted | small | item 1, the root |
 | 8 | 5 OBSIDIAN the default | small once A9 is settled | A9 on the unit |
-| 9 | 9 encoder speed, 10 MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
+| 9 | 9 encoder speed and button auto-repeat, 10 MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
 
 ## 2026-11-02: the first session with v0.1.0 on the unit
 
@@ -91,8 +91,9 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
      - held for 400 ms, it repeats, at 8 steps a second at first, rising to 25 a second over the next second;
      - it stops when Left, Right or the F key is let go.
    - Today: the kit tells a screen whether a button is held (`Panel::held`, o3-sdk `kit/app/include/o3sdk/app/panel.h:50`). It has no button
-     auto-repeat. The repeat can be built in the app: the screen's tick sees the held buttons and the time. Moving it into o3-sdk's input, with
-     the encoder acceleration of item 9, is the cleaner place if both are built together.
+     auto-repeat.
+   - Decided 2026-11-03: "put it in o3sdk". The repeat and its acceleration go into o3-sdk's input, with the encoder acceleration of item 9.
+     The 1/20 step on a single press can be built in the app now; the held repeat comes when o3-sdk has it.
 8. **The ladder rows take any F key's knob.** "for the selected f-key in instrument or performance, can we use last pad row to change it?", then
    on 2026-11-03: "think a way to set the pad mode where we have cutoff/resonance to be able to change those, so that I can assign those pad
    buttons to my desired f-key encoder values".
@@ -111,10 +112,19 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
      - **The code:** FILT's ladders use PERFORM's generic path for any knob, not the fixed CUTOFF and RESO ids.
    - The original question, row 4 as the latched F key's value on INSTRUMENT and PERFORM, is covered: on INSTRUMENT, FILT plus an
      assignment gives it; PERFORM's row 3 already follows the latched knob.
-   - To decide when it is built: whether PERFORM's row 3 also takes an assignment, or keeps following the latched knob.
+   - PERFORM's row 3, decided 2026-11-03: "make it seamless". The same model on both screens:
+     - one kind of ladder row, used three times: HOME's FILT row 3 and row 4, and PERFORM's row 3. The same code, gesture, LEDs and caption;
+     - a row either follows the latched knob or holds a knob of its own. The defaults: HOME's rows hold CUTOFF and RESO, PERFORM's row follows
+       the latched knob, as each does today;
+     - hold an F key and tap a pad of a ladder row: the row holds that F key's knob. Doing it again with the knob the row already holds puts the
+       row back to its default. Shift + FILT puts both HOME rows back;
+     - the row's caption always names what it drives: "CUTOFF", or "LATCHED: DECAY" when it follows;
+     - all three rows are stored in the project.
 9. **The encoder's speed.** "can we set the encoder knob velocity?"
    - Today: there is no setting. o3-sdk has no encoder acceleration: its console says track3r-os's `enc accel` was cut (o3-sdk `platform/mk66/console/src/inject_commands.cpp:90`).
    - Needs o3-sdk first: acceleration in the kit's input, and a system Config row for it. Then o3-303 inherits it.
+   - The same o3-sdk change brings button auto-repeat with acceleration (item 7, decided 2026-11-03): a screen asks for it on the buttons it
+     wants (Left and Right here). Every app on o3-sdk gets it.
 10. **Automation from MIDI.** (from "via midi too?" above)
     - Needs o3-sdk first: a hook that tells the app a learned control moved, or hands the app the CC.
     - Then the app records the move as motion, as it does for a turned knob.
