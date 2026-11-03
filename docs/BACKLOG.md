@@ -7,6 +7,23 @@ What the maintainer asked for while using o3-303 on the unit. Nothing in this fi
 
 A request moves out of this file when a plan takes it (UX-PLAN, a slice brief); the plan then says where it went.
 
+## Status on 2026-11-03
+
+None of the eleven items is built. The code they describe has not changed since they were written: o3-303 is at 19a467d and o3-sdk
+at bbe7b83. The proposed order for the next round, cheapest first:
+
+| Order | Item | Size | Waits on |
+|---|---|---|---|
+| 1 | 11 VERSION on INFO | trivial | nothing; before the next release |
+| 2 | 4 RECORD takes the master only | small | nothing |
+| 3 | 3 Up and Down on an empty step | small | the first note: the last note before it, proposed |
+| 4 | 1 ROOT control | small | the place: Shift + F5 on PATTERN SETUP, proposed |
+| 5 | 7 Left and Right move the latched F key | small | the list of screens where they do nothing |
+| 6 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
+| 7 | 6 and 8 the two last pad rows | medium | the maintainer: which screen "pattern mode" is, what row 4's keys become |
+| 8 | 5 OBSIDIAN the default | small once A9 is settled | A9 on the unit |
+| 9 | 9 encoder speed, 10 MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
+
 ## 2026-11-02: the first session with v0.1.0 on the unit
 
 The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB console, with the OBSIDIAN look switched on.
