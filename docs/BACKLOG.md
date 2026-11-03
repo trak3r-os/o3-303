@@ -9,7 +9,7 @@ A request moves out of this file when a plan takes it (UX-PLAN, a slice brief); 
 
 ## Status on 2026-11-03
 
-None of the eleven items is built. The code they describe has not changed since they were written: o3-303 is at 19a467d and o3-sdk
+None of the twelve items is built. The code they describe has not changed since they were written: o3-303 is at 19a467d and o3-sdk
 at bbe7b83. The proposed order for the next round, cheapest first:
 
 | Order | Item | Size | Waits on |
@@ -18,9 +18,11 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 2 | 4 RECORD takes the master only | small | nothing |
 | 3 | 3 Up and Down on an empty step | small | the first note: the last note before it, proposed |
 | 4 | 1 ROOT control | small | the place: Shift + F5 on PATTERN SETUP, proposed |
-| 5 | 7 Left and Right move the latched F key | small | the list of screens where they do nothing |
-| 6 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
-| 7 | 6 and 8 the two last pad rows | medium | the maintainer: which screen "pattern mode" is, what row 4's keys become |
+| 4b | 12 FILE LIBRARY: Shift + pad for slots 16 to 63 | small | nothing |
+| 5 | 7 Left and Right move the held F key's value, 1/20 of its range, accelerating when held | small | nothing (decided 2026-11-03) |
+| 6 | 8 the ladder rows take any F key's knob | medium | nothing (proposal 2026-11-03) |
+| 7 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
+| 7b | 6 the key LEDs: scale at mid, root highlighted | small | item 1, the root |
 | 8 | 5 OBSIDIAN the default | small once A9 is settled | A9 on the unit |
 | 9 | 9 encoder speed, 10 MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
 
@@ -74,13 +76,42 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
      - the same two key rows in pattern mode;
      - the LEDs: the scale's notes at mid brightness, the root highlighted.
    - To check with the maintainer: which screen "pattern mode" is. Holding Pattern turns the pads into the 48 patterns.
+   - 2026-11-03, the maintainer: "On pad note input mode, i think we already have this." Read as: HOME with FILT off already has the two
+     key rows. What is left is the LEDs: the scale's notes at mid, the root highlighted (today the keys outside the scale go dark). That
+     part waits on item 1, the root.
 7. **Left and Right.** "any more instance where lft/right keys could be useful? to change selected f-key function like faster?"
-   - Idea: Left and Right move the latched F key to the previous or next one, without tapping F keys.
-   - To do: list the screens where Left and Right do nothing today.
-8. **The last pad row as the selected F key's value.** "for the selected f-key in instrument or performance, can we use last pad row to change it?"
-   - Asked: on INSTRUMENT and PERFORM, row 4's twelve pads set the latched F key's value, as a ladder from minimum to maximum.
-   - Today: PERFORM's row 3 is already a ladder (MIN to MAX) for the filter. The pad ladders are R1 in M3B-PLAN.
-   - To decide: what happens to the keys on row 4 of those screens.
+   - Decided 2026-11-03: "left/right move the value (bigger steps like 20 for full cycle) while the f-key is pressed."
+   - The behaviour, on every screen whose F keys own knobs:
+     - with an F key held, Left and Right move that F key's knob down or up by 1/20 of its range: 20 presses take it from minimum to maximum;
+     - a knob with few values (an enum, a switch, fewer than 20 steps) moves one value per press;
+     - with no F key held, Left and Right keep what they do today (the cursor on HOME, the focus or the slot elsewhere);
+     - a press is a turn: with REC on and the line playing it is recorded as motion, the same as the encoder.
+   - Also asked on 2026-11-03: "also allow left/right on value change to acelerate". Proposed:
+     - a press moves one step (1/20 of the range);
+     - held for 400 ms, it repeats, at 8 steps a second at first, rising to 25 a second over the next second;
+     - it stops when Left, Right or the F key is let go.
+   - Today: the kit tells a screen whether a button is held (`Panel::held`, o3-sdk `kit/app/include/o3sdk/app/panel.h:50`). It has no button
+     auto-repeat. The repeat can be built in the app: the screen's tick sees the held buttons and the time. Moving it into o3-sdk's input, with
+     the encoder acceleration of item 9, is the cleaner place if both are built together.
+8. **The ladder rows take any F key's knob.** "for the selected f-key in instrument or performance, can we use last pad row to change it?", then
+   on 2026-11-03: "think a way to set the pad mode where we have cutoff/resonance to be able to change those, so that I can assign those pad
+   buttons to my desired f-key encoder values".
+   - Today:
+     - with FILT on, rows 3 and 4 are fixed ladders: row 3 CUTOFF, row 4 RESO, 12 places from MIN to MAX (`HomeMap::ladder_press`,
+       `app/src/home_map.cpp:448`). HOME and the INSTRUMENT pages share these pads.
+     - PERFORM's row 3 is a ladder of the latched knob, whatever it is (`PerformScreen::ladder_press`, `app/src/perform_screen.cpp:277`). That
+       path already handles any knob: a lane slew, an enum set directly, motion recorded with REC on.
+   - The proposal:
+     - **Assign:** with FILT on, hold an F key and tap any pad of row 3 or row 4. That row becomes the ladder of that F key's knob. The tap
+       only assigns: it does not move the value. While an F key is held, both ladder rows blink, to show they take an assignment.
+     - **What is stored:** the knob itself (its unit and parameter), not the F key's number. The row keeps its knob when the page changes.
+     - **Reset:** Shift + FILT puts the rows back to CUTOFF and RESO.
+     - **Where:** in the project, as two fields appended to its chunk. An old project loads with CUTOFF and RESO.
+     - **The screen:** the strip names each row's knob, for example "ROW 3 CUTOFF . ROW 4 DECAY". The help text says so too.
+     - **The code:** FILT's ladders use PERFORM's generic path for any knob, not the fixed CUTOFF and RESO ids.
+   - The original question, row 4 as the latched F key's value on INSTRUMENT and PERFORM, is covered: on INSTRUMENT, FILT plus an
+     assignment gives it; PERFORM's row 3 already follows the latched knob.
+   - To decide when it is built: whether PERFORM's row 3 also takes an assignment, or keeps following the latched knob.
 9. **The encoder's speed.** "can we set the encoder knob velocity?"
    - Today: there is no setting. o3-sdk has no encoder acceleration: its console says track3r-os's `enc accel` was cut (o3-sdk `platform/mk66/console/src/inject_commands.cpp:90`).
    - Needs o3-sdk first: acceleration in the kit's input, and a system Config row for it. Then o3-303 inherits it.
@@ -90,5 +121,14 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
 11. **The version number on INFO.**
     - Today: Config > INFO says VERSION 0.0.1 while BUILD says v0.1.0. The number is set in `CMakeLists.txt:23` (`project(... VERSION 0.0.1`) and in `app/src/o3_303_app.cpp:94` (`AppInfo`).
     - To do: bump both before the next release, or take INFO's version from the build. Found during the install, not asked by the maintainer.
+
+12. **FILE LIBRARY: every slot on a pad.** "In FILE when loading a pattern, we only have 48 pads, not the 64" (2026-11-03).
+    - Today: a library bank has 64 slots, but the pads load only slots 0 to 47 (`app/src/vault_screen.cpp:168`). Slots 48 to 63 need the
+      encoder or the arrows, then Insert (MANUAL, FILE LIBRARY). UX-303 planned Shift + pad for slots 16 to 63 (`docs/UX-303.md:906`), but
+      that was not built.
+    - Proposed: Shift + pad loads slot pad + 16, so Shift reaches 16 to 63. While Shift is held, the LEDs show slots 16 to 63, with the slot
+      shown lit. The PADS line says "PADS 0-47 . SHIFT 16-63". Shift + turn keeps picking the seed.
+    - No gesture is lost. Today Shift + pad loads the same slot as the pad alone (the pad press ignores Shift). Shift's F row (NEW SEED,
+      LOAD what) stays as it is.
 
 Items 9 and 10 need an o3-sdk change first, made in o3-sdk under its own rules. The rest are o3-303's.
