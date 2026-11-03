@@ -9,14 +9,14 @@ A request moves out of this file when a plan takes it (UX-PLAN, a slice brief); 
 
 ## Status on 2026-11-03
 
-None of the twelve items is built. The code they describe has not changed since they were written: o3-303 is at 19a467d and o3-sdk
+None of the thirteen items is built. The code they describe has not changed since they were written: o3-303 is at 19a467d and o3-sdk
 at bbe7b83. The proposed order for the next round, cheapest first:
 
 | Order | Item | Size | Waits on |
 |---|---|---|---|
 | 1 | 11 VERSION on INFO | trivial | nothing; before the next release |
 | 2 | 4 RECORD takes the master only | small | nothing |
-| 3 | 3 Up and Down on an empty step | small | the first note: the last note before it, proposed |
+| 3 | 13 (with 3) Delete, Insert, Up and Down on a step | small | nothing (proposal 2026-11-03) |
 | 4 | 1 ROOT control | small | the place: Shift + F5 on PATTERN SETUP, proposed |
 | 4b | 12 FILE LIBRARY: Shift + pad for slots 16 to 63 | small | nothing |
 | 5 | 7 Left and Right move the held F key's value, 1/20 of its range, accelerating when held | small | nothing (decided 2026-11-03) |
@@ -130,5 +130,22 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
       shown lit. The PADS line says "PADS 0-47 . SHIFT 16-63". Shift + turn keeps picking the seed.
     - No gesture is lost. Today Shift + pad loads the same slot as the pad alone (the pad press ignores Shift). Shift's F row (NEW SEED,
       LOAD what) stays as it is.
+
+13. **Delete, Insert, Up and Down on a step.** "when editing a pattern, delete, removes the note or the rest or tie, insert, inserts a tie or
+    rest, up and down sets the note, makes sense?" (2026-11-03). It takes in item 3.
+    - Today on HOME:
+      - Delete clears the step to a rest: no accent, slide, ratchet, condition or locks;
+      - Insert inserts a rest at the cursor and pushes the steps after it right; Shift + Insert takes the cursor to step 1;
+      - Up and Down change the step's pitch (`HomeMap::arrow`). On a rest or a tie, the step stays silent: `seq::set_note` leaves the flags alone
+        (`app/seq/src/ops.cpp:157`), so only a hidden pitch changes.
+    - Proposed, on HOME and INSTRUMENT:
+      - **Delete:** as today. An empty step is a rest ("--"); there is no third state.
+      - **Insert:** on a note or a rest, the step becomes a tie; on a tie, a rest. A tie after a rest holds nothing and shows "--".
+      - **Shift + Insert:** the push-right insert, the partner of Shift + Delete (remove and pull left). The cursor-to-step-1 gesture goes;
+        step pad 1 does it.
+      - **Up and Down:** on a note, a semitone, Shift an octave, as today. On a rest or a tie, the first press makes it a note, without moving
+        the pitch: a tie becomes the pitch it carried, a rest the last note before it, else the keys' C. The next presses move it.
+      - With held steps, each held step takes the edit, as today.
+    - The manual's HOME table (MANUAL "Insert a rest at the cursor") and the help texts change with it.
 
 Items 9 and 10 need an o3-sdk change first, made in o3-sdk under its own rules. The rest are o3-303's.
