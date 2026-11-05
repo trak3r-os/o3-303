@@ -26,7 +26,8 @@ What lives here: `app/` (the app, `o3sdk_app(o3_303 ...)`, its scenarios in `app
   commands), as in track3r-os (maintainer, 2026-10-25). Agents may write to an SD card mounted under `/media` or `/run/media`
   (never `/mnt`, never a raw device). No debug-probe flashing, no improvised uploaders. Formatting a card, or deleting files you
   did not put there, needs the maintainer's ask.
-- No secrets, personal data or binaries in git. Commit or push only when the maintainer asks.
+- No secrets, personal data or binaries in git. Commit after each verified slice (ctest green, the remaining unit check named in the
+  message), adding files by name, never `git add -A` or `git add .`. Push and tag only when the maintainer asks (decided 2026-11-05).
 
 ## Build and test
 
