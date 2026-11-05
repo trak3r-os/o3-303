@@ -360,25 +360,28 @@ TEST_CASE("a chord with Pattern is no tap, so the page does not flip; a plain ta
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
 }
 
-TEST_CASE("Shift + Insert goes to step 1 without inserting; Shift + Delete is backspace and clears nothing else") {
+TEST_CASE("Shift + Insert pushes the steps right from the cursor; Shift + Delete is backspace and clears nothing else") {
   Hands t;
   const Pattern before = t.pat();
   t.pad(step_pad_of(6));
   t.shift_tap(Button::Insert);
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == before.steps[i].note);  // nothing was inserted
+  for (unsigned i = 0; i < 6; ++i) {
+    CHECK(t.pat().steps[i].note == before.steps[i].note);  // before the cursor nothing moved
     CHECK(t.pat().steps[i].flags == before.steps[i].flags);
   }
-  t.tap(Button::Delete);  // the cursor is on step 1 now
-  CHECK(t.pat().steps[0].flags == kStepRest);
-  CHECK(t.pat().steps[6].flags == before.steps[6].flags);
+  for (unsigned i = 7; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == before.steps[i - 1].note);  // after it everything is one later
+  }
+  t.tap(Button::Delete);  // the cursor step is the new one
+  CHECK((t.pat().steps[6].flags & kStepRest) != 0);
+  CHECK(t.pat().steps[0].flags == before.steps[0].flags);
   t.pad(step_pad_of(2));
   const Pattern pre = t.pat();
   t.shift_tap(Button::Delete);
   for (unsigned i = 2; i < 15; ++i) {
     CHECK(t.pat().steps[i].note == pre.steps[i + 1].note);
   }
-  CHECK(t.pat().steps[0].flags == kStepRest);  // step 1 is still the rest Delete made: not a clear of the pattern
+  CHECK(t.pat().steps[0].flags == before.steps[0].flags);  // not a clear of the pattern
   CHECK(t.pat().length == 16);
 }
 
@@ -408,4 +411,65 @@ TEST_CASE("Rec stopped: TIE and REST write and advance; with Rec off they toggle
   CHECK((t.pat().steps[4].flags & kStepTie) != 0);
   t.pad(kTiePad, 10);
   CHECK((t.pat().steps[4].flags & kStepTie) == 0);
+}
+
+TEST_CASE("Insert on held steps: each becomes a tie, a tie becomes a rest; Up or Down wakes a rest or a tie before moving it") {
+  Hands t;
+  Pattern p = t.pat();
+  for (unsigned i = 0; i < 16; ++i) {
+    p.steps[i].note = static_cast<std::uint8_t>(40 + i);
+    p.steps[i].flags = 0;
+  }
+  bank().replace(t.selected(), p);
+  t.down(step_pad_of(2));
+  t.down(step_pad_of(5));
+  t.tap(Button::Insert);
+  t.up(step_pad_of(2));
+  t.up(step_pad_of(5));
+  CHECK(t.pat().steps[2].flags == kStepTie);
+  CHECK(t.pat().steps[5].flags == kStepTie);
+  CHECK(t.pat().steps[3].flags == 0);  // only the held ones
+  t.down(step_pad_of(2));
+  t.tap(Button::Insert);  // a tie becomes a rest
+  t.up(step_pad_of(2));
+  CHECK(t.pat().steps[2].flags == kStepRest);
+  // Up on the rest at step 3: the first press makes it the last note before it (step 2 is a rest, step 1 sounds: 41), no move.
+  t.down(step_pad_of(2));
+  t.tap(Button::Up);
+  t.up(step_pad_of(2));
+  CHECK(t.pat().steps[2].flags == 0);
+  CHECK(t.pat().steps[2].note == 41);
+  t.down(step_pad_of(2));
+  t.tap(Button::Down);  // later presses move it
+  t.up(step_pad_of(2));
+  CHECK(t.pat().steps[2].note == 40);
+  // Down on the tie at step 6 carries the pitch of step 5 (44): the tie becomes that pitch, still not moved.
+  t.down(step_pad_of(5));
+  t.tap(Button::Down);
+  t.up(step_pad_of(5));
+  CHECK(t.pat().steps[5].flags == 0);
+  CHECK(t.pat().steps[5].note == 44);
+}
+
+TEST_CASE("a rest with no note before it wakes as the keys' C") {
+  Hands t;
+  Pattern p = t.pat();
+  for (unsigned i = 0; i < 16; ++i) {
+    p.steps[i].flags = kStepRest;
+  }
+  bank().replace(t.selected(), p);
+  t.pad(step_pad_of(0));
+  t.tap(Button::Up);
+  CHECK((t.pat().steps[0].flags & kStepRest) == 0);
+  CHECK(t.pat().steps[0].note % 12 == 0);
+}
+
+TEST_CASE("the key LEDs of a scale: the root full, the scale mid, the rest dark; without a scale the naturals are dim") {
+  CHECK(key_led_level(true, false, true, false) == app::kLedDim);
+  CHECK(key_led_level(false, false, true, false) == app::kLedOff);
+  CHECK(key_led_level(true, true, true, false) == app::kLedMid);
+  CHECK(key_led_level(false, true, true, false) == app::kLedMid);
+  CHECK(key_led_level(true, true, true, true) == app::kLedOn);
+  CHECK(key_led_level(true, true, false, false) == app::kLedOff);
+  CHECK(key_led_level(false, true, false, false) == app::kLedOff);
 }

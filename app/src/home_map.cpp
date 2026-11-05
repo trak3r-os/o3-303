@@ -301,6 +301,16 @@ void HomeMap::toast(app::Context& ctx, const char* text, bool off) noexcept {
   ctx.redraw();
 }
 
+std::uint8_t key_led_level(bool natural, bool scale_on, bool in_scale, bool root) noexcept {
+  if (!scale_on) {
+    return natural ? app::kLedDim : app::kLedOff;
+  }
+  if (!in_scale) {
+    return app::kLedOff;
+  }
+  return root ? app::kLedOn : app::kLedMid;
+}
+
 // With a scale chosen on PATTERN SETUP the keyboard keeps to it: the other pads are dark and do nothing. Until the player chooses one
 // (the generator's default scale is not a choice) the keyboard is chromatic as it always was; "No scale" and "Chromatic" have every note.
 bool HomeMap::scale_locked() const noexcept {
@@ -938,7 +948,7 @@ void HomeMap::rotate_layers(app::Context& ctx, int direction) noexcept {
 }
 
 // Left / Right: the cursor (across the pages); ACC or SLIDE held: that layer one step; Shift: the whole pattern one step. Up / Down: the note of the
-// cursor step, or of every held step, a semitone; Shift: an octave.
+// cursor step, or of every held step, a semitone; Shift: an octave; on a rest or a tie the first press makes a note of it (wake_note), without moving the pitch.
 void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
   if (which == Button::Left || which == Button::Right) {
     const int d = which == Button::Right ? 1 : -1;
@@ -954,6 +964,15 @@ void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
   }
   const int d = (which == Button::Up ? 1 : -1) * (shift ? 12 : 1);
   const auto move = [&](unsigned step) {
+    if (step_silent(pat().steps[step].flags)) {  // a rest or a tie: the first press makes it a note, at the pitch it carried (the next presses move it)
+      const int c = kLowestNote + 12 * octave_;
+      const std::uint8_t fallback = static_cast<std::uint8_t>(c < 0 ? 0 : (c > 127 ? 127 : c));
+      (void)rig_->bank->edit(sel(), [&](Pattern& p) {
+        p.steps[step].note = wake_note(p, step, fallback);
+        p.steps[step].flags = wake_flags(p.steps[step].flags);
+      });
+      return;
+    }
     const int n = static_cast<int>(pat().steps[step].note) + d;
     if (n >= 0 && n <= 127) {
       (void)rig_->bank->set_note(sel(), step, static_cast<unsigned>(n));
@@ -989,10 +1008,22 @@ void HomeMap::copy_buttons(app::Context& ctx, Button which, bool shift) noexcept
       }
       break;
     case Button::Insert:
-      if (shift) {  // Shift + Insert (Home): the cursor to step 1
-        move_cursor(ctx, 0);
-      } else {
+      if (shift) {  // Shift + Insert: a rest is pushed in at the cursor and the steps after it move right (the partner of Shift + Delete)
         (void)bank.insert_step(sel(), static_cast<unsigned>(cursor_));
+      } else {  // Insert: a note or a rest becomes a tie, a tie a rest (the held steps', or the cursor's)
+        const auto toggle = [&](unsigned s) {
+          (void)bank.edit(sel(), [&](Pattern& p) { p.steps[s].flags = insert_toggle_flags(p.steps[s].flags); });
+        };
+        if (any_step_held()) {
+          mark_held_used();
+          for (int s : held_step_) {
+            if (s >= 0) {
+              toggle(static_cast<unsigned>(s));
+            }
+          }
+        } else {
+          toggle(static_cast<unsigned>(cursor_));
+        }
       }
       break;
     default: {  // Delete
@@ -1210,13 +1241,15 @@ void HomeMap::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
       leds.set(pad, app::kLedOff);
       continue;
     }
-    // The piano drawn with one colour: naturals dim, sharps off. With a scale chosen, lit means playable: every pad of the scale is dim.
-    std::uint8_t level = is_natural(static_cast<unsigned>(n)) || scale_locked() ? app::kLedDim : app::kLedOff;
+    // The piano drawn with one colour: naturals dim, sharps off. With a scale chosen, lit means playable: the pads of the scale mid, the root full.
+    const bool locked = scale_locked();
+    std::uint8_t level = key_led_level(is_natural(static_cast<unsigned>(n)), locked, true, locked && static_cast<unsigned>(n) % 12u == rig_->wiring.gen.root % 12u);
     if (playing_ && live_->trnsp() && !rec_ && n == kLowestNote + live_->live_transpose()) {
       level = app::kLedMid;  // the key the running pattern is transposed by
     }
     if (n == current) {
-      level = playing_here ? app::kLedOn : app::kLedMid;
+      const std::uint8_t mark = playing_here ? app::kLedOn : app::kLedMid;
+      level = level > mark ? level : mark;  // (the root stays full)
     }
     if (ctx.panel().pad_held(pad)) {
       level = app::kLedOn;

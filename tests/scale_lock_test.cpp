@@ -53,13 +53,13 @@ TEST_CASE("with Major chosen the pads of C D E F G A B play and the others are d
   CHECK(written == 7);
   CHECK(t.pat().steps[7].note == before.steps[7].note);  // the skipped notes were not written, and the cursor did not run on
   t.wait(40);
-  // The LEDs: with a scale chosen lit means playable: the pads of the scale are dim (the current note on), the others dark.
+  // The LEDs: with a scale chosen lit means playable: the pads of the scale are mid, the root full, the others dark.
   for (unsigned pc = 0; pc < 12; ++pc) {
     if (!in[pc]) {
       CHECK(t.led(key_pad(36 + pc)) == app::kLedOff);
       CHECK(t.led(key_pad(48 + pc)) == app::kLedOff);
     } else {
-      CHECK(t.led(key_pad(48 + pc)) == app::kLedDim);
+      CHECK(t.led(key_pad(48 + pc)) == (pc == 0 ? app::kLedOn : app::kLedMid));
     }
   }
 }
@@ -69,15 +69,15 @@ TEST_CASE("a scale with a natural out of it (C minor pentatonic: C Eb F G Bb) da
   choose_scale(t, 18);  // the default's own index, chosen (down and up again): the keyboard locks to it
   t.wait(40);
   // D, E, A, B and the sharps C#, F#, G# are out; Eb, Bb are in: with a scale chosen lit means playable, so those two sharps are dim.
-  CHECK(t.led(key_pad(39)) == app::kLedDim);  // Eb
-  CHECK(t.led(key_pad(46)) == app::kLedDim);  // Bb
+  CHECK(t.led(key_pad(39)) == app::kLedMid);  // Eb
+  CHECK(t.led(key_pad(46)) == app::kLedMid);  // Bb
   CHECK(t.led(key_pad(37)) == app::kLedOff);  // C#
   CHECK(t.led(key_pad(38)) == app::kLedOff);  // D
   CHECK(t.led(key_pad(40)) == app::kLedOff);  // E
   CHECK(t.led(key_pad(45)) == app::kLedOff);  // A
   CHECK(t.led(key_pad(47)) == app::kLedOff);  // B
-  CHECK(t.led(key_pad(41)) == app::kLedDim);  // F
-  CHECK(t.led(key_pad(43)) == app::kLedDim);  // G
+  CHECK(t.led(key_pad(41)) == app::kLedMid);  // F
+  CHECK(t.led(key_pad(43)) == app::kLedMid);  // G
   t.tap(Button::Rec);
   t.pad(key_pad(38), 10);  // D: skipped
   CHECK(t.pat().steps[0].note != 38);
@@ -139,8 +139,8 @@ TEST_CASE("the scale lock follows the keyboard's octave and ends with the run") 
   t.wait(40);
   // An octave up the pads are the same pitch classes.
   CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);
-  CHECK(t.led(key_pad(36 + 2)) == app::kLedDim);
-  CHECK(t.led(key_pad(36 + 4)) == app::kLedDim);
+  CHECK(t.led(key_pad(36 + 2)) == app::kLedMid);
+  CHECK(t.led(key_pad(36 + 4)) == app::kLedMid);
   Hands again;  // a new run: chromatic
   again.tap(Button::Rec);
   again.pad(key_pad(37), 10);

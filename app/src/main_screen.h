@@ -31,7 +31,8 @@ namespace o3_303 {
 
 // The scale field of the info lines: the name in capitals without the table's padding ("PENTA MIN"), or its first three letters (`short_form`, when the
 // strip is full); "--" when `locked` is false (the keyboard is chromatic: a scale never chosen locks nothing), whatever the generator's scale is.
-void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap) noexcept;
+void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap,
+                      int root = -1) noexcept;  // root >= 0 with a scale locked puts the key first ("D PHRYGIAN")
 
 class MainScreen final : public o3sdk::app::Screen {
  public:
@@ -53,6 +54,8 @@ class MainScreen final : public o3sdk::app::Screen {
 
   // PATTERN SETUP (UX-303 5.2) is the second page of this screen: a tap of Pattern flips it and HOME.
   bool setup() const noexcept { return setup_; }
+  // The encoder is ROOT's: Shift + F5 set it and no drawer row or held step has taken it since (what the strip and the F5 box say).
+  bool root_owns() const noexcept { return setup_ && root_enc_ && home_.row() == DrawerRow::None && !home_.any_step_held(); }
   bool pattern_overlay() const noexcept { return home_.overlay(); }
   int cursor() const noexcept { return home_.cursor(); }
   // The home map the screen forwards to: another home-map screen (INSTRUMENT) uses the same one, so the cursor, the octave, Rec and FILT are shared.
@@ -111,6 +114,7 @@ class MainScreen final : public o3sdk::app::Screen {
   PageKeys setup_keys_;  // PATTERN SETUP's F keys (setup_page()): one page, key 0 (LENGTH) latched
 
   // Modes.
+  bool root_enc_ = false;  // Shift + F5 on PATTERN SETUP: the encoder is the generator root until an F key is pressed (main thread only)
   bool setup_ = false;   // PATTERN SETUP is shown (a tap of Pattern); every other piece of the screen is shared with HOME
 
   // The pitch window keeps what it has shown for the pattern, so it does not jump while notes are entered.

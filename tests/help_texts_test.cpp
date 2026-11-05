@@ -510,7 +510,7 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     const Help& help = open_help(h);
     CHECK(std::strcmp(help.fkey_shift[0], "COPY PAT") == 0);
     CHECK(std::strcmp(help.fkey_shift[2], "DUP>NEXT") == 0);
-    CHECK(help.fkey_shift[4] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[4], "ROOT") == 0);
     CHECK(help.fkey_shift[5] == nullptr);
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);

@@ -95,3 +95,36 @@ wait 100
 snap 17_home_scale_short
 padup 4
 tap play
+# B2: SETUP's Shift + F5 is ROOT, the encoder is the generator's root (here D) and the strip says so; the F5 box shows the key beside the scale.
+tap pattern
+wait 100
+press shift
+tap f5
+release shift
+turn 2
+wait 100
+snap 18_setup_root
+tap f5
+wait 100
+snap 19_setup_scale_with_root
+# HOME: the keys of D Major, the root full and the other keys of the scale mid, the rest dark.
+tap pattern
+wait 200
+snap 20_home_root_keys
+# Insert makes the held step a tie (and a tie a rest); Up on it wakes it as a note first; Left / Right with F1 held move CUTOFF by 1/20.
+paddown 5
+tap insert
+padup 5
+wait 100
+snap 21_home_tie
+paddown 5
+tap up
+padup 5
+wait 100
+snap 22_home_woken
+press f1
+tap right
+tap right
+wait 100
+snap 23_home_f1_held_right
+release f1

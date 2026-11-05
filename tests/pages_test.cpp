@@ -695,3 +695,23 @@ TEST_CASE("pages: LENGTH goes through seq::resize: a step up copies the line int
   rig.controls.set(rig.engine, length, 1.0f);
   CHECK_FALSE(bank.can_undo());
 }
+
+TEST_CASE("a press of Left or Right moves a knob by 1/20 of its range; an enum, a switch or a knob under 20 steps moves one value") {
+  const char* const names[3] = {"A", "B", "C"};
+  core::ParamDesc d{};
+  d.min = 0.0f;
+  d.max = 1.0f;
+  d.detents = 100;
+  CHECK(press_detents(d) == 5);  // a range: 100 / 20
+  d.detents = 400;
+  CHECK(press_detents(d) == 20);
+  d.detents = 20;
+  CHECK(press_detents(d) == 1);
+  d.detents = 19;
+  CHECK(press_detents(d) == 1);  // under 20 steps: one value
+  d.detents = 8;
+  CHECK(press_detents(d) == 1);
+  d.detents = 400;
+  d.names = names;
+  CHECK(press_detents(d) == 1);  // an enum
+}

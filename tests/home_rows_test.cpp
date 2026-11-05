@@ -312,6 +312,26 @@ TEST_CASE("the old gesture is cut: hold a step + OCT+ is the keyboard's octave a
   CHECK(seq::get_ratchet(t.pat(), 3) == 0);
 }
 
+TEST_CASE("a held step with an F key held: Left / Right move the lock by 1/20 of the range, a plain turn by one detent") {
+  Hands t;
+  line(t);
+  t.tap(Button::F4);  // DECAY: the lock knob
+  t.down(step_pad_of(5));
+  t.press(Button::F4);
+  t.tap(Button::Right);
+  t.release(Button::F4);
+  t.up(step_pad_of(5));
+  t.down(step_pad_of(6));
+  t.turn(1);
+  t.up(step_pad_of(6));
+  const int a = lock_of(t, AcidVoice::Decay, 5);
+  const int b = lock_of(t, AcidVoice::Decay, 6);
+  REQUIRE(a != kNoLock);
+  REQUIRE(b != kNoLock);
+  CHECK(a > b);  // the same start; the arrow went further than one detent
+  CHECK(a - b > 3);
+}
+
 TEST_CASE("the rows work on PATTERN SETUP and on INSTRUMENT; the LOCK row keeps the last sound knob where the page's knobs cannot be locked") {
   Hands t;
   line(t);

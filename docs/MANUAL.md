@@ -129,8 +129,8 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Play** | Play and stop. **Shift + Play**: restart from step 1 |
 | **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records knob and ladder moves. **Shift + Rec**: arm or stop an audio take, from any screen |
 | **Note, Instr, Vol, Fx** | The four colour buttons. HOME: they give the encoder one row of the step (NOTE, GATE, PLAYS, LOCK). PERFORM: four live actions. SONG: they pick a column |
-| **Copy, Insert, Delete** | Step editing on HOME (copy, insert a rest, clear) |
-| **Arrows** | The cursor; Up and Down change the note |
+| **Copy, Insert, Delete** | Step editing on HOME (copy, make a tie, clear; Shift + Insert pushes the steps right) |
+| **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range |
 | **F1 to F8** | The eight keys under the screen. Their names are always on the screen, just above them |
 | **Encoder** | Turns what the ENC window names. With Shift held it moves in bigger steps |
 | **Shift** | Hold it for the second meaning of a button (HELP shows them in blue). With Shift held, the F keys show their Shift row |
@@ -257,11 +257,12 @@ With REC on, hold ACC or SLIDE while you play a key and the note is written with
 | Button | Alone | With Shift |
 |---|---|---|
 | Left, Right | Cursor left, right (across the pages of a long pattern) | Turn the whole line one step left or right |
-| Up, Down | The cursor step's note a semitone up or down | An octave |
+| Up, Down | The cursor step's note a semitone up or down. On a rest or a tie the first press makes it a note without moving the pitch (a tie keeps the pitch it carried, a rest takes the last note before it, else the keyboard's C); later presses move it | An octave |
 | Copy | Copy the cursor step | Paste on the cursor step |
-| Insert | Insert a rest at the cursor | Cursor to step 1 |
+| Insert | A note or a rest becomes a tie, a tie becomes a rest (every step pad you hold takes it) | Insert a rest at the cursor and push the rest right |
 | Delete | Clear the step | Remove the step and pull the rest left |
 | ACC or SLIDE held + Left, Right | Move only the accents or slides one step | |
+| An F key held + Left, Right | That knob a twentieth of its range per press (one value for a switch, a list or a knob of under 20 steps); a press records like a turn | |
 
 #### The step rows and the colour buttons
 
@@ -351,10 +352,10 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F7 ACC % | How many accents NEW draws | 0 to 100 % (25 %) |
 | F8 SLD % | How many slides NEW draws | 0 to 100 % (20 %) |
 
-The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5).
+The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5). With a scale on, the scale's value shows its root ("D MAJOR"), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark.
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
-pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F8 UNDO.
+pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F8 UNDO.
 
 The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back.
 

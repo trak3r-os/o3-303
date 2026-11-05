@@ -60,12 +60,12 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
 // The home map's edit buttons (home_map.h): the cursor, the note of the cursor step (or of the held steps), Copy / Insert / Delete.
 constexpr void add_edit(Buttons& b) noexcept {
   b.add(Button::Copy, "COPY THE CURSOR STEP", "PASTE ON THE CURSOR STEP");
-  b.add(Button::Insert, "INSERT A REST AT THE CURSOR", "CURSOR TO STEP 1");
+  b.add(Button::Insert, "NOTE>TIE, TIE>REST", "INSERT A REST, PUSH RIGHT");
   b.add(Button::Delete, "CLEAR THE STEP", "REMOVE STEP, PULL LEFT");
-  b.add(Button::Left, "CURSOR LEFT", "ROTATE THE LINE LEFT");
-  b.add(Button::Right, "CURSOR RIGHT", "ROTATE THE LINE RIGHT");
-  b.add(Button::Up, "NOTE UP A SEMITONE", "NOTE UP AN OCTAVE");
-  b.add(Button::Down, "NOTE DOWN A SEMITONE", "NOTE DOWN AN OCTAVE");
+  b.add(Button::Left, "CURSOR; F HELD: KNOB -1/20", "ROTATE THE LINE LEFT");
+  b.add(Button::Right, "CURSOR; F HELD: KNOB +1/20", "ROTATE THE LINE RIGHT");
+  b.add(Button::Up, "NOTE UP; REST: WAKE FIRST", "NOTE UP AN OCTAVE");
+  b.add(Button::Down, "NOTE DOWN; REST: WAKE FIRST", "NOTE DOWN AN OCTAVE");
 }
 
 // Note, Instr, Vol and Fx on the screens with the drawer: each gives the encoder one row of it.

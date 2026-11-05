@@ -192,7 +192,8 @@ TEST_CASE("F5 SCALE locks the keyboard: the pads out of the scale are dark and d
   t.wait(40);
   t.tap(Button::Pattern);  // HOME
   t.wait(40);
-  CHECK(t.led(key_pad(38)) == app::kLedDim);  // D is in C major
+  CHECK(t.led(key_pad(38)) == app::kLedMid);  // D is in C major: mid
+  CHECK(t.led(key_pad(36)) == app::kLedOn);   // the root (C) is full
   CHECK(t.led(key_pad(37)) == app::kLedOff);
   CHECK(t.led(key_pad(39)) == app::kLedOff);
   // REC + keys: C# and D# write nothing and do not advance; D and E do.
@@ -349,6 +350,51 @@ TEST_CASE("the free keys of SETUP's Shift row do nothing, and the bridges of H1 
   }
 }
 
+TEST_CASE("ROOT and the drawer rows share one encoder: a row latched before Shift + F5 gives way to ROOT, and a row latched after it takes it") {
+  Hands t;
+  open_setup(t);
+  t.tap(Button::F5);
+  t.turn(-40);
+  t.turn(3);  // Major
+  const auto root_on = [&](unsigned note) {
+    t.tap(Button::Pattern);
+    t.wait(40);
+    const bool on = t.led(key_pad(note)) == app::kLedOn;
+    t.tap(Button::Pattern);
+    t.wait(40);
+    return on;
+  };
+  t.pad(step_pad_of(1));
+  t.tap(Button::Instr);  // the GATE row owns the encoder
+  t.shift_tap(Button::F5);  // ROOT takes it back
+  const std::uint8_t gate = t.pat().steps[1].flags;
+  t.turn(2);
+  CHECK(t.pat().steps[1].flags == gate);  // the row did not move
+  CHECK(root_on(38));
+  t.shift_tap(Button::F5);  // ROOT again, then a row latches: the row owns the turn
+  t.tap(Button::Instr);
+  t.turn(2);
+  CHECK(t.pat().steps[1].flags != gate);
+  CHECK(root_on(38));  // the root stayed
+}
+
+TEST_CASE("ROOT does not outlive the screen: leaving SETUP for MASTER and coming back gives the encoder to the page") {
+  Hands t;
+  open_setup(t);
+  t.shift_tap(Button::F5);  // ROOT
+  t.tap(Button::Master);
+  t.wait(40);
+  t.tap(Button::Pattern);  // back: HOME
+  t.wait(40);
+  t.tap(Button::Pattern);  // SETUP
+  t.wait(40);
+  REQUIRE(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  t.turn(2);  // the page's own knob (LENGTH), not ROOT
+  t.tap(Button::Pattern);
+  t.wait(40);
+  CHECK(t.led(key_pad(38)) != app::kLedOn);  // D did not become the root
+}
+
 TEST_CASE("a lock on HOME works while the encoder owns a SETUP knob only through HOME: a held step + turn on SETUP changes no lock") {
   Hands t;
   open_setup(t);
@@ -463,4 +509,75 @@ TEST_CASE("Master's tap latches TEMPO; leaving the screen and coming back gives 
   t.turn(4);
   CHECK(t.h->engine().tempo() == tempo1);                    // not the tempo
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff);       // the page's F1 CUTOFF
+}
+
+TEST_CASE("Shift + F5 gives the encoder the generator's root (C to B, no wrap); F5 gives it back to SCALE; the scale shows its root") {
+  Hands t;
+  open_setup(t);
+  t.tap(Button::F5);
+  t.turn(-40);
+  t.turn(3);  // Major
+  // The root is read off the keys of HOME: the root's pad is full, the others of the scale mid.
+  const auto root_on = [&](unsigned note) {
+    t.tap(Button::Pattern);  // HOME
+    t.wait(40);
+    const bool on = t.led(key_pad(note)) == app::kLedOn;
+    t.tap(Button::Pattern);  // back to SETUP: the encoder is SCALE's again until Shift + F5
+    t.wait(40);
+    return on;
+  };
+  CHECK(root_on(36));  // C by default
+  t.shift_tap(Button::F5);  // ROOT
+  t.turn(2);
+  CHECK(root_on(38));  // D
+  t.shift_tap(Button::F5);
+  t.turn(-9);
+  CHECK(root_on(36));  // no wrap below C
+  t.shift_tap(Button::F5);
+  t.turn(40);
+  CHECK(root_on(47));  // B, and none above it
+  t.shift_tap(Button::F5);
+  t.turn(1);
+  CHECK(root_on(47));
+  t.tap(Button::F5);  // F5 alone: the encoder is SCALE's
+  t.turn(1);
+  CHECK(root_on(47));  // the root stayed
+  // The scale text carries the root beside the name.
+  char sc[24];
+  scale_value_text(3, true, false, sc, sizeof sc, 2);
+  CHECK(std::strncmp(sc, "D ", 2) == 0);
+  scale_value_text(3, true, true, sc, sizeof sc, 10);
+  CHECK(std::strncmp(sc, "A# ", 3) == 0);
+  CHECK(std::strlen(sc) == 6);  // "A# " + three letters
+  scale_value_text(3, false, false, sc, sizeof sc, 2);
+  CHECK(std::strcmp(sc, "--") == 0);
+}
+
+TEST_CASE("Left / Right with an F key held move that knob by 1/20 of its range and stop at the ends; without a key they move the cursor") {
+  Hands t;
+  const float v0 = t.param(kVoice, 0);  // F1 CUTOFF
+  t.press(Button::F1);
+  t.tap(Button::Right);
+  const float v1 = t.param(kVoice, 0);
+  CHECK(v1 > v0);
+  t.tap(Button::Left);
+  CHECK(t.param(kVoice, 0) == doctest::Approx(v0).epsilon(0.02));
+  for (unsigned i = 0; i < 40; ++i) {
+    t.tap(Button::Right);
+  }
+  const float top = t.param(kVoice, 0);
+  t.tap(Button::Right);
+  CHECK(t.param(kVoice, 0) == top);  // clamped
+  for (unsigned i = 0; i < 40; ++i) {
+    t.tap(Button::Left);
+  }
+  const float bottom = t.param(kVoice, 0);
+  t.tap(Button::Left);
+  CHECK(t.param(kVoice, 0) == bottom);
+  CHECK(bottom < top);
+  t.release(Button::F1);
+  const Pattern before = t.pat();
+  t.tap(Button::Right);  // no key held: the cursor, no knob
+  CHECK(t.param(kVoice, 0) == bottom);
+  CHECK(std::memcmp(&t.pat(), &before, sizeof(Pattern)) == 0);
 }

@@ -450,7 +450,7 @@ void MasterScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     nudge_turn(ctx, in.delta());
     return;
   }
-  if (home_->turn(ctx, in.delta(), in.shift, keys_.focused())) {  // a held step takes the turn (a lock the tempo cannot have: the home map says so)
+  if (home_->turn(ctx, keys_.lock_detents(ctx.engine(), *controls_, keys_.focused(), in.delta()), in.shift, keys_.focused())) {  // a held step takes the turn (a lock the tempo cannot have: the home map says so)
     keys_.mark_turned();
     return;
   }
@@ -459,6 +459,11 @@ void MasterScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
 
 void MasterScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   const Button b = in.which();
+  if (Input held_turn; keys_.arrow_turn(in, held_turn)) {  // Left / Right with an F key held: its knob by 1/20 of the range, as a turn
+    turn_input(ctx, held_turn);
+    keys_.end_press();
+    return;
+  }
   if (app::is_fkey(b)) {
     const unsigned k = app::fkey_index(b);
     if (in.type == Input::Type::Press) {

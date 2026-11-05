@@ -355,6 +355,11 @@ void PerformScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
 
 void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   using app::Button;
+  if (Input held_turn; keys().arrow_turn(in, held_turn)) {  // Left / Right with an F key held: its knob by 1/20 of the range, as a turn
+    turn_input(ctx, held_turn);
+    keys().end_press();
+    return;
+  }
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {

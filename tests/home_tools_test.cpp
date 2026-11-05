@@ -211,15 +211,15 @@ TEST_CASE("the soft keys say what each F key does: HOME's row, SETUP's row, noth
 
   t.tap(Button::Pattern);  // PATTERN SETUP
   t.press(Button::Shift);
-  static constexpr const char* kSetup[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "-", "-", "-", "UNDO"};
+  static constexpr const char* kSetup[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "ROOT", "-", "-", "UNDO"};
   k = soft_keys(t);
   for (unsigned i = 0; i < app::kFKeyCount; ++i) {
     CHECK(k.label[i] == kSetup[i]);
   }
-  CHECK((k.dim & 0x70u) == 0x70u);  // the three free keys are dark
+  CHECK((k.dim & 0x70u) == 0x60u);  // ROOT is lit, the two free keys are dark
   const Pattern before = t.pat();
   const bool undo = bank().can_undo();
-  for (unsigned i = 4; i < 7; ++i) {
+  for (unsigned i = 5; i < 7; ++i) {
     t.tap(app::fkey(i));  // "-": nothing happens
   }
   CHECK(same_pattern(t.pat(), before));

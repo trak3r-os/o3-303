@@ -47,11 +47,11 @@ constexpr int kSkinHeroH = 208;
 
 // The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters).
 constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
-// PATTERN SETUP's: F5..F7 are free.
-constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "-", "-", "-", "UNDO"};
+// PATTERN SETUP's: F5 is ROOT (the generator's root, on the encoder until an F key is pressed), F6 and F7 are free.
+constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "ROOT", "-", "-", "UNDO"};
 // What each Shift key does, in a few words under it on the obsidian skin's F row (the classic strip has no room). "" none.
 constexpr const char* kHomeKeyHints[app::kFKeyCount] = {"new line", "25 %", "same notes", "same beat", "backwards", "empty line", "step fwd", "step back"};
-constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "", "", "", "step back"};
+constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "key of scale", "", "", "step back"};
 constexpr unsigned kToolNew = 0;
 constexpr unsigned kToolVary = 1;
 constexpr unsigned kToolRhythm = 2;
@@ -64,6 +64,7 @@ constexpr unsigned kToolCopyPat = 0;
 constexpr unsigned kToolPastePat = 1;
 constexpr unsigned kToolDupNext = 2;
 constexpr unsigned kToolClearLocks = 3;
+constexpr unsigned kToolRoot = 4;
 constexpr unsigned kToolUndo = 7;
 
 // `s` cut to `max` characters into `out` (cap > max).
@@ -92,12 +93,17 @@ void append(char* out, unsigned cap, const char* s) noexcept {
 
 // ---- The scale on the info lines -------------------------------------------------------------------------------------------
 
-void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap) noexcept {
+void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap, int root) noexcept {
   unsigned n = 0;
-  const unsigned max = short_form ? 3u : core::kScaleNameChars;
+  if (locked && scale < core::kScaleCount && root >= 0 && cap > 4u) {  // the root first: "D PHRYGIAN"
+    n = root_name(static_cast<unsigned>(root), out, cap);
+    out[n++] = ' ';
+  }
+  const unsigned head = n;
+  const unsigned max = head + (short_form ? 3u : core::kScaleNameChars);
   if (locked && scale < core::kScaleCount) {
-    for (; n < max && core::kScaleNames[scale][n] != '\0' && n + 1u < cap; ++n) {
-      const char c = core::kScaleNames[scale][n];
+    for (unsigned i = 0; n < max && core::kScaleNames[scale][i] != '\0' && n + 1u < cap; ++n, ++i) {
+      const char c = core::kScaleNames[scale][i];
       out[n] = c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c;
     }
     while (n != 0u && out[n - 1u] == ' ') {  // the table pads a name to its field ("Phrygian ")
@@ -127,6 +133,7 @@ void MainScreen::init(Rig& rig) noexcept {
   win_lo_ = 0;
   win_hi_ = 0;
   tool_mask_ = 0;
+  root_enc_ = false;  // ROOT lasts until an F key is pressed or the screen is left
 }
 
 const char* MainScreen::title() const noexcept {
@@ -177,8 +184,14 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   const Entry& focused = fkeys().focused();
-  if (home_.turn(ctx, in.delta(), in.shift, focused)) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
+  if (home_.turn(ctx, fkeys().lock_detents(ctx.engine(), *controls_, focused, in.delta()), in.shift, focused)) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
     fkeys().mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
+    return;
+  }
+  if (root_owns()) {  // Shift + F5 gave the encoder the root
+    seq::GenParams& g = rig_->wiring.gen;
+    g.root = static_cast<std::uint8_t>(root_step(g.root, in.delta()));
+    ctx.redraw();
     return;
   }
   PageKeys& fk = fkeys();
@@ -246,6 +259,7 @@ void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
 void MainScreen::setup_toggle(app::Context& ctx) noexcept {
   fkeys().release_all();
   setup_ = !setup_;
+  root_enc_ = false;
   fkeys().release_all();
   ctx.redraw();
 }
@@ -288,6 +302,10 @@ void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
     case kToolClearLocks:  // every lane of this pattern, the notes stay: one UNDO
       toast(ctx, bank.clear_motion(sel()) ? "LOCKS CLEARED" : "NO LOCKS TO CLEAR");
       break;
+    case kToolRoot:  // the encoder is the generator's root (C to B, no wrap) until an F key is pressed
+      home_.release_row();  // a latched row had the encoder: ROOT takes it (a held step still keeps the turn, as for any knob)
+      root_enc_ = true;
+      break;
     default:
       break;
   }
@@ -295,6 +313,11 @@ void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
 }
 
 void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
+  if (Input held_turn; fkeys().arrow_turn(in, held_turn)) {  // Left / Right with an F key held: its knob by 1/20 of the range, as a turn
+    turn_input(ctx, held_turn);
+    fkeys().end_press();
+    return;
+  }
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {
@@ -306,6 +329,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       }
       if (fkeys().page().entry[k].item != Item::Blank) {
         home_.release_row();  // an F key gives the encoder back to the knob (UX-303 2.3); an empty box does nothing
+        root_enc_ = false;    // ... and ROOT's owner gives it back to SCALE
       }
       (void)fkeys().input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
@@ -322,6 +346,9 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     setup_toggle(ctx);  // a tap on the screen's own button: HOME and PATTERN SETUP
   }
   if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows), Pattern
+    if (home_.row() != DrawerRow::None) {
+      root_enc_ = false;  // a drawer row latched: it owns the encoder, not ROOT
+    }
     return;
   }
   if (in.which() == Button::Shift) {  // the soft keys change with it
@@ -348,7 +375,7 @@ void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
 bool MainScreen::tool_dim(unsigned k) const noexcept {
   const seq::Bank& bank = *rig_->bank;
   if (setup_) {
-    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k > kToolClearLocks && k < kToolUndo));
+    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k > kToolRoot && k < kToolUndo));
   }
   return (k == kToolRedo && !bank.can_redo()) || (k == kToolUndo && !bank.can_undo());
 }
@@ -371,7 +398,9 @@ void MainScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
 // What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): a row of the drawer, or the F key latched (or held).
 void MainScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
-  if (home_.row() != DrawerRow::None) {
+  if (root_owns()) {
+    append(out, cap, "ROOT");
+  } else if (home_.row() != DrawerRow::None) {
     home_.row_text(ctx, out, cap);
   } else {
     char fk[4] = {'F', static_cast<char>('1' + fkeys().focus()), ' ', '\0'};
@@ -436,13 +465,13 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   if (!setup_) {  // the keyboard's scale lock (SETUP's F5 sets it; SETUP's own second line shows the generator's scale)
     const bool locked = home_.scale_locked();
     char sc[24];
-    scale_value_text(rig_->wiring.gen.scale, locked, false, sc, sizeof sc);
+    scale_value_text(rig_->wiring.gen.scale, locked, false, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
     const int next_w = next[0] != '\0' ? r.text_width(next, Face::Label) + 22 : 0;
     const bool full = row.x() + r.text_width("SCALE", Face::Label) + r.text_width(sc, Face::Data) + 24 + next_w <= box_x - 12;
     if (full) {
       row.field("SCALE", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
     } else if (locked) {  // a scale that locks the keyboard is always shown: short, when the full field does not fit
-      scale_value_text(rig_->wiring.gen.scale, true, true, sc, sizeof sc);
+      scale_value_text(rig_->wiring.gen.scale, true, true, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
       row.field("SC", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
     }
   }
@@ -476,7 +505,7 @@ void MainScreen::draw_info_generator(app::Context& ctx, ui::Renderer& r, const R
   row.put(Face::Label, " (WHOLE PROJECT)", Color::ChromeDim);
   row.skip(40);
   char sc[24];
-  scale_value_text(g.scale, home_.scale_locked(), false, sc, sizeof sc);  // "--" until the player chooses one: the keyboard is chromatic (NEW uses it anyway)
+  scale_value_text(g.scale, home_.scale_locked(), false, sc, sizeof sc, static_cast<int>(g.root));  // "--" until the player chooses one: the keyboard is chromatic (NEW uses it anyway)
   row.field("SCALE", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
   const unsigned pct[3] = {g.density, g.accent_pct, g.slide_pct};
   static constexpr const char* kNames[3] = {"DENSITY", "ACC", "SLD"};
@@ -500,6 +529,19 @@ void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kK
       continue;
     }
     kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus();
+    if (setup_ && pg.entry[k].item == Item::Scale) {  // SCALE shows its root beside the name; ROOT takes the box while the encoder has it
+      char rn[4];
+      const unsigned root = rig_->wiring.gen.root;
+      (void)root_name(root, rn, sizeof rn);
+      if (root_owns()) {
+        kn.label = "ROOT";
+        cut(rn, sizeof kn.value - 1u, kn.value, sizeof kn.value);
+        kn.unit = "";
+        kn.norm = static_cast<float>(root < 11u ? root : 11u) / 11.0f;
+      } else if (home_.scale_locked()) {
+        scale_value_text(rig_->wiring.gen.scale, true, false, kn.value, sizeof kn.value, static_cast<int>(root));
+      }
+    }
     kn.held = (fk.held() >> k & 1u) != 0u;
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];

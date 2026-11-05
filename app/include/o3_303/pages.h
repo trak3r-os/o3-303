@@ -141,6 +141,10 @@ struct Wiring {
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
 };
 
+// How many fine detents one press of Left or Right moves a knob with an F key held: 1/20 of the range (twenty presses from minimum to maximum),
+// and one for an enum, a switch or a knob of fewer than 20 detents.
+int press_detents(const o3sdk::core::ParamDesc& d) noexcept;
+
 class Controls {
  public:
   void init(Wiring& wiring) noexcept { w_ = &wiring; }
@@ -149,6 +153,8 @@ class Controls {
 
   // The descriptor of an entry (null for a blank or an unknown id).
   const o3sdk::core::ParamDesc* desc(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
+  // press_detents() of the entry's descriptor (1 for a blank).
+  int press_detents(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   float get(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   // Clamped through the descriptor and applied: to the engine, the pattern, the settings.
   void set(o3sdk::dsp::Engine& e, const Entry& entry, float value) noexcept;
@@ -227,6 +233,15 @@ class PageKeys {
   // An F key press or release (as the kit's convention) and an encoder turn. true when it took the input.
   bool input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in, Controls& controls) noexcept;
   void turn(o3sdk::app::Context& ctx, Controls& controls, int detents, bool coarse) noexcept;
+  // A press of Left or Right with an F key held (no Shift) is a turn of 1/20 of the range (press_detents): true and `out` the encoder turn it stands for
+  // (one detent either way), to go through the screen's turn path (a held step's lock, Rec's motion), which then calls end_press(). One shared path
+  // for every screen whose F keys own knobs.
+  bool arrow_turn(const o3sdk::app::Input& in, o3sdk::app::Input& out) noexcept;
+  void end_press() noexcept { press_ = false; }
+  // The detents of the turn in flight as a held step's lock takes them: an arrow's press is press_detents() of the knob, a turn its own.
+  int lock_detents(const o3sdk::dsp::Engine& e, const Controls& controls, const Entry& entry, int detents) const noexcept {
+    return press_ ? (detents < 0 ? -1 : 1) * controls.press_detents(e, entry) : detents;
+  }
   // The state the focus returns to when the screen is left with keys down.
   void release_all() noexcept;
 
@@ -239,6 +254,7 @@ class PageKeys {
   unsigned held_ = 0;
   unsigned last_held_ = 0;
   bool turned_ = false;
+  bool press_ = false;  // the turn in flight is an arrow's press: each knob moves press_detents(), not the detents
 };
 
 }  // namespace o3_303

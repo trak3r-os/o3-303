@@ -291,4 +291,43 @@ std::uint8_t step_lock_point(const Pattern& p, unsigned lane, unsigned step) noe
   return kNoLock;
 }
 
+std::uint8_t insert_toggle_flags(std::uint8_t flags) noexcept {
+  const bool tie = (flags & kStepTie) != 0u && (flags & kStepRest) == 0u;
+  return tie ? kStepRest : kStepTie;
+}
+
+std::uint8_t wake_note(const Pattern& p, unsigned step, std::uint8_t fallback) noexcept {
+  const unsigned len = p.length != 0u ? p.length : kDefaultLength;
+  const unsigned s = step < len ? step : len - 1u;
+  const StepInfo info = describe(p, s);
+  if (info.kind == Cell::Tie) {
+    return info.note;
+  }
+  for (unsigned j = s; j-- > 0u;) {
+    if (!step_silent(p.steps[j].flags)) {
+      return p.steps[j].note;
+    }
+  }
+  return fallback;
+}
+
+unsigned root_step(unsigned root, int delta) noexcept {
+  const int r = static_cast<int>(root < 11u ? root : 11u) + delta;
+  return static_cast<unsigned>(r < 0 ? 0 : (r > 11 ? 11 : r));
+}
+
+unsigned root_name(unsigned root, char* out, unsigned cap) noexcept {
+  static constexpr const char* kNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+  if (cap == 0u) {
+    return 0;
+  }
+  const char* n = kNames[root < 11u ? root : 11u];
+  unsigned i = 0;
+  for (; n[i] != '\0' && i + 1u < cap; ++i) {
+    out[i] = n[i];
+  }
+  out[i] = '\0';
+  return i;
+}
+
 }  // namespace o3_303

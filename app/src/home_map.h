@@ -58,6 +58,10 @@ struct PadsLineState {
 // Rec (playing, then stopped), TRNSP, plain.
 void pads_line_text(const PadsLineState& s, char* out, unsigned cap) noexcept;
 
+// The light of a key pad (item 6): with no scale on, a natural dim and a sharp off; with one on, a key outside it off, one in it mid, the root full.
+// (A key held, the cursor's or the playhead's note keep the lights they have: the screen's.)
+std::uint8_t key_led_level(bool natural, bool scale_on, bool in_scale, bool root) noexcept;
+
 class HomeMap {
  public:
   // Every piece of state starts afresh: the app object outlives a run in the simulator's tests.

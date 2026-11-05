@@ -294,3 +294,42 @@ TEST_CASE("step model: a step's lock is the first of its four points that has on
   CHECK(step_lock_point(p, kMotionLanes, 3) == kNoLock);
   CHECK(step_lock_point(p, 1, kMaxSteps) == kNoLock);
 }
+
+TEST_CASE("Insert toggles a step: a note or a rest becomes a tie, a tie becomes a rest (the ratchet and the rest of the flags aside)") {
+  CHECK(insert_toggle_flags(0) == kStepTie);
+  CHECK(insert_toggle_flags(kStepRest) == kStepTie);
+  CHECK(insert_toggle_flags(kStepTie) == kStepRest);
+  CHECK(insert_toggle_flags(kStepAccent) == kStepTie);
+  CHECK(step_silent(kStepRest));
+  CHECK(step_silent(kStepTie));
+  CHECK_FALSE(step_silent(kStepAccent | kStepSlide));
+}
+
+TEST_CASE("the first Up or Down on a rest or a tie wakes it: a tie keeps the pitch it carried, a rest takes the last note before it") {
+  Pattern p = rests(8);
+  p.steps[1].note = 40;
+  p.steps[1].flags = 0;  // a note
+  p.steps[2].note = 52;
+  p.steps[2].flags = kStepTie;  // carries 40 (the note before it)
+  p.steps[4].note = 61;         // a rest with its own stale note
+  CHECK(wake_note(p, 2, 36) == 40);
+  CHECK(wake_note(p, 4, 36) == 40);  // the last sounding note before the rest, step 3 being a rest and step 2 a tie that carries 40
+  CHECK(wake_note(p, 0, 36) == 36);  // nothing before it: the keys' C
+  CHECK(wake_flags(kStepRest | kStepAccent | kStepSlide) == 0);
+  CHECK(wake_flags(kStepTie | static_cast<std::uint8_t>(1u << 4)) == (1u << 4));  // the ratchet stays
+}
+
+TEST_CASE("the generator's root steps C to B and does not wrap; it is named with sharps") {
+  CHECK(root_step(0, -1) == 0);
+  CHECK(root_step(11, 1) == 11);
+  CHECK(root_step(5, 3) == 8);
+  CHECK(root_step(5, -100) == 0);
+  CHECK(root_step(5, 100) == 11);
+  char n[4];
+  CHECK(root_name(0, n, sizeof n) == 1);
+  CHECK(std::strcmp(n, "C") == 0);
+  CHECK(root_name(3, n, sizeof n) == 2);
+  CHECK(std::strcmp(n, "D#") == 0);
+  (void)root_name(11, n, sizeof n);
+  CHECK(std::strcmp(n, "B") == 0);
+}

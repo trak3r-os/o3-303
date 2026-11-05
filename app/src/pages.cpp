@@ -440,6 +440,18 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
   }
 }
 
+int press_detents(const core::ParamDesc& d) noexcept {
+  if (d.names != nullptr || d.detents < 20u) {
+    return 1;
+  }
+  return static_cast<int>(d.detents / 20u);
+}
+
+int Controls::press_detents(const dsp::Engine& e, const Entry& entry) const noexcept {
+  const core::ParamDesc* d = desc(e, entry);
+  return d != nullptr ? o3_303::press_detents(*d) : 1;
+}
+
 void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse) noexcept {
   const core::ParamDesc* d = desc(e, entry);
   if (d == nullptr || detents == 0) {
@@ -703,19 +715,36 @@ bool PageKeys::input(app::Context& ctx, const app::Input& in, Controls& controls
   return false;
 }
 
+bool PageKeys::arrow_turn(const app::Input& in, app::Input& out) noexcept {
+  if (held_ == 0u || in.shift || in.type != app::Input::Type::Press || !(in.is(app::Button::Left) || in.is(app::Button::Right))) {
+    return false;
+  }
+  out = in;
+  out.type = app::Input::Type::Turn;
+  out.kind = core::InputKind::Encoder;
+  out.id = 0;
+  out.value = in.is(app::Button::Right) ? 1 : -1;
+  out.shift = false;
+  press_ = true;
+  return true;
+}
+
 void PageKeys::turn(app::Context& ctx, Controls& controls, int detents, bool coarse) noexcept {
   if (detents == 0) {
     return;
   }
+  const auto apply = [&](const Entry& entry) {
+    controls.step(ctx.engine(), entry, press_ ? (detents < 0 ? -1 : 1) * controls.press_detents(ctx.engine(), entry) : detents, coarse);
+  };
   if (held_ != 0u) {
     turned_ = true;
     for (unsigned k = 0; k < kKeys; ++k) {
       if ((held_ >> k & 1u) != 0u) {
-        controls.step(ctx.engine(), page().entry[k], detents, coarse);
+        apply(page().entry[k]);
       }
     }
   } else if (page().entry[latched_].item != Item::Blank) {
-    controls.step(ctx.engine(), page().entry[latched_], detents, coarse);
+    apply(page().entry[latched_]);
   }
   ctx.redraw();
 }

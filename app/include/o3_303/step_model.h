@@ -80,6 +80,26 @@ std::uint8_t step_lock_point(const Pattern& p, unsigned lane, unsigned step) noe
 // "C2", "C#3", "A#-1"-style name of a MIDI note (C2 = 36: the octave is note / 12 - 1) into `out` (cap at least 5). Returns its length.
 unsigned note_name(unsigned note, char* out, unsigned cap) noexcept;
 
+// ---- The step keys (Insert, Up and Down on a step) and the generator's root --------------------------------------------------------
+
+// The Insert key on a step: a note or a rest becomes a tie, a tie a rest. The new flags are the whole byte (a tie or a rest has no accent,
+// slide or ratchet; the step's condition and pitch are the caller's and stay).
+std::uint8_t insert_toggle_flags(std::uint8_t flags) noexcept;
+// A step that sounds nothing by its own flags: a rest or a tie.
+constexpr bool step_silent(std::uint8_t flags) noexcept { return (flags & (kStepRest | kStepTie)) != 0u; }
+// The first Up or Down on a rest or a tie makes it a note without moving the pitch: a tie becomes the pitch it carried, a rest the note of the last
+// step before it that sounds one (no wrap), else `fallback` (the keys' C). Step `step` is clamped into the pattern.
+std::uint8_t wake_note(const Pattern& p, unsigned step, std::uint8_t fallback) noexcept;
+// The flags of a woken step: a plain note (no rest, no tie, no accent or slide), the ratchet kept.
+constexpr std::uint8_t wake_flags(std::uint8_t flags) noexcept {
+  return static_cast<std::uint8_t>(flags & ~(kStepRest | kStepTie | kStepAccent | kStepSlide));
+}
+
+// The generator's root (a pitch class, 0 = C .. 11 = B) moved by `delta` encoder detents: no wrap, clamped to C..B. `root` past 11 counts as 11.
+unsigned root_step(unsigned root, int delta) noexcept;
+// "C", "C#", ... "B" into `out` (cap at least 3). Returns its length.
+unsigned root_name(unsigned root, char* out, unsigned cap) noexcept;
+
 // "A07": the pattern's name on the pads (48 patterns: A..D, 01..12, a row of 12 each).
 void pattern_name(unsigned index, char* out, unsigned cap) noexcept;
 

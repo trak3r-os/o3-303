@@ -136,6 +136,10 @@ TEST_CASE("hold a step + ACC / SLIDE / TIE / REST toggles that attribute on it, 
   CHECK((t.pat().steps[3].flags & kStepTie) != 0);
   CHECK(t.pat().steps[0].note == before.steps[0].note);  // nothing else moved
   // The cursor did not follow the held steps: Up changes the note of step 4, where the tap left it.
+  // Step 4 is a tie now: the first Up makes it a note without moving the pitch, the next moves it.
+  CHECK((t.pat().steps[3].flags & kStepTie) != 0);
+  t.tap(Button::Up);
+  CHECK((t.pat().steps[3].flags & (kStepTie | kStepRest)) == 0);
   const unsigned note = t.pat().steps[3].note;
   t.tap(Button::Up);
   CHECK(t.pat().steps[3].note == note + 1);
@@ -190,7 +194,6 @@ TEST_CASE("a tap on ACC, SLIDE, TIE or REST toggles it on the cursor step; with 
 
 TEST_CASE("the arrows move the cursor across pages; Shift + Left / Right rotate, Shift + Up / Down move the octave") {
   Hands t;
-  const Pattern before = bank().pattern(0);
   t.tap(Button::Right);
   t.tap(Button::Delete);  // step 2
   CHECK((t.pat().steps[1].flags & kStepRest) != 0);
@@ -199,10 +202,13 @@ TEST_CASE("the arrows move the cursor across pages; Shift + Left / Right rotate,
   t.tap(Button::Delete);
   CHECK((t.pat().steps[15].flags & kStepRest) != 0);
 
-  t.tap(Button::Up);  // the cursor step's note +1 (step 16 is a rest now but keeps its note)
-  CHECK(t.pat().steps[15].note == before.steps[15].note + 1);
+  t.tap(Button::Up);  // step 16 is a rest: the first Up wakes it as a note, the pitch does not move
+  CHECK((t.pat().steps[15].flags & kStepRest) == 0);
+  const unsigned woken = t.pat().steps[15].note;
+  t.tap(Button::Up);  // then the cursor step's note +1
+  CHECK(t.pat().steps[15].note == woken + 1);
   t.tap(Button::Down);
-  CHECK(t.pat().steps[15].note == before.steps[15].note);
+  CHECK(t.pat().steps[15].note == woken);
 
   const Pattern now = t.pat();
   t.shift_tap(Button::Right);  // rotate: every step moves one later
@@ -224,7 +230,7 @@ TEST_CASE("the arrows move the cursor across pages; Shift + Left / Right rotate,
   CHECK(t.pat().transpose == 0);
 }
 
-TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Pattern + Insert duplicates; Shift + Insert goes to step 1; Shift + Delete is backspace") {
+TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Pattern + Insert duplicates; Shift + Insert pushes right; Shift + Delete is backspace") {
   Hands t;
   const Pattern before = bank().pattern(0);
   t.pad(step_pad_of(2));  // step 3
@@ -234,19 +240,17 @@ TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Pattern + Insert du
   CHECK(t.pat().steps[4].note == before.steps[2].note);
   CHECK(t.pat().steps[4].flags == before.steps[2].flags);
 
-  t.pad(step_pad_of(8));  // step 9: insert shifts the steps after it one later
+  t.pad(step_pad_of(8));  // step 9: Insert turns it into a tie (a tie into a rest), nothing moves
   const Pattern pre = t.pat();
   t.tap(Button::Insert);
-  CHECK((t.pat().steps[8].flags & kStepRest) != 0);
+  CHECK(t.pat().steps[8].flags == insert_toggle_flags(pre.steps[8].flags));
+  CHECK(t.pat().steps[9].note == pre.steps[9].note);
+
+  t.shift_tap(Button::Insert);  // Shift + Insert: the push-right insert, the steps after step 9 move one later
   CHECK(t.pat().steps[9].note == pre.steps[8].note);
   CHECK(t.pat().steps[10].note == pre.steps[9].note);
-
-  t.shift_tap(Button::Insert);  // Shift + Insert (Home): the cursor goes to step 1, nothing is inserted
-  CHECK(t.selected() == 0);
-  CHECK((t.pat().steps[8].flags & kStepRest) != 0);  // (the rest at step 9 is still the one Insert made; no second one)
-  CHECK(t.pat().steps[9].note == pre.steps[8].note);
-  t.tap(Button::Delete);  // ... and Delete clears step 1
-  CHECK(t.pat().steps[0].flags == kStepRest);
+  t.tap(Button::Delete);  // Delete clears the cursor step
+  CHECK((t.pat().steps[8].flags & kStepRest) != 0);
 
   t.duplicate_next();  // a copy in the next slot, which is now selected
   CHECK(t.selected() == 1);
@@ -360,14 +364,22 @@ TEST_CASE("hold a step + UP / DOWN moves the held step a semitone (Shift: an oct
   t.shift_tap(Button::Up);
   t.up(step_pad_of(5));
   CHECK(t.pat().steps[5].note == before.steps[5].note + 13);
-  // Two held steps move together.
-  t.down(step_pad_of(2));
-  t.down(step_pad_of(3));
+  // Two held steps move together (two that are notes: a rest or a tie wakes first, see the tests of the wake).
+  unsigned a = 6;
+  while (step_silent(before.steps[a].flags)) {
+    ++a;
+  }
+  unsigned b = a + 1;
+  while (step_silent(before.steps[b].flags)) {
+    ++b;
+  }
+  t.down(step_pad_of(a));
+  t.down(step_pad_of(b));
   t.shift_tap(Button::Down);
-  t.up(step_pad_of(2));
-  t.up(step_pad_of(3));
-  CHECK(t.pat().steps[2].note == before.steps[2].note - 12);
-  CHECK(t.pat().steps[3].note == before.steps[3].note - 12);
+  t.up(step_pad_of(a));
+  t.up(step_pad_of(b));
+  CHECK(t.pat().steps[a].note == before.steps[a].note - 12);
+  CHECK(t.pat().steps[b].note == before.steps[b].note - 12);
   // Not held: the cursor's step, as before; and the held pads did not move the cursor.
   t.tap(Button::Up);
   CHECK(t.pat().steps[0].note == before.steps[0].note + 1);
