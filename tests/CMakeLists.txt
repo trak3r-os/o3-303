@@ -9,6 +9,12 @@ o3sdk_test_suite(o3_303_tests
   DEPENDS "$<LINK_LIBRARY:WHOLE_ARCHIVE,app_o3_303>" app sim platform_host)
 # The scenarios of app/scenarios are run as they are.
 target_compile_definitions(o3_303_tests PRIVATE O3_303_SCENARIO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../app/scenarios")
+# The scenarios test is the floor of a full run: three ctests share it (O3_303_SCENARIO_SHARD=i/n, tests/o3_303_scenarios_test.cpp); a direct run, with no variable, runs all.
+set_tests_properties(o3_303_scenarios_test PROPERTIES ENVIRONMENT "O3_303_SCENARIO_SHARD=0/3")
+foreach(shard 1 2)
+  add_test(NAME o3_303_scenarios_test_${shard} COMMAND o3_303_tests --source-file=*o3_303_scenarios_test.cpp WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+  set_tests_properties(o3_303_scenarios_test_${shard} PROPERTIES ENVIRONMENT "O3_303_SCENARIO_SHARD=${shard}/3")
+endforeach()
 # The obsidian skin's bitmaps (docs/SKIN-PLAN.md section 6): two separate runs of tools/gen_skin.py, the copy this build linked and the committed
 # hash (tools/skin_assets.sha256) must all agree: the generator is deterministic and the hash is current.
 add_test(NAME skin_assets_fresh

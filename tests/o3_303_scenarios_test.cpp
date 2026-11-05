@@ -31,6 +31,22 @@ namespace fs = std::filesystem;
 
 namespace {
 
+// O3_303_SCENARIO_SHARD="i/n" (tests/CMakeLists.txt runs three ctests): this process takes the i-th of n shares. Unset: everything.
+struct Shard {
+  unsigned i = 0;
+  unsigned n = 1;
+  Shard() {
+    const char* v = std::getenv("O3_303_SCENARIO_SHARD");
+    unsigned a = 0;
+    unsigned b = 0;
+    if (v != nullptr && std::sscanf(v, "%u/%u", &a, &b) == 2 && b >= 1u && a < b) {
+      i = a;
+      n = b;
+    }
+  }
+  bool first() const { return i == 0u; }  // the one-off TEST_CASEs run in shard 0 only
+};
+
 std::string slurp(const fs::path& path) {
   std::ifstream in(path);
   std::stringstream text;
@@ -152,6 +168,9 @@ void run_skin_scenario(sim::Harness& h, const std::string& text, const std::stri
 }  // namespace
 
 TEST_CASE("scenarios: there is one for each screen and gesture group") {
+  if (!Shard().first()) {
+    return;
+  }
   const fs::path dir = O3_303_SCENARIO_DIR;
   for (const char* name : {"boot", "write", "edit", "home", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_instrument", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab", "skin_modded", "skin_strip"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
@@ -168,10 +187,25 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
   }
   std::sort(files.begin(), files.end());
   REQUIRE(files.size() >= 9);
+  // The shard of a file is its sorted index mod n; the A/B pair mods_stock* is compared below, so those files all take the share of the first of them.
+  const Shard shard;
+  std::size_t stock_index = files.size();
+  for (std::size_t k = 0; k < files.size() && stock_index == files.size(); ++k) {
+    if (files[k].stem().string().rfind("mods_stock", 0) == 0) {
+      stock_index = k;
+    }
+  }
+  bool ran_stock = false;
 
   // A directory of this run's own (the process id): ctest runs from several engineers at once must not remove each other's pictures.
   const fs::path out = fs::temp_directory_path() / ("o3_303_scenarios_test_" + std::to_string(static_cast<long>(getpid())));
-  for (const fs::path& file : files) {
+  for (std::size_t k = 0; k < files.size(); ++k) {
+    const fs::path& file = files[k];
+    const bool is_stock = file.stem().string().rfind("mods_stock", 0) == 0;
+    if ((is_stock ? stock_index : k) % shard.n != shard.i) {
+      continue;
+    }
+    ran_stock = ran_stock || is_stock;
     INFO(file.filename().string());
     const std::string text = slurp(file);
     REQUIRE_FALSE(text.empty());
@@ -227,18 +261,23 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
     fs::remove_all(sub);
   }
   // MODS-PLAN 5.11, 13: with STOCK on, every mod at an extreme (mods_stock_ab) is the stock voice (mods_stock) bit for bit: the two files are the same, byte for byte, and not "close".
-  const fs::path stock = out / "mods_stock.stock.wav";
-  const fs::path stock_ab = out / "mods_stock_ab.stock.wav";
-  REQUIRE(fs::exists(stock));
-  REQUIRE(fs::exists(stock_ab));
-  CHECK(fs::file_size(stock) == fs::file_size(stock_ab));
-  CHECK(slurp_bytes(stock) == slurp_bytes(stock_ab));
+  if (ran_stock) {  // both files of the pair ran in this shard
+    const fs::path stock = out / "mods_stock.stock.wav";
+    const fs::path stock_ab = out / "mods_stock_ab.stock.wav";
+    REQUIRE(fs::exists(stock));
+    REQUIRE(fs::exists(stock_ab));
+    CHECK(fs::file_size(stock) == fs::file_size(stock_ab));
+    CHECK(slurp_bytes(stock) == slurp_bytes(stock_ab));
+  }
   fs::remove_all(out);
 }
 
 // The longest notice the strip takes, kStripChars - 1 characters: 10 px each on top of the strip's 800. Over HOME, PATTERN SETUP with F3 held, PERFORM and PERFORM SETUP, in the skin, every
 // frame meets the same ceiling as a frame with no strip (docs/SKIN-PLAN.md 4.3). The notice is put up by the runtime, as a save or a learn does, and kept up by its hold.
 TEST_CASE("scenarios: the longest strip notice over the skinned HOME, SETUP and PERFORM stays under the ceiling") {
+  if (!Shard().first()) {
+    return;
+  }
   const std::string longest(app::SystemConfig::kStripChars - 1u, 'M');  // wide letters; the Data face is 10 px a character whatever they are
   const fs::path dir = fs::temp_directory_path() / ("o3_303_strip_notice_" + std::to_string(static_cast<long>(getpid())));
   fs::remove_all(dir);
