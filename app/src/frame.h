@@ -36,6 +36,7 @@ struct StatusView {
   const char* toast = "";     // a short message, "" none
   bool toast_off = false;     // the message says something did not happen: drawn as an outline
   bool save_failed = false;   // the last autosave failed (UX-303 D23): "SAVE FAILED"
+  bool no_autosave = false;   // autosave is suspended (no project on the card: no card at boot, or a load that did not happen; ProjectInfo::autosave): "NO AUTOSAVE" until it is back
 };
 
 // A chip for each action in `actions` (a bit per PerfAction, the lowest first) on the baseline `baseline`, from `x` and never past `x_limit`: as many as

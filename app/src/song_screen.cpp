@@ -811,6 +811,7 @@ void SongScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
   status.toast = toast_;
   status.toast_off = toast_off_;
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   set(status.enc, sizeof status.enc, view_.enc);
   skin::HeaderInputs in;
   in.title = title();
@@ -846,6 +847,7 @@ void SongScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& ar
   status.toast = toast_;
   status.toast_off = toast_off_;
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   set(status.enc, sizeof status.enc, view_.enc);
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
 

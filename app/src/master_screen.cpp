@@ -596,6 +596,7 @@ void MasterScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
   frame::StatusView status;
   home_->status(status);
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   enc_text(ctx, status.enc, sizeof status.enc);
   fill_view(ctx, view_);
   skin::HeaderInputs in;
@@ -619,6 +620,7 @@ void MasterScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& 
   frame::StatusView status;
   home_->status(status);
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   enc_text(ctx, status.enc, sizeof status.enc);
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
 

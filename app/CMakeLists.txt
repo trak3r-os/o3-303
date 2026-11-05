@@ -29,3 +29,5 @@ target_include_directories(app_o3_303 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 # <o3_303/skin_assets.h> and its bytes: generated, so a source of the build directory (the glob above cannot see it).
 target_sources(app_o3_303 PRIVATE "${O3_303_SKIN_DIR}/skin_assets.cpp")
 target_include_directories(app_o3_303 PUBLIC "${O3_303_SKIN_DIR}")
+# One source for the version INFO shows: project(... VERSION ...) in the top-level CMakeLists.txt.
+target_compile_definitions(app_o3_303 PRIVATE O3_303_VERSION="${PROJECT_VERSION}")

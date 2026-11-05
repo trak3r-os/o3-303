@@ -186,7 +186,7 @@ constexpr HelpPadGroup kPerformGroups[] = {
     {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
 };
 constexpr HelpPadGroup kLibraryGroups[] = {
-    {"SLOTS", "TAP: LOAD THAT SLOT OF THE BANK", Color::Sel},
+    {"SLOTS", "TAP: SLOT 0-47. SHIFT + TAP: SLOT 16-63", Color::Sel},
 };
 constexpr HelpPadGroup kListGroups[] = {
     {"PROJECTS", "TAP: SELECT THE PROJECT OF THAT ROW", Color::Sel},
@@ -364,11 +364,11 @@ constexpr Text kTexts[kIdCount] = {
      kLibraryButtons.n,
      kLibraryGroups,
      count_of(sizeof kLibraryGroups / sizeof kLibraryGroups[0]),
-     "SLOTS 48-63 HAVE NO PAD: PICK THEM WITH THE ENCODER OR ARROWS, THEN INSERT LOADS THE SLOT SHOWN."},
+     "SHIFT + PAD: SLOT 16-63, LEDS SHOW THEM WHILE HELD. SHIFT + TURN PICKS THE SEED."},
     // Record
     {"RECORD",
-     "RECORD THE JAM. A TAKE OF THE MASTER OR THE INPUT STARTS AT THE NEXT BAR AND ENDS AFTER ITS BARS (FREE: AT F1). SAVE WRITES A WAV TO THE CARD.",
-     {"STARTS AT THE NEXT BAR", "TAP: NEXT SOURCE", "TAP: 1 2 4 8 FREE", "INPUT GAIN", "INPUT MONITOR", "WAV TO THE CARD", "PRESS TWICE", NONE},
+     "RECORD THE JAM. A TAKE OF THE MASTER STARTS AT THE NEXT BAR AND ENDS AFTER ITS BARS (FREE: AT F1). SAVE WRITES A WAV TO THE CARD.",
+     {"STARTS AT THE NEXT BAR", NONE, "TAP: 1 2 4 8 FREE", NONE, NONE, "WAV TO THE CARD", "PRESS TWICE", NONE},
      {},
      "VALUE; SHIFT = COARSE",
      kRecordButtons.row,

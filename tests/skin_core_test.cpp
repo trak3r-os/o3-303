@@ -376,6 +376,18 @@ TEST_CASE("header: the tagline is ACID BASS VOICE, STOCK . MODS OFF in the accen
   CHECK(dim == 0u);
   CHECK(accent == 0u);
   CHECK(red == 1u);
+  // NO AUTOSAVE (autosave suspended) takes the tagline in the Accent colour, under a failed save and over STOCK.
+  st.save_failed = false;
+  st.stock = false;
+  st.no_autosave = true;
+  taglines(st, dim, accent, red);
+  CHECK(dim == 0u);
+  CHECK(accent == 1u);
+  CHECK(red == 0u);
+  st.save_failed = true;
+  taglines(st, dim, accent, red);
+  CHECK(red == 1u);
+  CHECK(accent == 0u);
 }
 
 TEST_CASE("header: a full header, with every lamp and window lit, is far inside the queue") {
@@ -526,4 +538,17 @@ TEST_CASE("the frame's CLEAR is the glass: the theme's Pane is the palette's gla
   CHECK(pane.r == pal::kGlass.r);
   CHECK(pane.g == pal::kGlass.g);
   CHECK(pane.b == pal::kGlass.b);
+}
+
+TEST_CASE("classic header: the NO AUTOSAVE chip adds its outline and text to draw_status, and nothing without it") {
+  const auto drawn = [](bool chip, bool failed) {
+    frame::StatusView st;
+    st.no_autosave = chip;
+    st.save_failed = failed;
+    return colours([&](ui::Renderer& r) { frame::draw_status(r, ui::Rect{0, 0, 800, 24}, st); }, theme());
+  };
+  const std::size_t plain = drawn(false, false).size();
+  CHECK(drawn(true, false).size() > plain);
+  CHECK(drawn(true, true).size() > drawn(false, true).size());
+  CHECK(drawn(false, false).size() == plain);
 }

@@ -20,7 +20,7 @@ endif()
 # The platform (host or mk66), the toolchain and the compile settings every o3sdk target shares: before project().
 include("${O3SDK_DIR}/cmake/O3sdkPlatform.cmake")
 
-project(o3_303 VERSION 0.0.1 LANGUAGES C CXX)
+project(o3_303 VERSION 0.1.0 LANGUAGES C CXX)
 
 enable_testing()
 

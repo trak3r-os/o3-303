@@ -516,6 +516,7 @@ void FileScreen::fill_status(app::Context& ctx, const FileView& view, frame::Sta
   status.keys = false;
   std::strcpy(status.enc, "LIST");
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   fill_take_status(*rig_, status);
   status.toast = toast_[0] != '\0' ? toast_ : view.card;  // with no usable card the status line says so
   status.toast_off = toast_[0] != '\0' ? toast_off_ : true;

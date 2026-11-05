@@ -187,6 +187,9 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   if (view.save_failed) {
     reserved += width_of("SAVE FAILED");
   }
+  if (view.no_autosave) {
+    reserved += width_of("NO AUTOSAVE");
+  }
   if (view.toast[0] != '\0') {
     reserved += width_of(view.toast);
   }
@@ -207,6 +210,9 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   };
   if (view.save_failed) {
     put_right("SAVE FAILED", Color::Rec, Color::SelText, false);
+  }
+  if (view.no_autosave) {  // work since the last SAVE is not kept: an outline, the quiet kind (a failed save, which is red, is the louder)
+    put_right("NO AUTOSAVE", Color::Sel, Color::ChromeText, true);
   }
   if (view.take_msg[0] != '\0') {  // the audio take's word, from whatever screen asked for it
     put_right(view.take_msg, Color::Sel, view.take_msg_off ? Color::ChromeText : Color::SelText, view.take_msg_off);

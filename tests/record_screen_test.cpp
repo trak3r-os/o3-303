@@ -221,30 +221,6 @@ TEST_CASE("bars: the list is 1 2 4 8 FREE, kept inside it; the clock and the bar
   CHECK(bar_of(5, 0, 4) == 1u);
 }
 
-TEST_CASE("sources: MASTER, LINE, MIC, RADIO, USB, the ones that are not offered skipped") {
-  using S = app::AudioIn::Source;
-  CHECK(source_of(S::LineMix) == RecSource::Line);
-  CHECK(source_of(S::LineRight) == RecSource::Line);
-  CHECK(source_of(S::MicHigh) == RecSource::Mic);
-  CHECK(source_of(S::Radio) == RecSource::Radio);
-  CHECK(source_of(S::Usb) == RecSource::Usb);
-  CHECK(input_source(RecSource::Line) == S::LineMix);
-  CHECK(input_source(RecSource::Mic) == S::MicLow);
-  CHECK(std::string(source_name(true, S::LineMix)) == "MASTER");
-  CHECK(std::string(source_name(false, S::LineLeft)) == "LINE L");
-  CHECK(std::string(source_name(false, S::MicHigh)) == "MIC HI");
-  CHECK(step_source(RecSource::Master, 1, true, true, true) == RecSource::Line);
-  CHECK(step_source(RecSource::Line, 1, true, true, true) == RecSource::Mic);
-  CHECK(step_source(RecSource::Mic, 1, true, true, true) == RecSource::Radio);
-  CHECK(step_source(RecSource::Radio, 1, true, true, true) == RecSource::Usb);
-  CHECK(step_source(RecSource::Usb, 1, true, true, true) == RecSource::Master);
-  CHECK(step_source(RecSource::Master, -1, true, true, true) == RecSource::Usb);
-  CHECK(step_source(RecSource::Mic, 1, true, false, true) == RecSource::Usb);  // no radio
-  CHECK(step_source(RecSource::Mic, 1, true, false, false) == RecSource::Master);
-  CHECK(step_source(RecSource::Master, 1, false, true, true) == RecSource::Master);  // no input at all: MASTER is all there is
-  CHECK(step_source(RecSource::Master, -1, false, true, true) == RecSource::Master);
-}
-
 TEST_CASE("Envelope: a peak a column over the span, built in slices, frames past the span ignored") {
   Envelope e;
   e.reset(Envelope::kCols * 10);  // 10 frames a column
@@ -320,7 +296,6 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   Session s;
   s.open_record();
   s.choose_bars(1);
-  CHECK(s.record().master_source());
   s.tap(Button::F1);  // ARM: the transport is stopped, the take waits for it
   CHECK(s.rec().state() == State::Waiting);
   CHECK(s.rec().tap() == hal::record::Tap::Master);
@@ -493,7 +468,7 @@ TEST_CASE("FREE: F1 stops it, DISCARD asks twice, and the second press must come
   CHECK(s.takes().empty());
 }
 
-TEST_CASE("Settings are refused while a take waits or records; the gain and the monitor are not") {
+TEST_CASE("Settings are refused while a take waits or records") {
   Session s(true, true);
   s.open_record();
   s.choose_bars(0);
@@ -502,12 +477,6 @@ TEST_CASE("Settings are refused while a take waits or records; the gain and the 
   const unsigned bars = s.record().bars();
   s.tap(Button::F3);  // BARS: refused
   CHECK(s.record().bars() == bars);
-  s.tap(Button::F2);  // SOURCE: refused
-  CHECK(s.record().master_source());
-  s.tap(Button::F5);  // MONITOR is live
-  CHECK(s.ctx().audio_in().monitor() == app::AudioIn::kMonitorOn);
-  s.tap(Button::F5);
-  CHECK(s.ctx().audio_in().monitor() == 0u);
   s.tap(Button::F1);
   s.wait(20);
   CHECK(s.rec().state() == State::Done);
@@ -668,63 +637,22 @@ TEST_CASE("a transport that stops under a BARS take ends it where it stopped") {
   CHECK(s.rec().frames() < 4u * bar_frames(125'000));
 }
 
-TEST_CASE("the input sources on the fake codec: F2 goes MASTER, LINE, MIC, RADIO and back; the take is what the codec heard") {
+TEST_CASE("the recorder always takes the master: F2, F4 and F5 are empty keys, even with a codec input") {
   Session s(true, true);
   s.capture.input_tone(440.0f, -12.0f);
   s.open_record();
-  CHECK(s.record().master_source());
   s.tap(Button::F2);
-  CHECK_FALSE(s.record().master_source());
-  CHECK(s.ctx().audio_in().source() == app::AudioIn::Source::LineMix);
-  CHECK(s.ctx().audio_in().selected());
-  CHECK(s.ctx().audio_in().gain() == 50u);
-  s.tap(Button::F4);  // the encoder is GAIN
+  s.tap(Button::F4);
   s.turn(10);
-  CHECK(s.ctx().audio_in().gain() == 60u);
-  s.press(Button::Shift);
-  s.turn(-1);  // coarse: 5
-  s.release(Button::Shift);
-  CHECK(s.ctx().audio_in().gain() == 55u);
+  s.tap(Button::F5);
+  CHECK_FALSE(s.ctx().audio_in().selected());
+  CHECK(s.ctx().audio_in().monitor() == 0u);
   s.choose_bars(0);
-  s.wait(400);  // the codec's input switch settles
-  s.tap(Button::F1);  // transport stopped: a FREE take starts at once
+  s.tap(Button::F1);
   CHECK(s.rec().state() == State::Recording);
-  CHECK(s.rec().tap() == hal::record::Tap::Input);
-  s.wait(600);
+  CHECK(s.rec().tap() == hal::record::Tap::Master);
   s.tap(Button::F1);
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 200));
-  const std::uint32_t frames = s.rec().frames();
-  REQUIRE(frames > 20'000u);
-  int peak = 0;
-  for (std::uint32_t f = frames / 2; f < frames; ++f) {
-    const int v = s.record().take_pcm()[f * 2];
-    peak = peak > (v < 0 ? -v : v) ? peak : (v < 0 ? -v : v);
-  }
-  CHECK(peak > 3000);  // the tone, -12 dBFS and the gain
-  s.tap(Button::F7);
-  s.tap(Button::F7);
-  CHECK(s.rec().state() == State::Idle);
-  // MONITOR: a tap switches it on at 70 %, the encoder moves it, a tap switches it off.
-  s.tap(Button::F5);
-  CHECK(s.ctx().audio_in().monitor() == app::AudioIn::kMonitorOn);
-  s.turn(-10);
-  CHECK(s.ctx().audio_in().monitor() == 60u);
-  s.tap(Button::F5);
-  CHECK(s.ctx().audio_in().monitor() == 0u);
-  s.tap(Button::F2);
-  CHECK(s.ctx().audio_in().source() == app::AudioIn::Source::MicLow);
-  s.tap(Button::F2);
-  CHECK(s.ctx().audio_in().source() == app::AudioIn::Source::Radio);
-  s.tap(Button::F2);  // no USB port on this rig
-  CHECK(s.record().master_source());
-}
-
-TEST_CASE("without a codec input F2 stays on MASTER and an input take is never armed") {
-  Session s;
-  s.open_record();
-  s.tap(Button::F2);
-  CHECK(s.record().master_source());
-  CHECK_FALSE(s.ctx().audio_in().available());
 }
 
 TEST_CASE("a take that fills the buffer ends by itself with everything before it kept") {
@@ -1202,15 +1130,4 @@ TEST_CASE("a NEW under a BARS take that records stops the transport, and the tak
   REQUIRE(s.saved(6000));
   REQUIRE(s.takes().size() == 1u);
   CHECK(read_wav(s.takes()[0]).pcm.size() / 2u == frames);
-}
-
-TEST_CASE("the kit's saved input gain is kept by the first F2 tap") {
-  Session s(true, true);
-  REQUIRE(s.ctx().audio_in().select(app::AudioIn::Source::MicLow, 73));
-  s.wait(300);
-  s.open_record();
-  CHECK(s.record().master_source());
-  s.tap(Button::F2);  // MASTER to the first input
-  CHECK_FALSE(s.record().master_source());
-  CHECK(s.ctx().audio_in().gain() == 73u);
 }

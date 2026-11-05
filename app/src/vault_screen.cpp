@@ -82,14 +82,16 @@ const char* load_what_name(LoadWhat what) noexcept {
   return "BOTH";
 }
 
+unsigned library_slot_of_pad(unsigned pad, bool shift) noexcept { return shift ? pad + kShiftPadBase : pad; }
+
 unsigned library_pads_text(unsigned bank, char* out, unsigned cap) noexcept {
   if (cap == 0u) {
     return 0;
   }
   out[0] = '\0';
-  append(out, cap, "SLOTS 0-47 OF ");
+  append(out, cap, "PADS 0-47 . SHIFT 16-63 OF ");
   append(out, cap, seq::gen::bank_name(bank % seq::gen::kBanks));
-  append(out, cap, " . TAP = LOAD . INSERT = LOAD THE SLOT SHOWN");
+  append(out, cap, " . TAP = LOAD . INSERT = THE SLOT SHOWN");
   unsigned n = 0;
   while (out[n] != '\0') {
     ++n;
@@ -165,9 +167,9 @@ void VaultScreen::load_slot(app::Context& ctx) noexcept {
 }
 
 void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
-  if (in.pad_press()) {  // a pad is a slot of the bank (0..47) and loads it
-    if (in.pad() < seq::gen::kSlots) {
-      slot_ = in.pad();
+  if (in.pad_press()) {  // a pad is a slot of the bank (0..47, with Shift 16..63) and loads it
+    if (in.pad() < app::kPadCount) {
+      slot_ = library_slot_of_pad(in.pad(), in.shift);
       refresh();
       load_slot(ctx);
     }
@@ -256,9 +258,9 @@ void VaultScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
 }
 
 void VaultScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
-  (void)ctx;
-  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {  // slots 0..47: slot 48..63 has no pad
-    leds.set(pad, pad == slot_ ? app::kLedOn : (pad % 8u == 0u ? app::kLedLow : app::kLedDim));
+  const bool shift = ctx.panel().shift();  // Shift held: the pads are slots 16..63
+  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
+    leds.set(pad, library_slot_of_pad(pad, shift) == slot_ ? app::kLedOn : (pad % 8u == 0u ? app::kLedLow : app::kLedDim));
   }
 }
 
@@ -273,6 +275,7 @@ void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noe
   status.keys = false;
   std::strcpy(status.enc, ctx.panel().shift() ? "SEED" : "SLOT");
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   fill_take_status(*rig_, status);
   status.toast = toast_[0] != '\0' ? toast_ : (saving_ ? "SAVING" : "");
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);

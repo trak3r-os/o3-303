@@ -42,7 +42,6 @@ O3SDK_BIG TakeBuffer g_take;
 static_assert(kTakeFrames >= 30u * 44'118u, "30 s at the faster of the engine's two rates");
 
 constexpr std::uint32_t kStepsPerBar = 16;      // the recorder's Bar: 16 sixteenths
-constexpr unsigned kGainDefault = 50;           // the input's gain when the player has not chosen one (percent)
 constexpr std::uint64_t kDiscardAskMs = 5000;   // a destructive key asks for a second press within this (UX-303 2.4)
 constexpr std::uint32_t kScanFrames = 8192;     // the envelope reads at most this many frames a pass (the main loop's bounded work)
 
@@ -83,7 +82,7 @@ unsigned put_uint(unsigned v, char* out, unsigned cap) noexcept {
 
 constexpr std::uint32_t engine_rate_hz() noexcept { return (hal::audio::sample_rate_mhz() + 500u) / 1000u; }
 
-const char* kKeyNames[] = {"F1 ARM", "F2 SOURCE", "F3 BARS", "F4 GAIN", "F5 MONITOR"};
+const char* kKeyNames[] = {"F1 ARM", "", "F3 BARS"};  // F2, F4 and F5 are empty keys
 
 // The drawing's geometry (the area is the screen's, under the kit's header).
 constexpr int kCardY = frame::kStatusH + 8;
@@ -274,92 +273,6 @@ unsigned bar_of(std::uint32_t frames, std::uint32_t per_bar, unsigned bars) noex
   return bar;
 }
 
-RecSource source_of(app::AudioIn::Source s) noexcept {
-  switch (s) {
-    case app::AudioIn::Source::LineMix:
-    case app::AudioIn::Source::LineLeft:
-    case app::AudioIn::Source::LineRight:
-      return RecSource::Line;
-    case app::AudioIn::Source::MicLow:
-    case app::AudioIn::Source::MicHigh:
-      return RecSource::Mic;
-    case app::AudioIn::Source::Radio:
-      return RecSource::Radio;
-    case app::AudioIn::Source::Usb:
-      return RecSource::Usb;
-    case app::AudioIn::Source::Count:
-      break;
-  }
-  return RecSource::Line;
-}
-
-app::AudioIn::Source input_source(RecSource s) noexcept {
-  switch (s) {
-    case RecSource::Mic:
-      return app::AudioIn::Source::MicLow;
-    case RecSource::Radio:
-      return app::AudioIn::Source::Radio;
-    case RecSource::Usb:
-      return app::AudioIn::Source::Usb;
-    case RecSource::Master:
-    case RecSource::Line:
-      break;
-  }
-  return app::AudioIn::Source::LineMix;
-}
-
-const char* source_name(bool master, app::AudioIn::Source in) noexcept {
-  if (master) {
-    return "MASTER";
-  }
-  switch (in) {
-    case app::AudioIn::Source::LineMix:
-      return "LINE";
-    case app::AudioIn::Source::LineLeft:
-      return "LINE L";
-    case app::AudioIn::Source::LineRight:
-      return "LINE R";
-    case app::AudioIn::Source::MicLow:
-      return "MIC";
-    case app::AudioIn::Source::MicHigh:
-      return "MIC HI";
-    case app::AudioIn::Source::Radio:
-      return "RADIO";
-    case app::AudioIn::Source::Usb:
-      return "USB";
-    case app::AudioIn::Source::Count:
-      break;
-  }
-  return "LINE";
-}
-
-RecSource step_source(RecSource cur, int dir, bool input, bool radio, bool usb) noexcept {
-  const auto offered = [&](unsigned i) {
-    switch (static_cast<RecSource>(i)) {
-      case RecSource::Master:
-        return true;
-      case RecSource::Line:
-      case RecSource::Mic:
-        return input;
-      case RecSource::Radio:
-        return input && radio;
-      case RecSource::Usb:
-        return input && usb;
-    }
-    return false;
-  };
-  const int n = static_cast<int>(kSourceCount);
-  int at = static_cast<int>(cur);
-  const int step = dir < 0 ? n - 1 : 1;
-  for (int i = 0; i < n; ++i) {
-    at = (at + step) % n;
-    if (offered(static_cast<unsigned>(at))) {
-      return static_cast<RecSource>(at);
-    }
-  }
-  return RecSource::Master;
-}
-
 void Envelope::reset(std::uint32_t span) noexcept {
   span_ = span != 0u ? span : 1u;
   for (std::uint16_t& c : col_) {
@@ -400,9 +313,7 @@ void RecordScreen::init(Rig& rig, HomeMap& home) noexcept {
   // Every piece of state starts afresh: the app object outlives a run in the simulator's tests.
   rig_ = &rig;
   home_ = &home;
-  master_ = true;
   bars_index_ = kDefaultBarsIndex;
-  gain_ = kGainDefault;
   owner_ = kKeyBars;
   down_ = 0;
   tool_mask_ = 0;
@@ -432,9 +343,6 @@ void RecordScreen::enter(app::Context& ctx) noexcept {
   down_ = 0;
   tool_mask_ = 0;
   discard_until_ms_ = 0;
-  if (ctx.audio_in().selected()) {  // the kit's saved gain, or the Config's AUDIO section's, is the one shown: the first F2 does not overwrite it
-    gain_ = ctx.audio_in().gain();
-  }
   meter_ms_ = ctx.uptime_ms();
   ctx.redraw();
 }
@@ -580,10 +488,6 @@ bool RecordScreen::arm(app::Context& ctx, bool auto_save) noexcept {
     say(ctx, "NO RECORDER", true);
     return false;
   }
-  if (!master_ && !ctx.audio_in().available()) {
-    say(ctx, "NO AUDIO INPUT", true);
-    return false;
-  }
   const unsigned bars = kBars[bars_index_];
   const std::uint32_t mbpm = ctx.engine().tempo();
   if (!bars_fit(bars, mbpm)) {
@@ -598,7 +502,7 @@ bool RecordScreen::arm(app::Context& ctx, bool auto_save) noexcept {
     say(ctx, text, true);
     return false;
   }
-  rec.set_tap(master_ ? hal::record::Tap::Master : hal::record::Tap::Input);
+  rec.set_tap(hal::record::Tap::Master);
   hal::record::Take t;
   t.buf = g_take.v;
   t.capacity_frames = kTakeFrames;
@@ -717,33 +621,6 @@ void RecordScreen::discard(app::Context& ctx) noexcept {
 
 // ---- The settings -----------------------------------------------------------------------------------------------------------------------
 
-void RecordScreen::pick_source(app::Context& ctx, int dir) noexcept {
-  if (take_on(ctx)) {
-    say(ctx, "STOP THE TAKE FIRST", true);
-    return;
-  }
-  app::AudioIn& in = ctx.audio_in();
-  const RecSource cur = master_ ? RecSource::Master : source_of(in.source());
-  const RecSource next = step_source(cur, dir, in.available(), ctx.radio().available(), ctx.usb_audio().available());
-  if (next == cur) {
-    if (!in.available()) {
-      say(ctx, "NO AUDIO INPUT", true);
-    }
-    return;
-  }
-  if (next == RecSource::Master) {
-    master_ = true;
-    return;
-  }
-  master_ = false;
-  if (in.selected()) {
-    gain_ = in.gain();  // the kit's (saved) gain is the one that stays
-  }
-  if (!in.select(input_source(next), gain_)) {
-    say(ctx, "INPUT NOT ANSWERING", true);  // the kit keeps the choice and tries again
-  }
-}
-
 // `wrap`: a tap of F3 goes round the list; the encoder stops at its ends.
 void RecordScreen::pick_bars(app::Context& ctx, int delta, bool wrap) noexcept {
   if (take_on(ctx)) {
@@ -751,19 +628,6 @@ void RecordScreen::pick_bars(app::Context& ctx, int delta, bool wrap) noexcept {
     return;
   }
   bars_index_ = wrap && bars_index_ + 1u >= kBarChoices ? 0u : step_bars_index(bars_index_, delta);
-}
-
-void RecordScreen::change_gain(app::Context& ctx, int delta) noexcept {
-  const int next = static_cast<int>(gain_) + delta;
-  gain_ = static_cast<unsigned>(next < 0 ? 0 : (next > 100 ? 100 : next));
-  if (!master_ && ctx.audio_in().selected()) {
-    (void)ctx.audio_in().set_gain(gain_);
-  }
-}
-
-void RecordScreen::change_monitor(app::Context& ctx, int delta) noexcept {
-  const int next = static_cast<int>(ctx.audio_in().monitor()) + delta;
-  ctx.audio_in().monitor(static_cast<unsigned>(next < 0 ? 0 : (next > 100 ? 100 : next)));
 }
 
 // ---- Input ------------------------------------------------------------------------------------------------------------------
@@ -786,29 +650,9 @@ void RecordScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   if (home_->turn(ctx, d, in.shift, Entry{})) {  // a held step takes the turn (nothing here can lock)
     return;
   }
-  // A key held (F2..F5) takes the turn without a latch; else the latched one.
-  unsigned target = owner_;
-  for (unsigned k = kKeySource; k <= kKeyMonitor; ++k) {
-    if ((down_ >> k & 1u) != 0u) {
-      target = k;
-      break;
-    }
-  }
-  switch (target) {
-    case kKeySource:
-      pick_source(ctx, d);
-      break;
-    case kKeyBars:
-      pick_bars(ctx, d, false);
-      break;
-    case kKeyGain:
-      change_gain(ctx, in.shift ? d * 5 : d);
-      break;
-    case kKeyMonitor:
-      change_monitor(ctx, in.shift ? d * 5 : d);
-      break;
-    default:
-      break;
+  // BARS (F3) takes the turn while held, and when latched.
+  if ((down_ >> kKeyBars & 1u) != 0u || owner_ == kKeyBars) {
+    pick_bars(ctx, d, false);
   }
   ctx.redraw();
 }
@@ -818,20 +662,9 @@ void RecordScreen::key_press(app::Context& ctx, unsigned k) noexcept {
     case kKeyArm:
       arm_or_stop(ctx, false);
       return;
-    case kKeySource:
-      owner_ = k;
-      pick_source(ctx, 1);
-      break;
     case kKeyBars:
       owner_ = k;
       pick_bars(ctx, 1, true);
-      break;
-    case kKeyGain:
-      owner_ = k;
-      break;
-    case kKeyMonitor:
-      owner_ = k;
-      ctx.audio_in().monitor(ctx.audio_in().monitor() != 0u ? 0u : app::AudioIn::kMonitorOn);
       break;
     case kKeySave:
       save(ctx);
@@ -921,14 +754,7 @@ void RecordScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
 
 void RecordScreen::enc_text(char* out, unsigned cap) const noexcept {
   out[0] = '\0';
-  unsigned target = owner_;
-  for (unsigned k = kKeySource; k <= kKeyMonitor; ++k) {
-    if ((down_ >> k & 1u) != 0u) {
-      target = k;
-      break;
-    }
-  }
-  append(out, cap, kKeyNames[target < 5u ? target : kKeyBars]);
+  append(out, cap, kKeyNames[kKeyBars]);
 }
 
 void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
@@ -941,9 +767,9 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
   const unsigned shown_bars = active || st == State::Done ? take_bars_ : bars;
 
   view.fits = bars_fit(bars, mbpm);
-  view.source = source_name(master_, ctx.audio_in().source());
+  view.source = "MASTER";
   (void)bars_text(shown_bars, view.bars, sizeof view.bars);
-  view.input_meters = !master_ && ctx.audio_in().available();
+  view.input_meters = false;  // the recorder takes the master only
   for (unsigned c = 0; c < 2u; ++c) {
     view.in[c] = in_level_[c];
     view.in_peak[c] = in_peak_[c];
@@ -1038,16 +864,9 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
     return k;
   };
   box(kKeyArm, active ? "STOP" : "ARM", view.state, "", -1.0f);
-  box(kKeySource, "SOURCE", view.source, "", -1.0f).focus = owner_ == kKeySource;
   char bars_v[8];
   (void)bars_text(bars, bars_v, sizeof bars_v);
   box(kKeyBars, "BARS", bars_v, !view.fits ? "TOO LONG" : (bars != 0u ? "BARS" : ""), -1.0f).focus = owner_ == kKeyBars;
-  char num[8];
-  (void)put_uint(gain_, num, sizeof num);
-  box(kKeyGain, "GAIN", num, "%", static_cast<float>(gain_) / 100.0f).focus = owner_ == kKeyGain;
-  const unsigned mon = ctx.audio_in().monitor();
-  (void)put_uint(mon, num, sizeof num);
-  box(kKeyMonitor, "MONITOR", mon != 0u ? num : "OFF", mon != 0u ? "%" : "", static_cast<float>(mon) / 100.0f).focus = owner_ == kKeyMonitor;
   box(kKeySave, "SAVE", saving_ ? "SAVING" : (st == State::Done ? "READY" : "--"), "", -1.0f);
   box(kKeyDiscard, "DISCARD", discard_until_ms_ != 0u && ctx.uptime_ms() < discard_until_ms_ ? "SURE?" : "--", "", -1.0f);
 
@@ -1077,6 +896,7 @@ void RecordScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
   frame::StatusView status;
   home_->status(status);
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   enc_text(status.enc, sizeof status.enc);
   fill_view(ctx, view_);
   skin::HeaderInputs in;
@@ -1100,6 +920,7 @@ void RecordScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect& 
   frame::StatusView status;
   home_->status(status);
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   enc_text(status.enc, sizeof status.enc);
   frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
 

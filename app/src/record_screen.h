@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// RECORD (docs/UX-303.md 5.10, D14): record the jam. A take of the master (Tap::Master, the 303 as the main output plays it) or of the input (Tap::Input, through the kit's
-// AudioIn: LINE, MIC, RADIO, USB), stereo, into a 30 s O3SDK_BIG buffer, starting at the next bar of the transport (Align::Bar) and ending by itself after its bars (the
+// RECORD (docs/UX-303.md 5.10, D14): record the jam. A take of the master (Tap::Master, the 303 as the main output plays it; always: the inputs are not offered), stereo, into a 30 s O3SDK_BIG buffer, starting at the next bar of the transport (Align::Bar) and ending by itself after its bars (the
 // recorder's auto_steps: 16 sixteenths a bar, to the sample), or, FREE, at F1 or a full buffer. Saved as Samples/take_NNN.wav through the kit's Files service.
 //
-//   F1 ARM / STOP   F2 SOURCE   F3 BARS   F4 GAIN   F5 MONITOR   F6 SAVE   F7 DISCARD (twice within 5 s)
+//   F1 ARM / STOP   F3 BARS   F6 SAVE   F7 DISCARD (twice within 5 s)   (F2, F4 and F5 are empty: the take is always the master)
 //
-// A tap of F2, F3 or F5 acts (the next source, the next bars, monitor on / off) and gives the encoder to that key; F4 only gives it the encoder; a turn then moves that value (hold the
+// A tap of F3 takes the next bars and gives it the encoder; a turn then moves that value (hold the
 // key and turn moves it without latching). The pads, the arrows, Copy / Insert / Delete and the plain Rec are the home map's (home_map.h), HOME's very own.
 //
 // The take is the app's, not the screen's: service() runs every pass of the main loop whatever screen is up, and Shift + Rec (shift_rec(), routed by o3_303_app.cpp from every screen)
@@ -57,20 +56,6 @@ unsigned bars_text(unsigned bars, char* out, unsigned cap) noexcept;
 unsigned clock_text(std::uint32_t frames, std::uint32_t rate_hz, bool tenth, char* out, unsigned cap) noexcept;
 // The bar a take of `frames` is in, 1-based, kept at `bars` when the take has a length (bars 0: no limit); 0 frames: bar 1. `per_bar` = bar_frames().
 unsigned bar_of(std::uint32_t frames, std::uint32_t per_bar, unsigned bars) noexcept;
-
-// ---- The source ---------------------------------------------------------------------------------------------------------------------------
-
-enum class RecSource : std::uint8_t { Master, Line, Mic, Radio, Usb };
-inline constexpr unsigned kSourceCount = 5;
-// Which of the list an AudioIn source is (LineMix, LineLeft and LineRight are LINE, the two microphone gains MIC).
-RecSource source_of(o3sdk::app::AudioIn::Source s) noexcept;
-// The AudioIn source F2 selects for it (Master: none, Line: LineMix, Mic: MicLow).
-o3sdk::app::AudioIn::Source input_source(RecSource s) noexcept;
-// "MASTER", "LINE", "LINE L", "LINE R", "MIC", "MIC HI", "RADIO", "USB": what the box and the card say; `in` is the AudioIn source in use (it tells the variants).
-const char* source_name(bool master, o3sdk::app::AudioIn::Source in) noexcept;
-// The next (`dir` > 0) or previous source of the list, the ones that are not offered skipped: `input` the codec has an input, `radio` and `usb` those devices exist. With no input
-// only MASTER is left.
-RecSource step_source(RecSource cur, int dir, bool input, bool radio, bool usb) noexcept;
 
 // ---- The take's envelope --------------------------------------------------------------------------------------------------------------------
 
@@ -150,10 +135,9 @@ class RecordScreen final : public o3sdk::app::Screen {
   void help(const o3sdk::app::Context& ctx, o3sdk::app::Help& h) const noexcept override;
 
   // The settings and the take, for the tests and the console.
-  bool master_source() const noexcept { return master_; }
   unsigned bars() const noexcept { return kBars[bars_index_]; }
   bool saving() const noexcept { return saving_; }
-  // The key the encoder drives: 1 SOURCE (F2), 2 BARS (F3), 3 GAIN (F4), 4 MONITOR (F5).
+  // The key the encoder drives (BARS, F3, the only setting).
   unsigned focus() const noexcept { return owner_; }
   const RecordView& last_view() const noexcept { return view_; }
   const Envelope& envelope() const noexcept { return env_; }
@@ -163,7 +147,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   const char* message() const noexcept { return rig_->take_msg; }
 
  private:
-  enum Key : unsigned { kKeyArm = 0, kKeySource, kKeyBars, kKeyGain, kKeyMonitor, kKeySave, kKeyDiscard };
+  enum Key : unsigned { kKeyArm = 0, kKeyF2, kKeyBars, kKeyF4, kKeyF5, kKeySave, kKeyDiscard };  // F2, F4 and F5 are empty (the master is the only source)
 
   void button_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void key_press(o3sdk::app::Context& ctx, unsigned k) noexcept;
@@ -179,10 +163,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   // The tempo moved under a take that waits or records: the bar's length follows; a take that waits and no longer fits is disarmed.
   void track_tempo(o3sdk::app::Context& ctx) noexcept;
   void discard(o3sdk::app::Context& ctx) noexcept;
-  void pick_source(o3sdk::app::Context& ctx, int dir) noexcept;
   void pick_bars(o3sdk::app::Context& ctx, int delta, bool wrap) noexcept;
-  void change_gain(o3sdk::app::Context& ctx, int delta) noexcept;
-  void change_monitor(o3sdk::app::Context& ctx, int delta) noexcept;
   void scan(o3sdk::app::Context& ctx) noexcept;
   void finish_save(o3sdk::app::Context& ctx) noexcept;
   void chip(o3sdk::app::Context& ctx) noexcept;
@@ -196,9 +177,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   HomeMap* home_ = nullptr;
 
   // The settings of the next take.
-  bool master_ = true;                     // the source is the master, else the input AudioIn has selected
   unsigned bars_index_ = kDefaultBarsIndex;
-  unsigned gain_ = 50;                     // the input's gain (percent) while the source is the master: the next input's; otherwise AudioIn's
   unsigned owner_ = kKeyBars;              // the encoder's key
   std::uint8_t down_ = 0;                  // F keys held (bit k)
   std::uint8_t tool_mask_ = 0;             // F keys pressed with Shift: their release is not an action

@@ -4,17 +4,17 @@
 #
 # Start from an empty card directory: it ends up with Samples/take_001.wav (a 4 bar take, saved by F6) and take_002.wav (1 bar, Shift + Rec). Without --card (the scenarios test runs it so)
 # the same keys say NO CARD and the takes stay until F7 drops them; the pictures are the same but for the card line. The simulator has no codec input unless it is given one
-# (--audio-in), so F2 says NO AUDIO INPUT here: the input sources are the unit's and the audio-in scenarios'.
+# (--audio-in); the recorder takes the master only: F2, F4 and F5 are empty keys.
 # The pictures: 01 idle, 03 and 04 the tempo too slow for 8 bars, 06 armed (waiting for the bar), 07 recording, 08 done, 10 saved, 12 Shift + Rec armed on HOME, 13 the take on HOME, 19 and 20 the take refused on PERFORM and on GROWL.
 record on
 wait 300
 tap samplerec
 wait 100
 snap 01_idle
-# F2 SOURCE: there is no input to go to.
+# F2 is an empty key: the take is always the master.
 tap f2
 wait 50
-snap 02_no_input
+snap 02_f2_empty
 # F3 BARS goes round 4, 8, FREE, 1, 2. The tempo drops to 55 BPM (MASTER, TEMPO on the encoder: half a BPM a detent): 8 bars no longer fit 30 s and F1 refuses them on the screen.
 tap f3
 wait 50

@@ -125,12 +125,20 @@ TEST_CASE("the library's Shift row: F1 NEW SEED, F2 LOAD what (BOTH, LINE, SOUND
   }
 }
 
+TEST_CASE("the library's pads: a pad is its slot, with Shift the slot 16 above, so 16..63 are all reachable") {
+  CHECK(library_slot_of_pad(0, false) == 0u);
+  CHECK(library_slot_of_pad(47, false) == 47u);
+  CHECK(library_slot_of_pad(0, true) == 16u);
+  CHECK(library_slot_of_pad(47, true) == 63u);
+  CHECK(library_slot_of_pad(47, true) == seq::gen::kSlots - 1u);
+}
+
 TEST_CASE("the library's pure texts") {
   char text[96];
   (void)library_pads_text(0, text, sizeof text);
-  CHECK(std::strncmp(text, "SLOTS 0-47 OF AMBER . TAP = LOAD", 32) == 0);
+  CHECK(std::strncmp(text, "PADS 0-47 . SHIFT 16-63 OF AMBER", 32) == 0);
   (void)library_pads_text(6, text, sizeof text);
-  CHECK(std::strncmp(text, "SLOTS 0-47 OF OFF WORLD", 23) == 0);
+  CHECK(std::strncmp(text, "PADS 0-47 . SHIFT 16-63 OF OFF WORLD", 36) == 0);
   CHECK(std::strcmp(load_what_name(LoadWhat::Both), "BOTH") == 0);
   CHECK(std::strcmp(load_what_name(LoadWhat::Pattern), "LINE") == 0);
   CHECK(std::strcmp(load_what_name(LoadWhat::Sound), "SOUND") == 0);

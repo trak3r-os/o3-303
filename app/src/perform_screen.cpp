@@ -581,6 +581,7 @@ void PerformScreen::fill_status(app::Context& ctx, frame::StatusView& status) co
   status.toast = toast_;
   status.toast_off = toast_off_;
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
 }
 
 // ROW 1 ACTIONS (SHIFT = LATCH) . ROW 2 SNAPSHOTS (SHIFT = STORE) . ROW 3 LADDER CUTOFF . ROW 4 KEYS  (WOBBLE on: ROW 3 WOBBLE RATE)

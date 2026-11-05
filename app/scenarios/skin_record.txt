@@ -1,6 +1,6 @@
 # RECORD (and GROWL, where the take is seen while it records) on the obsidian skin (docs/SKIN-PLAN.md 2.4, SK6): the header with the TAKE LED (TRANSPORT: ARMED blinking, 0:05 red while it records, READY, SAVING), the glass (TAKE: the
 # state and the clock in two windows, the bar chip, the sentence, SOURCE and BARS, the file name; LEVELS: IN and OUT as LED-segment bars; ENVELOPE: the take's peaks, red while it grows and green
-# once it is done) and the F row (F1 ARM / STOP lit red while it records, F2 SOURCE and F3 BARS action keys with their value, F4 GAIN and F5 MONITOR knobs, F6 SAVE and F7 DISCARD action keys,
+# once it is done) and the F row (F1 ARM / STOP lit red while it records, F3 BARS action key with its value (F2, F4 and F5 are empty), F6 SAVE and F7 DISCARD action keys,
 # dim until there is a finished take, F8 an empty box). The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does (Left once is "303", five Downs reach
 # SKIN, the encoder clamps at OBSIDIAN). The simulator has no card here (the scenarios test runs it so): SAVE says NO CARD. With a card, as record.txt:
 #

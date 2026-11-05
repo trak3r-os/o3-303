@@ -74,3 +74,5 @@ press pattern
 wait 350
 snap 09_pattern_held
 release pattern
+wait 100
+snap 10_no_autosave_chip

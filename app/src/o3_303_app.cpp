@@ -11,7 +11,7 @@
 //   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
-//   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master or the input to Samples/; Shift + REC arms and stops a take from every screen
+//   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master to Samples/; Shift + REC arms and stops a take from every screen
 //   SAMPLE LOAD   MODDED, the 303 mods (NOTES; on it: TONE, and back; INSTRUMENT's screen class, instrument_screen.h); Shift + SAMPLE LOAD flips STOCK, all mods out, from every screen with no change of screen
 //   SAMPLE PLAY   GROWL (one page of INSTRUMENT's screen class); SAMPLE EDIT   WOBBLE (the same)
 //   SONG          SONG (song_screen.h): the saved chain of patterns, in the project; F1 chooses what Play plays; a song that ends with its loop off stops the transport from every screen
@@ -91,7 +91,7 @@ constexpr std::uint64_t kSavingToastMs = 1000;         // the SAVING toast is sa
 class O3_303App final : public app::App {
  public:
   const app::AppInfo& info() const noexcept override {
-    static constexpr app::AppInfo kInfo{"O3-303", "0.0.1"};
+    static constexpr app::AppInfo kInfo{"O3-303", O3_303_VERSION};
     return kInfo;
   }
 

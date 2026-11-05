@@ -23,7 +23,10 @@ namespace o3_303 {
 
 // "BOTH", "LINE", "SOUND": what a load takes.
 const char* load_what_name(LoadWhat what) noexcept;
-// The PADS line: "SLOTS 0-47 OF AMBER . TAP = LOAD . INSERT = LOAD THE SLOT SHOWN" (the grid and the LEDs are numbered 00..47).
+// The slot a pad loads: the pad itself (0..47), or with Shift held pad + 16 (16..63), so every slot of a bank is on a pad.
+inline constexpr unsigned kShiftPadBase = 16;
+unsigned library_slot_of_pad(unsigned pad, bool shift) noexcept;
+// The PADS line: "PADS 0-47 . SHIFT 16-63 OF AMBER . TAP = LOAD . INSERT = THE SLOT SHOWN" (the grid and the LEDs are numbered 00..47).
 unsigned library_pads_text(unsigned bank, char* out, unsigned cap) noexcept;
 
 class VaultScreen final : public o3sdk::app::Screen {

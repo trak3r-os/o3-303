@@ -387,15 +387,15 @@ TEST_CASE("skin master: the fullest frame (playing, nudged, taps, a toast) is qu
   t.release(Button::F3);
 }
 
-TEST_CASE("skin record: five action keys and two knobs on the F row, F8 an empty box; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
+TEST_CASE("skin record: four action keys on the F row, F2, F4, F5 and F8 empty boxes; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
   Hands t;
   t.skin_on();
   t.tap(Button::SampleRec, 30);
   t.wait(100);
   const Queue q;
-  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 5u);       // F1, F2, F3, F6, F7
-  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 2u);   // F4 GAIN, F5 MONITOR
-  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 1u);                // F8
+  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 4u);       // F1, F3, F6, F7
+  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 0u);   // F4 and F5 are empty keys now
+  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 4u);                // F2, F4, F5, F8
   ui::Rgb tint{};
   // The F row's action key of F1 is at (8, 405), F6's at (508, 405), F7's at (608, 405).
   REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 8, 405, tint));
@@ -566,7 +566,7 @@ TEST_CASE("skin screens: Shift on MASTER and RECORD leaves the F row's slots as 
     unsigned keys;
     unsigned boxes;
   };
-  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u}, Row{Button::SampleRec, 2u, 5u, 1u}}) {
+  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u}, Row{Button::SampleRec, 0u, 4u, 4u}}) {
     t.tap(row.button, 30);
     t.wait(100);
     CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == row.caps);
@@ -579,5 +579,33 @@ TEST_CASE("skin screens: Shift on MASTER and RECORD leaves the F row's slots as 
     CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == row.boxes);
     t.release(Button::Shift);
     t.wait(60);
+  }
+}
+
+// The chip is wired in every screen's status: with no card the autosave is suspended, and each skinned screen's header says NO AUTOSAVE.
+TEST_CASE("skin screens: the NO AUTOSAVE chip reaches the header of every screen that has one") {
+  Hands t;
+  t.skin_on();
+  struct Screen {
+    Button button;
+    unsigned presses;
+    const char* name;
+  };
+  const Screen screens[] = {{Button::Pattern, 1, "HOME"},      {Button::Performance, 1, "PERFORM"}, {Button::Params, 1, "INSTRUMENT"}, {Button::SamplePlay, 1, "GROWL"},
+                            {Button::SampleEdit, 1, "WOBBLE"}, {Button::Master, 1, "MASTER"},       {Button::SampleRec, 1, "RECORD"},    {Button::Song, 1, "SONG"},
+                            {Button::File, 1, "FILE PROJECTS"}, {Button::File, 2, "FILE LIBRARY"}};
+  for (const Screen& s : screens) {
+    t.tap(Button::Pattern, 30);
+    for (unsigned i = 0; i < s.presses; ++i) {
+      t.tap(s.button, 30);
+    }
+    t.wait(80);
+    const skin::Panel& p = skin::panel();
+    unsigned chips = 0;
+    for (unsigned i = 0; i < p.texts(); ++i) {
+      skin::Panel::TextInfo tx;
+      chips += p.text_at(i, tx) && std::strcmp(tx.s, "NO AUTOSAVE") == 0 ? 1u : 0u;
+    }
+    CHECK_MESSAGE(chips == 1u, s.name << ": one NO AUTOSAVE chip in the header");
   }
 }

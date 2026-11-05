@@ -676,6 +676,7 @@ void MainScreen::draw_skin_frame(app::Context& ctx, ui::Renderer& r) noexcept {
   frame::StatusView status;
   home_.status(status);
   status.save_failed = rig_->project.failed;
+  status.no_autosave = !rig_->project.autosave;
   enc_text(ctx, status.enc, sizeof status.enc);
   skin::HeaderInputs in;
   in.title = title();
@@ -794,6 +795,7 @@ void MainScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noex
     frame::StatusView status;
     home_.status(status);
     status.save_failed = rig_->project.failed;
+    status.no_autosave = !rig_->project.autosave;
     enc_text(ctx, status.enc, sizeof status.enc);
     frame::draw_status(r, Rect{area.x, area.y, area.w, frame::kStatusH}, status);
     const Rect strip_area{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};

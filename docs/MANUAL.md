@@ -626,11 +626,12 @@ OFF WORLD and LAST.
 *Bank AMBER, slot 00. On the right, the slot's sound; at the bottom, its line.*
 
 - **F1 to F8** pick the bank.
-- **A pad** loads that slot (0 to 47) into the pattern shown and the sound, at once. A load also sets the tempo, the voice and the
+- **A pad** loads that slot (0 to 47), and **Shift + a pad** loads slot pad + 16 (16 to 63), so every slot of the bank is on a pad (while Shift is held the
+  LEDs show slots 16 to 63, the slot shown lit; the PADS line says "PADS 0-47 . SHIFT 16-63"). Either loads into the pattern shown and the sound, at once. A load also sets the tempo, the voice and the
   distortion. UNDO takes back the line only, not the tempo or the sound: to try lines and leave your sound alone, set **Shift + F2** to
   LOAD LINE first.
-- Slots 48 to 63 have no pad: pick them with the encoder or the arrows (Left and Right one slot, Up and Down eight), then **Insert** loads the
-  slot shown.
+- The encoder and the arrows (Left and Right one slot, Up and Down eight) also pick a slot; **Insert** loads the slot shown. **Shift + turn** still
+  picks the seed.
 - **Shift + F2** chooses what a load takes: LOAD BOTH (the line and the sound), LOAD LINE or LOAD SOUND. A line comes with its
   tempo, so LOAD LINE still sets the tempo.
 - **Shift + F1** NEW SEED: another take of the slot, a different line from the same recipe. **Shift + turn** picks the seed by hand;
@@ -642,17 +643,14 @@ You stay on this screen after a load; press **Pattern** to go back to HOME.
 
 Press **Sample Rec**. RECORD makes a WAV of what you play (section 11).
 
-![RECORD idle: TAKE IDLE 0:00.0, SOURCE MASTER, BARS 4, the IN and OUT meters, and the F row ARM, SOURCE, BARS, GAIN, MONITOR, SAVE, DISCARD](manual/img/record.png)
+![RECORD idle: TAKE IDLE 0:00.0, BARS 4, the IN and OUT meters, and the F row ARM, BARS, SAVE, DISCARD](manual/img/record.png)
 
 *RECORD, idle. F1 arms a take; it starts at the next bar.*
 
 | Key | What |
 |---|---|
-| F1 ARM | Arm a take: it starts at the next bar (a FREE take with the transport stopped starts at once; F1 ends a FREE take) |
-| F2 SOURCE | MASTER (what o3-303 plays), or an input the unit has: LINE, MIC, RADIO, USB |
+| F1 ARM | Arm a take of the master (what o3-303 plays; the inputs are not recorded): it starts at the next bar (a FREE take with the transport stopped starts at once; F1 ends a FREE take) |
 | F3 BARS | 1, 2, 4, 8 or FREE |
-| F4 GAIN | The input's gain |
-| F5 MONITOR | Hear the input |
 | F6 SAVE | Write the take to the card as a WAV |
 | F7 DISCARD | Drop the take (press twice) |
 
@@ -697,9 +695,9 @@ OCT- and OCT+ move rows 3 and 4 by octaves; the header's KEYBOARD says which (OC
 
 ### FILE LIBRARY
 
-![HELP's PADS page for FILE LIBRARY: slots 00 to 47](manual/img/help-library-pads.png)
+![HELP's PADS page for FILE LIBRARY: slots 00 to 47, Shift: 16 to 63](manual/img/help-library-pads.png)
 
-*A pad loads that slot of the bank. Slots 48 to 63 are reached with the encoder or the arrows.*
+*A pad loads that slot of the bank (0 to 47); Shift + a pad loads slot 16 to 63.*
 
 ### The name keyboard
 
@@ -905,6 +903,7 @@ button.
 | CARD IN USE | A firmware update is using the card. Wait until it ends |
 | CARD IS FULL | Make room on the card (on a computer), then SAVE. DELETE frees no space: its files stay on the card (section 8) |
 | SAVE FAILED: ... | The save did not reach the card; the reason follows. The status line keeps SAVE FAILED in red until a save works |
+| NO AUTOSAVE (a chip in the header) | Autosave is suspended for as long as it shows: no project is on the card (no card at start-up, a card change, or one of the AUTOSAVE OFF messages below). Nothing is kept until you SAVE or LOAD a project. In OBSIDIAN the chip takes the tagline's place while it shows |
 | CARD CHANGED: SAVE TO KEEP THE PROJECT | A card went out or in. Autosave is off until you SAVE or LOAD |
 | AUTOSAVE OFF: PLAYING BEFORE THE LOAD | You played before the project loaded at start-up (section 8). LOAD it, or SAVE AS |
 | AUTOSAVE OFF: EDITED BEFORE THE LOAD | You edited before the project loaded at start-up (section 8). LOAD it, or SAVE AS |
