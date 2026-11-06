@@ -52,6 +52,8 @@ using o3sdk::core::ParamKnot;
 using o3sdk::core::ParamUnit;
 namespace dsp = o3sdk::dsp;
 
+// A note-on at or above this velocity is accented, as one with kNoteAccent is (a MIDI keyboard); the sequencer sends 80 and 110, the pads 90.
+constexpr std::uint8_t kAccentVelocity = 96;
 constexpr const char* kWaveNames[] = {"SAW", "SQR"};
 constexpr const char* kSoftAtkNames[] = {"OFF", "0.3 MS", "1 MS", "3 MS", "10 MS", "30 MS"};
 constexpr const char* kSubNames[] = {"OFF", "LOW", "MID", "HIGH"};
@@ -623,7 +625,7 @@ void AcidVoice::all_notes_off() noexcept {
 void AcidVoice::apply(const dsp::Event& e) noexcept {
   switch (e.kind) {
     case dsp::EventKind::NoteOn:
-      note_on(e.note, (e.flags & dsp::kNoteAccent) != 0u, (e.flags & dsp::kNoteSlide) != 0u);
+      note_on(e.note, (e.flags & dsp::kNoteAccent) != 0u || e.velocity >= kAccentVelocity, (e.flags & dsp::kNoteSlide) != 0u);
       break;
     case dsp::EventKind::NoteOff:
       note_off(e.note);

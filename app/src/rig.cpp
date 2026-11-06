@@ -3,6 +3,30 @@
 
 namespace o3_303 {
 
+namespace {
+
+// The sound a load writes, in one place: the voice's ids 0..kVoiceValues-1 and the distortion's 0..kDistValues-1. load_preset() writes it and LAST
+// reads and writes it, so LAST holds exactly what a load replaces (the level, master, delay, growl and mods are not part of it).
+void write_sound(o3sdk::dsp::Engine& e, const Rig& rig, const float* voice, const float* dist) noexcept {
+  for (unsigned i = 0; i < seq::gen::kVoiceValues; ++i) {
+    (void)e.set_param(rig.wiring.voice, static_cast<std::uint16_t>(i), voice[i]);
+  }
+  for (unsigned i = 0; i < seq::gen::kDistValues; ++i) {
+    (void)e.set_param(rig.wiring.dist, static_cast<std::uint16_t>(i), dist[i]);
+  }
+}
+
+void read_sound(const o3sdk::dsp::Engine& e, const Rig& rig, float* voice, float* dist) noexcept {
+  for (unsigned i = 0; i < seq::gen::kVoiceValues; ++i) {
+    voice[i] = e.param(rig.wiring.voice, static_cast<std::uint16_t>(i));
+  }
+  for (unsigned i = 0; i < seq::gen::kDistValues; ++i) {
+    dist[i] = e.param(rig.wiring.dist, static_cast<std::uint16_t>(i));
+  }
+}
+
+}  // namespace
+
 void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what) noexcept {
   const seq::gen::ParamValues v = seq::gen::to_values(preset.patch);
   if (what != LoadWhat::Sound) {
@@ -10,13 +34,30 @@ void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset
     (void)e.set_tempo(v.tempo_mbpm);
   }
   if (what != LoadWhat::Pattern) {
-    for (unsigned i = 0; i < seq::gen::kVoiceValues; ++i) {
-      (void)e.set_param(rig.wiring.voice, static_cast<std::uint16_t>(i), v.voice[i]);
-    }
-    for (unsigned i = 0; i < seq::gen::kDistValues; ++i) {
-      (void)e.set_param(rig.wiring.dist, static_cast<std::uint16_t>(i), v.dist[i]);
-    }
+    write_sound(e, rig, v.voice, v.dist);
   }
+}
+
+void last_capture(const o3sdk::dsp::Engine& e, Rig& rig) noexcept {
+  read_sound(e, rig, rig.last_voice, rig.last_dist);
+  rig.last_used = true;
+}
+
+bool last_swap(o3sdk::dsp::Engine& e, Rig& rig) noexcept {
+  if (!rig.last_used) {
+    return false;
+  }
+  float voice[seq::gen::kVoiceValues];
+  float dist[seq::gen::kDistValues];
+  read_sound(e, rig, voice, dist);
+  write_sound(e, rig, rig.last_voice, rig.last_dist);
+  for (unsigned i = 0; i < seq::gen::kVoiceValues; ++i) {
+    rig.last_voice[i] = voice[i];
+  }
+  for (unsigned i = 0; i < seq::gen::kDistValues; ++i) {
+    rig.last_dist[i] = dist[i];
+  }
+  return true;
 }
 
 namespace {

@@ -383,7 +383,7 @@ void HomeMap::update(app::Context& ctx) noexcept {
 void HomeMap::audition_on(app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept {
   audition_off(ctx);
   const std::uint8_t f = note_flags(step_flags);
-  (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), (f & dsp::kNoteAccent) != 0u ? 127 : 100, f);
+  (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), (f & dsp::kNoteAccent) != 0u ? 127 : 90, f);
   audition_note_ = static_cast<int>(note);
 }
 
@@ -440,7 +440,7 @@ void HomeMap::key_press(app::Context& ctx, unsigned pad) noexcept {
   if (sound) {
     key_note_[pad] = note;
     const std::uint8_t nf = note_flags(flags);
-    (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), (nf & dsp::kNoteAccent) != 0u ? 127 : 100, nf);
+    (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), (nf & dsp::kNoteAccent) != 0u ? 127 : 90, nf);
   }
   ctx.redraw();
 }

@@ -125,6 +125,55 @@ TEST_CASE("the library's Shift row: F1 NEW SEED, F2 LOAD what (BOTH, LINE, SOUND
   }
 }
 
+TEST_CASE("the library's LAST: exactly the sound a load writes goes into it; Shift + F3 swaps it back and forth, LOAD LINE leaves it alone") {
+  Hands t;
+  auto set = [&](dsp::UnitId u, unsigned id, float v) {
+    REQUIRE(t.h->engine().set_param(u, static_cast<std::uint16_t>(id), v));
+    REQUIRE(t.param(u, id) == doctest::Approx(v));
+  };
+  to_library(t);
+  set(kVoice, AcidVoice::Volume, 0.3f);  // not part of a load: the level, the delay's and the growl's first knobs
+  set(kDelay, 0, 0.35f);
+  set(kGrowl, 0, 0.45f);
+  const float start = t.param(kVoice, AcidVoice::Cutoff);
+  t.shift_tap(Button::F3);  // LAST while empty: nothing happens
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(start));
+  CHECK(std::strcmp(t.title(), "FILE LIBRARY") == 0);
+
+  t.pad(2);  // a load of BOTH: the sound on the unit goes into LAST
+  const float loaded = t.param(kVoice, AcidVoice::Cutoff);
+  const float loaded_dist = t.param(kDist, Distortion::Drive);
+  REQUIRE(loaded != doctest::Approx(start));
+  set(kVoice, AcidVoice::Volume, 0.7f);  // changed after the load: a recall leaves them where they are
+  set(kDelay, 0, 0.6f);
+
+  for (int round = 0; round < 2; ++round) {
+    t.shift_tap(Button::F3);  // back to the sound before the load, and the loaded one is in LAST
+    CHECK(t.param(kVoice, AcidVoice::Cutoff) == start);
+    t.shift_tap(Button::F3);  // a second press goes back: the loaded sound, exact
+    CHECK(t.param(kVoice, AcidVoice::Cutoff) == loaded);
+    CHECK(t.param(kDist, Distortion::Drive) == loaded_dist);
+    CHECK(t.param(kVoice, AcidVoice::Volume) == doctest::Approx(0.7f));
+    CHECK(t.param(kDelay, 0) == doctest::Approx(0.6f));
+    CHECK(t.param(kGrowl, 0) == doctest::Approx(0.45f));
+  }
+
+  // LOAD LINE does not replace the sound, so LAST is untouched: it still holds `start`.
+  t.shift_tap(Button::F2);  // LINE
+  t.pad(9);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == loaded);
+  t.shift_tap(Button::F3);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == start);
+
+  // A load of SOUND captures again: the sound on the unit (start) goes into LAST.
+  t.shift_tap(Button::F2);  // SOUND
+  t.pad(20);
+  REQUIRE(t.param(kVoice, AcidVoice::Cutoff) != doctest::Approx(start));
+  t.shift_tap(Button::F3);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == start);
+  CHECK(t.param(kVoice, AcidVoice::Volume) == doctest::Approx(0.7f));
+}
+
 TEST_CASE("the library's pads: a pad is its slot, with Shift the slot 16 above, so 16..63 are all reachable") {
   CHECK(library_slot_of_pad(0, false) == 0u);
   CHECK(library_slot_of_pad(47, false) == 47u);

@@ -24,6 +24,7 @@ class Script final : public dsp::Clocked {
   void set_unit(dsp::UnitId u) { unit_ = u; }
   void add(std::uint32_t at, const dsp::Event& e) { items_.push_back({at, e}); }
   void on(std::uint32_t at, int note, std::uint8_t flags = 0) { add(at, dsp::note_on(static_cast<std::uint8_t>(note), (flags & dsp::kNoteAccent) != 0 ? 110 : 80, flags)); }
+  void on_velocity(std::uint32_t at, int note, std::uint8_t velocity, std::uint8_t flags = 0) { add(at, dsp::note_on(static_cast<std::uint8_t>(note), velocity, flags)); }
   void off(std::uint32_t at, int note) { add(at, dsp::note_off(static_cast<std::uint8_t>(note))); }
   void param(std::uint32_t at, std::uint16_t id, float v) { add(at, dsp::param_change(id, v)); }
   void all_off(std::uint32_t at) { add(at, dsp::all_notes_off()); }

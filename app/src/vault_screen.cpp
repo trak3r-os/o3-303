@@ -160,9 +160,23 @@ void VaultScreen::move_slot(int by) noexcept {
 }
 
 void VaultScreen::load_slot(app::Context& ctx) noexcept {
+  const bool replaces_sound = what_ != LoadWhat::Pattern;
+  if (replaces_sound) {
+    last_capture(ctx.engine(), *rig_);  // the sound this load takes away: Shift + F3 brings it back
+  }
   load_preset(ctx.engine(), *rig_, preview_, what_);  // one UNDO; the level and master are not part of a preset
-  char text[40] = "LOADED ";
-  append(text, sizeof text, preview_.name);
+  // The hint always fits: the preset's name is what gets cut.
+  constexpr char kHint[] = " - LAST: SHIFT F3";
+  char text[48] = "LOADED ";
+  const unsigned room = sizeof text - 1u - 7u - (replaces_sound ? sizeof kHint - 1u : 0u);
+  unsigned n = 7;
+  for (unsigned i = 0; preview_.name[i] != '\0' && i < room; ++i) {
+    text[n++] = preview_.name[i];
+  }
+  text[n] = '\0';
+  if (replaces_sound) {
+    append(text, sizeof text, kHint);
+  }
   say(ctx, text);
 }
 
@@ -210,6 +224,8 @@ void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
       char text[24] = "LOAD ";
       append(text, sizeof text, load_what_name(what_));
       say(ctx, text);
+    } else if (k == 2u) {  // LAST: the sound the last load replaced; the sound on the unit goes into LAST, so a second press goes back
+      say(ctx, last_swap(ctx.engine(), *rig_) ? "LAST SOUND BACK - AGAIN TO UNDO" : "NO LAST SOUND YET");
     }
     ctx.redraw();
     return;
@@ -240,6 +256,7 @@ void VaultScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
   if (ctx.panel().shift()) {  // the Shift row: NEW SEED and LOAD what, the rest empty
     out.label[0] = "NEW SEED";
     out.label[1] = kLoadKeys[static_cast<unsigned>(what_)];
+    out.label[2] = "LAST";
     return;
   }
   // The bank names, "OFF WORLD" shortened to fit a key.

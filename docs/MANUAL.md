@@ -637,6 +637,10 @@ OFF WORLD and LAST.
   tempo, so LOAD LINE still sets the tempo.
 - **Shift + F1** NEW SEED: another take of the slot, a different line from the same recipe. **Shift + turn** picks the seed by hand;
   seed VAULT is the library's own.
+- **Shift + F3** LAST: a load that replaces the sound (LOAD BOTH or LOAD SOUND) first keeps the sound you had, and its toast says "LAST: SHIFT F3".
+  Shift + F3 brings that sound back; the sound that was on the unit goes into LAST, so a second press goes forward again. LAST holds only what a
+  load writes (the voice and distortion values), not the line, the tempo, the level, the delay, the growl or the mods, so a recall never jumps your
+  volume. It lives in memory only (it is not saved with the project and is gone at power off), and LOAD LINE does not touch it. With LAST empty the key only says so.
 
 You stay on this screen after a load; press **Pattern** to go back to HOME.
 
@@ -717,7 +721,7 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 - **The pattern tools** (Shift on HOME): NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR. Each one is a single undo, so press NEW five times and
   UNDO back to the one you liked. PERFORM's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live.
 - **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo or the sound a
-  load also sets: Shift + F2 LOAD LINE leaves the sound alone (section 5, FILE LIBRARY).
+  load also sets: Shift + F2 LOAD LINE leaves the sound alone, and Shift + F3 brings back the sound a load replaced (section 5, FILE LIBRARY).
 - **Snapshots** (PERFORM): store a sound before you twist the knobs, recall it when you get lost, and morph between two.
 - **STOCK** (Shift + Sample Load, from any screen): turns the MODDED mods off to hear the plain 303, and on again, with your settings
   kept (section 5, MODDED).
@@ -822,7 +826,8 @@ Over USB, a computer sees the unit as a MIDI port, next to its audio and console
 Config's MIDI section says which one is followed (FOLLOW PORT).
 
 - **Notes play the voice.** Notes that come in over MIDI play o3-303's voice. Config's MIDI section sets the channel (IN CHANNEL, OMNI
-  takes them all).
+  takes them all). A note played at velocity 96 or more is accented, one below 96 is not (the pads and the on-screen keys play at 90, and at 127
+  when the step they play is accented); slides come from overlapping notes, as before.
 - **MIDI learn.** On INSTRUMENT, MODDED and GROWL, hold Shift: the F keys that say LEARN can follow a controller. Press Shift + the F key,
   then move the controller's knob. Shift + the same key again cancels. The mods and the growl's knobs can be learned; STOCK and the
   wobble's settings show "-". Config's MIDI section has CLEAR LEARN (F1 twice) to remove every binding.

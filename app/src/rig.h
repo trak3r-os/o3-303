@@ -48,6 +48,11 @@ struct Rig {
   // The tempo (milli-BPM) a tempo nudge started from, while one is on or its restore is pending, else 0 (MasterScreen writes it, main loop only): the engine holds the
   // nudged tempo then, and a project saved meanwhile (project.cpp gather()) stores this one.
   std::uint32_t tempo_base_mbpm = 0;
+  // LAST (library load): the sound a load that replaced it took away, exactly the voice and distortion values a load writes (rig.cpp write_sound), kept in RAM only (not in the project).
+  // last_used: it holds one. Main loop only. last_capture() fills it, last_swap() trades it with the sound on the unit.
+  float last_voice[seq::gen::kVoiceValues] = {};
+  float last_dist[seq::gen::kDistValues] = {};
+  bool last_used = false;
   // The audio take's chip for every screen's status line (RecordScreen::service writes it every pass, the screens copy it into their StatusView): "TAKE ARMED", "TAKE REC 0:05",
   // "TAKE READY", "TAKE SAVING"; "" when no take is held. Main loop only.
   char take[20] = "";
@@ -101,6 +106,11 @@ enum class LoadWhat : std::uint8_t {
 // (one undoable edit), the patch goes to the voice and the distortion as parameter values, the tempo to the engine. Master and the
 // level are not part of a preset: loading never jumps the volume of a set.
 void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what) noexcept;
+
+// LAST: the sound as it is now goes into LAST.
+void last_capture(const o3sdk::dsp::Engine& e, Rig& rig) noexcept;
+// Swaps the sound on the unit and LAST (the values a load writes); false, nothing changed, when LAST is empty.
+bool last_swap(o3sdk::dsp::Engine& e, Rig& rig) noexcept;
 
 // How a song changed from `before` to `after`, for the sequencer's place in it (Sequencer::song_row_inserted() and friends): one row inserted at `at`, one row deleted at `at`, the
 // same length and rows (None: a cell edit or nothing, the position stays), or anything else (Replaced: CLEAR, FROM CHAIN, several rows).

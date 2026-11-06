@@ -54,3 +54,37 @@ wav library
 tap pattern
 wait 100
 snap 12_home_after
+# LAST (B3): Shift + F3 brings back the sound the last load replaced (here the loads above filled it); a load names the key in its toast, a second press goes forward again. (An empty LAST is the unit test's.)
+tap file
+tap file
+wait 100
+press shift
+tap f3
+release shift
+snap 13_last_back_first
+pad 5
+wait 100
+snap 14_load_names_last
+press shift
+tap f3
+release shift
+snap 15_last_back
+press shift
+tap f3
+release shift
+snap 16_last_again
+# The accent from a MIDI keyboard (B3): velocity 95 (0x5f) is a plain note, 96 (0x60) is accented, as is a velocity of 127 (0x7f); the WAV shows the second and third louder and brighter.
+record on
+midi usb 90 30 5f
+wait 400
+midi usb 80 30 00
+wait 200
+midi usb 90 30 60
+wait 400
+midi usb 80 30 00
+wait 200
+midi usb 90 30 7f
+wait 400
+midi usb 80 30 00
+wait 300
+wav library_midi_accent

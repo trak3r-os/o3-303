@@ -24,7 +24,7 @@
 // exp (the filter coefficient is computed every kControlPeriod samples and ramped linearly between, tan by a rational fit, 2^x by
 // core::exp2_fast); the tanh of each ladder state is computed once and reused; the original's four +-4 clamps of the ladder states are one
 // guard on the last stage (none ever acts); Volume and the accent lift of the amplifier are smoothed (5 ms), where a jump would click; the
-// envelopes are flushed to zero below 1e-9 (denormal safety); accent and slide come as note flags, not as a velocity threshold. Like the
+// envelopes are flushed to zero below 1e-9 (denormal safety); the accent is the note flag or a velocity of 96 and up (kAccentVelocity), the slide a note flag. Like the
 // original the oscillator and the filter run all the time (a free-running VCO into a free-running VCF, gated by the amplifier): a note
 // after a rest starts on a filter in steady state, not from zero.
 // Not in the original at all: the mods, parameter ids 8 to 19 (docs/MODS-PLAN.md section 3). They are new code, written from public descriptions

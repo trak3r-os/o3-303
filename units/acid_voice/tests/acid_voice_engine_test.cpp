@@ -146,6 +146,28 @@ TEST_CASE("acid_voice: an accented note is louder and brighter") {
   CHECK(hf[1] > hf[0] * 1.3);
 }
 
+TEST_CASE("acid_voice: a velocity of 96 and up accents like the flag; 95 and the sequencer's normal 80 do not (a MIDI keyboard)") {
+  auto render = [](std::uint8_t velocity, std::uint8_t flags) {
+    Rig r;
+    r.script.on_velocity(0, 36, velocity, flags);
+    r.script.off(ms(300), 36);
+    return r.render(ms(400));
+  };
+  const auto plain = render(80, 0);
+  const auto v95 = render(95, 0);
+  const auto v96 = render(96, 0);
+  const auto v127 = render(127, 0);
+  const auto flagged = render(80, o3sdk::dsp::kNoteAccent);
+  const auto sequencer_accent = render(110, o3sdk::dsp::kNoteAccent);
+  REQUIRE(plain.size() == v95.size());
+  CHECK(plain == v95);  // 95 is not an accent, and velocity does nothing else
+  CHECK(v96 == flagged);
+  CHECK(v127 == flagged);
+  CHECK(sequencer_accent == flagged);
+  CHECK(v96 != plain);
+  CHECK(peak(v96, 0, ms(100)) > peak(plain, 0, ms(100)) * 1.1);
+}
+
 TEST_CASE("acid_voice: a slide glides the pitch in about 60 ms and does not retrigger the envelopes") {
   // Resonance 0, no env mod: the output is a low-passed saw, so its zero crossings follow the pitch.
   auto make = [](Rig& r) {

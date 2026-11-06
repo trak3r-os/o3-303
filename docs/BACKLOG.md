@@ -20,9 +20,9 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 3 | 13 (with 3) Delete, Insert, Up and Down on a step (built, B2) | small | nothing (proposal 2026-11-03) |
 | 4 | 1 ROOT control (built, B2) | small | the place: Shift + F5 on PATTERN SETUP, proposed |
 | 4b | 12 FILE LIBRARY: Shift + pad for slots 16 to 63 (built, B1) | small | nothing |
-| 4c | 15 a MIDI velocity threshold gives the accent | small | o3-sdk's router, or the app routes notes itself |
+| 4c | 15 a MIDI velocity threshold gives the accent (built, B3) | small | o3-sdk's router, or the app routes notes itself |
 | 5 | 7 Left and Right move the held F key's value, 1/20 of its range (single press built, B2; held repeat waits on 9) | small | nothing; the held repeat waits on 9 in o3-sdk |
-| 5b | 16 a library load keeps the sound in a LAST slot, 17 a NO AUTOSAVE chip (17 built, B1) | small each | nothing; before item 8 |
+| 5b | 16 a library load keeps the sound in a LAST slot, 17 a NO AUTOSAVE chip (17 built, B1) (16 built, B3) | small each | nothing; before item 8 |
 | 6 | 8 one ladder model: HOME's FILT rows and PERFORM's row 3 take any F key's knob | medium | nothing (decided 2026-11-03) |
 | 7 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
 | 7 (with 2) | 14 GROWL, WOBBLE and mods: on/off keys, audible defaults, "heard on" lines | medium | item 2's redraw; the new defaults are decided (2026-11-05), so they can go first, alone |

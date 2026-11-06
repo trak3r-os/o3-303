@@ -312,7 +312,7 @@ void PerformScreen::key_press(app::Context& ctx, unsigned pad) noexcept {
     return;
   }
   key_note_[pad] = note;
-  (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), 100, 0);
+  (void)ctx.engine().note_on(rig_->wiring.voice, static_cast<std::uint8_t>(note), 90, 0);
 }
 
 void PerformScreen::key_release(app::Context& ctx, unsigned pad) noexcept {

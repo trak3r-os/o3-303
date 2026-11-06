@@ -9,6 +9,7 @@
 //   pads 1..48       LOAD slots 0..47 of the bank    LEFT / RIGHT   slot -1 / +1
 //   UP / DOWN        slot -8 / +8                    INSERT         LOAD the slot shown (the only way to the slots 48..63, which have no pad)
 //   Shift + F1       NEW SEED (the same slot, another take)        Shift + F2     LOAD what: BOTH, LINE, SOUND
+//   Shift + F3       LAST SOUND: the sound the last load replaced (kept in RAM); the sound now goes into LAST, so a second press goes back
 //
 // The view logic (the texts) is apart from the drawing. Main loop only.
 
@@ -65,7 +66,7 @@ class VaultScreen final : public o3sdk::app::Screen {
   std::uint32_t seed_ = 0;  // 0: the vault's own content of the slot; else the seed NEW SEED (or Shift + turn) made
   LoadWhat what_ = LoadWhat::Both;
   seq::gen::Preset preview_;
-  char toast_[40] = "";
+  char toast_[48] = "";
   std::uint64_t toast_until_ms_ = 0;
   bool saving_ = false;               // Rig::project.saving as last seen: a SAVE is on (the status line says SAVING)
   std::uint32_t seen_notice_ = 0;     // Rig::project.notice_seq as last seen: a new notice is toasted
