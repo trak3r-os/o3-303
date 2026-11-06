@@ -4,8 +4,8 @@ The maintainer asked on 2026-11-06 for "el sonido mas identico a la 303 de rolan
 changed in `units/acid_voice` to get there, where each number comes from, what was measured, and what is still not known. It replaces the
 rule "Stock is today" of `docs/MODS-PLAN.md`: stock is now a TB-303.
 
-Status: built, and it needs more testing on a unit. The figures below come from the simulator and the cross build. Section 6 lists what only the
-unit can show.
+Status: built, and it needs more testing on a unit. The render's CPU was measured on the unit (`docs/hw/2026-11-06-v051.md`). The other figures below come from the simulator and the cross
+build. Section 6 lists what is still owed.
 
 ## 1. Why the voice changed
 
@@ -85,7 +85,10 @@ Cost, an estimate from the cross build's disassembly, not a measurement: the sto
 control period's share, with two divisions. It runs in four short passes over a control period, because one long loop spilled most of its
 registers. The old voice's loop counted 424 to 443 cycles, but that count takes in every path, rare ones as well, so the two are not like for like.
 Counted the same way the new function is about 700, which includes code that runs once a control period or only at a wrap. The modded loops cost
-more than the stock loop. Only the unit can settle this.
+more than the stock loop.
+
+Measured on the unit (`docs/hw/2026-11-06-v051.md`), on one saved project at 142 BPM: render max 39.7 % with the mods, growl and wobble off, and 49.8 % with the mods, growl, wobble,
+distortion and delay all on, with 0 underruns.
 
 ## 5. What is not known
 
@@ -100,9 +103,8 @@ more than the stock loop. Only the unit can settle this.
 
 ## 6. Owed on a unit
 
-- The render's CPU: the figure to set against the estimate, against 50.1 % at the last measurement.
 - By ear, the maintainer: the accents and how they climb, the height of the sweep, RANGE, HI RES at the top of RESO, SUSTAIN, and a slide.
-- A project saved by v0.5.0 loads, and its sound is as `state` says.
+- How a project saved by v0.5.0 sounds. It loads without an error.
 
 ## 7. Sources
 

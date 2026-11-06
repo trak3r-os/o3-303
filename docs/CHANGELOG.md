@@ -3,7 +3,10 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
-## Unreleased
+## v0.5.1 (2026-11-06), a pre-release
+
+A new voice. It needs more testing: on a unit its CPU was measured (render at most 49.8 % with everything on, 0 underruns) and a project saved by v0.5.0 loaded, but its sound still has to be
+judged by ear there (`docs/VOICE-303.md`, section 6).
 
 ### What plays or sounds different
 

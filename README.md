@@ -126,6 +126,7 @@ The unit sessions are in `docs/hw/`.
 | 2026-11-06, B1 to B3 | `9f3e1a2` | Ten backlog items: the ROOT and the key LEDs, FILE LIBRARY's slots, Left and Right with an F key held, MIDI accent at velocity 96 (about 2.3 times louder in a USB capture); render max 50.1 %, 0 underruns |
 | 2026-11-06, B4 to B6 | `51dd939` | The ladder rows on HOME, the held repeat, the encoder's curve, a learned CC moving CUTOFF; render max 53.2 %, 0 underruns; the skin's draw over the 2,000 µs budget it had then, so the budget became 6,000 µs |
 | 2026-11-06, v0.5.0 | `4df5c20`, `d39ce44`, then the tag `108f63f` | OBSIDIAN by default, INSTRUMENT's new layout, GROWL's and WOBBLE's F8, MODS; the skin's draw peak 5,685 µs; render max 58.5 % on HOME and 64.8 % once across the round, 0 underruns; the tagged image started. One hang after a console `reset`, until a power cycle, cause unknown |
+| 2026-11-06, the new voice | `0bdac3c` | Render max 39.7 % at stock and 49.8 % with the mods, growl, wobble, distortion and delay on, 0 underruns; a project saved by v0.5.0 loads (`docs/hw/2026-11-06-v051.md`) |
 
 U1 and U2 have no results recorded (their pages say `to fill`); U4 was superseded by U5 before it was installed.
 
