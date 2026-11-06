@@ -117,12 +117,12 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
 TEST_CASE("a fresh boot reads the 303 page's defaults") {
   Hands t;
   const app::ConfigView& v = t.h->runtime().context().config_view();
-  // The 303 page's defaults: 10 S, PLAY, 30 ms, ON, CLASSIC.
+  // The 303 page's defaults: 10 S, PLAY, 30 ms, ON, OBSIDIAN.
   CHECK(t.config_get(config::kAutosave) == 1.0f);
   CHECK(t.config_get(config::kKeysAtBoot) == 0.0f);
   CHECK(t.config_get(config::kLadderSlew) == 30.0f);
   CHECK(t.config_get(config::kPadLegend) == 1.0f);
-  CHECK(t.config_get(config::kSkin) == 0.0f);
+  CHECK(t.config_get(config::kSkin) == 1.0f);
   for (std::uint16_t key : {config::kAutosave, config::kKeysAtBoot, config::kLadderSlew, config::kPadLegend, config::kSkin}) {
     const app::ConfigItem* it = find_item(v, key);
     REQUIRE(it != nullptr);
@@ -181,7 +181,7 @@ TEST_CASE("PAD LEGEND turns the PADS line's text off on every screen, and back")
   CHECK(frame::pad_legend());
 }
 
-TEST_CASE("SKIN: CLASSIC at start, OBSIDIAN on the player's choice, and HOME has no kit chrome while it is on (docs/SKIN-PLAN.md)") {
+TEST_CASE("SKIN: OBSIDIAN at start, CLASSIC on the player's choice, and HOME has no kit chrome while OBSIDIAN is on (docs/SKIN-PLAN.md)") {
   Hands t;
   app::Context& ctx = t.h->runtime().context();
   const app::ConfigView& v = t.h->runtime().context().config_view();
@@ -191,11 +191,6 @@ TEST_CASE("SKIN: CLASSIC at start, OBSIDIAN on the player's choice, and HOME has
   CHECK(it->value->list_count == 2);
   CHECK(std::string(it->value->names[0]) == "CLASSIC");
   CHECK(std::string(it->value->names[1]) == "OBSIDIAN");
-  CHECK_FALSE(skin::on());
-  CHECK_FALSE(skin::active(ctx));
-  CHECK(ctx.screen()->chrome(ctx) == app::Chrome::Full);
-  CHECK(ctx.screen()->theme(ctx) == nullptr);
-  t.skin_on();
   CHECK(skin::on());
   CHECK(t.config_get(config::kSkin) == 1.0f);
   CHECK(skin::active(ctx));
@@ -204,13 +199,17 @@ TEST_CASE("SKIN: CLASSIC at start, OBSIDIAN on the player's choice, and HOME has
   CHECK(t.h->runtime().frame_failures() == 0u);
   t.skin_off();
   CHECK_FALSE(skin::on());
+  CHECK_FALSE(skin::active(ctx));
   CHECK(ctx.screen()->chrome(ctx) == app::Chrome::Full);
-  // A value out of range is the nearest place, and a new run starts at CLASSIC again (the app object outlives a run).
+  CHECK(ctx.screen()->theme(ctx) == nullptr);
+  // A value out of range is the nearest place, and a new run starts at OBSIDIAN again (the app object outlives a run).
   t.config_set(config::kSkin, 7.0f);
   CHECK(skin::on());
+  t.config_set(config::kSkin, -3.0f);
+  CHECK_FALSE(skin::on());
   t.h = std::make_unique<sim::Harness>(o3sdk_app());
   t.boot();
-  CHECK_FALSE(skin::on());
+  CHECK(skin::on());
 }
 
 TEST_CASE("skin::active is false when the app's bitmaps are not in RAM_G: the whole app runs classic") {
@@ -417,6 +416,7 @@ TEST_CASE("a system.o3s that still holds the retired keys 20..24 loads, drops th
   s.run(1500);
   CHECK(app_project().has_project());  // the file with the retired keys did not keep the project from loading
   CHECK(s.get(config::kAutosave) == 2.0f);  // the key the page still has is applied
+  CHECK(skin::on());  // a file with no key 7, from before SKIN: OBSIDIAN (docs/SKIN-PLAN.md, SK8)
   const app::ConfigView& v = s.ctx().config_view();
   for (std::uint16_t retired = 20; retired <= 24; ++retired) {
     CHECK(find_item(v, retired) == nullptr);

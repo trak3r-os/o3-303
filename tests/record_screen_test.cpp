@@ -9,6 +9,7 @@
 #include "../app/src/main_screen.h"
 #include "../app/src/project_service.h"
 #include "../app/src/record_screen.h"
+#include "../app/src/skin/skin.h"
 
 #include <o3sdk/app/app.h>
 #include <o3_303/app_access.h>
@@ -712,6 +713,7 @@ std::uint64_t status_band(Session& s) {
 
 TEST_CASE("Shift + Rec that is refused says so on the status line of every screen, not on RECORD's alone") {
   Session s;
+  o3_303::skin::set_on(false);  // the classic status line; OBSIDIAN says it in the PAGE window (skin_core_test)
   REQUIRE(s.h->engine().set_tempo(20'000));  // 4 bars are 48 s: no fit
   s.wait(50);
   s.open_record();

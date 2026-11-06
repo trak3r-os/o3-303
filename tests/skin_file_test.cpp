@@ -318,6 +318,7 @@ TEST_CASE("skin file: FILE takes no kit chrome and the obsidian theme with the s
       REQUIRE(std::strcmp(s.title(), "FILE LIBRARY") == 0);
     }
     app::Context& ctx = s.ctx();
+    s.skin(false);
     CHECK(ctx.screen()->chrome(ctx) == app::Chrome::Full);
     CHECK(ctx.screen()->theme(ctx) == nullptr);
     s.skin(true);

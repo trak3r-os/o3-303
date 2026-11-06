@@ -305,6 +305,23 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   CHECK(std::strlen(v.enc) == 17);
 }
 
+TEST_CASE("header: with Shift held the ENC window gives the value: the unit goes first, then the name is cut") {
+  char enc[32];
+  enc_with_value(enc, sizeof enc, "CUTOFF", "1234", "Hz");
+  CHECK(str(enc) == "CUTOFF 1234 Hz");
+  enc_with_value(enc, sizeof enc, "WAVE", "SAW", "");
+  CHECK(str(enc) == "WAVE SAW");
+  enc_with_value(enc, sizeof enc, "LONGEST NAME HERE", "100", "%");  // the unit does not fit, and the name gives way to the value
+  CHECK(str(enc) == "LONGEST NAME 100");
+  enc_with_value(enc, sizeof enc, "ACC", "12345678901234567890", "ms");  // a value wider than the window: no name, cut to it
+  CHECK(str(enc) == "12345678901234567");
+  enc_with_value(enc, 4, "CUTOFF", "456", "Hz");  // a small buffer: cut to it, ended
+  CHECK(str(enc) == "456");
+  enc[0] = 'x';
+  enc_with_value(enc, 0, "CUTOFF", "456", "Hz");  // no room at all: nothing written
+  CHECK(enc[0] == 'x');
+}
+
 TEST_CASE("header: PLAYS: SONG changes the TRANSPORT legend and nothing else") {
   frame::StatusView st;
   HeaderInputs in;

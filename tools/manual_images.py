@@ -83,7 +83,7 @@ IMAGES = [
     # 9 Settings
     ("config-303", "manual_screens", "01_config_303", "screen"),
     # 13 Two looks
-    ("look-classic-home", "home", "01_plain", "screen"),
+    ("look-classic-home", "classic", "01_home", "screen"),
     ("look-obsidian-home", "skin_home", "01_stopped", "screen"),
 ]
 

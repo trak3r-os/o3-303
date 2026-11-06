@@ -1,7 +1,7 @@
 # o3-303: the obsidian skin (plan)
 
 Status (2026-11-02): SK1 committed (the assets); SK2 and SK3 built and host-verified (the core, the header, the glass, the F row, the
-`skin` console command); SG2's SONG screen drawn on the skin too; SK4 (PERFORM and PERFORM SETUP), SK5 (INSTRUMENT), SK6 (MASTER, RECORD; its HOOKS page went with HOOKS in MODS S0) and SK7 (FILE PROJECTS, LIBRARY's fallback) built and host-verified; MODDED, GROWL and WOBBLE skinned and measured (MODS S3); the kit's strip left its area, every strip frame under the ceiling (KS1, 4.3); SK8 not started; SU1p, the first unit session, recorded its console rows (4.6), the rows by eye owed. Planned
+`skin` console command); SG2's SONG screen drawn on the skin too; SK4 (PERFORM and PERFORM SETUP), SK5 (INSTRUMENT), SK6 (MASTER, RECORD; its HOOKS page went with HOOKS in MODS S0) and SK7 (FILE PROJECTS, LIBRARY's fallback) built and host-verified; MODDED, GROWL and WOBBLE skinned and measured (MODS S3); the kit's strip left its area, every strip frame under the ceiling (KS1, 4.3); SK8 built and host-verified (2026-11-06; D21 settled A9); SU1p, the first unit session, recorded its console rows (4.6), the rows by eye owed. Planned
 2026-10-30. The maintainer approved the obsidian look (mockup A as HOME, B as INSTRUMENT) and asked on 2026-10-30 to queue
 the skin and the o3-sdk changes it needs. UX-303 section 15 says what the skin is: a new drawing of the same view structs, with no change to
 the interaction. This plan says what each screen draws, what it costs, the kit contracts it needs (UX-PLAN section 7: N4 to N7, plus N0 and N9),
@@ -21,7 +21,7 @@ Sources: the skin spike (`gen_skin.py`, `NOTES.md`, `budget.json`, mockups A and
 - **The skin replaces the drawing, not the logic.** A screen fills its view struct exactly as today. When the skin is active, `draw()` calls
   the skin's function for that view; otherwise it calls today's. No input, LED, pad or sound path changes. **Every WAV stays byte-identical
   in every slice.**
-- **Switch and fallback.** Config page "303" gets key 7, SKIN, with CLASSIC (0) and OBSIDIAN (1). Its default stays CLASSIC until SK8, so
+- **Switch and fallback.** Config page "303" gets key 7, SKIN, with CLASSIC (0) and OBSIDIAN (1). Its default stayed CLASSIC until SK8, so
   every existing scenario's PNG stays byte-identical through SK1 to SK7. Any screen whose skinned frame breaks a budget of section 4 keeps
   today's layout, with the kit chrome, drawn in the obsidian colours. The fix is one line (`chrome()` returns `Full`), and the screen's skin
   code is kept for later. If the app assets fail to upload, the whole app runs classic.
@@ -303,7 +303,7 @@ Unproven:
 | 4 | Photos at arm's length | the silkscreen, labels and digits are read without effort |
 | 5 | Dither and texture | no banding the maintainer objects to |
 | 6 | Boot to the first HOME frame | under 0.3 s more than the classic image |
-| 7 | `skin stats` | draw µs under 2,000 at the peak; `frames_busy` not higher than classic; `dropped=0` on every skinned screen (a label or shape lost to a full queue shows there, and nowhere else) |
+| 7 | `skin stats` | draw µs under 6,000 at the peak (2,000 until 2026-11-06, D21); `frames_busy` not higher than classic; `dropped=0` on every skinned screen (a label or shape lost to a full queue shows there, and nowhere else) |
 | 8 | Two minutes playing with knob turns | 0 underruns (`o3console.py cpu`) |
 | 9 | Config over a skinned HOME; hold Power for the strip | the kit's Config intact; the strip at the bottom (over the F row's read-outs while it is up) |
 
@@ -650,7 +650,7 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
 | 5 | SK5 INSTRUMENT | M | SK4 | | SU2 |
 | 6 | SK6 MASTER, RECORD, HOOKS | M | SK5 | | SU2 |
 | 7 | SK7 FILE PROJECTS, LIBRARY fallback | S | SK6 | | SU2 |
-| 8 | SK8 OBSIDIAN by default | S | SU2 passed | | next U image |
+| 8 | SK8 OBSIDIAN by default | S | A9 settled (D21); SU2's rows by eye still owed | | next U image |
 | (W7) | SG2 SONG with both drawings (UX-PLAN) | M | SG1, C1, SK3 | | U6 |
 
 ### SK1: skin assets (M)
@@ -720,7 +720,7 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
   - Edited SK2 files: `panel.{h,cpp}` (new layers, `kTexts` 64 to 96, `led`, `window`, `cut_to` moved from `header.cpp`, `draw_ballast`), `skin.{h,cpp}` (palette, stats, console), `tests/skin_core_test.cpp`; `tests/CMakeLists.txt` links the app archive before `platform_host` (`hal::cycles()`).
   - Image: text +5,200 B, data 0, bss +672 B against SK2's baseline.
   - SU1 adds: the readouts at arm's length (10x20, 8x16, 6x12), the pointer lines, the switch, the amber held rim, the Shift row's amber tabs and keys, `skin ballast N` and `skin stats` (it says "no bitmaps: classic drawn" when SKIN is on but the upload failed).
-  - **Open, to settle at SU1 and before SK8 makes the skin the default:** while Shift is held the F row is the Shift row, so Shift + turn (a coarse step) shows no value: the ENC window names the knob only. Classic keeps its strip up for that case. Candidates: the value in the STEP-box chip, or in the info line.
+  - **Settled at SK8:** while Shift is held the F row is the Shift row, so Shift + turn (a coarse step) had no value to show. On HOME and SETUP the ENC window now carries it, "CUTOFF 456 Hz" (`skin::enc_with_value`): the value always shows, the unit goes first, then the name is cut. Classic keeps its strip up for that case.
 
 ### SK4: PERFORM and PERFORM SETUP (M)
 
@@ -755,7 +755,7 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
 - **As built:**
   - Built before SU1, under the 1,350 / 100 / 4,800 limits (not raised); SU2 covers it. `InstrumentSection`, `InstrumentCell` and `InstrumentView` moved to `app/src/instrument_view.h` (as `perform_view.h`), the one view both drawings take; it gained `page`, `Learn learn[8]` (None, No, Can, Armed: the Shift row, from `InstrumentScreen::learn_of()`, which the classic Shift row now uses too) and, on a cell, `accent`, `slide`, `on`. `InstrumentScreen` gained `chrome()` / `theme()`, `draw_skinned()`, a public `fill_view()`; classic `draw()` is `draw_classic()`, unchanged.
   - `skin/instrument.{h,cpp}`, mockup 06 with no glass (`queue_panel_full()`: the base and texture over the whole screen, the sheen on the header only): the eight knobs of the page on top as `knob58` (the F row's slot kinds, readouts and states through `queue_label()`, `queue_readout()`, `queue_switch()`, which `frow.cpp` now exports and uses for its own row, so the F row's pixels did not move); the section boxes (VOICE page: DISTORTION, DELAY, MODS; FX and MODS: what `InstrumentSection` gives) as five rule rects, a legend and a window for each read-out; the strip of 16: the note in the 10x20 face (the playhead's green over the cursor's blue), three LED rows (ACCENT amber, SLIDE green, STEP dim red on a note or a tie, bright on the playhead; one pass a colour, a glow for the lit ones), a `key` sprite in three layers (body in two tints by groups of four, light, shadow), the cursor's white ring and a held step's amber one, the step numbers; last the page tabs (the shown page red), the hint line and the PADS line. Shift keeps the knobs and readouts up, the labels read LEARN (bright; accent and an amber LED while armed) or "-" (dim), the tabs turn amber. A held step's lock is the knob's own readout (accent colour, amber LED), as on the F row. Three pages: DEEP is gone.
-  - Shift + turn: INSTRUMENT's open item (the coarse value) is settled here: the knobs and readouts stay up under Shift, so the value moves in the readout as with Shift up. It stays open for HOME and SETUP (SU1 / SK8).
+  - Shift + turn: INSTRUMENT's open item (the coarse value) is settled here: the knobs and readouts stay up under Shift, so the value moves in the readout as with Shift up. HOME and SETUP settled at SK8, in the ENC window (SK3 above).
   - Deviations: `Layer::KeyBody`, `KeyLight`, `KeyDark` (three bitmap cells, one bind each); `Panel::kShapes` 256 to 384 and `kTexts` 160 to 192 (the all-lit strip is 48 LEDs, 48 glows, 16 keys of three sprites, plus 8 knobs of five parts: 256 dropped the page tabs), `sizeof(Panel)` is 11,552 B (the test's bound is 11,600; it was 10 KiB after SK4); `Panel::round_rect_at()` and `text_at()` read the queue for the tests (a text's pointer is into the frame's own buffers, so a test reads its place and colour, not its characters).
   - `skin_instrument` snaps (words, primitives on the busiest line, box px): 01 voice 1,103, 72, 3,654; 02 fx 1,007, 72, 3,654; 03 mods 1,120, 78, 3,654; 04 lock on a held step 1,090, 72, 3,694; 05 cursor on step 7 1,104, 72, 3,654; 06 playing 1,111, 72, 3,654; 07 Shift row 1,095, 72, 3,654; 08 LEARN armed 1,097, 72, 3,654; 09 learned (toast) 1,125, 92, 4,166; 10a every step lit 1,129, 72, 3,654; 10 the worst case (MODS, playing, two steps held, Shift, LEARN armed) 1,115, 78, 3,734. Peaks: 1,129 words, 92 primitives (09: the toast's window), 4,166 px, against 1,350, 100 and 4,800. The test's worst frame (all 16 steps a note with accent and slide, every step held, Shift down, playing, MIDI learn's toast in the PAGE window) queues 293 shapes of 384 and 114 texts of 192 (page 0 and 2; FX 276 and 103), `dropped() == 0`. The 2.4 estimate for INSTRUMENT was 1,130.
   - PAGE window message (all skinned screens): to 20 characters the 8x16 Label, 21 to 27 the 6x12 Micro (162 px of 172), longer cut at 26 and a "." (`cut_message()`, `message_face()` in `skin/header.cpp`); the toast was cut at 20 before ("LEARN CUTOFF: MOVE A"). Only `skin_instrument` 08, 09 and 10 moved (the 23 and 25 character toasts).
@@ -821,6 +821,7 @@ Sizes as in UX-PLAN: **S** about an hour plus a review, **M** two to three hours
   - a settings file without key 7 gives OBSIDIAN;
   - ctest green; gate.
 - **Unit:** the next U image.
+- **Built 2026-11-06.** The maintainer settled A9 by a new budget (D21), so this slice went ahead of SU2, whose rows by eye stay owed. The scenario is `classic.txt`, not `skin_classic.txt`: a `skin_*` file is held to the skin's budgets and to "is skinned". The tests that read the classic drawing now turn the skin off first. SK3's open item is settled here too.
 
 **SG2 (UX-PLAN wave 7), gains:** a `SongView` drawn by both a classic function and `skin/song.cpp` (mockup 07), with `skin_song.txt`. SG2
 owns those files and runs between SK3 and SK8, in the skin lane's gap.
@@ -867,6 +868,7 @@ the header (`HeaderView::song`, from `StatusView::song`); the same four Micro ch
 | D17 | Every app bind is six words, both `_H` words always | handle properties persist across binds and frames; tracking the high bits would save about 20 words a frame for a state machine across frames |
 | D18 | N0 frame digests first in the o3-sdk batch | "today's words unchanged" has no test today; every later step is proved against pinned digests |
 | D19 | One Canvas section a frame, opened first; all live text outside it, through `Renderer::text()` | 2 words a frame; no glyph code copied into the Canvas; the Renderer's private caches stay right. The price: text colours are theme tokens |
+| D21 | The draw budget of check 7 is 6,000 µs at the peak, not 2,000 (the maintainer, 2026-11-06) | the unit's peak is 5,500 µs on VOICE playing (`docs/hw/2026-11-06-b6.md`, row 14), with no underrun and `dropped` 0; 2,000 was a target with nothing measured behind it. `frames_busy` has no console readout, so smoothness on the glass is a check by eye. This settles A9 and lets SK8 go first; SU2's rows by eye stay owed |
 | D20 | `kHandleApp`, N0's digest and N9's counters go in new or already-diverged files (`canvas.h`, `eve_raster`) | `assets.h` and `raster_display.{h,cpp}` are identical to track3r-os and stay so |
 
 ## Appendix A: other kit fixes queued for the o3-sdk step (to batch with N4 to N7 if the maintainer wants)

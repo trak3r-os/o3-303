@@ -1,0 +1,23 @@
+# The CLASSIC look, kept exercised now that OBSIDIAN is the default (docs/SKIN-PLAN.md, SK8): SKIN turned to CLASSIC through Config, as a player does (Left once is "303", five Downs
+# reach SKIN, the encoder clamps at CLASSIC), then HOME, PERFORM and INSTRUMENT in the plain drawing. Its 01_home is the manual's CLASSIC picture (tools/manual_images.py).
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/classic.txt --out <dir>
+wait 300
+tap config
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn -4
+tap config
+wait 100
+snap 01_home
+tap performance
+wait 100
+snap 02_perform
+tap pattern
+wait 100
+tap params
+wait 100
+snap 03_instrument

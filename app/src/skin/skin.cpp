@@ -7,7 +7,7 @@ namespace o3_303::skin {
 
 namespace {
 
-bool g_on = false;  // CLASSIC until SK8; main loop only
+bool g_on = true;  // OBSIDIAN by default (SK8); main loop only
 bool g_assets = true;              // app_assets_ok() as active() last saw it, for `skin stats` (on without the bitmaps draws classic); main loop only
 FrameStats g_stats;                // main loop only: the screen writes it, the console reads it
 std::uint64_t g_window_start_ms = 0;

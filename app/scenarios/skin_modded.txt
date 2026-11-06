@@ -1,5 +1,5 @@
 # MODDED, STOCK and GROWL and WOBBLE's keys on the obsidian skin (docs/MODS-PLAN.md 9 and S3; docs/SKIN-PLAN.md 2.4, 4.3; mockup 06): INSTRUMENT's screen class on the Sample buttons, no glass, the panel at full
-# height. The skin is off until SK8, so the scenario turns it on through Config as skin_instrument.txt does (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
+# height. The skin is on by default since SK8; the scenario still turns it on through Config as skin_instrument.txt does (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN).
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_modded.txt --out <dir>
 #

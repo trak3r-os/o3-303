@@ -300,6 +300,7 @@ TEST_CASE("skin record: two of the take's peaks make a column, the larger one; a
 
 TEST_CASE("skin screens: MASTER and RECORD take no kit chrome and the obsidian theme with the skin on, the kit's with it off") {
   Hands t;
+  t.skin_off();
   for (const Button b : {Button::Master, Button::SampleRec}) {
     t.tap(b, 30);
     t.wait(60);

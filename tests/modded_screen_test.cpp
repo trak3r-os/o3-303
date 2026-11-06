@@ -592,6 +592,7 @@ TEST_CASE("WOBBLE F8 latches and releases PERFORM's WOB action: a colour button'
 
 TEST_CASE("the classic status line carries a STOCK chip on HOME, PERFORM and MODDED while STOCK is on, and only then") {
   Hands t;
+  t.skin_off();
   const auto words = [&] {
     t.wait(2700);  // the toast of the flip (2.5 s) is gone: what is left is the chip
     return t.h->display().last_frame_words();

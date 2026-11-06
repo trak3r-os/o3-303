@@ -82,7 +82,7 @@ by the console (the tester's row numbers), and what is still owed. No unit row i
 | SG2 SONG screen | 7 | in the tree | built, host-verified | none yet (no image with SG2) | a song with repeats by ear; insert, delete and undo while it plays, with no clicks at pass boundaries |
 | HELP-A (UX-303 5.13, not a slice of this plan) | - | `3c38421`, `27259f0` | built, host-verified (`help_texts_test`) | none yet | HELP on the unit: the pages and the overlay by eye |
 
-The skin's slices are in `docs/SKIN-PLAN.md`: SK1 committed (`037209f`), SK2 and SK3 built and in the tree, SK4 to SK8 not started,
+The skin's slices are in `docs/SKIN-PLAN.md`: SK1 committed (`037209f`), SK2 to SK8 built,
 SU1 (the skin's first unit session) owed.
 
 Why this order (judged from the code): PERFORM goes first because the Perform button did nothing at the plan's date, so a new screen is additive:

@@ -9,10 +9,8 @@ A request moves out of this file when a plan takes it (UX-PLAN, a slice brief); 
 
 ## Status on 2026-11-06
 
-Every live item is built on o3-303 main, on o3-sdk `ef6b1a0`, neither pushed, but for two:
+Every live item is built on o3-303 main, on o3-sdk `ef6b1a0`, neither pushed, but for one:
 
-- **Item 5, OBSIDIAN the default:** blocked on A9. `dropped` is 0 on every screen, but `peak_us` reached 5,500 µs on VOICE playing against the budget of 2,000
-  (`docs/hw/2026-11-06-b6.md`, row 14). Either the draw gets cheaper or the maintainer changes the budget.
 - **Item 14, point 4, the wobble marker:** left out. It needs a redraw every frame, and the screen redraws on events.
 
 On the unit, B1 to B3 passed (`docs/hw/2026-11-06-b2.md`). B4 to B6 passed where they ran: the held repeat, the row latch, the thresholds of the encoder curve, a learned
@@ -40,7 +38,7 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 7 (with 2) | 14 GROWL, WOBBLE and mods: on/off keys, audible defaults, "heard on" lines (1, 2 and 5 built, B5a; 3 built, B5b; 4, the wobble marker on DEPTH, left out: it needs a redraw every frame and the screen redraws only on events) | medium | item 2's redraw; the new defaults are decided (2026-11-05), so they can go first, alone |
 | 7a | 19 the row latch ends with the screen (built, B5b) | small | with item 2 |
 | 7b | 6 the key LEDs: scale at mid, root highlighted (built, B2) | small | item 1, the root |
-| 8 | 5 OBSIDIAN the default | small once A9 is settled | A9 on the unit |
+| 8 | 5 OBSIDIAN the default (built, SK8; A9 settled by a new budget of 6,000 µs, the maintainer, 2026-11-06) | small | nothing |
 | 9 | 9 (built, B6) encoder speed and button auto-repeat, 10 (built, B6) MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
 
 ## 2026-11-02: the first session with v0.1.0 on the unit
@@ -84,9 +82,9 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
    - Today: F2 SOURCE picks MASTER or an input the unit has: LINE, MIC, RADIO or USB (MANUAL, RECORD).
    - Asked: MASTER always. SOURCE goes, which frees F2.
 5. **OBSIDIAN the default look.** "Make obsidian default theme."
-   - Why CLASSIC is the default today: OBSIDIAN's draw time went over its budget on the unit (SU1p, A9 `peak_us`).
+   - Why CLASSIC was the default: OBSIDIAN's draw time went over its budget on the unit (SU1p, A9 `peak_us`).
    - On the unit on 2026-11-02, HOME in OBSIDIAN while playing, after `skin on`: draw 3,214 µs, peak 3,819 µs, render at most 48.3 % of a block, 0 underruns.
-   - To do: settle A9 (the budget and every screen's peak on the unit), then make OBSIDIAN Config's SKIN default. A unit with a saved settings file keeps the look its owner chose.
+   - Settled 2026-11-06: the peak on the unit is 5,500 µs (VOICE playing), the maintainer raised the budget to 6,000 µs, and OBSIDIAN is Config's SKIN default (SK8). A unit with a saved settings file keeps the look its owner chose.
 6. **Keys on the two last pad rows, with the scale lit.** "In pattern mode can we have 2 last pad rows with notes, so that i can input notes? with the scale notes (and the set root) mid highlighted?"
    - Today: on HOME, rows 3 and 4 are the keys, C2 to B3, unless FILT is on. With a SCALE, the keys outside it go dark.
    - Asked, as the item reads:

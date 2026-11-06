@@ -28,7 +28,7 @@ constexpr core::ParamDesc kKeysAtBoot = {"KEYS AT BOOT", "", kKeysNames, nullptr
 constexpr core::ParamDesc kLadderSlew = {"LADDER SLEW", "ms", nullptr, nullptr, config::kLadderSlewMinMs, config::kLadderSlewMaxMs, kLadderSlewMs, 18, 2, 0, ParamUnit::Int,
                                          ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kPadLegend = {"PAD LEGEND", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kSkin = {"SKIN", "", kSkinNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kSkin = {"SKIN", "", kSkinNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 
 // ---- The pages -----------------------------------------------------------------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ void ConfigPages::init(LiveActions& live, ProjectService& project) noexcept {
   boot_ = true;
   live.set_ladder_slew_ms(kLadderSlewMs);
   frame::set_pad_legend(true);
-  skin::set_on(false);  // CLASSIC (the kit's settings read puts the saved choice over it)
+  skin::set_on(true);  // OBSIDIAN (the kit's settings read puts the saved choice over it)
   // (The autosave period is not reset: the project service keeps it across its own init() on purpose, as a setting that outlives the session; a unit boots with the default
   // and the kit's settings put the saved one over it.)
 }

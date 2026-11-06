@@ -714,7 +714,7 @@ they will sit in the same 4.0 to 5.1 ms band.
 **A9 is a failed check, and these pages inherit it.** `peak_us` at 3 to 5 ms against 2,000 µs failed on every skinned screen measured,
 and three more skinned pages (MODDED, GROWL, WOBBLE) now fail it the same way. Nothing here fixes it, and **SK8 (OBSIDIAN by default)
 stays blocked on A9** as before. The unit gate records `peak_us` and dropped frames for each new page beside INSTRUMENT VOICE, so that
-the A9 fix, when it comes, has their numbers too.
+the A9 fix, when it comes, has their numbers too. (Settled 2026-11-06: the maintainer raised the budget to 6,000 µs, `docs/SKIN-PLAN.md` D21, and SK8 went ahead.)
 
 ## 10. Slices (one lane; each with a firmware-reviewer and a build-verifier; ctest green and 0 warnings before stopping)
 
@@ -956,7 +956,7 @@ A host test is not this check. The slices name the unit check they leave to it.
   `param_denorm(param_norm(x))` and ACC DECAY 180 comes back 180.000015 (5.9). The clean fix would let snapshots write the mods like
   every other target, but it moves older WAVs by their last bits, so it waits for a deliberate re-baseline. S2 does not do it.
 - **Skin draw time: A9 failed** (`peak_us` 3 to 5 ms against 2,000 µs), and MODDED, GROWL and WOBBLE inherit the failure. SK8 stays
-  blocked on A9; it is not fixed here.
+  blocked on A9; it is not fixed here. (Settled 2026-11-06 by the new budget, `docs/SKIN-PLAN.md` D21.)
 - **The MIDI tools** belong to the MIDI lane until the orchestrator hands them to S0. S0 cannot pass `midi_check_selftest` without them.
 - **SRAM_U has almost no room.** KF1 (o3-sdk kit-fix1, 2026-11-01) measured the o3_303 image at SRAM_U 138,832 B. A 512-byte `.bss`
   growth (an alignment cliff before usb0's `g_bdt`) then tripped the link's "SRAM_U: less than 32 KiB free" assert, which had only

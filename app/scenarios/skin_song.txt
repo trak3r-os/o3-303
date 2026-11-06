@@ -1,5 +1,5 @@
 # SONG on the obsidian skin (docs/SKIN-PLAN.md 2.4, SG2; mockup 07): the header (PAGE "SONG"), the F row (PLAYS, LOOP, CHAIN, CLEAR, UNDO as action keys), the list in the glass with its colour
-# chips and the readout column, the PADS line. The skin is off until SK8, so the scenario turns it on through Config as skin_home.txt does.
+# chips and the readout column, the PADS line. The skin is on by default since SK8; the scenario still turns it on through Config as skin_home.txt does.
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_song.txt --out <dir>
 #

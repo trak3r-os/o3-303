@@ -149,7 +149,7 @@ With the OBSIDIAN look (section 13), the top of the screen is a 303-style panel 
 - **KEYBOARD**: KEYS (the keys play the voice) or TRNSP (the keys transpose the line), and the two octaves the keys play (OCT 2-3).
 - **PERFORM**: four lights for the live actions (at first, the colour buttons' MUTE, ACC, FILL and FRZ); a lit one is on.
 - **PAGE**: the screen's name, or a short message for a moment ("SAVED", "NEW LINE").
-- **ENC**: what the encoder turns now ("F1 CUTOFF").
+- **ENC**: what the encoder turns now ("F1 CUTOFF"). With Shift held on HOME and PATTERN SETUP it also gives the value ("CUTOFF 456 Hz"), because the Shift row hides the knobs.
 
 Under the screen's main area, the **PADS** line says in one sentence what the four rows of pads do on this screen. At the bottom, the
 **F row** names F1 to F8 and shows their values.
@@ -161,8 +161,8 @@ KEYS or TRNSP.
 
 ## 4. The first five minutes
 
-The pictures in this section show the OBSIDIAN look. The unit starts in CLASSIC: to match them, switch with Config, page 303, SKIN
-(section 13). CLASSIC shows the same messages in its status line.
+The pictures in this section show the OBSIDIAN look, the one the unit starts in. CLASSIC (section 13) shows the same messages in its
+status line.
 
 Switch the unit on. After the boot screen you are on HOME, with a factory line in pattern A01 (with a card in, the project you used last
 comes back instead). Pads are counted here by **row** (1 is the top row) and **column** (1 is the left).
@@ -223,8 +223,8 @@ That is the core of it. The rest of this manual is the detail.
 ## 5. The screens, one by one
 
 Every screen keeps the same rules: the F row is labelled, the PADS line says what the pads do, Shift + Config opens HELP, and Pattern
-brings you back to HOME. The pictures show the OBSIDIAN look where a screen has it; CLASSIC, today's default, shows the same things in
-plainer boxes (section 13).
+brings you back to HOME. The pictures show the OBSIDIAN look where a screen has it; CLASSIC shows the same things in plainer boxes
+(section 13).
 
 ### HOME
 
@@ -807,7 +807,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 | LADDER SLEW | How long a ladder tap glides | 10 to 100 ms (**30 ms**) |
 | PAD LEGEND | The PADS line on every screen | OFF, **ON** |
 | RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, assignments, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
-| SKIN | The look (section 13) | **CLASSIC**, OBSIDIAN |
+| SKIN | The look (section 13) | CLASSIC, **OBSIDIAN** |
 
 The sound is no longer on this page. The five settings that were on the old page DEEP are on the screens of their sounds, and a project
 saves them with its sound:
@@ -893,7 +893,7 @@ and tempo, lamps, real-looking knobs, dark glass. The buttons and the pads do th
 *The same moment, OBSIDIAN.*
 
 - **To switch**: Config, page 303, the SKIN row (the last one), turn the encoder. The choice is kept.
-- **CLASSIC is the default today.** OBSIDIAN becomes the default later, once it has been tested on a unit. There is no date.
+- **OBSIDIAN is the default.** A unit that has already saved its settings keeps the look it had: switch it on the SKIN row.
 - **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, MODDED, GROWL,
   WOBBLE, SONG, MASTER, RECORD and FILE PROJECTS (with its name keyboard) have it. FILE LIBRARY keeps its CLASSIC layout, with the header and the key row of the
   system, in the OBSIDIAN colours: it is too full to be redrawn on the panel. The pictures of the screens in this manual show the OBSIDIAN

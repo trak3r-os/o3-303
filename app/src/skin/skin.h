@@ -4,7 +4,7 @@
 // The obsidian skin (docs/SKIN-PLAN.md sections 2, 3 and 7): whether it is on and usable, the obsidian ui::Theme every skinned frame is drawn with, and the colours of
 // its shapes. A screen asks active(ctx) once a frame and draws with the skin or as before; the skin changes the drawing, never the logic.
 //
-// The switch is Config page "303", key 7, SKIN (CLASSIC / OBSIDIAN; CLASSIC until SK8). Main loop only: the Config value writes it and the drawing reads it.
+// The switch is Config page "303", key 7, SKIN (CLASSIC / OBSIDIAN; OBSIDIAN by default since SK8). Main loop only: the Config value writes it and the drawing reads it.
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/diag.h>

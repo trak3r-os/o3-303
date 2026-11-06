@@ -13,7 +13,7 @@ the song added. The controls and the screens moved on, and their current text is
   roles. Its section 5.13 is HELP (Shift + Config): what each control does on the screen in view, the kit's overlay with o3-303's texts.
 - The slice plan that built it: `docs/UX-PLAN.md`, with each slice's state.
 - The look: `docs/SKIN-PLAN.md` (the obsidian skin). The skin replaces the drawing, not the controls. Section 5 of this document describes
-  the classic screen only. The skin's SK1 to SK3 are built or in the tree; the rest is planned.
+  the classic screen only. The skin's SK1 to SK8 are built, and OBSIDIAN is the default look.
 - The song (section 4, Song; section 6, "chains on the fly and a song mode"): built as the SONG screen and the project's SONG chunk, see
   UX-303 5.7 and UX-PLAN's SG1 and SG2 rows. The unit check is owed.
 - The beat freeze, growl, wobble and rolls (the page table of section 3, its GROWL, WOBBLE and SNAP rows, and the Params row of section 4): M3b and M3c

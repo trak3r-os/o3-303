@@ -173,6 +173,40 @@ void cut_message(char* out, unsigned cap, const char* s) noexcept {
   }
 }
 
+void enc_with_value(char* out, unsigned cap, const char* label, const char* value, const char* unit) noexcept {
+  if (cap == 0u) {
+    return;
+  }
+  constexpr unsigned kWindow = 17;  // what fill_header keeps of the ENC text
+  const unsigned window = cap - 1u < kWindow ? cap - 1u : kWindow;
+  const unsigned label_len = static_cast<unsigned>(std::strlen(label));
+  const unsigned value_len = static_cast<unsigned>(std::strlen(value));
+  const unsigned unit_len = static_cast<unsigned>(std::strlen(unit));
+  const bool with_unit = unit_len != 0u && label_len + value_len + unit_len + 2u <= window;
+  const unsigned tail = value_len + (with_unit ? unit_len + 1u : 0u);
+  const unsigned room = tail + 1u < window ? window - tail - 1u : 0u;
+  unsigned name = label_len < room ? label_len : room;
+  while (name != 0u && label[name - 1u] == ' ') {  // a name cut at a space does not leave two before the value
+    --name;
+  }
+  unsigned n = 0;
+  const auto put = [&](const char* s, unsigned len) noexcept {
+    for (unsigned i = 0; i < len && n < window; ++i) {
+      out[n++] = s[i];
+    }
+  };
+  put(label, name);
+  if (name != 0u) {
+    put(" ", 1u);
+  }
+  put(value, value_len);
+  if (with_unit) {
+    put(" ", 1u);
+    put(unit, unit_len);
+  }
+  out[n] = '\0';
+}
+
 void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderInputs& in) noexcept {
   out = HeaderView{};
   pattern_name(in.pattern, out.pattern, sizeof out.pattern);

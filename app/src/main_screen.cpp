@@ -723,6 +723,15 @@ void MainScreen::draw_skin_frame(app::Context& ctx, ui::Renderer& r) noexcept {
   status.save_failed = rig_->project.failed;
   status.no_autosave = !rig_->project.autosave;
   enc_text(ctx, status.enc, sizeof status.enc);
+  char shift_lock_label[16];
+  if (ctx.panel().shift() && home_.row() == DrawerRow::None) {  // Shift + a turn is the coarse step, and the Shift row hides the knobs: the ENC window carries the value
+    view::Knob focused[view::kKnobs];
+    fill_page_knobs(ctx, focused, shift_lock_label);
+    const view::Knob& kn = focused[fkeys().focus()];
+    if (!kn.blank) {
+      skin::enc_with_value(status.enc, sizeof status.enc, kn.label, kn.value, kn.unit);
+    }
+  }
   skin::HeaderInputs in;
   in.title = title();
   in.pattern = sel();

@@ -68,6 +68,10 @@ ui::Face message_face(unsigned length) noexcept;
 // `s` into `out` (`cap` at least 28) as the rule above leaves it.
 void cut_message(char* out, unsigned cap, const char* s) noexcept;
 
+// The ENC window while Shift is held on HOME and SETUP: the Shift row has no knobs, so a coarse turn's value goes here, "CUTOFF 1234 Hz". The value always shows: within the window's 17 characters
+// the unit goes first, then the name is cut.
+void enc_with_value(char* out, unsigned cap, const char* label, const char* value, const char* unit) noexcept;
+
 // A 7-segment display: the window `win`, the cells right aligned at a 22 px pitch, the point after cell `run.dot` (the header's two displays and MASTER's tempo).
 void seg_display(Panel& p, const ui::Rect& win, const SegRun& run) noexcept;
 

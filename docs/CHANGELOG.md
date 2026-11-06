@@ -5,6 +5,9 @@ hear says so in plain words.
 
 ## Unreleased
 
+- OBSIDIAN is now the default look. A unit that has already saved its settings keeps the look it had; Config, page 303, SKIN switches it.
+- In OBSIDIAN, with Shift held on HOME and PATTERN SETUP, the ENC window also gives the knob's value, so a coarse turn can be read.
+
 ## v0.1.0 (2026-11-02), the first release, a pre-release
 
 o3-303 as a whole: an improved TB-303 as a firmware image for the Tracker hardware, built on the o3-sdk framework.
