@@ -21,7 +21,7 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 4 | 1 ROOT control (built, B2) | small | the place: Shift + F5 on PATTERN SETUP, proposed |
 | 4b | 12 FILE LIBRARY: Shift + pad for slots 16 to 63 (built, B1) | small | nothing |
 | 4c | 15 a MIDI velocity threshold gives the accent (built, B3) | small | o3-sdk's router, or the app routes notes itself |
-| 5 | 7 Left and Right move the held F key's value, 1/20 of its range (single press built, B2; held repeat waits on 9) | small | nothing; the held repeat waits on 9 in o3-sdk |
+| 5 | 7 Left and Right move the held F key's value, 1/20 of its range (built, B2) (built, B6) | small | nothing |
 | 5b | 16 a library load keeps the sound in a LAST slot, 17 a NO AUTOSAVE chip (17 built, B1) (16 built, B3) | small each | nothing; before item 8 |
 | 6 | 8 one ladder model: HOME's FILT rows and PERFORM's row 3 take any F key's knob (built, B4) | medium | nothing (decided 2026-11-03) |
 | 7 | 2 INSTRUMENT's knobs beside the F keys (built, B5b) | medium (five screens share the drawing) | nothing |
@@ -29,7 +29,7 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 7a | 19 the row latch ends with the screen (built, B5b) | small | with item 2 |
 | 7b | 6 the key LEDs: scale at mid, root highlighted (built, B2) | small | item 1, the root |
 | 8 | 5 OBSIDIAN the default | small once A9 is settled | A9 on the unit |
-| 9 | 9 encoder speed and button auto-repeat, 10 MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
+| 9 | 9 (built, B6) encoder speed and button auto-repeat, 10 (built, B6) MIDI automation | o3-sdk first | an o3-sdk change under its own rules |
 
 ## 2026-11-02: the first session with v0.1.0 on the unit
 

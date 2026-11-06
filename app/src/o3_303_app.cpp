@@ -104,8 +104,44 @@ class O3_303App final : public app::App {
   // The console's extra commands (the platform binds them at attach): `skin` (docs/SKIN-PLAN.md 4.6).
   std::size_t diag_commands(const app::DiagCommand*& rows) const noexcept override {
     static constexpr app::DiagCommand kRows[] = {{"skin", o3_303::skin::kConsoleHelp, &o3_303::skin::console}};
+    constexpr auto len = [](const char* t) constexpr noexcept {  // the length of a row's text, at compile time
+      std::size_t n = 0;
+      while (t[n] != '\0') {
+        ++n;
+      }
+      return n;
+    };
+    static_assert(sizeof kRows / sizeof kRows[0] <= app::kDiagMaxCommands, "more console rows than the kit counts");
+    constexpr auto fit = [len](const app::DiagCommand* r, std::size_t count) constexpr noexcept {
+      for (std::size_t i = 0; i < count; ++i) {
+        if (len(r[i].name) < app::kDiagNameMin || len(r[i].name) > app::kDiagNameMax || len(r[i].help) > app::kDiagHelpMax) {
+          return false;
+        }
+      }
+      return true;
+    };
+    static_assert(fit(kRows, sizeof kRows / sizeof kRows[0]), "a console row's name or help is outside the kit's letters or line");
     rows = kRows;
     return sizeof kRows / sizeof kRows[0];
+  }
+
+  // A learned controller moved a unit's parameter (the kit applied it): with REC on and the line playing it is motion on the current step, as a turned knob is
+  // (HomeMap::turned). A parameter that is no lane's (a unit the app has no lane for, Stock) records nothing; REC off, nothing at all.
+  void midi_learned_moved(app::Context& ctx, dsp::UnitId unit, std::uint16_t param, float /*value*/) noexcept override {
+    const o3_303::Wiring& w = rig_.wiring;
+    o3_303::Item item = o3_303::Item::Blank;
+    if (unit == w.voice) {
+      item = o3_303::Item::Voice;
+    } else if (unit == w.dist) {
+      item = o3_303::Item::Dist;
+    } else if (unit == w.delay) {
+      item = o3_303::Item::Delay;
+    } else if (unit == w.growl) {
+      item = o3_303::Item::Growl;
+    } else {
+      return;
+    }
+    main_.home_map().turned(ctx, o3_303::Entry{item, param, nullptr});
   }
 
   void setup(app::Context& ctx) noexcept override {

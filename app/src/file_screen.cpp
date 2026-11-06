@@ -268,7 +268,7 @@ void FileScreen::input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   if (in.turn()) {
-    if (in.delta() != 0 && list_.move(src, in.delta())) {
+    if (in.delta() != 0 && list_.move(src, ctx.enc_scale(in.delta()))) {  // the encoder's speed (Config > DISPLAY > ENCODER) on the list
       disarm();
       copy_text(sel_, sizeof sel_, selected());
     }

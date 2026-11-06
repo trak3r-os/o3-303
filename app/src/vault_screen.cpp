@@ -202,7 +202,7 @@ void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
       }
       say(ctx, text);
     } else {
-      move_slot(in.delta());
+      move_slot(ctx.enc_scale(in.delta()));  // the encoder's speed on the list
     }
     ctx.redraw();
     return;

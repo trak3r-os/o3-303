@@ -50,6 +50,7 @@ struct Hands {
   void boot() {
     REQUIRE(h->start());
     h->run_ms(100);
+    h->runtime().context().set_enc_mode(0);  // the tests count detents; the encoder curve is tested in b6_input_test
   }
   void wait(unsigned ms) { h->run_ms(ms); }
   void down(unsigned pad) {

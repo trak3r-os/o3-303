@@ -62,4 +62,11 @@ pad 41 400
 wait 500
 tap play
 wait 300
+press f1
+snap home_heldleft_0
+press left
+wait 1500
+snap home_heldleft_1
+release left
+release f1
 wav home

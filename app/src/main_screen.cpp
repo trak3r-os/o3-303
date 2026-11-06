@@ -184,7 +184,7 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   const Entry& focused = fkeys().focused();
-  if (home_.turn(ctx, fkeys().lock_detents(ctx.engine(), *controls_, focused, in.delta()), in.shift, focused)) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
+  if (home_.turn(ctx, fkeys().lock_detents(ctx, *controls_, focused, in.delta(), in.shift), in.shift, focused)) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
     fkeys().mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
     return;
   }
@@ -316,6 +316,9 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   if (Input held_turn; fkeys().arrow_turn(in, held_turn)) {  // Left / Right with an F key held: its knob by 1/20 of the range, as a turn
     turn_input(ctx, held_turn);
     fkeys().end_press();
+    return;
+  }
+  if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (Left and Right keep their single press)
     return;
   }
   if (app::is_fkey(in.which())) {

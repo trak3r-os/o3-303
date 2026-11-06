@@ -167,6 +167,8 @@ class Controls {
   const o3sdk::core::ParamDesc* desc(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   // press_detents() of the entry's descriptor (1 for a blank).
   int press_detents(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
+  // true for a knob that takes the encoder's speed (Context::enc_scale): a continuous value, not an enum or a switch (one value a detent) nor a blank.
+  bool continuous(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   float get(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   // Clamped through the descriptor and applied: to the engine, the pattern, the settings.
   void set(o3sdk::dsp::Engine& e, const Entry& entry, float value) noexcept;
@@ -250,10 +252,16 @@ class PageKeys {
   // for every screen whose F keys own knobs.
   bool arrow_turn(const o3sdk::app::Input& in, o3sdk::app::Input& out) noexcept;
   void end_press() noexcept { press_ = false; }
-  // The detents of the turn in flight as a held step's lock takes them: an arrow's press is press_detents() of the knob, a turn its own.
-  int lock_detents(const o3sdk::dsp::Engine& e, const Controls& controls, const Entry& entry, int detents) const noexcept {
-    return press_ ? (detents < 0 ? -1 : 1) * controls.press_detents(e, entry) : detents;
+  // The buttons a screen with F-key knobs asks the kit to repeat while held (Screen::repeat_buttons): Left and Right. The mask does not depend on an F key being
+  // held; a repeat with none held (or let go meanwhile) is dropped by the screen (arrow_turn is false and the screen returns on Input::repeat), so Left and Right
+  // act as they always did. One undo per held arrow: the repeats are edits of one key, which the Bank coalesces as the encoder's turns.
+  static std::uint64_t repeat_arrows() noexcept {
+    return (std::uint64_t{1} << static_cast<unsigned>(o3sdk::app::Button::Left)) | (std::uint64_t{1} << static_cast<unsigned>(o3sdk::app::Button::Right));
   }
+  // The detents of the turn in flight as a held step's lock takes them: an arrow's press is press_detents() of the knob, a turn its own, at the encoder's
+  // speed (Context::enc_scale) for a continuous knob, not for Shift (coarse) nor an enum. The scale is asked once per turn: turn() takes the answer
+  // from here when it follows (the knob path's one place for the speed; PageKeys::turn is the other half).
+  int lock_detents(o3sdk::app::Context& ctx, const Controls& controls, const Entry& entry, int detents, bool coarse) noexcept;
   // The state the focus returns to when the screen is left with keys down.
   void release_all() noexcept;
 
@@ -266,6 +274,11 @@ class PageKeys {
   unsigned held_ = 0;
   unsigned last_held_ = 0;
   bool turned_ = false;
+  int scaled(o3sdk::app::Context& ctx, int detents) noexcept;
+  int fast_ = 0;  // enc_scale()'s answer for fast_raw_ detents, asked by lock_detents() and taken by the turn() after it
+  int fast_raw_ = 0;
+  std::uint32_t fast_at_ = 0;  // Context::now() when fast_ was asked: valid only in the same tick and for the same raw detents (one turn event)
+  bool have_fast_ = false;
   bool press_ = false;  // the turn in flight is an arrow's press: each knob moves press_detents(), not the detents
 };
 

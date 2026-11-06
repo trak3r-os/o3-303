@@ -495,7 +495,7 @@ void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   PageKeys& pk = keys();
-  if (home_->turn(ctx, pk.lock_detents(ctx.engine(), *controls_, pk.focused(), in.delta()), in.shift, pk.focused())) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
+  if (home_->turn(ctx, pk.lock_detents(ctx, *controls_, pk.focused(), in.delta(), in.shift), in.shift, pk.focused())) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
     pk.mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
     return;
   }
@@ -526,6 +526,9 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
   if (Input held_turn; keys().arrow_turn(in, held_turn)) {  // Left / Right with an F key held: its knob by 1/20 of the range, as a turn
     turn_input(ctx, held_turn);
     keys().end_press();
+    return;
+  }
+  if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (Left and Right keep their single press)
     return;
   }
   if (app::is_fkey(in.which())) {

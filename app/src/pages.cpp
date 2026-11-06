@@ -475,6 +475,11 @@ int Controls::press_detents(const dsp::Engine& e, const Entry& entry) const noex
   return d != nullptr ? o3_303::press_detents(*d) : 1;
 }
 
+bool Controls::continuous(const dsp::Engine& e, const Entry& entry) const noexcept {
+  const core::ParamDesc* d = desc(e, entry);
+  return d != nullptr && d->names == nullptr && d->detents >= 20u;
+}
+
 void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse) noexcept {
   const core::ParamDesc* d = desc(e, entry);
   if (d == nullptr || detents == 0) {
@@ -752,12 +757,33 @@ bool PageKeys::arrow_turn(const app::Input& in, app::Input& out) noexcept {
   return true;
 }
 
+int PageKeys::lock_detents(app::Context& ctx, const Controls& controls, const Entry& entry, int detents, bool coarse) noexcept {
+  if (press_) {
+    return (detents < 0 ? -1 : 1) * controls.press_detents(ctx.engine(), entry);
+  }
+  if (coarse || detents == 0 || !controls.continuous(ctx.engine(), entry)) {
+    return detents;  // an enum, Shift's coarse steps: the curve is not asked
+  }
+  return scaled(ctx, detents);
+}
+
+int PageKeys::scaled(app::Context& ctx, int detents) noexcept {
+  if (!(have_fast_ && fast_raw_ == detents && fast_at_ == ctx.now())) {  // once per turn event: the run tracker counts each detent report once
+    fast_ = ctx.enc_scale(detents);
+    fast_raw_ = detents;
+    fast_at_ = ctx.now();
+    have_fast_ = true;
+  }
+  return fast_;
+}
+
 void PageKeys::turn(app::Context& ctx, Controls& controls, int detents, bool coarse) noexcept {
   if (detents == 0) {
     return;
   }
   const auto apply = [&](const Entry& entry) {
-    controls.step(ctx.engine(), entry, press_ ? (detents < 0 ? -1 : 1) * controls.press_detents(ctx.engine(), entry) : detents, coarse);
+    const int n = press_ ? (detents < 0 ? -1 : 1) * controls.press_detents(ctx.engine(), entry) : (!coarse && controls.continuous(ctx.engine(), entry) ? scaled(ctx, detents) : detents);
+    controls.step(ctx.engine(), entry, n, coarse);
   };
   if (held_ != 0u) {
     turned_ = true;

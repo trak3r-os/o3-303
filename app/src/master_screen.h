@@ -97,6 +97,7 @@ class MasterScreen final : public o3sdk::app::Screen {
   const char* title() const noexcept override { return "MASTER"; }
   void enter(o3sdk::app::Context& ctx) noexcept override;
   void leave(o3sdk::app::Context& ctx) noexcept override;
+  std::uint64_t repeat_buttons(const o3sdk::app::Context&) const noexcept override { return PageKeys::repeat_arrows(); }  // held Left and Right with an F key held keep stepping its knob
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
   // The obsidian skin (skin/skin.h): no kit chrome and the obsidian theme while it is active; otherwise the kit's.

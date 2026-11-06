@@ -132,7 +132,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Copy, Insert, Delete** | Step editing on HOME (copy, make a tie, clear; Shift + Insert pushes the steps right) |
 | **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range |
 | **F1 to F8** | The eight keys under the screen. Their names are always on the screen, just above them |
-| **Encoder** | Turns what the ENC window names. With Shift held it moves in bigger steps |
+| **Encoder** | Turns what the ENC window names. With Shift held it moves in bigger steps. Config's ENCODER (page DISPLAY: OFF, NORMAL, FAST) makes a fast spin move a knob, a step's lock and the FILE and LIBRARY lists further; a switch, a short list, Shift's coarse steps and the morph stay one value a detent |
 | **Shift** | Hold it for the second meaning of a button (HELP shows them in blue). With Shift held, the F keys show their Shift row |
 
 ![HELP's BUTTONS page on HOME: every button with what it does, the Shift meanings in blue, and what each F key is](manual/img/help-home-buttons.png)
@@ -262,7 +262,7 @@ With REC on, hold ACC or SLIDE while you play a key and the note is written with
 | Insert | A note or a rest becomes a tie, a tie becomes a rest (every step pad you hold takes it) | Insert a rest at the cursor and push the rest right |
 | Delete | Clear the step | Remove the step and pull the rest left |
 | ACC or SLIDE held + Left, Right | Move only the accents or slides one step | |
-| An F key held + Left, Right | That knob a twentieth of its range per press (one value for a switch, a list or a knob of under 20 steps); a press records like a turn | |
+| An F key held + Left, Right | That knob a twentieth of its range per press (one value for a switch, a list or a knob of under 20 steps); a press records like a turn. Keep Left or Right held and it repeats, each repeat recorded the same way; on a held step the repeats are one undo. With no F key held a held arrow moves the cursor once | |
 
 #### The step rows and the colour buttons
 
@@ -440,7 +440,7 @@ mods (ACC DEC, SLIDE, SUB, MODS).*
 *FX: the distortion on F1 to F4 (MODEL is OFF, GRIT, TUBE, HARD, FUZZ or FOLD) and the delay on F5 to F8.*
 
 **MIDI learn**: hold **Shift** and the F keys say LEARN where a knob can follow a MIDI controller. Press Shift + that F key, then move a
-knob on your controller: it is bound. Shift + the same key again cancels. See section 10.
+knob on your controller: it is bound. Shift + the same key again cancels. With REC on and the line playing, moving a bound controller is recorded on the current step as turning that knob is; with REC off it only moves the sound. A knob without a lane records nothing. See section 10.
 
 ![INSTRUMENT VOICE with Shift held: F1 to F7 say LEARN, F8 shows a dash](manual/img/instrument-learn.png)
 

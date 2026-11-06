@@ -355,6 +355,9 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     keys().end_press();
     return;
   }
+  if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (Left and Right keep their single press)
+    return;
+  }
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {
