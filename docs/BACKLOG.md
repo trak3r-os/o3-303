@@ -7,6 +7,18 @@ What the maintainer asked for while using o3-303 on the unit. Nothing in this fi
 
 A request moves out of this file when a plan takes it (UX-PLAN, a slice brief); the plan then says where it went.
 
+## Status on 2026-11-06
+
+Every live item is built on o3-303 main, on o3-sdk `ef6b1a0`, neither pushed, but for two:
+
+- **Item 5, OBSIDIAN the default:** blocked on A9. `dropped` is 0 on every screen, but `peak_us` reached 5,500 µs on VOICE playing against the budget of 2,000
+  (`docs/hw/2026-11-06-b6.md`, row 14). Either the draw gets cheaper or the maintainer changes the budget.
+- **Item 14, point 4, the wobble marker:** left out. It needs a redraw every frame, and the screen redraws on events.
+
+On the unit, B1 to B3 passed (`docs/hw/2026-11-06-b2.md`). B4 to B6 passed where they ran: the held repeat, the row latch, the thresholds of the encoder curve, a learned
+controller and the heard-on lines. Not run on the unit: rows 6 and 7 of `docs/hw/2026-11-06-b6.md` (the defaults, snapshots with the wobble) and parts of rows 3, 4, 5, 11 and 12; the
+(eyes) and (ears) rows wait for the maintainer.
+
 ## Status on 2026-11-03
 
 None of the live items is built (14 added 2026-11-05 from the maintainer's words, 15 to 19 the same day from a Fable review of the
