@@ -101,7 +101,7 @@ checked and any known problem.
 
 | Milestone | What | State |
 |---|---|---|
-| M3 | o3-303 on the kit: the voice and distortion ported from Replicant 303, the delay, the sequencer (8 to 64 steps, accent, slide, tie, swing, gate, motion, p-locks, chains, undo), the GEN vault, the 303 screens | built and verified on the host, image statically gated; its unit check (M3-PLAN item 4) has no page in `docs/hw/` (`docs/M3-PLAN.md`) |
+| M3 | o3-303 on the kit: the voice and distortion ported from Replicant 303 (the voice since rewritten on Open303, `docs/VOICE-303.md`), the delay, the sequencer (8 to 64 steps, accent, slide, tie, swing, gate, motion, p-locks, chains, undo), the GEN vault, the 303 screens | built and verified on the host, image statically gated; its unit check (M3-PLAN item 4) has no page in `docs/hw/` (`docs/M3-PLAN.md`) |
 | M3b | The performance round: pad filter ladders, snapshots and morph, momentary FILL, ratchets, trig conditions, beat freeze, tempo nudge, scale-locked keyboard, assignable performance buttons | built 2026-10-25 and 2026-10-26; the beat freeze and the snapshot morph checked on the unit, the rest owed (`docs/M3B-PLAN.md`) |
 | M3c | The bass-music round: growl, wobble, rolls, tape stop and reverse (crush, trance gate, pump, dive, riser and OTT are backlog) | built and unit-checked for growl, wobble and rolls (2026-10-26); by-ear checks owed (`docs/M3C-PLAN.md`) |
 | UX | The new way the app is used: PERFORM, the HOME map, PATTERN SETUP, INSTRUMENT, MASTER, FILE, RECORD, the Config pages, the project with autosave, HELP | waves 1 to 6 built (2026-10-30 and 2026-10-31), checked on the unit by console only; SONG built and host-verified, unit check owed (`docs/UX-PLAN.md`) |
@@ -199,7 +199,9 @@ sources (MIT) the ports are tested against Â· `docs/` the design and the plans Â
 
 ## Credits and licence
 
-The voice, the distortion, the step model and the preset generator are ports of [Replicant 303](https://github.com/DanimanX/Replicant303) by
-Daniel Rojas Grasset (MIT). [THIRD_PARTY.md](THIRD_PARTY.md) has the full list.
+The voice's filter, envelope law and amplifier are ported from [Open303](https://github.com/RobinSchmidt/Open303) by Robin Schmidt (MIT), with the
+numbers it measured on a TB-303. The accent's sweep and the mods follow [Robin Whittle's published Devil Fish notes](https://www.firstpr.com.au/rwi/dfish/).
+The oscillator's method, the distortion, the step model and the preset generator are ports of [Replicant 303](https://github.com/DanimanX/Replicant303)
+by Daniel Rojas Grasset (MIT). [THIRD_PARTY.md](THIRD_PARTY.md) has the full list.
 
 o3-303 is GPL-3.0-or-later ([LICENSE](LICENSE)).

@@ -41,8 +41,9 @@ filter.
 
 What is in it:
 
-- **The voice**: saw or square wave, cutoff, resonance, envelope depth and decay, accent, tuning and level. Eleven more controls, the
-  Devil Fish-style mods on the MODDED pages, change the voice's circuit: one switch (MODS) turns all of them off, to hear the plain 303.
+- **The voice**: saw or square wave, cutoff, resonance, envelope depth and decay, accent, tuning and level. As it starts, it is built to
+  sound like a Roland TB-303: dry, with no distortion and no delay. Thirteen more controls, the Devil Fish-style mods on the MODDED pages,
+  change the voice's circuit: one switch (MODS) turns all of them off, to hear the plain 303.
   Then a distortion with five models, a delay, a growl (a vowel filter) and a wobble (an LFO you sync to the tempo).
 - **The sequencer**: 48 patterns of 8, 16, 32 or 64 steps. Each step has a note, accent, slide, tie or rest, can play up to four times
   (ratchets) or only now and then (conditions), and can hold its own value of a knob (a lock). Knob moves can be recorded as motion.
@@ -452,38 +453,40 @@ Press **Sample Load**. MODDED opens on NOTES, the page for how a note moves. Pre
 the filter is fed and gives, and again to go back. F8 on either page is **MODS**, the same switch as **Shift + Sample Load** from any
 screen (below).
 
-These are Devil Fish-style mods: changes to the 303's circuit of the kind the Devil Fish made popular. At their stock values the voice is
-the plain 303 that o3-303 was before them, so a MODDED page changes nothing you hear until you turn a knob.
+These are Devil Fish-style mods: changes to the 303's circuit of the kind the Devil Fish made popular, with the ranges Robin Whittle published
+for it. At their stock values the voice is a plain TB-303, so a MODDED page changes nothing you hear until you turn a knob.
 
 ![MODDED NOTES: F1 SOFT ATK, F2 DECAY, F3 ACC DECAY, F4 AMP DECAY, F5 SLIDE, F6 ACC SWEEP, F7 SWP SPEED and F8 MODS, with the VOICE and TONE read-outs](manual/img/modded-notes.png)
 
 *NOTES. F2 DECAY is the 303's own knob, placed beside ACC DECAY; turning it does not end STOCK.*
 
-![MODDED TONE: F1 TRACKING, F2 FILTER FM, F3 OVERDRIVE, F4 MUFFLER, F5 SUB OSC, F6 and F7 empty, F8 MODS](manual/img/modded-tone.png)
+![MODDED TONE: F1 TRACKING, F2 FILTER FM, F3 OVERDRIVE, F4 MUFFLER, F5 SUB OSC, F6 RANGE, F7 SUSTAIN, F8 MODS](manual/img/modded-tone.png)
 
-*TONE: what the filter is fed and gives. F6 and F7 are empty.*
+*TONE: what the filter is fed and gives.*
 
 **What each mod does.** The name is the one on the screen. The range and the stock value are the ones in this build. Some starting
 values are to be tuned by ear at the unit check (the sub-oscillator's levels, the filter FM depth, the muffler's thresholds, the sweep
-speeds' time constants); the ranges and the stock values are not.
+speeds' time constants, the height of the accent's sweep); the ranges and the stock values are not.
 
 | Mod | Where | What you hear | Range | Stock |
 |---|---|---|---|---|
-| SOFT ATK | NOTES F1 | Non-accented notes fade in over the time. OFF is the plain 303's instant attack. Accents and slides keep the instant attack | OFF, 0.3, 1, 3, 10, 30 ms | OFF |
-| ACC DECAY | NOTES F3 | How long an accented note's filter sweep and accent pulse last. Normal notes keep DECAY | 30 to 3000 ms | 180 ms |
-| AMP DECAY | NOTES F4 | How long a held note keeps its level. Short values give plucks | 16 to 4000 ms | 4000 ms |
-| SLIDE | NOTES F5 | The glide time between slid notes | 60 to 360 ms | 60 ms |
-| ACC SWEEP | NOTES F6 | OFF: accents do not sweep the filter. NORMAL: the plain 303. HI RES: the sweep with doubled feedback, a whistlier, more resonant sweep | OFF, NORMAL, HI RES | NORMAL |
-| SWP SPEED | NOTES F7 | How a run of accents builds the sweep. FAST: the first accent is the strongest and the next ones smaller. NORMAL: the plain 303. SLOW: the sweep builds over close accents and takes longer to settle | FAST, NORMAL, SLOW | NORMAL |
+| SOFT ATK | NOTES F1 | Non-accented notes fade in over the time. OFF is the plain 303's quick attack. Accents and slides keep it | OFF, 0.3, 1, 3, 10, 30 ms | OFF |
+| ACC DECAY | NOTES F3 | How long the filter's envelope lasts on an accented note. Normal notes keep DECAY | 30 to 3000 ms | 200 ms |
+| AMP DECAY | NOTES F4 | How fast a held note loses its level. Short values give plucks | 16 to 4000 ms | 1230 ms |
+| SLIDE | NOTES F5 | The time a slide takes to reach the note | 60 to 360 ms | 60 ms |
+| ACC SWEEP | NOTES F6 | OFF: accents do not sweep the filter. NORMAL: the plain 303. HI RES: the sweep with doubled feedback, and the filter can whistle by itself at mid and high cutoffs | OFF, NORMAL, HI RES | NORMAL |
+| SWP SPEED | NOTES F7 | How a run of accents builds the sweep. FAST: the first accent is the strongest and the next ones smaller. NORMAL: the plain 303, where RESO decides: low, each accent is a quick pulse; high, the sweep rises late and each close accent climbs higher. SLOW: it rises later, up to twice as high, and takes longer to settle | FAST, NORMAL, SLOW | NORMAL |
 | TRACKING | TONE F1 | The filter follows the notes: 100 % is one octave of cutoff for each octave of note, over 100 % opens high notes more. C2 is unchanged at any setting | 0 to 150 % | 0 % |
 | FILTER FM | TONE F2 | The output's own sound frequency-modulates the filter: a gritty, unstable edge at higher amounts | 0 to 100 % | 0 % |
-| OVERDRIVE | TONE F3 | The level of the oscillator into the filter: more drive, more of the filter's own saturation. It is not the FX distortion, and the two stack | -24 to +36 dB | 0.0 dB |
+| OVERDRIVE | TONE F3 | The level of the oscillator into the filter: more drive, more of the filter's own saturation. It is not the FX distortion, and the two stack. The bottom of the range is no oscillator at all, so HI RES can whistle alone | -24 to +36 dB | 0.0 dB |
 | MUFFLER | TONE F4 | A clipping stage after the amp. SOFT rounds the loudest peaks; HARD clips the top and lets the bass through | OFF, SOFT, HARD | OFF |
-| SUB OSC | TONE F5 | A square an octave below the note, under the main wave. LOW, MID and HIGH set its level | OFF, LOW, MID, HIGH | OFF |
+| SUB OSC | TONE F5 | A square an octave below the note, under the main wave. LOW, MID and HIGH set its level. The one mod that is not the Devil Fish's: it comes from the TD-3-MO | OFF, LOW, MID, HIGH | OFF |
+| RANGE | TONE F6 | 303: the plain instrument. FISH: ENV MOD goes from no sweep at all to three times the 303's top, the bass is fuller (32 Hz down about 1 dB, not much more), and a note starts at once and ends at the gate | 303, FISH | 303 |
+| SUSTAIN | TONE F7 | The level a held note decays to, for notes that never fade. It ends at the gate | 0 to 100 % | 0 % |
 
 #### MODS
 
-MODS is the A/B switch, lit while the mods are heard. Off, it sets the eleven mods to their stock values, so you hear the plain 303, and on again, to what you had.
+MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen mods to their stock values, so you hear the plain 303, and on again, to what you had.
 
 - **On and off:** F8 MODS on either MODDED page, or **Shift + Sample Load** from any screen, with no change of screen. The status line
   says MODS ON or MODS OFF, and MODS OFF: F8 while they are off. While they are off, the header shows a STOCK chip (CLASSIC) or the words STOCK . MODS OFF (OBSIDIAN).

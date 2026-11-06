@@ -5,6 +5,25 @@ hear says so in plain words.
 
 ## Unreleased
 
+### What plays or sounds different
+
+- **A new voice, built to sound like a Roland TB-303.** The filter, the way the envelope moves it, the amplifier and the bass are now
+  those measured on a real TB-303 (Open303 by Robin Schmidt), and the accent's sweep follows the instrument's circuit (Robin Whittle's
+  published description). The biggest differences you will hear:
+  - The filter's sweep is narrower and goes below the knob as well as above it, so the sound sits lower and warmer.
+  - Accents are much louder than before, about 9 dB at ACCENT 70 %, and at high RESO close accents climb.
+  - A slide is about five times quicker: 60 ms is now the time to reach the note.
+  - The filter no longer whistles by itself at normal settings. HI RES brings that back, as on a Devil Fish.
+  - A note ends about 16 ms after the gate, and an accent rings a little longer.
+- **It starts dry.** A new project and the eight factory lines have no distortion and no delay, as a TB-303 has neither. The other sounds of
+  the vault keep their distortion. The default level is -3 dB, not -6 dB.
+- **A saved project keeps its knobs, and the voice under them is new, so it sounds different.** Its level, distortion and delay stay as
+  saved. A project saved at the old default level is 3 dB quieter than a new one, and it keeps ACC DECAY 180 ms and AMP DECAY 4000 ms: set them
+  to 200 and 1230 ms, or press MODS off, for the new stock sound.
+- **Devil Fish ranges:** DECAY now goes from 30 to 3000 ms, ACC DECAY starts at 200 ms and AMP DECAY at 1230 ms. OVERDRIVE at its bottom is
+  no oscillator at all. New on MODDED TONE: **RANGE** (F6; FISH widens ENV MOD to zero and three times the top, fills out the bass and
+  makes a note start and end at once) and **SUSTAIN** (F7). A motion lane recorded on DECAY plays back along the new range.
+
 ## v0.5.0 (2026-11-06), a pre-release
 
 The changes since v0.1.0 that a player hears, sees or saves.

@@ -1,5 +1,10 @@
 # o3-303: the 303 mods on the Sample buttons, GROWL and WOBBLE on their own buttons, HOOKS cancelled (plan)
 
+Update (2026-11-06): the stock voice is no longer Replicant's. The maintainer asked for "el sonido mas identico a la 303 de roland y con las
+modificaciones de devil fish", so `docs/VOICE-303.md` replaces this plan's rule "Stock is today": stock is now a TB-303, and the voice's numbers
+below (ACC DECAY 180 ms, AMP DECAY 4000 ms, DECAY's range, the HI RES and sweep models) are history. RANGE (id 20) and SUSTAIN (id 21) follow
+STOCK in the table and sit on TONE F6 and F7. What this plan says about the buttons, screens and project format still holds.
+
 Status (2026-11-02): S0 to S4 are built, with KS1 (o3-sdk `Context::strip_area()`, and the skin leaving the strip its area). Commits: S0
 c345e39, S1 9fdb583, S2 2661735, S3 afbacd9; KS1 and S4 (the docs and the manual) follow them, and the first release, v0.1.0 (a
 pre-release), carries them all. The unit gate (section 11) is next and is owed: nothing here has been on a unit. Status (2026-11-01) below: planned, nothing built. Reviewed the same day ("ready with fixes, no blocker"), and the fixes are folded in:

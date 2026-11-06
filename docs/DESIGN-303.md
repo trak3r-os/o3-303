@@ -204,4 +204,6 @@ Both screens share the engine's transport: launches are scheduled to the sample,
    ducking and audio in; "two 303s" is MIDI out to an external one) and the maintainer said "haz todo lo que diga fable"
    (docs/M3B-PLAN.md, item C1).
 4. ~~The reference the voice and its controls follow.~~ Decided 2026-10-25: "based on replicant 303" (Replicant 303 by DanimanX,
-   MIT): its DSP (voice and distortion) is ported, and its preset generator and vault too (docs/M3-PLAN.md).
+   MIT): its DSP (voice and distortion) is ported, and its preset generator and vault too (docs/M3-PLAN.md). Changed 2026-11-06 for the
+   voice: "dame el sonido mas identico a la 303 de roland y con las modificaciones de devil fish". The filter, the cutoff law and the
+   amplifier now follow Open303's measurements of a TB-303 and the mods Whittle's ranges (docs/VOICE-303.md).
