@@ -57,10 +57,8 @@ What is in it:
 
 *The first thing you see when the unit starts. The line at the bottom names the build (here, the simulator).*
 
-> **Work in progress.** o3-303 is young. Most of it has been checked on a unit over USB, but some things have not yet been tried by
-> hand or by ear: the pads, knobs and lights by hand, the colour-button rows, tap tempo, typing a name, LOAD and REVERT, MIDI learn
-> with a real controller, a song by ear, and HELP by eye. The MODDED, GROWL and WOBBLE pages and their mods have been checked in part
-> on a unit over USB, not yet by hand or by ear. The README's status table says what the unit has shown so far.
+> **Work in progress.** o3-303 is young, and it needs more testing. Each release's notes list what has been checked and any known
+> problem.
 
 ---
 

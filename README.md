@@ -93,9 +93,8 @@ Then read [the first five minutes](docs/MANUAL.md#4-the-first-five-minutes). Aft
 
 ## Status
 
-o3-303 is a pre-release, and it is young. Most of it has run on a unit over USB, by the console and screenshots, but nobody has judged it by
-ear or by hand unless a session page says so. Each [release](https://github.com/trak3r-os/o3-303/releases)'s notes say what a unit has shown
-of that version, what it has not, and any known problem.
+o3-303 is a pre-release, and it needs more testing. Each [release](https://github.com/trak3r-os/o3-303/releases)'s notes list what has been
+checked and any known problem.
 
 <details>
 <summary><b>Milestones and unit sessions</b></summary>
@@ -112,8 +111,7 @@ of that version, what it has not, and any known problem.
 
 ### On the Tracker
 
-The unit sessions are in `docs/hw/`. They ran over USB, by the console and the tester's screenshots. Nobody has judged the app by ear or
-by hand unless the session page says so.
+The unit sessions are in `docs/hw/`.
 
 | Session | Image (commit) | What it showed |
 |---|---|---|
@@ -131,7 +129,7 @@ by hand unless the session page says so.
 
 U1 and U2 have no results recorded (their pages say `to fill`); U4 was superseded by U5 before it was installed.
 
-Still owed on the unit: the pads, the knobs and the LEDs by hand; the encoder rows, tap tempo, NameEntry, LOAD and REVERT; DIN MIDI and
+Needs more testing on the unit: the pads, the knobs and the LEDs by hand; the encoder rows, tap tempo, NameEntry, LOAD and REVERT; DIN MIDI and
 MIDI learn with a real controller; the SONG screen (a song with repeats by ear); HELP by eye; the growl's vowels and the wobble's rates by
 ear; SU1's rows by eye; the MODDED, GROWL and WOBBLE pages and their mods by hand and by ear (MODS-PLAN section 11); and the list under "Not shown on a unit yet" in [CHANGELOG.md](docs/CHANGELOG.md). The card cases of U2 (a card pulled during a save, no card, write-protect, a card swap) were dropped by the
 maintainer and are not planned.
