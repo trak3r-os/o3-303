@@ -324,6 +324,11 @@ Tap **FILT** (row 2, column 12). Rows 3 and 4 become two ladders of 12 places: r
 the right pad the highest. A tap glides there in 30 ms (Config's LADDER SLEW). With REC on while the line plays, the jumps are recorded as
 motion. Tap FILT again for the keys.
 
+Each ladder row can hold another knob. Hold an F key (on any screen that shares the home map) and tap a pad of the row: the row now holds that
+key's knob, and the tap only assigns, the value does not move. Do it again with the same knob held and the row goes back to its default.
+**Shift + FILT** puts both rows back to CUTOFF and RESO. The rows blink while an F key is held. The PADS line names both rows. The rows are
+saved in the project (an older project loads with the defaults); snapshots do not take them. On PERFORM's skinned look a row that follows the latched key is captioned "> DECAY": the ">" marks it. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it.
+
 ![FILT on: rows 3 and 4 of the pads lit as two bars up to the place tapped; the PADS line says ROW 3 CUTOFF . ROW 4 RESO](manual/img/home-filt.png)
 
 *FILT on. The lit bars on rows 3 and 4 show where CUTOFF and RESO stand.*
@@ -371,7 +376,7 @@ Press **Performance**. There is no menu here: the 48 pads are live, and the line
 |---|---|
 | 1, actions | MUTE, ACC (every note accented), SLD (every step slides), OCT+ (an octave up), FILL (the fill variant), THRW (the delay send opens all the way), FRZ (freeze the beat), ROLL, STOP (tape stop), REV (reverse), WOB (wobble). Column 12 is ALL OFF |
 | 2, snapshots and variations | Snapshots 1 to 8, then NEW, VARY, UNDO, REDO (the pattern tools of HOME) |
-| 3, ladder | 12 places of the knob picked on the F row, the lowest on the left |
+| 3, ladder | 12 places of the latched knob (the last F key held), or of a knob of its own: hold an F key and tap a pad to assign it, again to follow the latched knob once more. The caption reads CUTOFF, or LATCHED: DECAY. Saved in the project |
 | 4, keys | One octave, C to B. They play the voice, or transpose the line while it plays if TRNSP is on (set on HOME) |
 
 **Actions** are on while you hold the pad. **Shift + pad** latches an action: it stays on (a ring around its lamp) until you tap it again

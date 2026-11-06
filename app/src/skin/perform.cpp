@@ -164,7 +164,23 @@ void draw_perform(ui::Renderer& r, const PerformView& v, bool setup, const frame
   for (unsigned row = 0; row < kRows; ++row) {
     caption[row][0] = '\0';
   }
-  cut_to(caption[2], sizeof caption[2], v.ladder_caption, kRowCaptionChars);
+  // "LATCHED: DECAY" would leave three letters of the knob on 12 characters: the skin writes a follower as "> DECAY".
+  static constexpr char kFollow[] = "LATCHED: ";
+  unsigned fl = 0;
+  while (kFollow[fl] != '\0' && v.ladder_caption[fl] == kFollow[fl]) {
+    ++fl;
+  }
+  if (kFollow[fl] == '\0') {
+    char shown[kRowCaptionChars + 1] = "> ";
+    unsigned n = 2;
+    for (const char* c = v.ladder_caption + fl; *c != '\0' && n < kRowCaptionChars; ++c) {
+      shown[n++] = *c;
+    }
+    shown[n] = '\0';
+    cut_to(caption[2], sizeof caption[2], shown, kRowCaptionChars);
+  } else {
+    cut_to(caption[2], sizeof caption[2], v.ladder_caption, kRowCaptionChars);
+  }
   cut_to(caption[3], sizeof caption[3], v.keys_caption, kRowCaptionChars);
   for (unsigned row = 0; row < rows; ++row) {
     const int y = kRowY0 + static_cast<int>(row) * kRowPitch;

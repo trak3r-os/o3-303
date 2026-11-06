@@ -163,7 +163,7 @@ std::uint32_t MainScreen::next_seed(app::Context& ctx) noexcept { return live_->
 
 void MainScreen::update(app::Context& ctx) noexcept {
   home_.update(ctx);
-  home_.knob_latched(fkeys().focused());  // the lane the drawer shows follows the knob the encoder owns (and the pattern under it)
+  home_.knob_latched(fkeys().focused(), fkeys().held() != 0u);  // the lane the drawer shows follows the knob the encoder owns (and the pattern under it)
   // (LiveActions::update, from the app's own, ends the keyboard's transposition with the run and stores a morph's blend.)
 }
 

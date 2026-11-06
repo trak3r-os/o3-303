@@ -1567,3 +1567,102 @@ TEST_CASE("project: HEAD 1.1 carries the save counter; a 1.0 HEAD reads as 0; sm
   other.save_count = 7;
   CHECK(project::small_crc(st) == project::small_crc(other));
 }
+
+TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier format (the buttons only) loads with the default rows; bad rows fall back") {
+  Session a;
+  scramble(a);
+  a.rig.wiring.ladder[kLadderHome3] = LaneRef{kLaneDist, 2};
+  a.rig.wiring.ladder[kLadderHome4] = LaneRef{kLaneVoice, 12};
+  a.rig.wiring.ladder[kLadderPerform] = LaneRef{kLaneDelay, 1};
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  CHECK(s.ladder[0].target == kLaneDist);
+  CHECK(s.ladder[0].id == 2);
+  CHECK(s.ladder[1].target == kLaneVoice);
+  CHECK(s.ladder[1].id == 12);
+  CHECK(s.ladder[2].target == kLaneDelay);
+  CHECK(s.ladder[2].id == 1);
+  Session b;
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  for (unsigned r = 0; r < kLadderRows; ++r) {
+    CHECK(b.rig.wiring.ladder[r].target == a.rig.wiring.ladder[r].target);
+    CHECK(b.rig.wiring.ladder[r].id == a.rig.wiring.ladder[r].id);
+  }
+
+  // The image as the build before B4 wrote it: the PERF chunk is the version and the four buttons, byte for byte, nothing after them.
+  std::size_t perf_now = 0;
+  const auto old = rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      perf_now = p.size();
+      const std::uint8_t earlier[2 + kPerfButtons] = {p[0], p[1], 1, 2, 3, 0};
+      p.assign(earlier, earlier + sizeof earlier);
+    }
+    return true;
+  });
+  REQUIRE(perf_now == 2 + kPerfButtons + 2 * kLadderRows);
+  project::ProjectState o;
+  const project::Result res = load(old, o);
+  REQUIRE(res.status == project::Status::Ok);
+  CHECK(res.skipped == 0);
+  CHECK(o.perf[0] == 1);
+  CHECK(o.perf[1] == 2);
+  CHECK(o.perf[2] == 3);
+  CHECK(o.perf[3] == 0);
+  for (unsigned r = 0; r < kLadderRows; ++r) {
+    CHECK(o.ladder[r].target == kDefaultLadder[r].target);
+    CHECK(o.ladder[r].id == kDefaultLadder[r].id);
+  }
+  Session c;
+  c.rig.wiring.ladder[kLadderHome3] = LaneRef{kLaneDist, 2};
+  REQUIRE(project::apply(c.rig, c.engine, o));  // a project without rows puts the rows back to the defaults
+  CHECK(c.rig.wiring.ladder[kLadderHome3].target == kLaneVoice);
+  CHECK(c.rig.wiring.ladder[kLadderHome3].id == 0);
+
+  // Rows that mean nothing: a HOME row that follows, a target past the table, the voice's Stock: the defaults. PERFORM's row may follow.
+  const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      const std::size_t at = 2 + kPerfButtons;
+      p[at + 0] = kLaneNone;
+      p[at + 1] = 5;
+      p[at + 2] = static_cast<std::uint8_t>(kLaneTargetCount);
+      p[at + 3] = 0;
+      p[at + 4] = kLaneNone;
+      p[at + 5] = 0;
+    }
+    return true;
+  });
+  project::ProjectState g;
+  REQUIRE(load(bad, g).status == project::Status::Ok);
+  CHECK(g.ladder[0].target == kLaneVoice);
+  CHECK(g.ladder[1].target == kLaneVoice);
+  CHECK(g.ladder[2].target == kLaneNone);
+  const auto stock = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      p[2 + kPerfButtons + 4] = kLaneVoice;
+      p[2 + kPerfButtons + 5] = kLaneVoiceStock;
+    }
+    return true;
+  });
+  REQUIRE(load(stock, g).status == project::Status::Ok);
+  CHECK(g.ladder[2].target == kLaneNone);
+  // A target the table knows but no row can drive (the mixer's PAN, the sequencer's own values, an id past the knobs): the defaults too, never a dead row.
+  const auto dead = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      const std::size_t at = 2 + kPerfButtons;
+      p[at + 0] = kLaneMixer;
+      p[at + 1] = 1;  // PAN
+      p[at + 2] = kLaneSeq;
+      p[at + 3] = 0;
+      p[at + 4] = kLaneDelay;
+      p[at + 5] = 200;
+    }
+    return true;
+  });
+  REQUIRE(load(dead, g).status == project::Status::Ok);
+  CHECK(g.ladder[0].target == kLaneVoice);
+  CHECK(g.ladder[0].id == 0);
+  CHECK(g.ladder[1].target == kLaneVoice);
+  CHECK(g.ladder[1].id == 1);
+  CHECK(g.ladder[2].target == kLaneNone);
+}

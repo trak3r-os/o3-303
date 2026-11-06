@@ -174,7 +174,7 @@ constexpr HelpPadGroup kHomeGroups[] = {
 constexpr HelpPadGroup kHomeFiltGroups[] = {
     kHomeGroups[0],
     kHomeGroups[1],
-    {"LADDERS", "ROW 3 CUTOFF, ROW 4 RESO: 12 PLACES", Color::Instr},
+    {"LADDERS", "12 PLACES. F + TAP ASSIGNS. SHIFT+FILT: RESET", Color::Instr},
 };
 
 constexpr HelpPadGroup kPerformGroups[] = {
@@ -182,7 +182,7 @@ constexpr HelpPadGroup kPerformGroups[] = {
     {"ALL OFF", "LETS EVERY LATCHED ACTION GO", Color::Rec},
     {"SNAPSHOTS", "TAP: RECALL, THEN MORPH. SHIFT: STORE", Color::Sel},
     {"VARIATIONS", "NEW LINE, VARY, UNDO, REDO", Color::Vol},
-    {"LADDER", "12 PLACES OF THE LATCHED KNOB", Color::Fx},
+    {"LADDER", "12 PLACES. F KEY + TAP: ASSIGN A KNOB", Color::Fx},
     {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
 };
 constexpr HelpPadGroup kLibraryGroups[] = {
@@ -235,7 +235,7 @@ constexpr Text kTexts[kIdCount] = {
      "HOLD PATTERN: THE 48 PADS ARE THE PATTERNS. REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Perform
     {"PERFORM",
-     "PLAY WITHOUT A MENU: THE 48 PADS ARE LIVE. ROW 1 ACTIONS, ROW 2 SNAPSHOTS AND VARIATIONS, ROW 3 A LADDER OF THE LATCHED KNOB, ROW 4 KEYS. THE PATTERN KEEPS PLAYING.",
+     "PLAY WITHOUT A MENU: THE 48 PADS ARE LIVE. ROW 1 ACTIONS, ROW 2 SNAPSHOTS AND VARIATIONS, ROW 3 A LADDER (THE LATCHED KNOB, OR ONE YOU ASSIGN), ROW 4 KEYS. THE PATTERN KEEPS PLAYING.",
      SOUND_KEYS,
      {},
      "KNOB; MORPH AFTER A RECALL",
@@ -461,7 +461,7 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
     const unsigned pad = 24u + i;
     if (s.filt) {
       h.pad_group[pad] = 3;
-      h.pad_label[pad] = app::pad_row(pad) == 2u ? "CUT" : "RES";
+      h.pad_label[pad] = app::pad_row(pad) == 2u ? "ROW3" : "ROW4";
       continue;
     }
     // The name is the kit's ("C#-1", C2 is MIDI 36: the bottom left key at octave 0); outside 0..127 or outside the locked scale: dark, nothing happens.

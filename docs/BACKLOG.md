@@ -23,7 +23,7 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 4c | 15 a MIDI velocity threshold gives the accent (built, B3) | small | o3-sdk's router, or the app routes notes itself |
 | 5 | 7 Left and Right move the held F key's value, 1/20 of its range (single press built, B2; held repeat waits on 9) | small | nothing; the held repeat waits on 9 in o3-sdk |
 | 5b | 16 a library load keeps the sound in a LAST slot, 17 a NO AUTOSAVE chip (17 built, B1) (16 built, B3) | small each | nothing; before item 8 |
-| 6 | 8 one ladder model: HOME's FILT rows and PERFORM's row 3 take any F key's knob | medium | nothing (decided 2026-11-03) |
+| 6 | 8 one ladder model: HOME's FILT rows and PERFORM's row 3 take any F key's knob (built, B4) | medium | nothing (decided 2026-11-03) |
 | 7 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
 | 7 (with 2) | 14 GROWL, WOBBLE and mods: on/off keys, audible defaults, "heard on" lines | medium | item 2's redraw; the new defaults are decided (2026-11-05), so they can go first, alone |
 | 7a | 19 the row latch ends with the screen | small | with item 2 |

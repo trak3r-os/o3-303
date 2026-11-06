@@ -272,7 +272,7 @@ void MasterScreen::leave(app::Context& ctx) noexcept {
 // The meters, from the main loop's passes: the peak of the render's last block (the engine keeps no longer one: a peak between two passes can be missed),
 // taken on every pass, with a fall in steps of kFallStepMs (the fall is whole units: a step of a millisecond would round it away).
 void MasterScreen::update(app::Context& ctx) noexcept {
-  home_->knob_latched(keys_.focused());
+  home_->knob_latched(keys_.focused(), keys_.held() != 0u);
   const dsp::EngineStats s = ctx.engine().stats();
   const unsigned fresh[2] = {meter_norm(s.peak_l), meter_norm(s.peak_r)};
   const std::uint64_t now = ctx.uptime_ms();

@@ -470,7 +470,7 @@ void InstrumentScreen::update(app::Context& ctx) noexcept {
   if (learn_armed_ && (!ctx.midi().learning() || learn_page_ != page_)) {
     learn_drop(ctx);  // a controller bound it (the kit said so), or the page changed under it
   }
-  home_->knob_latched(keys().focused());  // the lane the drawer shows follows the knob the encoder owns
+  home_->knob_latched(keys().focused(), keys().held() != 0u);  // the lane the drawer shows follows the knob the encoder owns
 }
 
 // ---- Input ------------------------------------------------------------------------------------------------------------------

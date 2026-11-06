@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "home_map.h"
+#include "ladder_rows.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/core/param.h>
@@ -122,7 +123,10 @@ void pads_line_text(const PadsLineState& s, char* out, unsigned cap) noexcept {
   }
   append(out, cap, "1-16 STEPS . ACC SLIDE TIE REST . OCT- OCT+ TRNSP FILT . ");
   if (s.filt) {
-    append(out, cap, "ROW 3 CUTOFF . ROW 4 RESO");
+    append(out, cap, "ROW 3 ");
+    append(out, cap, s.row3);
+    append(out, cap, " . ROW 4 ");
+    append(out, cap, s.row4);
   } else if (s.rec) {
     append(out, cap, s.playing ? "KEYS RECORD AT THE PLAYHEAD" : "KEYS WRITE AND ADVANCE");
   } else if (s.trnsp) {
@@ -331,8 +335,9 @@ int HomeMap::lane_of(const Entry& entry, const Pattern& p) const noexcept {
   return seq::find_lane(p, ref.target, ref.id);
 }
 
-void HomeMap::knob_latched(const Entry& knob) noexcept {
+void HomeMap::knob_latched(const Entry& knob, bool held) noexcept {
   knob_ = knob;
+  knob_held_ = held;
   LaneRef ref{kLaneNone, 0};
   if (controls_->lane_ref(knob, ref)) {
     lock_knob_ = knob;
@@ -452,30 +457,24 @@ void HomeMap::key_release(app::Context& ctx, unsigned pad) noexcept {
   }
 }
 
-// FILT on: row 3 is Cutoff, row 4 Reso: 12 places on the knob, the first pad its minimum and the last its maximum. A tap jumps there through a
-// slew (LADDER SLEW, 30 ms by default: so a jump does not click and a p-lock or a motion point on the step wins over it). Rec while the pattern plays writes the jump
-// under the playhead like a turn.
+// FILT on: rows 3 and 4 are ladder rows (ladder_rows.h): 12 places on the knob the row holds (CUTOFF and RESO until a row is given another), the
+// first pad its minimum and the last its maximum. A tap jumps there through a slew (LADDER SLEW) and Rec while the pattern plays writes the jump under
+// the playhead. With an F key held the tap only assigns: the row holds that key's knob (again: back to its default) and the value does not move.
 void HomeMap::ladder_press(app::Context& ctx, unsigned pad) noexcept {
-  const unsigned row = app::pad_row(pad);
-  const unsigned col = app::pad_col(pad);
-  const std::uint8_t id = row == 2u ? static_cast<std::uint8_t>(AcidVoice::Cutoff) : static_cast<std::uint8_t>(AcidVoice::Reso);
-  const core::ParamDesc* d = ctx.engine().param_desc(rig_->wiring.voice, id);
-  if (d == nullptr) {
+  const unsigned row = app::pad_row(pad) == 2u ? kLadderHome3 : kLadderHome4;
+  if (knob_held_) {
+    if (ladder_assign(rig_->wiring, *controls_, row, knob_) == LadderAssign::NoLane) {
+      toast(ctx, "THAT KNOB HAS NO LADDER", true);
+    }
+    ctx.redraw();
     return;
   }
-  const float value = core::param_denorm(*d, ladder_norm(col));
-  (void)rig_->seq->slew(kLaneVoice, id, value, live_->ladder_slew_ms());
-  if (recording_motion()) {
-    const seq::Playhead ph = rig_->seq->playhead();
-    const unsigned pp = ph.playing && ph.pattern >= 0 ? static_cast<unsigned>(ph.pattern) : sel();
-    const int lane = rig_->bank->claim_lane(pp, kLaneVoice, id);
-    if (lane >= 0) {
-      (void)rig_->seq->record_motion(static_cast<unsigned>(lane), value);
-    } else {
-      toast(ctx, kLanesUsedToast, true);
-    }
+  const Entry entry = ladder_entry(*controls_, rig_->wiring, row, knob_);
+  const LadderTap t = ladder_tap(ctx, *rig_, recording_motion(), sel(), entry, app::pad_col(pad));
+  if (t.lanes_full) {
+    toast(ctx, kLanesUsedToast, true);
   }
-  const int shown = seq::find_lane(pat(), kLaneVoice, id);
+  const int shown = t.lane >= 0 ? seq::find_lane(pat(), rig_->wiring.ladder[row].target, rig_->wiring.ladder[row].id) : -1;
   if (shown >= 0) {
     lane_ = static_cast<unsigned>(shown);  // the motion lane under the step view follows the parameter the hand is on
   }
@@ -669,7 +668,12 @@ void HomeMap::pad_input(app::Context& ctx, const Input& in) noexcept {
       }
       break;
     case PadRole::Filt:
-      filt_ = !filt_;
+      if (in.shift) {  // Shift + FILT: both rows back to CUTOFF and RESO
+        ladder_reset_home(rig_->wiring);
+        toast(ctx, "LADDER ROWS: CUTOFF AND RESO", false);
+      } else {
+        filt_ = !filt_;
+      }
       break;
     case PadRole::Key:
       if (filt_) {  // FILT on: rows 3 and 4 are the CUTOFF and RESO ladders
@@ -1133,14 +1137,16 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
 
 // ---- LEDs -------------------------------------------------------------------------------------------------------------------
 
-// FILT on: rows 3 and 4 draw where Cutoff and Reso stand, a bar from the first pad to the position, the position itself at full level.
+// FILT on: rows 3 and 4 draw where the knob each row holds stands, a bar from the first pad to the position, the position itself at full level. While an F key
+// is held the rows blink: a tap assigns.
 void HomeMap::ladder_leds(app::Context& ctx, app::PadLeds& leds) const noexcept {
+  const bool blink = knob_held_ && app::PadLeds::blink(ctx.now(), 250);
   for (unsigned row = 2; row < app::kPadRows; ++row) {
-    const std::uint16_t id = row == 2u ? static_cast<std::uint16_t>(AcidVoice::Cutoff) : static_cast<std::uint16_t>(AcidVoice::Reso);
-    const core::ParamDesc* d = ctx.engine().param_desc(rig_->wiring.voice, id);
-    const unsigned pos = d != nullptr ? ladder_col(core::param_norm(*d, ctx.engine().param(rig_->wiring.voice, id))) : 0u;
+    const Entry entry = ladder_entry(*controls_, rig_->wiring, row == 2u ? kLadderHome3 : kLadderHome4, knob_);
+    const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
+    const unsigned pos = d != nullptr ? ladder_col(core::param_norm(*d, controls_->get(ctx.engine(), entry))) : 0u;
     for (unsigned col = 0; col < kLadderSteps; ++col) {
-      leds.set(app::pad_at(row, col), col < pos ? app::kLedMid : (col == pos ? app::kLedOn : app::kLedOff));
+      leds.set(app::pad_at(row, col), blink ? app::kLedOn : (col < pos ? app::kLedMid : (col == pos ? app::kLedOn : app::kLedOff)));
     }
   }
 }
@@ -1332,6 +1338,8 @@ void HomeMap::pads_line(app::Context& ctx, char* out, unsigned cap) const noexce
   s.rec = rec_;
   s.trnsp = live_->trnsp();
   s.filt = filt_;
+  s.row3 = ladder_short_name(ctx.engine(), *controls_, rig_->wiring, kLadderHome3);
+  s.row4 = ladder_short_name(ctx.engine(), *controls_, rig_->wiring, kLadderHome4);
   s.octave = octave_;
   s.step_held = first_held_step();
   s.attribute = attribute_down();

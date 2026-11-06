@@ -126,3 +126,9 @@ tap f2
 snap help_01_perform_pads
 tap config
 wait 50
+# B4: the follower caption on the skin is "> NAME": F3 (ENV MOD, the longest knob name on SOUND) latched, then PERFORM.
+tap pattern 5
+tap performance 5
+tap f3
+wait 100
+snap ladder_00_follows_env_mod

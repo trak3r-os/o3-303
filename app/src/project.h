@@ -95,6 +95,8 @@ struct ProjectState {
   float snap[kSnapSlots][kSnapValues] = {};
   // PERF
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
+  // The ladder rows (PERF chunk, appended after the buttons: target u8 and id u8 for each of kLadderRows; a file without them gives the defaults)
+  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2]};
   // SONG (canonical: seq::song_normalize() has been applied; an empty song unless the file has the chunk)
   seq::Song song = [] {
     seq::Song s;

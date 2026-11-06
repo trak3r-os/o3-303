@@ -121,6 +121,12 @@ static_assert(kSnapTargetCount <= kSnapValues, "a snapshot has room for its targ
 const Entry& snap_target(unsigned index) noexcept;
 
 // The units and values the entries reach. The app fills it once at setup.
+// The ladder rows (backlog item 8): one kind of row, used three times. A row either follows the latched knob (target kLaneNone) or holds a knob of its own, stored
+// as its lane target and parameter (not as an F key's number, so it survives a page change). HOME's FILT rows hold CUTOFF and RESO by default, PERFORM's row 3 follows.
+inline constexpr unsigned kLadderRows = 3;
+enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderPerform = 2 };
+inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneNone, 0}};  // voice ids 0 Cutoff, 1 Reso
+
 struct Wiring {
   o3sdk::dsp::UnitId voice = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit;
@@ -139,6 +145,7 @@ struct Wiring {
                              // scale without that, so the keyboard is chromatic until the Scale entry is touched; "No scale" or "Chromatic" unlocks it
   SnapBank snaps;            // the eight snapshots and the morph (PERFORM's row 2; saved in the project; the screens read and write it from the main loop)
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
+  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2]};  // what each ladder row holds (main loop; saved in the project's PERF chunk)
 };
 
 // How many fine detents one press of Left or Right moves a knob with an F key held: 1/20 of the range (twenty presses from minimum to maximum),

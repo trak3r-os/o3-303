@@ -31,7 +31,7 @@ struct PerformChip {
 
 struct PerformView {
   PadLamp lamp[o3sdk::app::kPadCount];
-  char ladder_caption[16] = "";  // what row 3 is: the latched knob's name, or "WOBBLE RATE"
+  char ladder_caption[24] = "";  // what row 3 is: the latched knob's name, or "WOBBLE RATE"
   char keys_caption[16] = "";    // what row 4 does: "PLAY VOICE" or "TRANSPOSE"
   PerformChip chip[kPerfButtons];  // filled by PerformScreen::fill_chips(), for the drawings that show them
 };

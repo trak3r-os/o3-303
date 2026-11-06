@@ -2,6 +2,8 @@
 #include "perform_screen.h"
 
 #include "help_texts.h"
+#include "home_map.h"
+#include "ladder_rows.h"
 #include "skin/header.h"
 #include "skin/perform.h"
 #include "skin/skin.h"
@@ -271,30 +273,23 @@ void PerformScreen::variation(app::Context& ctx, PerformRole role) noexcept {
   }
 }
 
-// Row 3: twelve places on the latched sound knob (its normalised position, so a log cutoff is a log ladder): the first pad is the minimum and the
-// last the maximum. A tap jumps there through a slew (LADDER SLEW, 30 ms by default: so a jump does not click and a p-lock or a motion point on the step wins over it); a
-// switch (the wave) is set at once. With REC while the pattern plays the jump is written under the playhead like a turn.
+// Row 3: a ladder row (ladder_rows.h): twelve places on the knob it follows (the latched sound knob) or holds (assigned with an F key held), by its normalised
+// position, so a log cutoff is a log ladder; the first pad is the minimum and the last the maximum. A tap jumps there through a slew (LADDER SLEW, 30 ms by default: so a jump does
+// not click and a p-lock or a motion point on the step wins over it); a switch (the wave) is set at once. With REC while the pattern plays the jump is written under the playhead like a turn.
+// With an F key held the tap only assigns the row that key's knob (again: back to following the latch) and the value does not move.
 void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
-  const Entry& entry = rig_->sound_keys.focused();
-  dsp::Engine& e = ctx.engine();
-  const core::ParamDesc* d = controls_->desc(e, entry);
-  if (d == nullptr) {
+  Wiring& w = rig_->wiring;
+  if (rig_->sound_keys.held() != 0u) {
+    if (ladder_assign(w, *controls_, kLadderPerform, rig_->sound_keys.focused()) == LadderAssign::NoLane) {
+      toast(ctx, "THAT KNOB HAS NO LADDER", true);
+    }
+    ctx.redraw();
     return;
   }
-  const float value = core::param_denorm(*d, ladder_norm(col));
-  LaneRef ref{kLaneNone, 0};
-  const bool lane = controls_->lane_ref(entry, ref);
-  if (!lane || d->unit == core::ParamUnit::Enum) {
-    controls_->set(e, entry, value);
-  } else {
-    (void)rig_->seq->slew(ref.target, ref.id, controls_->to_lane(entry, value), live_->ladder_slew_ms());
-  }
-  if (lane && home_->recording_motion()) {
-    const seq::Playhead ph = rig_->seq->playhead();
-    const int ln = seq::find_lane(rig_->bank->pattern(ph.playing && ph.pattern >= 0 ? static_cast<unsigned>(ph.pattern) : sel()), ref.target, ref.id);
-    if (ln >= 0) {
-      (void)rig_->seq->record_motion(static_cast<unsigned>(ln), controls_->to_lane(entry, value));
-    }
+  const Entry entry = ladder_entry(*controls_, w, kLadderPerform, rig_->sound_keys.focused());
+  const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), entry, col);
+  if (t.lanes_full) {
+    toast(ctx, kLanesUsedToast, true);
   }
 }
 
@@ -453,7 +448,8 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   const bool wobble = live_->wobble_on();
   const bool transposing = playing_ && live_->trnsp();
   // Row 3's knob: the latched sound knob and where it stands.
-  const Entry& knob = rig_->sound_keys.focused();
+  const Entry knob = ladder_entry(*controls_, rig_->wiring, kLadderPerform, rig_->sound_keys.focused());
+  const bool assigning = rig_->sound_keys.held() != 0u && app::PadLeds::blink(ctx.now(), 250);  // an F key is down: the row blinks, a tap assigns
   const core::ParamDesc* kd = controls_->desc(e, knob);
   const unsigned knob_col = kd != nullptr ? ladder_col(core::param_norm(*kd, controls_->get(e, knob))) : 0u;
   const int wobble_now = rig_->seq->wobble_rate_now();
@@ -512,7 +508,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
             (void)core::param_format(*kd, core::param_denorm(*kd, ladder_norm(col)), text, sizeof text);
             cut(text, 5, lamp.label, sizeof lamp.label);
           }
-          lamp.level = col < knob_col ? app::kLedMid : (col == knob_col ? app::kLedOn : app::kLedOff);
+          lamp.level = assigning ? app::kLedOn : (col < knob_col ? app::kLedMid : (col == knob_col ? app::kLedOn : app::kLedOff));
         }
         break;
       }
@@ -542,7 +538,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   if (wobble) {
     cut("WOBBLE RATE", 15, view.ladder_caption, sizeof view.ladder_caption);
   } else {
-    cut(controls_->label(e, knob), 15, view.ladder_caption, sizeof view.ladder_caption);
+    ladder_caption(e, *controls_, rig_->wiring, kLadderPerform, rig_->sound_keys.focused(), view.ladder_caption, sizeof view.ladder_caption);
   }
   cut(transposing ? "TRANSPOSE" : "PLAY VOICE", 15, view.keys_caption, sizeof view.keys_caption);
 }

@@ -51,3 +51,28 @@ wait 100
 snap 07_trnsp_on
 pad 22
 tap rec
+# B4: a row holds a knob of its own. FILT on, F4 (Decay) held and a tap on row 3 pad 30 assigns only (the value does not move); the strip names ROW 3 DECAY.
+paddown 23
+padup 23
+wait 99
+press f4
+pad 30
+wait 300
+snap 11_row3_holds_decay
+release f4
+pad 33
+wait 100
+snap 12_row3_decay_ladder
+# Again with F4 held: back to CUTOFF. Shift + FILT puts both rows back at once.
+press f4
+pad 30
+release f4
+wait 100
+snap 13_row3_cutoff_again
+press shift
+pad 23
+release shift
+wait 100
+snap 14_shift_filt_reset
+paddown 23
+padup 23

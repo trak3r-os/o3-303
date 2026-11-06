@@ -48,6 +48,8 @@ struct PadsLineState {
   bool rec = false;         // write / record mode
   bool trnsp = false;       // the keyboard transposes the pattern
   bool filt = false;        // rows 3 and 4 are the ladders
+  const char* row3 = "CUTOFF";  // what the ladder rows drive (ladder_short_name), shown when `filt`
+  const char* row4 = "RESO";
   int octave = 0;           // the keyboard's octave shift (the keys' range is C2-B3 at 0)
   unsigned step_held = 0;   // the first held step, 1-based; 0 none
   PadRole attribute = PadRole::None;  // the attribute pad held (Acc, Slide, Tie, Rest), None when none is
@@ -84,7 +86,8 @@ class HomeMap {
   void turned(o3sdk::app::Context& ctx, const Entry& knob) noexcept;
   // `knob` is the one the encoder owns now (an F key latched it, a page or a pattern changed under it): the lane the drawer shows follows it, and it is
   // the LOCK row's knob when a lane can drive it (SETUP's knobs cannot: the LOCK row keeps the last sound knob).
-  void knob_latched(const Entry& knob) noexcept;
+  // `held`: an F key is down (the ladder rows blink, and a tap on one assigns `knob` to it).
+  void knob_latched(const Entry& knob, bool held = false) noexcept;
   // The encoder goes back to the knob (an F key was tapped, the page changed).
   void release_row() noexcept { row_ = DrawerRow::None; }
   DrawerRow row() const noexcept { return row_; }
@@ -177,7 +180,7 @@ class HomeMap {
   void choose_pattern(o3sdk::app::Context& ctx, unsigned index) noexcept;
   void audition_on(o3sdk::app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept;
   void audition_off(o3sdk::app::Context& ctx) noexcept;
-  void ladder_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
+  void ladder_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;  // a tap on a ladder row: assigns while an F key is held, else jumps the row's knob
   // ---- leds
   void ladder_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) const noexcept;
 
@@ -198,6 +201,7 @@ class HomeMap {
   // Modes.
   bool rec_ = false;
   bool filt_ = false;
+  bool knob_held_ = false;  // an F key is down (knob_latched)
   bool playing_ = false;
   int octave_ = 0;
   int cursor_ = 0;

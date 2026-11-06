@@ -200,8 +200,8 @@ TEST_CASE("help pads: steps past the pattern are dark, a scale takes its out-of-
   check_help(h, "FILT on");
   CHECK(h.group_count == 3);
   CHECK(std::strcmp(h.groups[2].name, "LADDERS") == 0);
-  CHECK(std::strcmp(h.pad_label[24], "CUT") == 0);
-  CHECK(std::strcmp(h.pad_label[36], "RES") == 0);
+  CHECK(std::strcmp(h.pad_label[24], "ROW3") == 0);
+  CHECK(std::strcmp(h.pad_label[36], "ROW4") == 0);
   check_pads_grouped(h, kAllPads, "FILT on");
 }
 
@@ -613,7 +613,7 @@ TEST_CASE("help screens: the home map's pads follow the pattern, the octave, the
   {
     const Help& help = open_help(h);
     CHECK(std::strcmp(help.groups[2].name, "LADDERS") == 0);
-    CHECK(std::strcmp(help.pad_label[24], "CUT") == 0);
+    CHECK(std::strcmp(help.pad_label[24], "ROW3") == 0);
     close_help(h);
   }
 }

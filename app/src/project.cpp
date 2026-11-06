@@ -37,7 +37,8 @@ constexpr unsigned kHeadPayload = 2 + 1 + 4 + 1 + kNameChars + 4;  // version, s
 constexpr unsigned kGenPayload = 2 + 7;
 constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
-constexpr unsigned kPerfPayload = 2 + kPerfButtons;
+constexpr unsigned kLadderBytes = kLadderRows * 2;  // the ladder rows after the buttons (PERF, appended): target u8, id u8 each
+constexpr unsigned kPerfPayload = 2 + kPerfButtons + kLadderBytes;
 constexpr unsigned kSongPayload = 2 + 1 + seq::kSongRows * sizeof(seq::SongRow);  // version, length, the rows (at most)
 constexpr unsigned kSongReserve = 4096;  // room kept for the SONG chunk (kSongPayload and its header, 267 bytes, fit it many times over)
 static_assert(8 + kSongPayload + (kSongPayload & 1u) <= kSongReserve, "the SONG chunk must fit its reserve");
@@ -375,6 +376,35 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
     const std::uint8_t a = f.u8();
     out.perf[b] = a < kPerfActionCount ? a : kDefaultPerf[b];
   }
+  // The ladder rows follow the buttons when the file has all of them (a file from before has the buttons only: the defaults stay).
+  if (f.left() >= kLadderBytes) {
+    for (unsigned r = 0; r < kLadderRows; ++r) {
+      const std::uint8_t target = f.u8();
+      const std::uint8_t id = f.u8();
+      // A HOME row (0, 1) always holds a knob; PERFORM's row 3 may follow the latch (kLaneNone). The voice's Stock switch has no lane.
+      // Only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
+      bool ok = false;
+      switch (target) {
+        case kLaneNone:
+          ok = r == kLadderPerform;
+          break;
+        case kLaneVoice:
+          ok = id < seq::kKnobs && id != kLaneVoiceStock;
+          break;
+        case kLaneDist:
+        case kLaneDelay:
+        case kLaneGrowl:
+          ok = id < seq::kKnobs;
+          break;
+        case kLaneMixer:
+          ok = id == kMixerLevel || id == kMixerSendA;
+          break;
+        default:
+          break;
+      }
+      out.ladder[r] = ok ? LaneRef{target, target == kLaneNone ? std::uint8_t{0} : id} : kDefaultLadder[r];
+    }
+  }
 }
 
 // SONG: the length and that many rows; false (the song keeps its default, empty) when the chunk has fewer bytes than its length says. Values out of range are brought in
@@ -440,6 +470,9 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     out.perf[b] = w.perf[b];
   }
+  for (unsigned r = 0; r < kLadderRows; ++r) {
+    out.ladder[r] = w.ladder[r];
+  }
   if (rig.bank != nullptr) {
     out.song = rig.bank->song();
   }
@@ -478,6 +511,9 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   ok = ok && w.begin("PERF") && w.u16(kVersion);
   for (unsigned b = 0; b < kPerfButtons && ok; ++b) {
     ok = w.u8(s.perf[b]);
+  }
+  for (unsigned r = 0; r < kLadderRows && ok; ++r) {
+    ok = w.u8(s.ladder[r].target) && w.u8(s.ladder[r].id);
   }
   ok = ok && w.end();
 
@@ -753,6 +789,9 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
   w.scale_set = s.scale_set;
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     w.perf[b] = s.perf[b] < kPerfActionCount ? s.perf[b] : kDefaultPerf[b];
+  }
+  for (unsigned r = 0; r < kLadderRows; ++r) {
+    w.ladder[r] = s.ladder[r];
   }
 
   // The snapshots, after the sound: a slot with fewer values than the targets of today is filled from the sound as it is now.
