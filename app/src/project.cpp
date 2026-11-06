@@ -150,6 +150,8 @@ float app_value(const Rig& rig, const dsp::Engine& e, unsigned id) noexcept {
       return w.wobble.reset ? 1.0f : 0.0f;
     case kAppWobbleTarget:
       return static_cast<float>(w.wobble.target);
+    case kAppWobbleOn:  // the WOB latch: what a load asked for until LiveActions takes it, else the sequencer's LFO (on while the latch is)
+      return (w.wob_want >= 0 ? w.wob_want == 1 : (w.seq != nullptr && w.seq->wobble().on)) ? 1.0f : 0.0f;
     default:
       break;
   }
@@ -179,6 +181,8 @@ float app_default(unsigned id) noexcept {
       return wob.reset ? 1.0f : 0.0f;
     case kAppWobbleTarget:
       return static_cast<float>(wob.target);
+    case kAppWobbleOn:
+      return 0.0f;
     default:
       break;
   }
@@ -219,6 +223,9 @@ void set_app_value(Wiring& w, dsp::Engine& e, unsigned id, float v) noexcept {
       break;
     case kAppWobbleTarget:
       w.wobble.target = static_cast<std::uint8_t>(clampf(v, 0.0f, static_cast<float>(kWobbleTargetCount - 1u), 0.0f) + 0.5f);
+      break;
+    case kAppWobbleOn:
+      w.wob_want = v >= 0.5f ? 1 : 0;  // LiveActions::update latches or unlatches it
       break;
     default:
       break;  // a value a later build has
@@ -773,7 +780,7 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
   // STOCK is never saved and always ends here (docs/MODS-PLAN.md 5.11): a boot, a LOAD, REVERT, NEW and RESET PROJECT are heard as saved first. The mods' stored values are in by now, so the
   // voice changes once.
   if (w.stock) {
-    rig.controls.set(e, Entry{Item::Stock, 0, nullptr}, 0.0f);
+    rig.controls.set(e, Entry{Item::Mods, 0, nullptr}, 1.0f);  // the mods heard
   }
   for (unsigned id = 0; id < kAppValueCount; ++id) {
     float v = app_default(id);
@@ -782,7 +789,7 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
   }
   rig.controls.apply_level(e);
   rig.controls.apply_send(e);
-  rig.controls.apply_wobble(false);
+  rig.controls.apply_wobble(w.wob_want == 1);  // the saved latch (B5a); a project without one has it off
 
   (void)e.set_tempo(s.tempo_mbpm);
   w.gen = s.gen;

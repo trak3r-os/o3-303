@@ -54,8 +54,9 @@ enum class Item : std::uint8_t {
   AccPct,     // H2: the generator's accent chance (project-wide, UX-303 D1); PATTERN SETUP's F7
   SldPct,     // H2: the generator's slide chance, its own entry; SETUP's F8
   RollMode,   // P2: the roll rate and the accelerate as one list (1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR): PERFORM SETUP's F7 (UX-303 5.4)
-  Stock,      // MODS S2: the voice's Stock switch (docs/MODS-PLAN.md 5.11). An app item: no lane, no learn, no snapshot; MODDED's F8 and Shift + Sample Loader write it
-  WobOn,      // MODS S2: the WOBBLE action as a key (WOBBLE's F8): the screen latches PERFORM's WOB action; the entry only gives the key its name and its ON / OFF
+  Mods,       // B5a: the mods heard, the voice's Stock switch seen the other way round (1 = Stock off; docs/MODS-PLAN.md 5.11). An app item: no lane, no learn, no snapshot; MODDED's F8 and Shift + Sample Loader write it
+  WobOn,      // MODS S2: the WOBBLE action as a key (WOBBLE's F8): the screen latches PERFORM's WOB action; the entry only gives the key its name and its ON / OFF. A snapshot target since B5a: set asks the latch (Wiring::wob_want)
+  GrowlOn,    // B5a: GROWL's F8: the growl heard (Mix above 0); the screen flips Mix between 0 and Wiring::growl_last_mix
 };
 
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
@@ -67,7 +68,7 @@ struct WobbleSettings {
   std::uint8_t rate = seq::kWobble1_8;      // a seq::WobbleRate
   std::uint8_t shape = seq::kWobbleSine;    // a seq::WobbleShape
   std::uint8_t depth_pct = 50;              // 0..100
-  bool reset = true;                        // the phase restarts on each note
+  bool reset = false;                       // the phase restarts on each note (off by default: with it on a 16th-note line gets one bump a note, no wobble)
   std::uint8_t target = kWobbleCutoff;      // a WobbleTarget
 };
 
@@ -110,9 +111,11 @@ const Page& setup_page() noexcept;
 
 // What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
 // SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (GROWL), then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven
-// mods (ids 8..18) and the growl's FMT MIX, CMB TUNE and CMB FB; the wobble's settings and STOCK stay out. A project saved with fewer targets loads: the missing ones are filled
+// mods (ids 8..18) and the growl's FMT MIX, CMB TUNE and CMB FB, then (B5a) the wobble's five settings and its latch; STOCK stays out. A project saved with fewer targets loads: the missing ones are filled
 // from the sound (project.cpp). Each is an entry, so a value is in the units the entry shows and steps in.
-inline constexpr unsigned kSnapTargetCount = 36;
+inline constexpr unsigned kSnapTargetCount = 42;
+// The first of B5a's six targets (the wobble's RATE, SHAPE, DEPTH, TARGET, RESET and its latch): no lane drives them, so a recall writes them at once (LiveActions::snap_apply).
+inline constexpr unsigned kSnapWobbleFirst = 36;
 // The targets before MODS S2's: from this index on a target that a recall or a morph leaves where it is stays untouched (LiveActions::snap_apply), so that a snapshot of a project that never used
 // the mods does not write them: Sequencer::slew_value goes through the curve and back even when the blend is where the value is, and ACC DECAY 180 ms comes back 180.000015, a few ulps off its
 // stock constant (docs/MODS-PLAN.md 5.9).
@@ -139,12 +142,14 @@ struct Wiring {
   float send_a_pct = 30.0f;  // the voice's send A level in percent: the base; DELAY THROW raises it for a while
   float level_db = -6.0f;    // slot 0's level in dB (SOUND F8): headroom for the delay's wet signal and the accents
   bool throw_on = false;
-  bool stock = false;        // the voice's Stock is on (the mirror of its parameter, for the chip of every screen): Controls::set(Item::Stock) is its one writer. Main loop only
+  bool stock = false;        // the voice's Stock is on (the mirror of its parameter, for the chip of every screen): Controls::set(Item::Mods) is its one writer. Main loop only
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};  // PerfAction of Note, Instr, Vol, Fx
   bool scale_set = false;    // the player chose a scale (PATTERN SETUP's Scale): the keyboard is locked to it (R8). A boot has the generator's default
                              // scale without that, so the keyboard is chromatic until the Scale entry is touched; "No scale" or "Chromatic" unlocks it
   SnapBank snaps;            // the eight snapshots and the morph (PERFORM's row 2; saved in the project; the screens read and write it from the main loop)
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
+  std::int8_t wob_want = -1;  // B5a: the WOB latch a project load or a snapshot recall asks for (0 off, 1 on, -1 nothing): Controls::set(Item::WobOn) writes it, LiveActions::update takes it. Main loop only
+  float growl_last_mix = 0.5f;  // B5a: GROWL's F8 gives Mix this back (Mix as a 0..1 fraction); the Mix F8 read from the engine when it last turned the growl off, 50 % at a boot, never stored. Main loop only
   LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2]};  // what each ladder row holds (main loop; saved in the project's PERF chunk)
 };
 

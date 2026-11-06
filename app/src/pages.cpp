@@ -64,7 +64,10 @@ constexpr Entry kSnapTargets[kSnapTargetCount] = {
     growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::Mix, "GRL MIX"), growl(Growl::CombMix, "CMB MIX"),
     voice(AcidVoice::AccDecay), voice(AcidVoice::Tracking), voice(AcidVoice::Slide), voice(AcidVoice::SoftAtk), voice(AcidVoice::SubOsc), voice(AcidVoice::FilterFm),
     voice(AcidVoice::AccSweep), voice(AcidVoice::Muffler), voice(AcidVoice::SwpSpeed), voice(AcidVoice::Overdrive), voice(AcidVoice::AmpDecay),
-    growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB")};
+    growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB"),
+    wobble(kWobbleRate, nullptr), wobble(kWobbleShape, nullptr), wobble(kWobbleDepth, nullptr), wobble(kWobbleTarget, nullptr), wobble(kWobbleReset, nullptr),
+    app_item(Item::WobOn, "WOB")};
+static_assert(kSnapWobbleFirst == 36, "B5a's six targets are the last six");
 static_assert(AcidVoice::AmpDecay - AcidVoice::AccDecay == 10, "the snapshot holds the eleven mods, ids 8 to 18, in order");
 
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
@@ -118,6 +121,8 @@ constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
 constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL"};
 // WOBBLE's F8 key (Item::WobOn): the action's name and its two places; the value is the screen's (the latch), not a setting.
+constexpr core::ParamDesc kGrowlOn = {"GROWL", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kModsKey = {"MODS", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kWobOn = {"WOB", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
     {"RATE", "", seq::kWobbleRateNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleRateCount - 1u), static_cast<float>(seq::kWobble1_8),
@@ -125,7 +130,7 @@ constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
     {"SHAPE", "", seq::kWobbleShapeNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleShapeCount - 1u), static_cast<float>(seq::kWobbleSine),
      static_cast<std::uint16_t>(seq::kWobbleShapeCount - 1u), 1, static_cast<std::uint8_t>(seq::kWobbleShapeCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"DEPTH", "%", nullptr, nullptr, 0.0f, 100.0f, 50.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0},
-    {"RESET", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"RESET", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"TARGET", "", kWobbleTargetNames, nullptr, 0.0f, static_cast<float>(kWobbleTargetCount - 1u), 0.0f, static_cast<std::uint16_t>(kWobbleTargetCount - 1u), 1,
      static_cast<std::uint8_t>(kWobbleTargetCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
 };
@@ -151,17 +156,17 @@ int round_to_int(float v) noexcept { return static_cast<int>(v < 0.0f ? v - 0.5f
 constexpr Page kFxPage = {"FX",
                           {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"), delay(units::Delay::Time, "DLY TIME"),
                            delay(units::Delay::Feedback, "DLY FB"), app_item(Item::SendA, "DLY SEND"), delay(units::Delay::Tone, "DLY TONE")}};
-// MODDED (5.3): NOTES is how each note moves (DECAY, the SOUND knob itself, sits beside ACC DECAY), TONE what the filter is fed and gives. F8 is the STOCK action key on both pages.
+// MODDED (5.3): NOTES is how each note moves (DECAY, the SOUND knob itself, sits beside ACC DECAY), TONE what the filter is fed and gives. F8 is the MODS action key on both pages (lit while the mods are heard; off is the stock voice).
 constexpr Page kNotesPage = {"NOTES",
                              {voice(AcidVoice::SoftAtk), voice(AcidVoice::Decay), voice(AcidVoice::AccDecay), voice(AcidVoice::AmpDecay), voice(AcidVoice::Slide), voice(AcidVoice::AccSweep),
-                              voice(AcidVoice::SwpSpeed), app_item(Item::Stock)}};
+                              voice(AcidVoice::SwpSpeed), app_item(Item::Mods, "MODS")}};
 constexpr Page kTonePage = {"TONE",
                             {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), Entry{}, Entry{},
-                             app_item(Item::Stock)}};
-// The growl in signal order: the formant, the comb, then the growl's mix. F8 is free.
+                             app_item(Item::Mods, "MODS")}};
+// The growl in signal order: the formant, the comb, then the growl's mix. F8 is the GROWL key: Mix to 0 and back to its last non-zero value (B5a).
 constexpr Page kGrowlPage = {"GROWL",
                              {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
-                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}};
+                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), app_item(Item::GrowlOn, "GROWL")}};
 // The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 and F7 are free; F8 is the WOB action key (5.5).
 constexpr Page kWobblePage = {"WOBBLE",
                               {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
@@ -219,8 +224,10 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return e.param_desc(w_->growl, entry.id);
     case Item::Wobble:
       return entry.id < kWobbleFieldCount ? &kWobbleDescs[entry.id] : nullptr;
-    case Item::Stock:
-      return e.param_desc(w_->voice, AcidVoice::Stock);
+    case Item::Mods:
+      return &kModsKey;
+    case Item::GrowlOn:
+      return &kGrowlOn;
     case Item::WobOn:
       return &kWobOn;
     case Item::Blank:
@@ -297,8 +304,10 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
           break;
       }
       return 0.0f;
-    case Item::Stock:
-      return w_->stock ? 1.0f : 0.0f;
+    case Item::Mods:
+      return w_->stock ? 0.0f : 1.0f;  // the mods are heard when Stock is off
+    case Item::GrowlOn:
+      return e.param(w_->growl, Growl::Mix) > 0.0f ? 1.0f : 0.0f;
     case Item::WobOn:
       return w_->seq != nullptr && w_->seq->wobble().on ? 1.0f : 0.0f;
     case Item::Blank:
@@ -396,7 +405,7 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       break;
     }
     case Item::Growl:
-      (void)e.set_param(w_->growl, entry.id, v);
+      (void)e.set_param(w_->growl, entry.id, v);  // GROWL's F8 reads the Mix from the engine when it turns the growl off
       break;
     case Item::Wobble: {
       WobbleSettings& ws = w_->wobble;
@@ -429,12 +438,26 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       }
       break;
     }
-    case Item::Stock:
-      if (e.set_param(w_->voice, AcidVoice::Stock, v)) {  // the mirror follows only what the engine took
-        w_->stock = v >= 0.5f;
+    case Item::Mods:
+      if (e.set_param(w_->voice, AcidVoice::Stock, v >= 0.5f ? 0.0f : 1.0f)) {  // the mirror follows only what the engine took
+        w_->stock = v < 0.5f;
       }
       break;
-    case Item::WobOn:  // the screen's key latches the action (LiveActions::toggle_latch); there is no setting to write
+    case Item::GrowlOn: {
+      const float mix = e.param(w_->growl, Growl::Mix);
+      if (v >= 0.5f) {
+        (void)e.set_param(w_->growl, Growl::Mix, mix > 0.0f ? mix : w_->growl_last_mix);
+      } else {
+        if (mix > 0.0f) {
+          w_->growl_last_mix = mix;
+        }
+        (void)e.set_param(w_->growl, Growl::Mix, 0.0f);
+      }
+      break;
+    }
+    case Item::WobOn:  // the latch is LiveActions'; a load or a recall asks for it (LiveActions::update takes the request), the key itself uses toggle_latch
+      w_->wob_want = v >= 0.5f ? 1 : 0;
+      break;
     case Item::Blank:
       break;
   }

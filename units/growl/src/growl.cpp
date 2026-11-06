@@ -31,7 +31,7 @@ constexpr o3sdk::core::ParamDesc kParams[Growl::kParamCount] = {
     {"VOWEL", "%", nullptr, nullptr, 0.0f, 1.0f, 0.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
     {"FORMANT Q", "", nullptr, nullptr, 1.0f, 20.0f, 5.0f, 100, 10, 0, ParamUnit::Fixed1, ParamCurve::Log, 0, 0},
     {"FORMANT MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 1.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
-    {"COMB TUNE", "st", nullptr, nullptr, -24.0f, 24.0f, 0.0f, 48, 12, 0, ParamUnit::Int, ParamCurve::Linear, kSmooth, 0},
+    {"COMB TUNE", "st", nullptr, nullptr, -24.0f, 24.0f, 7.0f, 48, 12, 0, ParamUnit::Int, ParamCurve::Linear, kSmooth, 0},
     {"COMB FDBK", "", nullptr, nullptr, -0.95f, 0.95f, 0.6f, 38, 5, 0, ParamUnit::Fixed1, ParamCurve::Linear, kSmooth, 0},
     {"COMB MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 0.5f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
     {"NOTE", "", nullptr, nullptr, 0.0f, 127.0f, 36.0f, 127, 12, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0},

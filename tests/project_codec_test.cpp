@@ -176,8 +176,9 @@ void scramble(Session& t) {
   w.wobble.rate = 4;
   w.wobble.shape = 3;
   w.wobble.depth_pct = 77;
-  w.wobble.reset = false;
+  w.wobble.reset = true;  // away from the default (off since B5a)
   w.wobble.target = kWobbleVowel;
+  w.wob_want = 1;         // the WOB latch is saved too (B5a)
   w.perf[0] = static_cast<std::uint8_t>(PerfAction::Reverse);
   w.perf[1] = static_cast<std::uint8_t>(PerfAction::Wobble);
   w.perf[2] = static_cast<std::uint8_t>(PerfAction::Throw);
@@ -296,8 +297,9 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(wb.wobble.rate == 4);
   CHECK(wb.wobble.shape == 3);
   CHECK(wb.wobble.depth_pct == 77);
-  CHECK_FALSE(wb.wobble.reset);
+  CHECK(wb.wobble.reset);
   CHECK(wb.wobble.target == kWobbleVowel);
+  CHECK(wb.wob_want == 1);  // the latch comes back as a request: LiveActions::update latches it
   for (unsigned k = 0; k < kPerfButtons; ++k) {
     CHECK(wb.perf[k] == wa.perf[k]);
   }
@@ -896,7 +898,7 @@ TEST_CASE("project: a SNAP saved before the mods (22 values a slot) loads, and t
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   constexpr unsigned kOld = 22;  // the targets of kSnapTargetCount before MODS S2 (docs/MODS-PLAN.md 5.9)
-  static_assert(kSnapTargetCount == kOld + 14, "MODS S2 appended eleven mods and FMT MIX, CMB TUNE, CMB FB");
+  static_assert(kSnapTargetCount == kOld + 14 + 6, "MODS S2 appended eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's five settings and its latch");
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SNAP")) {
       return true;
@@ -972,7 +974,7 @@ TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the gro
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   constexpr unsigned kOld = 18;  // the targets of kSnapTargetCount before P2: SOUND, distortion, delay, level, send
-  static_assert(kSnapTargetCount == kOld + 4 + 14, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX, MODS S2 the eleven mods and FMT MIX, CMB TUNE, CMB FB");
+  static_assert(kSnapTargetCount == kOld + 4 + 14 + 6, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX, MODS S2 the eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's six");
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SNAP")) {
       return true;
@@ -1018,6 +1020,87 @@ TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the gro
   project::ProjectState s2;
   REQUIRE(load(again, s2).status == project::Status::Ok);
   CHECK(s2.snap_values == kSnapTargetCount);
+}
+
+TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, and a project of the format before loads with the new defaults") {
+  Session a;
+  scramble(a);
+  a.rig.wiring.wobble = WobbleSettings{5, 1, 33, true, kWobbleCutoff};
+  a.rig.wiring.wob_want = 1;
+  const std::vector<std::uint8_t> img = encode_session(a);
+  Session b;
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  project::apply(b.rig, b.engine, s);
+  const WobbleSettings& wb = b.rig.wiring.wobble;
+  CHECK(wb.rate == 5);
+  CHECK(wb.shape == 1);
+  CHECK(wb.depth_pct == 33);
+  CHECK(wb.reset);
+  CHECK(wb.target == kWobbleCutoff);
+  CHECK(b.rig.wiring.wob_want == 1);
+  CHECK(encode_session(b) == img);
+  // The latch off round-trips as off, and a load takes the old latch away.
+  a.rig.wiring.wob_want = 0;
+  const std::vector<std::uint8_t> off = encode_session(a);
+  REQUIRE(load(off, s).status == project::Status::Ok);
+  project::apply(b.rig, b.engine, s);
+  CHECK(b.rig.wiring.wob_want == 0);
+
+  // The image of the format before B5a, from real bytes: no SND entry for the latch (app id 9) and 36 values a SNAP slot.
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "SND ")) {
+      std::vector<std::uint8_t> out(p.begin(), p.begin() + 4);
+      unsigned kept = 0;
+      const unsigned n = (static_cast<unsigned>(p[2]) << 8) | p[3];
+      for (unsigned i = 0; i < n; ++i) {
+        const std::uint8_t* e = &p[4 + i * 8];
+        const unsigned pid = (static_cast<unsigned>(e[2]) << 8) | e[3];
+        if (e[0] == project::kSndApp && pid == project::kAppWobbleOn) {
+          continue;
+        }
+        out.insert(out.end(), e, e + 8);
+        ++kept;
+      }
+      out[2] = static_cast<std::uint8_t>(kept >> 8);
+      out[3] = static_cast<std::uint8_t>(kept);
+      p = out;
+    } else if (is(id, "SNAP")) {
+      constexpr unsigned kBefore = 36;
+      const unsigned n = p[3];
+      std::vector<std::uint8_t> out = {p[0], p[1], p[2], kBefore, p[4]};
+      for (unsigned slot = 0; slot < p[2]; ++slot) {
+        const auto first = p.begin() + 5 + static_cast<std::ptrdiff_t>(slot * n * 4);
+        out.insert(out.end(), first, first + kBefore * 4);
+      }
+      p = out;
+    }
+    return true;
+  });
+  CHECK(project::kAppWobbleOn == project::kAppValueCount - 1u);
+  Session c;
+  c.rig.wiring.wob_want = 1;  // a session with the latch on: the old project has none, so it ends off
+  REQUIRE(load(old, s).status == project::Status::Ok);
+  CHECK(s.snap_values == 36);
+  project::apply(c.rig, c.engine, s);
+  CHECK(c.rig.wiring.wob_want == 0);
+  CHECK(c.rig.wiring.wobble.rate == 5);  // what the file held stays
+  float live[kSnapValues];
+  c.rig.controls.snap_capture(c.engine, live);
+  const project::ProjectState g = c.gather();
+  for (unsigned slot : {0u, 3u, 7u}) {
+    for (unsigned i = kSnapWobbleFirst; i < kSnapTargetCount; ++i) {
+      CHECK(g.snap[slot][i] == live[i]);  // the six new targets are the sound as loaded
+    }
+  }
+  // A project with no SND at all: every default is the new one.
+  const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "SND "); });
+  REQUIRE(load(nosnd, s).status == project::Status::Ok);
+  project::apply(c.rig, c.engine, s);
+  CHECK_FALSE(c.rig.wiring.wobble.reset);                                  // RESET defaults off
+  CHECK(c.engine.param(c.rig.wiring.growl, Growl::CombTune) == 7.0f);       // CMB TUNE defaults to +7 st
+  CHECK(c.rig.wiring.wob_want == 0);
+  CHECK_FALSE(c.sequencer->wobble().reset_on_note);
 }
 
 TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {

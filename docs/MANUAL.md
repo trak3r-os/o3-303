@@ -42,7 +42,7 @@ filter.
 What is in it:
 
 - **The voice**: saw or square wave, cutoff, resonance, envelope depth and decay, accent, tuning and level. Eleven more controls, the
-  Devil Fish-style mods on the MODDED pages, change the voice's circuit: one switch (STOCK) turns all of them off, to hear the plain 303.
+  Devil Fish-style mods on the MODDED pages, change the voice's circuit: one switch (MODS) turns all of them off, to hear the plain 303.
   Then a distortion with five models, a delay, a growl (a vowel filter) and a wobble (an LFO you sync to the tempo).
 - **The sequencer**: 48 patterns of 8, 16, 32 or 64 steps. Each step has a note, accent, slide, tie or rest, can play up to four times
   (ratchets) or only now and then (conditions), and can hold its own value of a knob (a lock). Knob moves can be recorded as motion.
@@ -122,7 +122,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Master** | MASTER (tempo and level). Hold it and turn: nudge the tempo. **Shift + Master**: tap tempo, from any screen |
 | **File** | FILE PROJECTS. Again: FILE LIBRARY. **Shift + File**: save the project, from any screen |
 | **Sample Rec** | RECORD |
-| **Sample Load** | MODDED: NOTES, then TONE (again). **Shift + Sample Load**: STOCK, the mods off or on, from any screen |
+| **Sample Load** | MODDED: NOTES, then TONE (again). **Shift + Sample Load**: MODS, the mods heard or off, from any screen |
 | **Sample Play** | GROWL |
 | **Sample Edit** | WOBBLE |
 | **Config** | The unit's settings. **Shift + Config**: HELP for the screen you are on |
@@ -433,7 +433,7 @@ then turn. The other sections of the sound stay in view, and the 16 steps of the
 ![INSTRUMENT VOICE: the eight voice knobs, boxes for the distortion, delay and MODDED, and the 16 steps with their notes](manual/img/instrument-voice.png)
 
 *VOICE: CUTOFF, RESO, ENV MOD, DECAY, ACCENT, WAVE, TUNE, VOLUME. Under them, read-outs of the distortion, the delay and the MODDED
-mods (ACC DEC, SLIDE, SUB, STOCK).*
+mods (ACC DEC, SLIDE, SUB, MODS).*
 
 ![INSTRUMENT FX: the F row DRIVE, TONE, MIX, MODEL, DLY TIME, DLY FB, DLY SEND and DLY TONE](manual/img/instrument-fx.png)
 
@@ -451,17 +451,17 @@ The pads, the steps, Rec and the edit buttons work here as on HOME, so you can k
 ### MODDED
 
 Press **Sample Load**. MODDED opens on NOTES, the page for how a note moves. Press **Sample Load** again for TONE, the page for what
-the filter is fed and gives, and again to go back. F8 on either page is **STOCK**, the same switch as **Shift + Sample Load** from any
+the filter is fed and gives, and again to go back. F8 on either page is **MODS**, the same switch as **Shift + Sample Load** from any
 screen (below).
 
 These are Devil Fish-style mods: changes to the 303's circuit of the kind the Devil Fish made popular. At their stock values the voice is
 the plain 303 that o3-303 was before them, so a MODDED page changes nothing you hear until you turn a knob.
 
-![MODDED NOTES: F1 SOFT ATK, F2 DECAY, F3 ACC DECAY, F4 AMP DECAY, F5 SLIDE, F6 ACC SWEEP, F7 SWP SPEED and F8 STOCK, with the VOICE and TONE read-outs](manual/img/modded-notes.png)
+![MODDED NOTES: F1 SOFT ATK, F2 DECAY, F3 ACC DECAY, F4 AMP DECAY, F5 SLIDE, F6 ACC SWEEP, F7 SWP SPEED and F8 MODS, with the VOICE and TONE read-outs](manual/img/modded-notes.png)
 
 *NOTES. F2 DECAY is the 303's own knob, placed beside ACC DECAY; turning it does not end STOCK.*
 
-![MODDED TONE: F1 TRACKING, F2 FILTER FM, F3 OVERDRIVE, F4 MUFFLER, F5 SUB OSC, F6 and F7 empty, F8 STOCK](manual/img/modded-tone.png)
+![MODDED TONE: F1 TRACKING, F2 FILTER FM, F3 OVERDRIVE, F4 MUFFLER, F5 SUB OSC, F6 and F7 empty, F8 MODS](manual/img/modded-tone.png)
 
 *TONE: what the filter is fed and gives. F6 and F7 are empty.*
 
@@ -483,23 +483,23 @@ speeds' time constants); the ranges and the stock values are not.
 | MUFFLER | TONE F4 | A clipping stage after the amp. SOFT rounds the loudest peaks; HARD clips the top and lets the bass through | OFF, SOFT, HARD | OFF |
 | SUB OSC | TONE F5 | A square an octave below the note, under the main wave. LOW, MID and HIGH set its level | OFF, LOW, MID, HIGH | OFF |
 
-#### STOCK
+#### MODS
 
-STOCK is the A/B switch. It sets the eleven mods to their stock values, so you hear the plain 303, and back again to what you had.
+MODS is the A/B switch, lit while the mods are heard. Off, it sets the eleven mods to their stock values, so you hear the plain 303, and on again, to what you had.
 
-- **On and off:** F8 STOCK on either MODDED page, or **Shift + Sample Load** from any screen, with no change of screen. The status line
-  says STOCK ON or STOCK OFF. While it is on, the header shows a STOCK chip (CLASSIC) or the words STOCK . MODS OFF (OBSIDIAN).
-- **Your settings are kept.** STOCK changes what you hear, not the values. Turning it off brings each mod back as it was.
-- **What ends STOCK:** a turn of the encoder on one of the mods (STOCK goes off first, and the status line says STOCK OFF, so the change
+- **On and off:** F8 MODS on either MODDED page, or **Shift + Sample Load** from any screen, with no change of screen. The status line
+  says MODS ON or MODS OFF, and MODS OFF: F8 while they are off. While they are off, the header shows a STOCK chip (CLASSIC) or the words STOCK . MODS OFF (OBSIDIAN).
+- **Your settings are kept.** MODS changes what you hear, not the values. Turning it off brings each mod back as it was.
+- **What ends the plain 303:** a turn of the encoder on one of the mods (MODS goes on first, and the status line says MODS ON, so the change
   is heard), and a LOAD, NEW, REVERT or RESET PROJECT, or the load at start-up: every project is heard as saved first.
 - **What does not end it:** a MIDI controller, a lane of a pattern, a lock or a snapshot recall. They write the stored value, and you hear
-  it when STOCK goes off. DECAY, the 303's own knobs, the FX, the growl and the wobble are not touched by STOCK.
-- STOCK is not saved in a project. A project keeps the mods' values.
+  it when MODS goes on. DECAY, the 303's own knobs, the FX, the growl and the wobble are not touched by MODS.
+- MODS is not saved in a project. A project keeps the mods' values.
 
 ### GROWL
 
 Press **Sample Play**. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
-comb, then the mix), and F8 is empty.
+comb, then the mix), and F8 switches the growl on and off.
 
 ![GROWL: F1 VOWEL, F2 FMT Q, F3 FMT MIX, F4 CMB TUNE, F5 CMB FB, F6 CMB MIX, F7 GRL MIX; the VOICE and WOBBLE read-outs](manual/img/growl.png)
 
@@ -510,10 +510,11 @@ comb, then the mix), and F8 is empty.
 | F1 VOWEL | Which vowel the formant filter sounds: 0 % is "a", 100 % is "u", and between them it passes "e", "i" and "o" | 0 to 100 % | 0 % |
 | F2 FMT Q | The formant filter's resonance | 1 to 20 | 5.0 |
 | F3 FMT MIX | How much of the vowel filter is heard | 0 to 100 % | 100 % |
-| F4 CMB TUNE | The comb's tuning | -24 to +24 semitones | 0 |
+| F4 CMB TUNE | The comb's tuning | -24 to +24 semitones | +7 |
 | F5 CMB FB | The comb's feedback | -0.95 to +0.95 | 0.6 |
 | F6 CMB MIX | How much of the comb is heard | 0 to 100 % | 50 % |
 | F7 GRL MIX | The growl's wet and dry, for the whole growl | 0 to 100 % | 0 % (off) |
+| F8 GROWL | Mix to 0 (off), and back to the last value, 50 % at first (not saved). The strip says GROWL OFF: F8 while off | OFF, ON | OFF |
 
 Shift + an F key is MIDI learn for F1 to F7 (section 10). The pads are the home map, so the line plays and edits while you shape the growl.
 Like the other knobs, a growl knob can be locked per step and recorded as motion.
@@ -533,10 +534,12 @@ action is on. F8 latches that action here, the same as WOB on PERFORM, and ALL O
 | F2 SHAPE | The wave | SINE, TRI, SAW DN, SAW UP, SQUARE, S&H | SINE |
 | F3 DEPTH | How far the wobble swings | 0 to 100 % | 50 % |
 | F4 TARGET | What the wobble moves: the cutoff, or the growl's vowel | CUTOFF, VOWEL | CUTOFF |
-| F5 RESET | Whether each note restarts the wave | OFF, ON | ON |
+| F5 RESET | Whether each note restarts the wave | OFF, ON | OFF |
 | F8 WOB | Runs the wobble, as PERFORM's WOB action does | OFF, ON | OFF |
 
 The wobble's settings are not learnable with MIDI: their Shift row says "-". F8 WOB is not a MIDI control either.
+
+The wobble's five settings and its latch are saved in the project and in each snapshot (the shape and target switch at a recall, they do not glide); an older project or snapshot loads with the defaults. The VOWEL target needs GRL MIX above 0: while the growl is off the encoder says GROWL IS OFF. The strip says WOB OFF: F8 while the latch is off.
 
 ### MASTER
 
@@ -728,7 +731,7 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 - **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo or the sound a
   load also sets: Shift + F2 LOAD LINE leaves the sound alone, and Shift + F3 brings back the sound a load replaced (section 5, FILE LIBRARY).
 - **Snapshots** (PERFORM): store a sound before you twist the knobs, recall it when you get lost, and morph between two.
-- **STOCK** (Shift + Sample Load, from any screen): turns the MODDED mods off to hear the plain 303, and on again, with your settings
+- **MODS** (Shift + Sample Load, from any screen): turns the MODDED mods off to hear the plain 303, and on again, with your settings
   kept (section 5, MODDED).
 - **Copy first.** On PATTERN SETUP, Shift + F3 DUP>NEXT copies the pattern into the next one: change the copy and keep the original.
 - **REVERT** (FILE PROJECTS, F5 twice) takes the whole project back to your last Shift + File.
@@ -812,9 +815,9 @@ saves them with its sound:
 | Was on DEEP | Now | At first |
 |---|---|---|
 | FMT MIX | GROWL, F3 FMT MIX | 100 % |
-| CMB TUNE | GROWL, F4 CMB TUNE | 0 st |
+| CMB TUNE | GROWL, F4 CMB TUNE | +7 st |
 | CMB FB | GROWL, F5 CMB FB | 0.6 |
-| WOB RESET | WOBBLE, F5 RESET | ON |
+| WOB RESET | WOBBLE, F5 RESET | OFF |
 | DLY MODE | MASTER, F5 DLY MODE | PING |
 
 A settings file from before that still holds the DEEP values loads with them ignored.
@@ -834,7 +837,7 @@ Config's MIDI section says which one is followed (FOLLOW PORT).
   takes them all). A note played at velocity 96 or more is accented, one below 96 is not (the pads and the on-screen keys play at 90, and at 127
   when the step they play is accented); slides come from overlapping notes, as before.
 - **MIDI learn.** On INSTRUMENT, MODDED and GROWL, hold Shift: the F keys that say LEARN can follow a controller. Press Shift + the F key,
-  then move the controller's knob. Shift + the same key again cancels. The mods and the growl's knobs can be learned; STOCK and the
+  then move the controller's knob. Shift + the same key again cancels. The mods and the growl's knobs can be learned; MODS and the
   wobble's settings show "-". Config's MIDI section has CLEAR LEARN (F1 twice) to remove every binding.
 - **Clock.** Config's MIDI section has FOLLOW CLOCK and FOLLOW PORT (follow another machine's tempo), TRANSPORT IN, and CLOCK OUT and
   TRANSPORT OUT for the other direction. MASTER's CLOCK line says whether the tempo is INTERNAL.

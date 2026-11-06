@@ -101,7 +101,7 @@ TEST_CASE("help texts: the F keys' texts are where there is something to add") {
     }
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 7), "GROWL F" << k + 1);
+    CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 8), "GROWL F" << k + 1);
     CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
     CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5 || k == 7), "MODDED TONE F" << k + 1);
   }
@@ -427,7 +427,7 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
     REQUIRE_MESSAGE(load != nullptr, t.name << ": Sample Loader is not listed");
     const bool on_modded = static_cast<Id>(i) == Id::ModdedNotes || static_cast<Id>(i) == Id::ModdedTone;
     CHECK_MESSAGE(std::strcmp(load->text, on_modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED") == 0, t.name);
-    CHECK_MESSAGE(std::strcmp(load->shift, "STOCK: ALL MODS OFF / ON") == 0, t.name << ": Shift + Sample Loader");
+    CHECK_MESSAGE(std::strcmp(load->shift, "MODS: HEARD / PLAIN 303") == 0, t.name << ": Shift + Sample Loader");
     if (static_cast<Id>(i) == Id::Growl) {
       CHECK_MESSAGE(play == nullptr, t.name << ": Sample Playback does nothing on GROWL (it is drawn dimmed)");
     } else {

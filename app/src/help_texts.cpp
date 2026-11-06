@@ -50,8 +50,8 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
-  // Sample Loader opens MODDED (again: its next page) and, with Shift, flips STOCK from every screen; Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
-  b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "STOCK: ALL MODS OFF / ON");
+  // Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
+  b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "MODS: HEARD / PLAIN 303");
   b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL");
   b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE");
   b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
@@ -280,7 +280,7 @@ constexpr Text kTexts[kIdCount] = {
     // ModdedNotes
     {"MODDED NOTES",
      "THE 303 MODS FOR HOW A NOTE MOVES. TAP AN F KEY, THEN TURN: A TURN ENDS STOCK (NOT DECAY). A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK. SHIFT + F KEY: LEARN.",
-     {"NOTE FADE-IN, OFF = 303", "ENVELOPE DECAY", "ACCENT DECAY TIME", "NOTE AMP DECAY TIME", "SLIDE TIME", "SWEEP: OFF, NORMAL, HI RES", "SWEEP SPEED", "STOCK: ALL MODS OFF / ON"},
+     {"NOTE FADE-IN, OFF = 303", "ENVELOPE DECAY", "ACCENT DECAY TIME", "NOTE AMP DECAY TIME", "SLIDE TIME", "SWEEP: OFF, NORMAL, HI RES", "SWEEP SPEED", "MODS: HEARD / PLAIN 303"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kModdedButtons.row,
@@ -291,7 +291,7 @@ constexpr Text kTexts[kIdCount] = {
     // ModdedTone
     {"MODDED TONE",
      "THE 303 MODS FOR WHAT THE FILTER IS FED AND GIVES. TAP AN F KEY, THEN TURN: A TURN ENDS STOCK. A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK. SHIFT + F KEY: LEARN.",
-     {"FILTER FOLLOWS KEYS", "FILTER FM DEPTH", "DRIVE INTO FILTER", "MUFFLER: OFF, SOFT, HARD", "SUB OCTAVE LEVEL", NONE, NONE, "STOCK: ALL MODS OFF / ON"},
+     {"FILTER FOLLOWS KEYS", "FILTER FM DEPTH", "DRIVE INTO FILTER", "MUFFLER: OFF, SOFT, HARD", "SUB OCTAVE LEVEL", NONE, NONE, "MODS: HEARD / PLAIN 303"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kModdedButtons.row,
@@ -301,8 +301,8 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Growl
     {"GROWL",
-     "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
-     {"GROWL VOWEL", "GROWL FORMANT Q", "FORMANT MIX", "COMB TUNE, SEMITONES", "COMB FEEDBACK", "GROWL COMB MIX", "WET / DRY OF THE GROWL", NONE},
+     "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE GROWL ON / OFF. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
+     {"GROWL VOWEL", "GROWL FORMANT Q", "FORMANT MIX", "COMB TUNE, SEMITONES", "COMB FEEDBACK", "GROWL COMB MIX", "WET / DRY OF THE GROWL", "GROWL: MIX 0 / LAST VALUE"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kGrowlButtons.row,
@@ -312,7 +312,7 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Wobble
     {"WOBBLE",
-     "THE WOBBLE: A SLOW LFO ON THE CUTOFF OR THE VOWEL. IT RUNS WHILE PERFORM'S WOB ACTION IS ON: F8 LATCHES IT. TAP AN F KEY TO LATCH IT, THEN TURN. NOT MIDI LEARNABLE.",
+     "THE WOBBLE: A SLOW LFO ON THE CUTOFF OR THE VOWEL (THE GROWL MUST BE ON). F8 LATCHES IT; THE PROJECT KEEPS IT. TAP AN F KEY, THEN TURN. NOT MIDI LEARNABLE.",
      {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF OR VOWEL", "RESTART ON EACH NOTE", NONE, NONE, "WOB ACTION ON / OFF"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",

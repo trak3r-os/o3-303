@@ -114,7 +114,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void learn_key(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void learn_drop(o3sdk::app::Context& ctx) noexcept;
   void run_action(o3sdk::app::Context& ctx, const Entry& entry) noexcept;
-  bool action_on(const Entry& entry) const noexcept;
+  bool action_on(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   PageKeys& keys() noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
   const PageKeys& keys() const noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
 

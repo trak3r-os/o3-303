@@ -71,6 +71,13 @@ void LiveActions::update(app::Context& ctx) noexcept {
     snap_finish(ctx, false);
   }
   sync_assignments(ctx);
+  if (rig_->wiring.wob_want >= 0) {  // a project load or a snapshot recall asked for the WOB latch (B5a): bring it there, as the key would
+    const bool want = rig_->wiring.wob_want == 1;
+    rig_->wiring.wob_want = -1;
+    if (latched(PerfAction::Wobble) != want) {
+      toggle_latch(ctx, PerfAction::Wobble);
+    }
+  }
 }
 
 void LiveActions::leave(app::Context& ctx) noexcept {
@@ -301,10 +308,16 @@ void LiveActions::snap_apply(app::Context& ctx, float ms) noexcept {
   for (unsigned i = 0; i < kSnapTargetCount; ++i) {
     const Entry& en = snap_target(i);
     LaneRef ref{kLaneNone, 0};
+    const bool discrete = controls_->snap_discrete(e, i);
     if (!controls_->lane_ref(en, ref)) {
+      if (i >= kSnapWobbleFirst) {  // the wobble's settings and its latch: no lane drives them, a recall writes them at once (the enums switch, the depth steps)
+        const float w = snaps.value(i, discrete);
+        if (controls_->get(e, en) != w) {
+          controls_->set(e, en, w);
+        }
+      }
       continue;
     }
-    const bool discrete = controls_->snap_discrete(e, i);
     const float v = snaps.value(i, discrete);
     if (discrete) {
       if (controls_->get(e, en) != v) {

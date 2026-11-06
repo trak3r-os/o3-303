@@ -17,7 +17,7 @@
 namespace o3_303 {
 
 inline constexpr unsigned kSnapSlots = 8;
-inline constexpr unsigned kSnapValues = 40;  // the targets a snapshot can hold (pages.h kSnapTargetCount of them are used: SOUND, the distortion, the delay, the level, the send, the growl, the mods)
+inline constexpr unsigned kSnapValues = 48;  // the targets a snapshot can hold (pages.h kSnapTargetCount of them are used: SOUND, the distortion, the delay, the level, the send, the growl, the mods)
 inline constexpr unsigned kMorphSteps = 32;  // encoder detents from one end of the morph to the other (a coarse step is kMorphCoarse of them)
 inline constexpr unsigned kMorphCoarse = 4;
 

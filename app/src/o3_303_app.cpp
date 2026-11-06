@@ -137,7 +137,7 @@ class O3_303App final : public app::App {
     sequencer_.set_fill_variant(o3_303::seq::FillVariant::Mutate);
     sequencer_.set_live_transpose(0);
     sequencer_.wobble_rate_override(o3_303::seq::kWobbleRateNone);
-    sequencer_.set_wobble_reset(true);
+    sequencer_.set_wobble_reset(false);
     (void)sequencer_.set_wobble(false, 0, 0, 0.0f);  // the WOBBLE action switches it on
     (void)sequencer_.clear_queue();
     (void)sequencer_.set_chain_loop(false);

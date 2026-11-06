@@ -73,16 +73,16 @@ inline void say_on_status(Rig& rig, o3sdk::app::Context& ctx, const char* text, 
   ctx.redraw();
 }
 
-// STOCK (docs/MODS-PLAN.md 4.1, 5.11): the voice's switch flips, and the status line says which way ("STOCK ON": the eleven mods are out and the voice is the plain 303). Shift + Sample Loader
+// MODS (docs/MODS-PLAN.md 4.1, 5.11; B5a): the voice's Stock switch flips, and the status line says which way ("MODS OFF": the eleven mods are out and the voice is the plain 303; lit while heard). Shift + Sample Loader
 // (the app) and MODDED's F8 are this one gesture. If the engine's command ring refused the write the mirror did not move and the message says so.
 inline void toggle_stock(Rig& rig, o3sdk::app::Context& ctx) noexcept {
   const bool before = rig.wiring.stock;
-  rig.controls.set(ctx.engine(), Entry{Item::Stock, 0, nullptr}, before ? 0.0f : 1.0f);
+  rig.controls.set(ctx.engine(), Entry{Item::Mods, 0, nullptr}, before ? 1.0f : 0.0f);  // Stock on: the mods are not heard, the flip hears them
   if (rig.wiring.stock == before) {
-    say_on_status(rig, ctx, "STOCK: TRY AGAIN", true);
+    say_on_status(rig, ctx, "MODS: TRY AGAIN", true);
     return;
   }
-  say_on_status(rig, ctx, rig.wiring.stock ? "STOCK ON" : "STOCK OFF", false);
+  say_on_status(rig, ctx, rig.wiring.stock ? "MODS OFF" : "MODS ON", false);
 }
 
 // The take's chip and message, the song mode and STOCK, into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks and Play's mode and

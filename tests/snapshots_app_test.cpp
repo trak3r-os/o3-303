@@ -201,3 +201,70 @@ TEST_CASE("snapshots: a recall does not write a mod or a new growl knob that the
   CHECK(t.param(kVoice, AcidVoice::AccDecay) == doctest::Approx(900.0f).epsilon(0.001));
   CHECK(t.param(kGrowl, Growl::CombTune) == doctest::Approx(5.0f).epsilon(0.001));
 }
+
+TEST_CASE("snapshots: B5a, a snapshot takes the wobble's five settings and its latch and gives them back, the enums switching at the recall and not gliding") {
+  Hands t;
+  const auto turn_key = [&](unsigned k, int detents) {  // on the WOBBLE screen already (a second Sample Editor would turn the page)
+    t.tap(app::fkey(k));
+    t.turn(detents);
+    t.wait(10);
+  };
+  const auto latch = [&] {
+    t.tap(Button::F8);
+    t.wait(10);
+  };
+  const auto wob = [] { return app_sequencer().wobble(); };  // a copy: read it fresh
+  t.to_wobble();
+  latch();                                  // on, at the defaults
+  REQUIRE(wob().on);
+  turn_key(0, 2);                           // A: RATE 1/8 -> 1/16
+  turn_key(1, 2);                           // SHAPE: sine -> two on
+  turn_key(2, -30);                         // DEPTH down
+  turn_key(4, 1);                           // RESET on
+  const seq::Wobble a = wob();
+  REQUIRE(a.rate == seq::kWobble1_16);
+  REQUIRE(a.shape != seq::kWobbleSine);
+  REQUIRE(a.reset_on_note);
+  t.to_perform();
+  store(t, 0);                              // A on pad 1, the latch on
+  t.to_wobble();
+  turn_key(0, -4);                          // B: another rate, shape, depth, RESET off
+  turn_key(1, -4);
+  turn_key(2, 60);
+  turn_key(4, -1);
+  const seq::Wobble b = wob();
+  REQUIRE(b.rate != a.rate);
+  REQUIRE(b.shape != a.shape);
+  REQUIRE(b.depth > a.depth + 0.2f);
+  REQUIRE_FALSE(b.reset_on_note);
+  t.to_perform();
+  store(t, 1);                              // B on pad 2
+  t.to_wobble();
+  latch();                                  // off, with B set
+  REQUIRE_FALSE(wob().on);
+  t.to_perform();
+  t.pad(snap_pad(0), 10);                   // A, then B: the morph runs from A (position 0) to B (32)
+  t.wait(300);
+  t.pad(snap_pad(1), 10);
+  t.wait(300);
+  CHECK(wob().on);                          // the latch came back with the recall
+  CHECK(wob().rate == b.rate);
+  CHECK(wob().shape == b.shape);
+  CHECK_FALSE(wob().reset_on_note);
+  CHECK(wob().depth == doctest::Approx(b.depth));
+  t.turn(-15);                              // position 17: the depth is a blend, the enums are still B's (they switch at the middle, 16 and 17 are B's)
+  t.wait(10);
+  CHECK(wob().rate == b.rate);
+  CHECK(wob().shape == b.shape);
+  CHECK(wob().depth < b.depth);
+  CHECK(wob().depth > a.depth);
+  CHECK(wob().on);                          // a morph detent writes the settings, never drops the latch (set_wobble keeps the wave's phase)
+  t.turn(-2);                               // position 15: the enums have switched, in one step
+  t.wait(10);
+  CHECK(wob().rate == a.rate);
+  CHECK(wob().shape == a.shape);
+  CHECK(wob().reset_on_note);
+  CHECK(wob().depth > a.depth);
+  CHECK(wob().depth < b.depth);
+  CHECK(wob().on);
+}

@@ -25,7 +25,7 @@ at bbe7b83. The proposed order for the next round, cheapest first:
 | 5b | 16 a library load keeps the sound in a LAST slot, 17 a NO AUTOSAVE chip (17 built, B1) (16 built, B3) | small each | nothing; before item 8 |
 | 6 | 8 one ladder model: HOME's FILT rows and PERFORM's row 3 take any F key's knob (built, B4) | medium | nothing (decided 2026-11-03) |
 | 7 | 2 INSTRUMENT's knobs beside the F keys | medium (five screens share the drawing) | nothing |
-| 7 (with 2) | 14 GROWL, WOBBLE and mods: on/off keys, audible defaults, "heard on" lines | medium | item 2's redraw; the new defaults are decided (2026-11-05), so they can go first, alone |
+| 7 (with 2) | 14 GROWL, WOBBLE and mods: on/off keys, audible defaults, "heard on" lines (1, 2 and 5 built, B5a) | medium | item 2's redraw; the new defaults are decided (2026-11-05), so they can go first, alone |
 | 7a | 19 the row latch ends with the screen | small | with item 2 |
 | 7b | 6 the key LEDs: scale at mid, root highlighted (built, B2) | small | item 1, the root |
 | 8 | 5 OBSIDIAN the default | small once A9 is settled | A9 on the unit |

@@ -123,17 +123,21 @@ TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a la
   t.assign_perf(Button::Fx, PerfAction::Wobble, true);
   t.shift_tap(Button::Fx);  // latched on PERFORM: the colour buttons are the drawer's rows on INSTRUMENT, a hold cannot cross the change
   t.to_wobble();  // WOBBLE (Sample Editor): F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET
-  t.tap(Button::F5);  // RESET off (it was Config DEEP's WOB RESET until MODS-PLAN S0)
-  t.turn(-1);
+  t.tap(Button::F5);  // RESET on (it defaults off since B5a; it was Config DEEP's WOB RESET until MODS-PLAN S0)
+  t.turn(1);
   t.wait(10);
   CHECK(s.wobble().on);
-  CHECK_FALSE(s.wobble().reset_on_note);
+  CHECK(s.wobble().reset_on_note);
   t.to_growl();  // GROWL, INSTRUMENT VOICE and FX: the latch stays
   t.tap(Button::Params);
   t.tap(Button::Params);
   CHECK(s.wobble().on);
   t.to_wobble();
   t.tap(Button::F4);  // TARGET: the voice's Cutoff, the growl's Vowel
+  t.turn(1);          // refused while GRL MIX is 0 (B5a)
+  t.wait(10);
+  CHECK(s.wobble().target.target == o3_303::kLaneVoice);
+  (void)t.h->engine().set_param(kGrowl, Growl::Mix, 0.5f);
   t.turn(1);
   t.wait(10);
   CHECK(s.wobble().on);
@@ -160,7 +164,7 @@ TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a la
   // A fresh run starts with the defaults (setup() resets the wiring and the sequencer's wobble).
   Hands again;
   CHECK_FALSE(app_sequencer().wobble().on);
-  CHECK(app_sequencer().wobble().reset_on_note);
+  CHECK_FALSE(app_sequencer().wobble().reset_on_note);  // RESET defaults off (B5a)
 }
 
 TEST_CASE("ROLL, STOP and REV: each writes the freeze's Mode, then Active, while held; the release clears Active and leaves the Mode") {

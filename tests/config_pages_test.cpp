@@ -425,7 +425,7 @@ TEST_CASE("a system.o3s that still holds the retired keys 20..24 loads, drops th
   CHECK(s.param(kGrowl, Growl::CombTune) == doctest::Approx(5.0f));
   CHECK(s.param(kGrowl, Growl::CombFeedback) == doctest::Approx(-0.4f));
   CHECK(s.param(kDelay, units::Delay::Mode) == doctest::Approx(0.0f));
-  CHECK(app_sequencer().wobble().reset_on_note);  // WOB RESET is the sequencer's own default (on)
+  CHECK_FALSE(app_sequencer().wobble().reset_on_note);  // WOB RESET defaults off (B5a)
   // The next save of the settings has no retired key.
   s.set(config::kPadLegend, 0.0f);
   s.settle();

@@ -69,7 +69,7 @@ constexpr SectionDef kSections[kSectionCount] = {
     {"DELAY", 4, {{"TIME", delay(units::Delay::Time)}, {"FB", delay(units::Delay::Feedback)}, {"SEND", app_item(Item::SendA)}, {"TONE", delay(units::Delay::Tone)}}},
     {"GROWL", 4, {{"VOWEL", growl(Growl::Vowel, nullptr)}, {"FMT Q", growl(Growl::FormantQ, nullptr)}, {"CMB MIX", growl(Growl::CombMix, nullptr)}, {"GRL MIX", growl(Growl::Mix, nullptr)}}},
     {"WOBBLE", 4, {{"RATE", wobble(kWobbleRate, nullptr)}, {"DEPTH", wobble(kWobbleDepth, nullptr)}, {"TGT", wobble(kWobbleTarget, nullptr)}, {"WOB", Entry{}, true}}},
-    {"MODDED", 4, {{"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SUB", voice(AcidVoice::SubOsc)}, {"STOCK", app_item(Item::Stock)}}},
+    {"MODDED", 4, {{"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SUB", voice(AcidVoice::SubOsc)}, {"MODS", app_item(Item::Mods)}}},
     {"NOTES", 4, {{"SOFT ATK", voice(AcidVoice::SoftAtk)}, {"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SWEEP", voice(AcidVoice::AccSweep)}}},
     {"TONE", 4, {{"TRACK", voice(AcidVoice::Tracking)}, {"FM", voice(AcidVoice::FilterFm)}, {"DRIVE", voice(AcidVoice::Overdrive)}, {"MUFFLER", voice(AcidVoice::Muffler)}}},
 };
@@ -105,7 +105,7 @@ constexpr help_texts::Id kWobbleHelp[1] = {help_texts::Id::Wobble};
 
 constexpr InstrumentGroup kInstrumentGroup = {2, kInstrumentTitles, kInstrumentTabs, kInstrumentPages, kInstrumentShown, kInstrumentHelp,
                                               "PARAMS AGAIN = NEXT PAGE   SHIFT + F = MIDI LEARN"};
-constexpr InstrumentGroup kModdedGroup = {2, kModdedTitles, kModdedTabs, kModdedPages, kModdedShown, kModdedHelp, "SHIFT + SAMPLE LOAD = STOCK  SHIFT + F = LEARN"};
+constexpr InstrumentGroup kModdedGroup = {2, kModdedTitles, kModdedTabs, kModdedPages, kModdedShown, kModdedHelp, "SHIFT + SAMPLE LOAD = MODS  SHIFT + F = LEARN"};
 constexpr InstrumentGroup kGrowlGroup = {1, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SHIFT + F = MIDI LEARN"};
 constexpr InstrumentGroup kWobbleGroup = {1, kWobbleTitles, kWobbleTitles, kWobblePages, kWobbleShown, kWobbleHelp, "RUNS WHILE THE WOB ACTION IS ON"};
 static_assert(kInstrumentGroup.count <= kMaxGroupPages && kModdedGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages,
@@ -299,7 +299,7 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
 }
 
 // The two action keys (docs/MODS-PLAN.md 5.3, 5.5): a key that runs at its press and is lit while it is on, not a knob the encoder latches. F8 of MODDED is STOCK, F8 of WOBBLE the WOB action.
-constexpr bool is_action(const Entry& entry) noexcept { return entry.item == Item::Stock || entry.item == Item::WobOn; }
+constexpr bool is_action(const Entry& entry) noexcept { return entry.item == Item::Mods || entry.item == Item::WobOn || entry.item == Item::GrowlOn; }
 
 // The eleven mods (voice ids 8..18): turning one while STOCK is on ends STOCK. DECAY is the 303's own knob and STOCK itself is not one.
 constexpr bool is_mod(const Entry& entry) noexcept { return entry.item == Item::Voice && entry.id >= AcidVoice::kFirstMod && entry.id < AcidVoice::Stock; }
@@ -501,6 +501,14 @@ void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
       toggle_stock(*rig_, ctx);
     }
   }
+  for (unsigned k = 0; k < kKeys; ++k) {  // a TARGET of VOWEL with the growl off would be silent: refused, with a toast (B5a). A project or a snapshot can still hold it
+    const Entry& en = pg.entry[k];
+    if ((affected >> k & 1u) != 0u && en.item == Item::Wobble && en.id == kWobbleTarget && rig_->wiring.wobble.target == kWobbleCutoff && in.delta() > 0 &&
+        controls_->get(ctx.engine(), Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {
+      home_->toast(ctx, "GROWL IS OFF", true);
+      return;
+    }
+  }
   (void)pk.input(ctx, in, *controls_);
   for (unsigned k = 0; k < kKeys; ++k) {  // Rec while the pattern plays: the move is written as motion under the playhead (the home map's)
     if ((affected >> k & 1u) != 0u) {
@@ -549,8 +557,10 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
 
 // An action key's press: STOCK flips the voice's switch (the same gesture as Shift + Sample Loader), WOB latches or releases PERFORM's WOB action (LiveActions::toggle_latch).
 void InstrumentScreen::run_action(app::Context& ctx, const Entry& entry) noexcept {
-  if (entry.item == Item::Stock) {
+  if (entry.item == Item::Mods) {
     toggle_stock(*rig_, ctx);
+  } else if (entry.item == Item::GrowlOn) {
+    controls_->set(ctx.engine(), entry, controls_->get(ctx.engine(), entry) >= 0.5f ? 0.0f : 1.0f);
   } else {
     live_->toggle_latch(ctx, PerfAction::Wobble);
   }
@@ -558,7 +568,15 @@ void InstrumentScreen::run_action(app::Context& ctx, const Entry& entry) noexcep
 }
 
 // Whether an action key is on now: STOCK's mirror, or the WOB action latched (a held one cannot be here: a screen change lets it go, and no colour button holds it on this screen).
-bool InstrumentScreen::action_on(const Entry& entry) const noexcept { return entry.item == Item::Stock ? rig_->wiring.stock : live_->latched(PerfAction::Wobble); }
+bool InstrumentScreen::action_on(const dsp::Engine& e, const Entry& entry) const noexcept {
+  if (entry.item == Item::Mods) {
+    return !rig_->wiring.stock;  // lit while the mods are heard
+  }
+  if (entry.item == Item::GrowlOn) {
+    return controls_->get(e, entry) >= 0.5f;
+  }
+  return live_->latched(PerfAction::Wobble);
+}
 
 // ---- Soft keys and LEDs -----------------------------------------------------------------------------------------------------
 
@@ -686,7 +704,7 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     if (is_action(pg.entry[k])) {  // a key and not a knob: no pointer (norm below 0 is the skin's Action slot), its state ON / OFF as the hint, lit while on
       kn.norm = -1.0f;
       kn.toggle = false;
-      kn.lit = action_on(pg.entry[k]);
+      kn.lit = action_on(e, pg.entry[k]);
       cut(kn.lit ? "ON" : "OFF", sizeof kn.value - 1u, kn.value, sizeof kn.value);
       kn.unit = "";
       continue;
@@ -702,6 +720,13 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   view.tab_count = group_->count;
   view.tabs = group_->tabs;
   view.hint = group_->hint;
+  if (group_ == &kGrowlGroup && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
+    view.hint = "GROWL OFF: F8";
+  } else if (group_ == &kWobbleGroup && !live_->wobble_on()) {
+    view.hint = "WOB OFF: F8";
+  } else if (group_ == &kModdedGroup && rig_->wiring.stock) {
+    view.hint = "MODS OFF: F8";
+  }
   for (unsigned k = 0; k < kKeys; ++k) {
     view.learn[k] = learn_of(ctx, k);
   }
@@ -766,6 +791,9 @@ void InstrumentScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Re
   draw_big_knobs(r, area, view.knob);
   draw_sections(r, area, view);
   draw_drawer(r, area, view);
+  if (std::strstr(view.hint, "OFF: F8") != nullptr) {  // an effect that is off says how to bring it back (B5a); the other hints are the skin's
+    r.text(area.x + 8, area.y + kDrawerY, view.hint, Color::Accent, Face::Label);
+  }
 
   const Rect strip{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};
   char line[128];

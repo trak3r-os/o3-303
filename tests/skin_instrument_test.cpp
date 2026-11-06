@@ -354,7 +354,7 @@ TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and
   }
 }
 
-TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would be (no pointer), dark while off and lit red while on; GROWL has none") {
+TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would be (no pointer), dark while off and lit red while on; GROWL's is dark while the Mix is 0") {
   const auto keys = [](const OnInstrument& o, bool lit) {
     unsigned n = 0;
     for (unsigned i = 0; i < o.q().shapes(); ++i) {
@@ -368,17 +368,17 @@ TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would 
   for (const Where w : {Where::Notes, Where::Tone}) {  // STOCK
     OnInstrument o(w);
     INFO(where_name(w));
-    CHECK(keys(o, false) == 1u);
-    CHECK(keys(o, true) == 0u);
+    CHECK(keys(o, true) == 1u);  // MODS: lit while the mods are heard, which they are at boot
+    CHECK(keys(o, false) == 0u);
     // Seven knobs on NOTES, five on TONE: the key and the empty boxes have no cap (the sprites of the knob row are the 58 px caps).
     CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) == (w == Where::Notes ? 7u : 5u));
-    o.t.tap(Button::F8);  // STOCK on: the key is lit
-    o.t.wait(60);
-    CHECK(keys(o, true) == 1u);
-    CHECK(keys(o, false) == 0u);
-    o.t.tap(Button::F8);
+    o.t.tap(Button::F8);  // MODS off: the key goes dark
     o.t.wait(60);
     CHECK(keys(o, false) == 1u);
+    CHECK(keys(o, true) == 0u);
+    o.t.tap(Button::F8);
+    o.t.wait(60);
+    CHECK(keys(o, true) == 1u);
     o.intact();
   }
   {  // WOB: the latch of PERFORM's wobble action
@@ -390,18 +390,22 @@ TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would 
     o.intact();
   }
   {
-    OnInstrument o(Where::Growl);
-    CHECK(keys(o, false) == 0u);
+    OnInstrument o(Where::Growl);  // F8 is the growl's key since B5a: dark while the Mix is 0, lit once it is heard
+    CHECK(keys(o, false) == 1u);
     CHECK(keys(o, true) == 0u);
+    o.t.tap(Button::F8);
+    o.t.wait(60);
+    CHECK(keys(o, true) == 1u);
+    CHECK(keys(o, false) == 0u);
   }
 }
 
 TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and no label, latch LED or readout; the other slots have all three") {
   struct Blanks {
     Where w;
-    unsigned count;  // F6 and F7 on TONE and WOBBLE, F8 on GROWL; INSTRUMENT and NOTES have none (F8 of NOTES is the STOCK key)
+    unsigned count;  // F6 and F7 on TONE and WOBBLE; INSTRUMENT, NOTES and GROWL have none (F8 of NOTES is the MODS key, GROWL's the growl's)
   };
-  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 0}, {Where::Tone, 2}, {Where::Growl, 1}, {Where::Wobble, 2}};
+  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 0}, {Where::Tone, 2}, {Where::Growl, 0}, {Where::Wobble, 2}};
   for (const Blanks& expect : kBlanks) {
     OnInstrument o(expect.w);
     INFO(where_name(expect.w));
@@ -446,16 +450,18 @@ TEST_CASE("skin instrument: the ON under a lit key is read at full strength, the
     REQUIRE(n == 1u);
     return c;
   };
-  for (const Where w : {Where::Notes, Where::Tone, Where::Wobble}) {  // STOCK on both pages of MODDED, WOB on WOBBLE
+  for (const Where w : {Where::Notes, Where::Tone, Where::Wobble}) {  // MODS on both pages of MODDED (heard at boot), WOB on WOBBLE (off at boot)
     OnInstrument o(w);
     INFO(where_name(w));
-    CHECK(hint(o) == ui::Color::TextDim);  // OFF
+    const ui::Color boot = w == Where::Wobble ? ui::Color::TextDim : ui::Color::Text;
+    const ui::Color other = w == Where::Wobble ? ui::Color::Text : ui::Color::TextDim;
+    CHECK(hint(o) == boot);
     o.t.tap(Button::F8);
     o.t.wait(60);
-    CHECK(hint(o) == ui::Color::Text);  // ON
+    CHECK(hint(o) == other);
     o.t.tap(Button::F8);
     o.t.wait(60);
-    CHECK(hint(o) == ui::Color::TextDim);
+    CHECK(hint(o) == boot);
   }
 }
 

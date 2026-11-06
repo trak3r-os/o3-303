@@ -90,7 +90,7 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
   };
   const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0, 8}, {&kFxPage, 0, 9},
                          {&kNotesPage, 0, 9},           {&kTonePage, (1u << 5) | (1u << 6), 9},
-                         {&kGrowlPage, 1u << 7, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
+                         {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
   for (const Shown& sh : shown) {
     for (unsigned k = 0; k < kKeys; ++k) {
       const Entry e = rig.entry(*sh.page, k);
@@ -113,9 +113,9 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
   CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kFxPage, 5)), "DLY FB") == 0);
   CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kFxPage, 6)), "DLY SEND") == 0);
   CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kFxPage, 7)), "DLY TONE") == 0);
-  // MODDED: F8 is the STOCK action key on both pages.
-  CHECK(rig.entry(kNotesPage, 7).item == Item::Stock);
-  CHECK(rig.entry(kTonePage, 7).item == Item::Stock);
+  // MODDED: F8 is the MODS action key on both pages.
+  CHECK(rig.entry(kNotesPage, 7).item == Item::Mods);
+  CHECK(rig.entry(kTonePage, 7).item == Item::Mods);
 }
 
 TEST_CASE("pages: the entries a motion lane can drive are the voice's, the distortion's, the delay's, VOLUME and DLY SEND (C2)") {
@@ -437,7 +437,7 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
 
   // The targets: SOUND's seven, the distortion's five, the delay's four, the level and the send, then (P2, D29) the growl's VOWEL, FMT Q, GRL MIX and
   // CMB MIX, then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven mods in id order and the growl's FMT MIX, CMB TUNE and CMB FB, each a real entry the lanes know.
-  CHECK(kSnapTargetCount == 36);
+  CHECK(kSnapTargetCount == 42);  // B5a: then the wobble's five settings and its latch (36..41)
   CHECK(snap_target(18).item == Item::Growl);
   CHECK(snap_target(18).id == Growl::Vowel);
   CHECK(snap_target(19).id == Growl::FormantQ);
@@ -448,10 +448,10 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
     const Entry t = snap_target(i);
     CHECK(rig.controls.desc(rig.engine, t) != nullptr);
     LaneRef ref{kLaneNone, 0};
-    CHECK(rig.controls.lane_ref(t, ref));  // every target can be slewed
+    CHECK(rig.controls.lane_ref(t, ref) == (i < kSnapWobbleFirst));  // every target but the wobble's can be slewed
     discrete += rig.controls.snap_discrete(rig.engine, i) ? 1u : 0u;
   }
-  CHECK(discrete == 10);  // the wave, the distortion's switch and model, the delay's time (a list of note values) and mode; the mods' SOFT ATK, SUB OSC, ACC SWEEP, MUFFLER and SWP SPEED
+  CHECK(discrete == 15);  // (B5a: the wobble's rate, shape, target, reset and latch are five more) the wave, the distortion's switch and model, the delay's time (a list of note values) and mode; the mods' SOFT ATK, SUB OSC, ACC SWEEP, MUFFLER and SWP SPEED
   rig.controls.set(rig.engine, rig.entry(page_at(kPageSound), 0), 1200.0f);
   rig.controls.set(rig.engine, rig.entry(page_at(kPageSound), 7), -12.0f);
   float now[kSnapValues];
@@ -470,10 +470,10 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(now[20] == doctest::Approx(0.25f));
   CHECK(now[21] == doctest::Approx(0.75f));
   CHECK(now[kSnapTargetCount] == 0.0f);
-  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for four more targets stays zero
+  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for six more targets stays zero
 
   // The mods: targets 22..32 are the voice's ids 8..18 in id order (never STOCK, id 19), and 33..35 the growl's FMT MIX, CMB TUNE and CMB FB; each is read and written in its own units.
-  static_assert(kSnapValues - kSnapTargetCount == 4, "room for four more targets");
+  static_assert(kSnapValues - kSnapTargetCount == 6, "room for six more targets");
   for (unsigned i = 0; i < 11; ++i) {
     CHECK(snap_target(22 + i).item == Item::Voice);
     CHECK(snap_target(22 + i).id == AcidVoice::AccDecay + i);
@@ -532,7 +532,7 @@ TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the
   CHECK(rig.text(rig.entry(kWobblePage, 1)) == "SINE");
   CHECK(rig.text(rig.entry(kWobblePage, 2)) == "50%");
   CHECK(rig.text(rig.entry(kWobblePage, 3)) == "CUTOFF");
-  CHECK(rig.text(rig.entry(kWobblePage, 4)) == "ON");
+  CHECK(rig.text(rig.entry(kWobblePage, 4)) == "OFF");
   rig.controls.step(rig.engine, rig.entry(kWobblePage, 0), 2, false);  // 1/8 -> 1/8T -> 1/16
   CHECK(rig.wiring.wobble.rate == seq::kWobble1_16);
   rig.controls.step(rig.engine, rig.entry(kWobblePage, 0), 99, false);  // stops at the last rate

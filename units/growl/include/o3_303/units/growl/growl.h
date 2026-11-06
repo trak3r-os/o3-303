@@ -39,7 +39,7 @@
 //   0 Vowel          0..1 (shown as %), default 0 (A)
 //   1 Formant Q      1..20 (log), default 5
 //   2 Formant Mix    0..1 (shown as %), default 1
-//   3 Comb Tune      -24..24 semitones, default 0
+//   3 Comb Tune      -24..24 semitones, default +7 (a fifth: heard on the first turn, backlog item 14)
 //   4 Comb Feedback  -0.95..0.95, default 0.6
 //   5 Comb Mix       0..1 (shown as %), default 0.5
 //   6 Note           0..127, a MIDI note, default 36: the sequencer sets it on each note start (seq::kGrowlNoteParam)

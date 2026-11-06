@@ -7,6 +7,8 @@
 
 #include "hands.h"
 
+#include <o3_303/units/growl/growl.h>
+
 #include "../app/src/frame.h"
 #include "../app/src/home_map.h"
 #include "../app/src/instrument_screen.h"
@@ -96,7 +98,7 @@ TEST_CASE("MODDED: the titles, the tabs and the eight keys of NOTES and TONE (do
     CHECK(notes.entry[k].item == Item::Voice);
     CHECK(notes.entry[k].id == kNotesIds[k]);
   }
-  CHECK(notes.entry[7].item == Item::Stock);  // F8: the action key
+  CHECK(notes.entry[7].item == Item::Mods);  // F8: the action key
   t.tap(Button::SampleLoad);
   CHECK(is_title(t, "MODDED TONE"));
   const Page& tone = screen_of(t).page_table();
@@ -107,7 +109,7 @@ TEST_CASE("MODDED: the titles, the tabs and the eight keys of NOTES and TONE (do
   }
   CHECK(tone.entry[5].item == Item::Blank);
   CHECK(tone.entry[6].item == Item::Blank);
-  CHECK(tone.entry[7].item == Item::Stock);
+  CHECK(tone.entry[7].item == Item::Mods);
 }
 
 TEST_CASE("MODDED: every key of NOTES and TONE reaches its parameter, and every label fits the strip's nine characters") {
@@ -201,7 +203,7 @@ TEST_CASE("learn_target: the eleven mods and DECAY are unit parameters; STOCK an
     CHECK(param == id);
   }
   CHECK(learn_target(w, Entry{Item::Voice, AcidVoice::Decay, nullptr}, unit, param));
-  CHECK_FALSE(learn_target(w, Entry{Item::Stock, 0, nullptr}, unit, param));
+  CHECK_FALSE(learn_target(w, Entry{Item::Mods, 0, nullptr}, unit, param));
   CHECK_FALSE(learn_target(w, Entry{Item::WobOn, 0, nullptr}, unit, param));
 }
 
@@ -213,33 +215,33 @@ TEST_CASE("MODDED F8 is an action key: STOCK flips at the press, the key is lit 
   t.tap(Button::F3);  // ACC DECAY latched
   REQUIRE(screen_of(t).focus() == 2);
   view::Knob k = knob_of(t, 7);
-  CHECK(std::strcmp(k.label, "STOCK") == 0);
+  CHECK(std::strcmp(k.label, "MODS") == 0);
   CHECK(k.norm < 0.0f);  // an action slot in the skin, no pointer
   CHECK_FALSE(k.toggle);
-  CHECK_FALSE(k.lit);
-  CHECK(std::strcmp(k.value, "OFF") == 0);
+  CHECK(k.lit);
+  CHECK(std::strcmp(k.value, "ON") == 0);
   t.press(Button::F8);
   CHECK(stock(t));  // at the press, not at the release
   t.release(Button::F8);
   CHECK(stock(t));
   CHECK(screen_of(t).focus() == 2);
   k = knob_of(t, 7);
-  CHECK(k.lit);
-  CHECK(std::strcmp(k.value, "ON") == 0);
+  CHECK_FALSE(k.lit);
+  CHECK(std::strcmp(k.value, "OFF") == 0);
   CHECK_FALSE(knob_of(t, 2).lit);
   t.tap(Button::F8);
   CHECK_FALSE(stock(t));
-  CHECK_FALSE(knob_of(t, 7).lit);
+  CHECK(knob_of(t, 7).lit);
   // The same key on TONE, and Shift + F8 is the Shift row (no STOCK).
   t.tap(Button::SampleLoad);
   t.tap(Button::F8);
   CHECK(stock(t));
-  CHECK(knob_of(t, 7).lit);
+  CHECK_FALSE(knob_of(t, 7).lit);
   t.shift_tap(Button::F8);
   CHECK(stock(t));
 }
 
-TEST_CASE("a turn of a mod ends STOCK with the words STOCK OFF; DECAY, a lock and a controller do not end it") {
+TEST_CASE("a turn of a mod ends STOCK with the words MODS ON; DECAY, a lock and a controller do not end it") {
   host::FakeMidi midi;
   Hands t(midi);
   app::Context& ctx = t.h->runtime().context();
@@ -284,7 +286,7 @@ TEST_CASE("a turn of a mod ends STOCK with the words STOCK OFF; DECAY, a lock an
   CHECK(t.param(kVoice, AcidVoice::Muffler) > 0.0f);
   const Status s = status_on_home(t);
   CHECK_FALSE(s.chip);
-  CHECK(s.said == "STOCK OFF");
+  CHECK(s.said == "MODS ON");
 }
 
 TEST_CASE("a turn of a mod with STOCK off leaves it off and says nothing; a turn with a step held writes a lock and ends nothing") {
@@ -316,7 +318,7 @@ TEST_CASE("a turn of a mod with STOCK off leaves it off and says nothing; a turn
   t.up(step_pad_of(4));
   CHECK(stock(t));
   CHECK(step_lock_point(t.pat(), static_cast<unsigned>(lane), 4) != kNoLock);
-  CHECK(status_on_home(t).said != "STOCK OFF");
+  CHECK(status_on_home(t).said != "MODS ON");
 }
 
 // ---- Lanes ----------------------------------------------------------------------------------------------------------------------------------
@@ -358,7 +360,7 @@ TEST_CASE("MODDED: a lock on a mod and on a switch claims a lane and plays; the 
     CHECK(ref.id == id);
   }
   LaneRef none{kLaneNone, 0};
-  CHECK_FALSE(rig.controls.lane_ref(Entry{Item::Stock, 0, nullptr}, none));
+  CHECK_FALSE(rig.controls.lane_ref(Entry{Item::Mods, 0, nullptr}, none));
   CHECK_FALSE(rig.controls.lane_ref(Entry{Item::WobOn, 0, nullptr}, none));
   CHECK_FALSE(rig.controls.lane_ref(Entry{Item::Voice, AcidVoice::Stock, nullptr}, none));  // the lane guard of 5.8
 }
@@ -402,12 +404,12 @@ TEST_CASE("Shift + Sample Loader flips STOCK from every screen with no change of
     CHECK_MESSAGE(stock(t), title);
     const Status on = status_on_home(t);  // the chip and the words are every screen's (the status line of the home map is one of them)
     CHECK_MESSAGE(on.chip, title);
-    CHECK_MESSAGE(on.said == "STOCK ON", title);
+    CHECK_MESSAGE(on.said == "MODS OFF", title);
     t.shift_tap(Button::SampleLoad);  // HOME: and back off
     CHECK_FALSE(stock(t));
     const Status off = status_on_home(t);
     CHECK_FALSE(off.chip);
-    CHECK_MESSAGE(off.said == "STOCK OFF", title);
+    CHECK_MESSAGE(off.said == "MODS ON", title);
   };
   go("PERFORM", [&] { t.tap(Button::Performance); });
   go("MASTER", [&] { t.tap(Button::Master); });
@@ -678,4 +680,75 @@ TEST_CASE("the render with every mod at an extreme and STOCK on is bit for bit a
     // The control: the same mods without STOCK are heard (this is what makes the checks above mean something).
     CHECK(render(How::ModsOnly, extreme) != fresh);
   }
+}
+
+namespace {
+std::string hint_of(Hands& t) {
+  InstrumentView v;
+  screen_of(t).fill_view(t.h->runtime().context(), v);
+  return v.hint != nullptr ? v.hint : "";
+}
+}  // namespace
+
+TEST_CASE("B5a: the GROWL key toggles Mix between 0 and the last value (50 % to start), WOBBLE's and MODS' keys light while heard, the strip says OFF: F8, and the vowel target is refused with the growl off") {
+  Hands t;
+  t.to_growl();
+  CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.0f));
+  view::Knob k = knob_of(t, 7);
+  CHECK(std::strcmp(k.label, "GROWL") == 0);
+  CHECK_FALSE(k.lit);
+  CHECK(hint_of(t) == "GROWL OFF: F8");
+  t.tap(Button::F8);  // on: the 50 % it starts with
+  CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.5f));
+  CHECK(knob_of(t, 7).lit);
+  CHECK(hint_of(t) != "GROWL OFF: F8");
+  (void)t.h->engine().set_param(kGrowl, Growl::Mix, 0.8f);  // the key remembers what it turns off
+  t.tap(Button::F8);  // off
+  CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.0f));
+  CHECK_FALSE(knob_of(t, 7).lit);
+  CHECK(hint_of(t) == "GROWL OFF: F8");
+  t.tap(Button::F8);  // on again: the last non-zero value the key saw going off (0.8)
+  CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.8f));
+
+  // WOBBLE: F8 is the latch, lit while it runs; the strip says so while it is off.
+  t.to_wobble();
+  CHECK(hint_of(t) == "WOB OFF: F8");
+  CHECK_FALSE(knob_of(t, 7).lit);
+  t.tap(Button::F8);
+  t.wait(10);
+  CHECK(app_sequencer().wobble().on);
+  CHECK(knob_of(t, 7).lit);
+  CHECK(hint_of(t) != "WOB OFF: F8");
+  t.tap(Button::F8);
+  t.wait(10);
+  CHECK_FALSE(app_sequencer().wobble().on);
+
+  // MODS: lit while the mods are heard (Stock off); Stock on lights nothing and the strip says MODS OFF: F8.
+  t.to_modded();
+  CHECK_FALSE(stock(t));
+  CHECK(knob_of(t, 7).lit);
+  CHECK(hint_of(t) != "MODS OFF: F8");
+  t.tap(Button::F8);
+  CHECK(stock(t));
+  CHECK_FALSE(knob_of(t, 7).lit);
+  CHECK(hint_of(t) == "MODS OFF: F8");
+  t.tap(Button::F8);
+  CHECK_FALSE(stock(t));
+}
+
+TEST_CASE("B5a: TARGET VOWEL says GROWL IS OFF and stays on CUTOFF while GRL MIX is 0, and is taken once the growl is on") {
+  Hands t;
+  t.to_wobble();
+  t.tap(Button::F4);
+  t.turn(1);
+  CHECK(app_sequencer().wobble().target.target == o3_303::kLaneVoice);
+  t.to_home();
+  frame::StatusView sv;
+  home_of(t).status(sv);
+  CHECK(std::string(sv.toast) == "GROWL IS OFF");
+  (void)t.h->engine().set_param(kGrowl, Growl::Mix, 0.5f);
+  t.to_wobble();
+  t.tap(Button::F4);
+  t.turn(1);
+  CHECK(app_sequencer().wobble().target.id == Growl::Vowel);
 }

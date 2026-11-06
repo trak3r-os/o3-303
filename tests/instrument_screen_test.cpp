@@ -638,11 +638,11 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[2].label[0], "ACC DEC") == 0);
   CHECK(std::strcmp(v.section[2].label[1], "SLIDE") == 0);
   CHECK(std::strcmp(v.section[2].label[2], "SUB") == 0);
-  CHECK(std::strcmp(v.section[2].label[3], "STOCK") == 0);
+  CHECK(std::strcmp(v.section[2].label[3], "MODS") == 0);
   CHECK(std::strcmp(v.section[2].value[0], "180ms") == 0);  // the stock values
   CHECK(std::strcmp(v.section[2].value[1], "60ms") == 0);
   CHECK(std::strcmp(v.section[2].value[2], "OFF") == 0);
-  CHECK(std::strcmp(v.section[2].value[3], "OFF") == 0);
+  CHECK(std::strcmp(v.section[2].value[3], "ON") == 0);  // MODS: heard at boot
   CHECK(std::strcmp(v.section[0].label[0], "MODEL") == 0);
   CHECK(std::strcmp(v.section[0].value[0], "TUBE") == 0);
   CHECK(std::strcmp(v.section[1].label[2], "SEND") == 0);
@@ -652,10 +652,10 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
   CHECK(std::strcmp(v.section[1].title, "MODDED") == 0);
-  c.set(e, Entry{Item::Stock, 0, nullptr}, 1.0f);  // STOCK reads ON
+  c.set(e, Entry{Item::Mods, 0, nullptr}, 1.0f);  // MODS reads ON
   fill_sections(e, c, false, inst, kInstFx, v);
   CHECK(std::strcmp(v.section[1].value[3], "ON") == 0);
-  c.set(e, Entry{Item::Stock, 0, nullptr}, 0.0f);
+  c.set(e, Entry{Item::Mods, 0, nullptr}, 0.0f);
   fill_sections(e, c, false, inst, kInstFx, v);
   CHECK(std::strcmp(v.section[0].label[0], "CUTOFF") == 0);
   char text[24];

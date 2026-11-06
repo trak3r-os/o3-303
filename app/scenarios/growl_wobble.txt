@@ -47,3 +47,24 @@ snap 08_growl_again
 tap params
 wait 100
 snap 09_params_is_voice
+# B5a: the keys on and off. WOBBLE (F8) is the latch: off at boot, "WOB OFF: F8" under the tabs; latched, the key lights; the wobble is at its new defaults (CUTOFF, 1/8,
+# SINE, 50 %, RESET off). GROWL's F8 is the Mix key: from 0 it takes 50 %, and with the growl on the strip is quiet. The WAV is the factory line with the latch on: the voice's
+# cutoff moves at 1/8 on the 16th-note line (compared with the same run unlatched, the samples differ and the spectrum moves).
+tap sampleedit
+wait 100
+snap 10_wobble_off_f8
+tap f8
+wait 100
+snap 11_wobble_latched
+tap sampleplay
+wait 100
+snap 12_growl_off_f8
+tap f8
+wait 100
+snap 13_growl_on_f8
+record on
+tap play
+wait 2500
+tap play
+wait 300
+wav wobble_defaults
