@@ -24,16 +24,16 @@ using skin_assets::Id;
 constexpr int char_w(Face f) noexcept { return f == Face::Data ? 10 : (f == Face::Label ? 8 : 6); }
 int len_of(const char* s) noexcept { return static_cast<int>(std::strlen(s)); }
 
-// The knobs (docs/SKIN-PLAN.md 2.4): eight slots of 100 px at the bottom of the screen, above the tabs (they were under the header until B5b), the same grid as the F row's. A slot's label line is the top 16 px, the knob58 (76 px) the middle, the readout
+// The knobs (docs/SKIN-PLAN.md 2.4): eight slots of 100 px at the very bottom of the screen, nothing between them and the F keys, the same grid as the F row's (the tabs and the PADS line sit above them). A slot's label line is the top 16 px, the knob58 (76 px) the middle, the readout
 // window under it, the latch LED left of the knob and under its label.
-constexpr int kLabelY = 304;  // the knobs hang at the bottom of the screen, above the tabs: next to the F keys (BACKLOG 2)
-constexpr int kKnobCy = 358;
+constexpr int kLabelY = 363;  // the knobs end at the bottom of the screen, next to the F keys (BACKLOG 2): the readout is on the F row's line
+constexpr int kKnobCy = 417;
 constexpr int kLedDx = -40;
-constexpr int kLedCy = 388;
-constexpr int kReadoutY = 398;
+constexpr int kLedCy = 447;
+constexpr int kReadoutY = 457;
 constexpr int kReadoutW = 92;
 constexpr int kEmptyW = 80;
-constexpr int kEmptyY = 340;
+constexpr int kEmptyY = 399;
 constexpr int kEmptyH = 40;
 constexpr unsigned kNameMax = 12;                       // a name of up to twelve 6x12 characters fits the slot beside its tab
 constexpr unsigned kPointerW_q4 = 24;                   // knob58's pointer: 3 px across
@@ -61,9 +61,9 @@ constexpr int kLedY[3] = {202, 218, 235};
 constexpr int kKeyY = 246;
 constexpr int kNumberY = 284;
 constexpr int kCaptionX = 14;
-constexpr int kTabY = 428;
+constexpr int kTabY = 306;
 constexpr int kTabH = 20;
-constexpr int kPadsY = ui::kScreenH - frame::kPadsLineH - 2;  // the PADS line: the screen's last 16 px
+constexpr int kPadsY = 336;  // the PADS line: under the tabs, above the knobs
 
 constexpr ui::Rgb kKeyB{36, 32, 34};     // the second tint of the keys (the first is pal::kKey)
 constexpr ui::Rgb kLedDimRed{158, 31, 21};  // 0.62 of the STEP LED's red: a step that holds a note

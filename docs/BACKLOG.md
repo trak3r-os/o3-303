@@ -72,6 +72,7 @@ The image: o3-303 v0.1.0 (2fbb6de) on o3-sdk bbe7b83, installed over the USB con
      - one of MASTER's free keys (F2, F3, F6 to F8).
    - The keyboard's lights (item 6) and the generator use the root.
 2. **INSTRUMENT's knobs beside the F keys.** "On instrument page, can you put the Cutoff etc controls down, next to the f-keys."
+   - 2026-11-06, the maintainer on the unit: B5b left the PAGES row and the PADS line under the knobs. "Los controles y los knobs siempre al lado de las teclas de F-keys." Both now sit above the knobs on all five screens, and each knob's value window stays under it, as on HOME.
    - Today: on INSTRUMENT VOICE the eight knobs are at the top, under the header. The DISTORTION, DELAY and MODDED boxes come next, then the 16 steps at the bottom (manual picture `instrument-voice.png`).
    - Asked: the knob row at the bottom, next to the F keys, as HOME's F row is. The same question applies to FX, MODDED, GROWL and WOBBLE, which use the same drawing.
 3. **Up and Down on an empty step.** "in instrument view let me change empty notes with the key up down, as if it were a note."

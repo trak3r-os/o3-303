@@ -29,10 +29,10 @@ using namespace o3_303;
 
 namespace {
 
-constexpr int kTabsY = 428;         // the page tabs' row (skin/instrument.cpp kTabY)
-constexpr int kLabelY = 304;         // the label line of a knob slot: its tab is a round rect at this y
-constexpr int kReadoutFaceY = 397;  // a readout window's face, one px above the window (y 164)
-constexpr int kEmptyFaceY = 339;    // a blank slot's well face, one px above the well (y 106)
+constexpr int kTabsY = 306;         // the page tabs' row (skin/instrument.cpp kTabY)
+constexpr int kLabelY = 363;         // the label line of a knob slot: its tab is a round rect at this y
+constexpr int kReadoutFaceY = 456;  // a readout window's face, one px above the window (y 457)
+constexpr int kEmptyFaceY = 398;    // a blank slot's well face, one px above the well (y 399)
 constexpr int kTaglineX = 14;    // the brand's line under the wordmark (skin/header.cpp)
 constexpr int kTaglineY = 52;
 
@@ -424,10 +424,10 @@ TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and
     unsigned leds = 0;
     for (unsigned i = 0; i < o.q().shapes(); ++i) {
       skin::Panel::SpriteInfo sp;
-      leds += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == 380 ? 1u : 0u;  // the latch LEDs' row (the strip's are lower)
+      leds += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == 439 ? 1u : 0u;  // the latch LEDs' row (the strip's are lower)
     }
     CHECK(wells == expect.count);
-    CHECK(o.texts_in(352, 353, ui::Color::TextDim) == expect.count);  // each well's "Fn", centred in it
+    CHECK(o.texts_in(411, 412, ui::Color::TextDim) == expect.count);  // each well's "Fn", centred in it
     CHECK(labels == 8u - expect.count);
     CHECK(readouts == 8u - expect.count);
     CHECK(leds == 8u - expect.count);
@@ -436,13 +436,13 @@ TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and
 }
 
 TEST_CASE("skin instrument: the ON under a lit key is read at full strength, the OFF under a dark one is quiet") {
-  // The hint window of F8 (x 700..800, y 398..420): its text's colour.
+  // The hint window of F8 (x 700..800, y 457..479): its text's colour.
   const auto hint = [](const OnInstrument& o) {
     unsigned n = 0;
     ui::Color c = ui::Color::Empty;
     for (unsigned i = 0; i < o.q().texts(); ++i) {
       skin::Panel::TextInfo tx;
-      if (o.q().text_at(i, tx) && tx.x >= 700 && tx.y >= 398 && tx.y < 420) {
+      if (o.q().text_at(i, tx) && tx.x >= 700 && tx.y >= 457 && tx.y < 479) {
         c = tx.color;
         ++n;
       }
@@ -596,7 +596,7 @@ TEST_CASE("skin instrument: a held step shows its lock in the readout, in the ac
   unsigned accent = 0;
   for (unsigned i = 0; i < o.q().texts(); ++i) {
     skin::Panel::TextInfo tx;
-    if (o.q().text_at(i, tx) && tx.color == ui::Color::Accent && tx.y >= 398 && tx.y < 424) {
+    if (o.q().text_at(i, tx) && tx.color == ui::Color::Accent && tx.y >= 457 && tx.y < 480) {
       ++accent;
     }
   }
@@ -623,8 +623,8 @@ TEST_CASE("skin instrument: Shift relabels the knobs LEARN or '-' and the F-numb
   }
   CHECK(can + no == static_cast<unsigned>(view::kKnobs));
   CHECK(can > 0u);
-  CHECK(o.texts_in(304, 320, ui::Color::ChromeText) == can);  // LEARN: bright; "-": dim
-  CHECK(o.texts_in(304, 320, ui::Color::TextDim) == no);
+  CHECK(o.texts_in(363, 379, ui::Color::ChromeText) == can);  // LEARN: bright; "-": dim
+  CHECK(o.texts_in(363, 379, ui::Color::TextDim) == no);
   CHECK(no >= before);
   // The knobs and their readouts are still there, as with Shift up.
   CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) > 0u);
@@ -657,7 +657,7 @@ TEST_CASE("skin instrument: LEARN waits in the accent colour on the knob that is
   const skin::Panel& q = skin::panel();
   for (unsigned i = 0; i < q.texts(); ++i) {
     skin::Panel::TextInfo tx;
-    accent_label += (q.text_at(i, tx) && tx.y >= 304 && tx.y < 320 && tx.color == ui::Color::Accent) ? 1u : 0u;
+    accent_label += (q.text_at(i, tx) && tx.y >= 363 && tx.y < 379 && tx.color == ui::Color::Accent) ? 1u : 0u;
   }
   CHECK(accent_label == 1u);
   CHECK(q.dropped() == 0u);
