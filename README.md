@@ -60,20 +60,12 @@ the hardware you know, the pads, the buttons, the encoder and the screen, and th
     <td align="center"><b>INSTRUMENT</b>: the sound, with the line in front of you</td>
   </tr>
   <tr>
-    <td><a href="docs/MANUAL.md#modded"><img src="docs/manual/img/modded-tone.png" alt="MODDED on the TONE page: the voice and notes panels above the step row and the knobs of the mods" width="400"></a></td>
-    <td><a href="docs/MANUAL.md#growl"><img src="docs/manual/img/growl.png" alt="GROWL: the voice and wobble panels above the step row and the knobs of the growl" width="400"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><b>MODDED</b>: the mods that change the circuit</td>
-    <td align="center"><b>GROWL</b>: a vowel filter on the bass</td>
-  </tr>
-  <tr>
-    <td><a href="docs/MANUAL.md#wobble"><img src="docs/manual/img/wobble.png" alt="WOBBLE: the voice and growl panels above the step row and the knobs of the wobble" width="400"></a></td>
     <td><a href="docs/MANUAL.md#song"><img src="docs/manual/img/song.png" alt="SONG: a list of rows with pattern, repeat, transpose and mute, and the song length beside it" width="400"></a></td>
+    <td><a href="docs/MANUAL.md#master"><img src="docs/manual/img/master.png" alt="MASTER: the tempo in red digits, nudge, tap and clock, the output meters, CPU and USB" width="400"></a></td>
   </tr>
   <tr>
-    <td align="center"><b>WOBBLE</b>: an LFO in time with the tempo</td>
     <td align="center"><b>SONG</b>: patterns in order, with repeats</td>
+    <td align="center"><b>MASTER</b>: the tempo, the timing and the output meters</td>
   </tr>
 </table>
 
