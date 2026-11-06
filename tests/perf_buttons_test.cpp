@@ -66,7 +66,7 @@ TEST_CASE("the defaults: Note is MUTE, Instr ACC ALL, Vol FILL and Fx FREEZE, ea
   t.release(Button::Note);
   CHECK(s.perf() == 0);
   t.wait(10);
-  CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.3f));
+  CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.0f));
 }
 
 TEST_CASE("Shift + the button latches its action, Shift + it again lets go, and the button's own release does not undo it") {
@@ -106,7 +106,7 @@ TEST_CASE("an assignment on the PERF page gives a button another action; all sev
   CHECK(freeze_active(t) == 0.0f);  // Fx is not the freeze any more
   t.release(Button::Fx);
   t.wait(10);
-  CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.3f));
+  CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.0f));
   // Note = FREEZE, Instr = FILL: any action on any button.
   t.assign_perf(Button::Note, PerfAction::Freeze);
   t.assign_perf(Button::Instr, PerfAction::Fill, true);

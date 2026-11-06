@@ -111,13 +111,14 @@ const Page& setup_page() noexcept;
 
 // What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
 // SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (GROWL), then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven
-// mods (ids 8..18) and the growl's FMT MIX, CMB TUNE and CMB FB, then (B5a) the wobble's five settings and its latch; STOCK stays out. A project saved with fewer targets loads: the missing ones are filled
+// mods (ids 8..18) and the growl's FMT MIX, CMB TUNE and CMB FB, then (B5a) the wobble's five settings and its latch, then the voice's RANGE and SUSTAIN; STOCK stays out. A project saved with fewer targets loads: the missing ones are filled
 // from the sound (project.cpp). Each is an entry, so a value is in the units the entry shows and steps in.
-inline constexpr unsigned kSnapTargetCount = 42;
-// The first of B5a's six targets (the wobble's RATE, SHAPE, DEPTH, TARGET, RESET and its latch): no lane drives them, so a recall writes them at once (LiveActions::snap_apply).
+inline constexpr unsigned kSnapTargetCount = 44;
+// The first of B5a's six targets (the wobble's RATE, SHAPE, DEPTH, TARGET, RESET and its latch): no lane drives them, so a recall writes them at once (LiveActions::snap_apply). RANGE and
+// SUSTAIN come after them and are the voice's, so they take the lane path as the other voice targets do.
 inline constexpr unsigned kSnapWobbleFirst = 36;
 // The targets before MODS S2's: from this index on a target that a recall or a morph leaves where it is stays untouched (LiveActions::snap_apply), so that a snapshot of a project that never used
-// the mods does not write them: Sequencer::slew_value goes through the curve and back even when the blend is where the value is, and ACC DECAY 180 ms comes back 180.000015, a few ulps off its
+// the mods does not write them: Sequencer::slew_value goes through the curve and back even when the blend is where the value is, and ACC DECAY comes back a few ulps off its
 // stock constant (docs/MODS-PLAN.md 5.9).
 inline constexpr unsigned kSnapTargetsBeforeMods = 22;
 static_assert(kSnapTargetCount <= kSnapValues, "a snapshot has room for its targets");
@@ -139,8 +140,8 @@ struct Wiring {
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;  // FILL's variant (PERFORM SETUP); null: the entry reads and writes nothing
   seq::GenParams gen;        // the generator's settings (PATTERN SETUP)
-  float send_a_pct = 30.0f;  // the voice's send A level in percent: the base; DELAY THROW raises it for a while
-  float level_db = -6.0f;    // slot 0's level in dB (SOUND F8): headroom for the delay's wet signal and the accents
+  float send_a_pct = 0.0f;   // the voice's send A level in percent: the base; DELAY THROW raises it for a while. A TB-303 is dry
+  float level_db = -3.0f;    // slot 0's level in dB (SOUND F8): the voice peaks at 1 on its accents; headroom for the delay's wet signal
   bool throw_on = false;
   bool stock = false;        // the voice's Stock is on (the mirror of its parameter, for the chip of every screen): Controls::set(Item::Mods) is its one writer. Main loop only
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};  // PerfAction of Note, Instr, Vol, Fx

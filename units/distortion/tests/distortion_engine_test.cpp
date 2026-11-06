@@ -39,6 +39,14 @@ void run(Distortion& d, const std::vector<float>& in_l, const std::vector<float>
   {
     dsp::Event start[16];
     unsigned n = 0;
+    // The unit starts off (Active 0); these cases test the models, so the setup turns it on unless the case sets Active itself.
+    bool sets_active = false;
+    for (const Ev& e : evs) {
+      sets_active = sets_active || (e.at == 0 && e.id == Distortion::Active);
+    }
+    if (!sets_active) {
+      start[n++] = dsp::param_change(Distortion::Active, 1.0f);
+    }
     for (const Ev& e : evs) {
       if (e.at == 0 && n < 16) {
         start[n++] = dsp::param_change(e.id, e.value);
@@ -120,7 +128,7 @@ TEST_CASE("distortion: the parameter table is valid and in the contract's order"
   CHECK(Distortion::Tone == 3);
   CHECK(Distortion::Mix == 4);
   CHECK(Distortion::kParamCount == 5);
-  const float defaults[] = {1.0f, 0.0f, 0.5f, 0.6f, 0.85f};
+  const float defaults[] = {0.0f, 0.0f, 0.5f, 0.6f, 0.85f};  // Active starts off: the app's 303 is bare until the distortion is switched on
   for (unsigned p = 0; p < 5; ++p) {
     CHECK(info.params[p].def == defaults[p]);
   }
@@ -139,12 +147,12 @@ TEST_CASE("distortion: the parameter table is valid and in the contract's order"
 
 TEST_CASE("distortion: the model trim follows Drive smoothly, keeps the default-Drive levels, and holds GRIT's growth above the default") {
   CHECK(Distortion::kTrimKnots == 21);
-  // The levels at Drive's default that the models had in M3 (a fixed trim measured on the reference line): GRIT, TUBE, HARD and FOLD are
-  // unchanged; FUZZ's was re-measured when its negative half was bounded.
+  // The levels at Drive's default, re-measured on the Open303-based voice (O3_303_PRINT_TRIM=1 in acid_voice_chain_test): GRIT is the
+  // reference at 0 dB; the others sit where they match GRIT's level on that voice (M3's fixed trims were 0.6839, 0.8318 and 1.5668).
   CHECK(Distortion::trim(Distortion::Grit, 0.5f) == 1.0f);
-  CHECK(Distortion::trim(Distortion::Tube, 0.5f) == doctest::Approx(0.6839f).epsilon(1e-6));
-  CHECK(Distortion::trim(Distortion::Hard, 0.5f) == doctest::Approx(0.8318f).epsilon(1e-6));
-  CHECK(Distortion::trim(Distortion::Fold, 0.5f) == doctest::Approx(1.5668f).epsilon(1e-6));
+  CHECK(Distortion::trim(Distortion::Tube, 0.5f) == doctest::Approx(0.5531f).epsilon(1e-3));
+  CHECK(Distortion::trim(Distortion::Hard, 0.5f) == doctest::Approx(0.6539f).epsilon(1e-3));
+  CHECK(Distortion::trim(Distortion::Fold, 0.5f) == doctest::Approx(1.228f).epsilon(1e-3));
   for (unsigned m = 0; m < Distortion::kModelCount; ++m) {
     INFO("model " << m);
     float prev = Distortion::trim(m, 0.0f);
@@ -167,7 +175,7 @@ TEST_CASE("distortion: the model trim follows Drive smoothly, keeps the default-
   for (int i = 51; i <= 100; ++i) {
     CHECK(Distortion::trim(Distortion::Grit, static_cast<float>(i) * 0.01f) <= Distortion::trim(Distortion::Grit, static_cast<float>(i - 1) * 0.01f));
   }
-  CHECK(Distortion::trim(Distortion::Grit, 1.0f) < 0.8f);
+  CHECK(Distortion::trim(Distortion::Grit, 1.0f) < 0.85f);
   // TUBE, HARD and FOLD are nowhere louder than M3's fixed trims (the fit only brings them down toward GRIT).
   const float m3[] = {1.0f, 0.6839f, 0.8318f, 0.0f, 1.5668f};
   for (const unsigned m : {Distortion::Tube, Distortion::Hard, Distortion::Fold}) {

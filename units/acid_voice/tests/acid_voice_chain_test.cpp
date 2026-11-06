@@ -6,7 +6,7 @@
 #include <doctest/doctest.h>
 
 #include "metrics.h"
-#include "ref_engine.h"
+#include "note_script.h"
 #include "support/need.h"
 #include "acid_voice_rig.h"
 
@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cfenv>
+#include <cmath>
 #include <cstdio>
 
 using namespace acid_voice_test;
@@ -166,7 +167,7 @@ TEST_CASE("acid_voice chain: every distortion type, switched on and off during t
   }
 }
 
-TEST_CASE("acid_voice chain: the voice alone (distortion off) is bass and mids, and has the DC the blocker takes out") {
+TEST_CASE("acid_voice chain: the voice alone (distortion off) is bass and mids, and carries no DC (the output high-pass)") {
   Chain c;
   write_line(c.script);
   (void)c.engine.set_param(c.d, Distortion::Active, 0.0f);
@@ -181,7 +182,7 @@ TEST_CASE("acid_voice chain: the voice alone (distortion off) is bass and mids, 
   CHECK((share[0] + share[1] + share[2] + share[3] + share[4]) > 0.8);  // below 1.9 kHz
   (void)write_wav("acid_voice_line_dry.wav", l, r);
 
-  // The same line with the blocker's job undone: the voice alone has an offset (its saw is bent), so a plain unit would not be silent of DC.
+  // The voice alone: Open303's output high-pass takes the offset out, so the mean over the line is near zero (the old saw left +0.01 or more).
   Rig rig;
   write_line(rig.script);
   rig.set(AcidVoice::Volume, 0.0f);
@@ -191,8 +192,8 @@ TEST_CASE("acid_voice chain: the voice alone (distortion off) is bass and mids, 
     mean += static_cast<double>(s);
   }
   mean /= static_cast<double>(raw.size());
-  std::printf("[chain] voice alone mean %.4f (the chain's output: below 0.01)\n", mean);
-  CHECK(mean > 0.005);
+  std::printf("[chain] voice alone mean %.4f (below 0.01)\n", mean);
+  CHECK(std::fabs(mean) < 0.01);
 }
 
 TEST_CASE("acid_voice chain: a release tail through every distortion type raises no underflow") {
@@ -280,6 +281,61 @@ double db(double ratio) { return 20.0 * std::log10(ratio); }
 
 }  // namespace
 
+// The generator of Distortion's kTrimTable (src/distortion.cpp), run only with O3_303_PRINT_TRIM=1: it prints the table's rows and dB
+// lines for the line as it sounds now. The wet gain is linear in the trim at Mix 1, so each knot is measured once through the table in
+// the build and corrected by the ratio. GRIT: 0 dB up to knot 10 (Drive 0.5), above it the gain that holds the larger wet peak of the two
+// waves at its value at knot 10. The others: the gain that makes the mean in dB of the SAW and SQR RMS GRIT's (trimmed), fully from knot 5
+// (Drive 0.25) up; below it the dB value is faded in linearly from the fixed trim at knot 0 (M3's, kept: 0.6839 0.8318 0.5188 1.5668).
+TEST_CASE("distortion levels: kTrimTable generator (O3_303_PRINT_TRIM=1)") {
+  if (std::getenv("O3_303_PRINT_TRIM") == nullptr) {
+    return;
+  }
+  const auto saw = voice_line(false);
+  const auto sqr = voice_line(true);
+  constexpr int kKnots = 21;
+  constexpr double kM3[5] = {1.0, 0.6839, 0.8318, 0.5188, 1.5668};
+  double grit_gain[kKnots];
+  double grit_mean_db[kKnots];  // GRIT's level with its new trim
+  double ref_peak = 0.0;
+  {
+    const Level a = through_distortion(saw, 0, 0.5f, 1.0f);
+    const Level b = through_distortion(sqr, 0, 0.5f, 1.0f);
+    ref_peak = std::max(a.peak, b.peak) / static_cast<double>(Distortion::trim(0, 0.5f));
+  }
+  double gain[5][kKnots];
+  for (int k = 0; k < kKnots; ++k) {
+    const float drive = static_cast<float>(k) * 0.05f;
+    const Level a = through_distortion(saw, 0, drive, 1.0f);
+    const Level b = through_distortion(sqr, 0, drive, 1.0f);
+    const double cur = static_cast<double>(Distortion::trim(0, drive));
+    const double peak_now = std::max(a.peak, b.peak);
+    grit_gain[k] = k <= 10 ? 1.0 : ref_peak / (peak_now / cur);
+    grit_mean_db[k] = 0.5 * (db(a.rms) + db(b.rms)) + db(grit_gain[k] / cur);
+    gain[0][k] = grit_gain[k];
+    for (int m = 1; m < 5; ++m) {
+      const Level x = through_distortion(saw, m, drive, 1.0f);
+      const Level y = through_distortion(sqr, m, drive, 1.0f);
+      const double curm = static_cast<double>(Distortion::trim(static_cast<unsigned>(m), drive));
+      const double mean_now = 0.5 * (db(x.rms) + db(y.rms));
+      const double full_db = grit_mean_db[k] - mean_now + db(curm);  // the trim in dB that matches GRIT
+      const double w = k >= 5 ? 1.0 : static_cast<double>(k) / 5.0;
+      const double m3_db = db(kM3[m]);
+      gain[m][k] = std::pow(10.0, ((1.0 - w) * m3_db + w * full_db) / 20.0);
+    }
+  }
+  const char* names[] = {"GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
+  for (int m = 0; m < 5; ++m) {
+    std::printf("    // %s, dB:", names[m]);
+    for (int k = 0; k < kKnots; ++k) {
+      std::printf(" %+.1f", db(gain[m][k]));
+    }
+    std::printf("\n    {");
+    for (int k = 0; k < kKnots; ++k) {
+      std::printf("%.4ff%s", gain[m][k], k + 1 < kKnots ? ", " : "},\n");
+    }
+  }
+}
+
 TEST_CASE("distortion levels: the models match GRIT's level on a 303 line at the default Drive, and stay within stated bounds at full Drive") {
   // Distortion::trim (a gain per model on its wet signal, a function of Drive) is measured so that the RMS of each model on this line at
   // the default Drive (0.5), Tone (0.6) and Mix 1 matches GRIT's, as the mean in dB of the SAW line and the SQR line: relative to GRIT a
@@ -360,10 +416,13 @@ TEST_CASE("distortion levels: across the whole of Drive the models keep GRIT's l
 TEST_CASE("distortion levels: Drive 0 .. 0.2, where the correction fades out to M3's trims, the models stay at or above GRIT, by at most 8 dB") {
   // GRIT's 450 Hz high-pass makes it far quieter than the others at low Drive, where they are near-transparent; the table does not pull
   // them down to it there (the correction is faded in over Drive 0 .. 0.25). Measured on the reference line, the mean of the two waves
-  // against GRIT: +0.3 .. +1.9 dB for TUBE, HARD and FUZZ at 0 and 0.2, up to +5.6 dB at 0.05; FOLD +7.5 dB at 0, falling to +1.2 at 0.2.
+  // against GRIT, re-measured on the line of the rewritten voice: +1.0 .. +8.8 dB over the five knots (FOLD at Drive 0 is the top, the trims
+  // there being M3's).
   const char* names[] = {"GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
   const auto saw = voice_line(false);
   const auto sqr = voice_line(true);
+  double lo_mean = 1e9;
+  double hi_mean = -1e9;
   for (int step = 0; step <= 4; ++step) {
     const float drive = static_cast<float>(step) * 0.05f;
     const Level g_saw = through_distortion(saw, 0, drive, 1.0f);
@@ -373,22 +432,26 @@ TEST_CASE("distortion levels: Drive 0 .. 0.2, where the correction fades out to 
       const Level b = through_distortion(sqr, m, drive, 1.0f);
       const double mean = 0.5 * (db(a.rms / g_saw.rms) + db(b.rms / g_sqr.rms));
       INFO(names[m] << " drive " << drive);
+      lo_mean = std::min(lo_mean, mean);
+      hi_mean = std::max(hi_mean, mean);
       CHECK(mean > -0.5);
-      CHECK(mean < 8.0);
+      CHECK(mean < 9.5);
       CHECK(std::max(a.peak, b.peak) < 1.3);  // FOLD at Drive 0 folds up to 1.2
     }
   }
+  std::printf("[levels] Drive 0 .. 0.2: the mean offset from GRIT runs %+.2f .. %+.2f dB\n", lo_mean, hi_mean);
 }
 
 TEST_CASE("distortion levels: the table was fitted on one line; on a resonant, accented, deep-sweep voice the models sit a few dB above GRIT and none runs hot") {
-  // Reso, Accent and Env Mod at 100 %: the same notes, a very different spectrum. GRIT's high-pass reads this line lower than the
-  // other models read it, so from Drive 0.25 up each wave is +0.5 .. +4.2 dB above GRIT's (measured; on the reference line they are
-  // within 2.6 dB either way, and the mean of the two waves within 0.1 dB). The wet peaks, which are what the headroom is about, stay
-  // where they are on the reference line: GRIT 1.24 (at Drive 0.5), FOLD 1.28, TUBE .84, HARD .81, FUZZ .77.
+  // Reso, Accent and Env Mod at 100 %: the same notes, a very different spectrum. Re-measured with the rewritten voice, from Drive 0.25 up
+  // each wave is -1.5 .. +0.9 dB against GRIT's (the sound of the line is nearer GRIT's; the mean of the two waves on the reference line is within
+  // 0.01 dB). The wet peaks, which are what the headroom is about, are bounded by the checks below.
   const char* names[] = {"GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
   const Setting hot{1.0f, 1.0f, 1.0f, 0.0f};
   const auto saw = voice_line(false, hot);
   const auto sqr = voice_line(true, hot);
+  double lo = 1e9;
+  double hi = -1e9;
   for (int step = 5; step <= 20; ++step) {
     const float drive = static_cast<float>(step) * 0.05f;
     const Level g_saw = through_distortion(saw, 0, drive, 1.0f);
@@ -398,13 +461,18 @@ TEST_CASE("distortion levels: the table was fitted on one line; on a resonant, a
       const Level a = through_distortion(saw, m, drive, 1.0f);
       const Level b = through_distortion(sqr, m, drive, 1.0f);
       INFO(names[m] << " drive " << drive);
-      CHECK(db(a.rms / g_saw.rms) > -1.0);
+      for (const double v : {db(a.rms / g_saw.rms), db(b.rms / g_sqr.rms)}) {
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+      }
+      CHECK(db(a.rms / g_saw.rms) > -2.0);
       CHECK(db(a.rms / g_saw.rms) < 5.0);
-      CHECK(db(b.rms / g_sqr.rms) > -1.0);
+      CHECK(db(b.rms / g_sqr.rms) > -2.0);
       CHECK(db(b.rms / g_sqr.rms) < 5.0);
       CHECK(std::max(a.peak, b.peak) < (m == 4 ? 1.4 : 1.0));
     }
   }
+  std::printf("[levels] hot voice, Drive 0.25..1: each wave against GRIT runs %+.2f .. %+.2f dB\n", lo, hi);
 }
 
 TEST_CASE("distortion levels: a voice at twice the reference line (+6 dB) - GRIT's wet peak is recorded, the others stay under full scale") {

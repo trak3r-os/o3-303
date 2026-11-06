@@ -65,7 +65,10 @@ TEST_CASE("PARAMS opens INSTRUMENT on VOICE and goes to the next page (FX); GROW
   t.tap(Button::F1);
   t.turn(10);
   CHECK(t.param(kDist, Distortion::Drive) > drive0);
-  t.tap(Button::F4);  // the distortion model
+  t.tap(Button::F4);  // the distortion model: the distortion starts off, so the first step turns it on at GRIT
+  t.turn(1);
+  CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(1.0f));
+  CHECK(t.param(kDist, Distortion::Type) == doctest::Approx(0.0f));
   t.turn(1);
   CHECK(t.param(kDist, Distortion::Type) == doctest::Approx(1.0f));
   t.tap(Button::F5);  // the delay

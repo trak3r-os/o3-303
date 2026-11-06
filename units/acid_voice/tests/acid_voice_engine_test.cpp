@@ -30,7 +30,16 @@ bool all_finite_normal(const std::vector<float>& v) {
 
 }  // namespace
 
-TEST_CASE("acid_voice: the parameter table is valid, in the contract's order, with Replicant's defaults") {
+namespace {
+// Prints measured numbers when O3_303_PROBE is set; the thresholds below were set from them.
+void probe(const char* what, double a, double b = 0.0, double c = 0.0) {
+  if (std::getenv("O3_303_PROBE") != nullptr) {
+    std::printf("probe: %s  %g  %g  %g\n", what, a, b, c);
+  }
+}
+}  // namespace
+
+TEST_CASE("acid_voice: the parameter table is valid, in the contract's order, with the defaults of the plan") {
   AcidVoice v;
   const auto& info = v.info();
   CHECK(info.kind == o3sdk::dsp::UnitKind::Instrument);
@@ -47,10 +56,10 @@ TEST_CASE("acid_voice: the parameter table is valid, in the contract's order, wi
   CHECK(AcidVoice::Wave == 5);
   CHECK(AcidVoice::Tune == 6);
   CHECK(AcidVoice::Volume == 7);
-  CHECK(AcidVoice::kParamCount == 20);  // the mods are ids 8..19 (acid_voice_mods_test.cpp)
+  CHECK(AcidVoice::kParamCount == 22);  // the mods are ids 8..19, Range 20 and Sustain 21 (acid_voice_mods_test.cpp)
   const float defaults[] = {350.0f, 0.65f, 0.6f, 750.0f, 0.7f, 0.0f, 0.0f, -3.0f};
-  const float lo[] = {25.0f, 0.0f, 0.0f, 200.0f, 0.0f, 0.0f, -12.0f, -60.0f};
-  const float hi[] = {4500.0f, 1.0f, 1.0f, 2500.0f, 1.0f, 1.0f, 12.0f, 6.0f};
+  const float lo[] = {25.0f, 0.0f, 0.0f, 30.0f, 0.0f, 0.0f, -12.0f, -60.0f};
+  const float hi[] = {4500.0f, 1.0f, 1.0f, 3000.0f, 1.0f, 1.0f, 12.0f, 6.0f};
   for (unsigned p = 0; p < 8; ++p) {
     CHECK(info.params[p].def == defaults[p]);
     CHECK(info.params[p].min == lo[p]);
@@ -182,10 +191,14 @@ TEST_CASE("acid_voice: a slide glides the pitch in about 60 ms and does not retr
   slide.script.off(ms(500), 36);
   slide.script.off(ms(1200), 48);
   const auto s = slide.render(ms(1400));
-  const double early = crossings_hz(s, ms(500), ms(500) + ms(40));
-  const double late = crossings_hz(s, ms(500) + ms(400), ms(500) + ms(500));
+  // The pitch is within 5 % of the interval (65.4 Hz) of the target by 60 ms: measured over the next 40 ms, a window of about four periods.
+  const double at60 = crossings_hz(s, ms(500) + ms(60), ms(500) + ms(100));
+  probe("slide: pitch 60..100 ms after the slide", at60);
+  CHECK(std::fabs(at60 - 130.8) < 0.05 * (130.8 - 65.4) + 6.5);  // + one crossing of the window's resolution (44100 / 1764 = 25 Hz per count... 6.5 is a quarter of it)
+  const double early = crossings_hz(s, ms(500), ms(500) + ms(20));
   CHECK(early > 65.0 * 0.8);
-  CHECK(early < late * 0.85);                      // still on its way up
+  CHECK(early < 130.8 * 0.95);                      // the first 20 ms are still on the way
+  const double late = crossings_hz(s, ms(500) + ms(400), ms(500) + ms(500));
   CHECK(late == doctest::Approx(130.8).epsilon(0.04));  // C3 reached
   CHECK(crossings_hz(s, ms(100), ms(480)) == doctest::Approx(65.4).epsilon(0.05));
 
@@ -303,24 +316,51 @@ TEST_CASE("acid_voice: tune, wave and volume") {
 }
 
 TEST_CASE("acid_voice: a volume or accent jump in mid-note does not click") {
-  Rig r;
-  r.set(AcidVoice::Reso, 0.0f);
-  r.set(AcidVoice::EnvMod, 0.0f);
-  r.set(AcidVoice::Cutoff, 900.0f);
-  r.set(AcidVoice::Volume, 0.0f);
-  r.set(AcidVoice::Accent, 0.0f);
-  r.script.on(0, 36, o3sdk::dsp::kNoteAccent);
-  r.script.param(ms(100), AcidVoice::Volume, -40.0f);
-  r.script.param(ms(100), AcidVoice::Accent, 1.0f);  // the amplifier lift jumps from 1 to 1.45 at full accent envelope: smoothed
-  const auto o = r.render(ms(200));
-  double before = 0.0, after = 0.0;
-  for (std::size_t i = ms(60); i < ms(100); ++i) {
-    before = std::max(before, static_cast<double>(std::fabs(o[i] - o[i - 1])));
+  // The largest sample-to-sample step in a window. A click is a step of the size of the signal; the notes here are smooth.
+  const auto largest_step = [](const std::vector<float>& o, std::size_t from, std::size_t to) {
+    double worst = 0.0;
+    for (std::size_t i = from; i < to; ++i) {
+      worst = std::max(worst, static_cast<double>(std::fabs(o[i] - o[i - 1])));
+    }
+    return worst;
+  };
+  const auto make = [](Rig& r, float accent) {
+    r.set(AcidVoice::Reso, 0.0f);
+    r.set(AcidVoice::EnvMod, 0.0f);
+    r.set(AcidVoice::Cutoff, 900.0f);
+    r.set(AcidVoice::Volume, 0.0f);
+    r.set(AcidVoice::Accent, accent);
+    r.script.on(0, 36, o3sdk::dsp::kNoteAccent);
+  };
+  {
+    // Volume alone, down by 40 dB. The gain is smoothed (5 ms) and applied per control period of 16 samples, so the first step is the
+    // smoother's first move, 1 - exp(-16 / (0.005 * 44100)) = 7 % of the level; a click is a step of the whole level.
+    Rig r;
+    make(r, 0.0f);
+    r.script.param(ms(100), AcidVoice::Volume, -40.0f);
+    const auto o = r.render(ms(200));
+    const double level = peak(o, ms(60), ms(100));
+    const double first = largest_step(o, ms(100), ms(100) + 32);
+    const double after = largest_step(o, ms(100), ms(200));
+    probe("volume jump: level, first steps, later steps", level, first, after);
+    CHECK(first < 0.12 * level);
+    CHECK(after < 0.12 * level);
+    CHECK(peak(o, ms(150), ms(200)) < 0.05 * level);  // and it did come down
   }
-  for (std::size_t i = ms(100); i < ms(110); ++i) {
-    after = std::max(after, static_cast<double>(std::fabs(o[i] - o[i - 1])));
+  {
+    // Accent alone, 0 to 1, on an accented note: the gain and the sweep both rise (the amplifier peak is 4 x Accent), smoothed. The step may
+    // grow with the level, but by a small factor, not by a jump the size of the signal.
+    Rig r;
+    make(r, 0.0f);
+    r.script.param(ms(100), AcidVoice::Accent, 1.0f);
+    const auto o = r.render(ms(200));
+    const double before = largest_step(o, ms(60), ms(100));
+    const double after = largest_step(o, ms(100), ms(110));
+    probe("accent jump: step before, after", before, after);
+    // (measured 3.5 x: the accent lifts the amplifier by up to 4 x and opens the sweep; a click would show in the first samples.)
+    CHECK(after < before * 4.5);
+    CHECK(largest_step(o, ms(100), ms(100) + 8) < before * 2.0);
   }
-  CHECK(after < before * 1.1);  // the largest step after the jump is no larger than before it (the gain only went down)
 }
 
 TEST_CASE("acid_voice: extreme settings and random notes: finite, bounded, no denormals") {

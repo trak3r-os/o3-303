@@ -164,9 +164,9 @@ float app_default(unsigned id) noexcept {
   const WobbleSettings wob;
   switch (id) {
     case kAppLevel:
-      return -6.0f;
+      return -3.0f;
     case kAppSend:
-      return 30.0f;
+      return 0.0f;
     case kAppMaster:
       return 100.0f;
     case kAppFill:

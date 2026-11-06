@@ -52,7 +52,7 @@ constexpr std::uint8_t kSmooth = o3sdk::core::kParamSmooth;
 
 // name, unit text, names, knots, min, max, default, detents, coarse, list count, display, curve, flags, page
 constexpr o3sdk::core::ParamDesc kParams[Distortion::kParamCount] = {
-    {"ACTIVE", "", kActiveNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    {"ACTIVE", "", kActiveNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"TYPE", "", kTypeNames, nullptr, 0.0f, 4.0f, 0.0f, 4, 1, 5, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"DRIVE", "%", nullptr, nullptr, 0.0f, 1.0f, 0.5f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
     {"TONE", "%", nullptr, nullptr, 0.0f, 1.0f, 0.6f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
@@ -77,21 +77,21 @@ constexpr float kScale[Distortion::kModelCount] = {0.85f, 0.90f, 0.85f, 0.80f, 0
 // above it the gain that holds its wet peak (the larger of the two waves) at its value at 0.5, which falls to -2.7 dB by Drive 0.85
 // (its RMS rises by only 1 to 2 dB there, its peak by 2.5 dB). The others: the gain that makes their level GRIT's, trimmed as it is, at
 // the same Drive, faded in over Drive 0 .. 0.25 (at 0 it is M3's trim; GRIT's 450 Hz high-pass makes it far quieter than the others
-// at low Drive, where they are near-transparent). At Drive 0.5 TUBE, HARD and FOLD are M3's trims and so the default sound is
-// unchanged; FUZZ is re-measured after its negative half was bounded (tanh_pade_floor). Measure again when a model, the voice or the
+// at low Drive, where they are near-transparent). Re-measured on 2026-11-06 for the Open303-based voice; the fade below Drive
+// 0.25 is linear in dB from the knot-0 trim, which is assumed, not measured. Measure again when a model, the voice or the
 // line changes: the "distortion levels" cases of acid_voice_chain_test.cpp check this table against GRIT's level and peaks, on the line and
 // on two other voice settings.
 constexpr float kTrimTable[Distortion::kModelCount][Distortion::kTrimKnots] = {
-    // GRIT, dB: +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 -0.6 -1.0 -1.5 -1.9 -2.2 -2.4 -2.7 -2.7 -2.7 -2.7
-    {1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 0.9351f, 0.8883f, 0.8434f, 0.8061f, 0.7730f, 0.7560f, 0.7341f, 0.7341f, 0.7341f, 0.7341f},
-    // TUBE, dB: -3.3 -4.5 -5.7 -6.2 -6.2 -5.9 -5.0 -4.4 -3.9 -3.6 -3.3 -3.6 -3.9 -4.2 -4.4 -4.7 -4.9 -5.1 -5.1 -5.1 -5.1
-    {0.6839f, 0.5943f, 0.5172f, 0.4875f, 0.4889f, 0.5089f, 0.5606f, 0.6028f, 0.6363f, 0.6634f, 0.6839f, 0.6593f, 0.6401f, 0.6186f, 0.5994f, 0.5806f, 0.5718f, 0.5572f, 0.5577f, 0.5563f, 0.5529f},
-    // HARD, dB: -1.6 -3.0 -4.2 -4.7 -4.7 -4.4 -3.5 -2.8 -2.3 -1.9 -1.6 -2.0 -2.2 -2.5 -2.7 -3.0 -3.1 -3.3 -3.3 -3.3 -3.3
-    {0.8318f, 0.7078f, 0.6162f, 0.5807f, 0.5823f, 0.6059f, 0.6699f, 0.7225f, 0.7648f, 0.7996f, 0.8318f, 0.7985f, 0.7772f, 0.7527f, 0.7309f, 0.7093f, 0.6997f, 0.6830f, 0.6847f, 0.6840f, 0.6807f},
-    // FUZZ, dB: -5.7 -6.6 -7.3 -7.3 -6.7 -5.8 -4.9 -4.2 -3.7 -3.3 -2.9 -3.2 -3.4 -3.7 -3.9 -4.2 -4.3 -4.5 -4.5 -4.5 -4.5
-    {0.5188f, 0.4665f, 0.4316f, 0.4324f, 0.4615f, 0.5121f, 0.5687f, 0.6158f, 0.6544f, 0.6865f, 0.7138f, 0.6895f, 0.6727f, 0.6529f, 0.6352f, 0.6175f, 0.6101f, 0.5964f, 0.5987f, 0.5988f, 0.5966f},
-    // FOLD, dB: +3.9 +2.2 +0.6 -0.4 -0.7 -0.6 +0.6 +1.7 +2.6 +3.3 +3.9 +3.7 +3.4 +3.0 +2.6 +2.2 +2.0 +1.8 +1.8 +1.8 +1.7
-    {1.5668f, 1.2873f, 1.0747f, 0.9592f, 0.9196f, 0.9352f, 1.0744f, 1.2141f, 1.3475f, 1.4671f, 1.5668f, 1.5224f, 1.4755f, 1.4102f, 1.3476f, 1.2896f, 1.2600f, 1.2236f, 1.2247f, 1.2244f, 1.2208f},
+    // GRIT, dB: +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 -0.4 -0.6 -0.8 -1.0 -1.2 -1.4 -1.5 -1.6 -1.6 -1.6
+    {1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 0.9596f, 0.9333f, 0.9169f, 0.8900f, 0.8715f, 0.8538f, 0.8372f, 0.8314f, 0.8297f, 0.8273f},
+    // TUBE, dB: -3.3 -4.8 -6.5 -7.7 -8.4 -8.6 -7.7 -6.9 -6.3 -5.7 -5.1 -5.0 -4.9 -4.7 -4.6 -4.5 -4.4 -4.3 -4.2 -4.0 -3.9
+    {0.6839f, 0.5759f, 0.4716f, 0.4104f, 0.3804f, 0.3696f, 0.4105f, 0.4494f, 0.4861f, 0.5205f, 0.5531f, 0.5600f, 0.5711f, 0.5852f, 0.5899f, 0.5977f, 0.6034f, 0.6078f, 0.6180f, 0.6300f, 0.6400f},
+    // HARD, dB: -1.6 -3.4 -5.3 -6.7 -7.5 -7.7 -6.7 -5.8 -5.0 -4.3 -3.7 -3.5 -3.3 -3.1 -3.0 -2.8 -2.7 -2.6 -2.5 -2.3 -2.1
+    {0.8318f, 0.6781f, 0.5402f, 0.4623f, 0.4239f, 0.4101f, 0.4629f, 0.5146f, 0.5638f, 0.6101f, 0.6539f, 0.6667f, 0.6836f, 0.7036f, 0.7119f, 0.7236f, 0.7326f, 0.7397f, 0.7537f, 0.7698f, 0.7833f},
+    // FUZZ, dB: -5.7 -7.2 -8.8 -9.6 -9.7 -9.4 -8.2 -7.2 -6.4 -5.6 -5.0 -4.8 -4.6 -4.3 -4.2 -4.1 -4.0 -3.9 -3.7 -3.6 -3.4
+    {0.5188f, 0.4344f, 0.3638f, 0.3313f, 0.3260f, 0.3393f, 0.3886f, 0.4360f, 0.4806f, 0.5223f, 0.5615f, 0.5736f, 0.5892f, 0.6071f, 0.6147f, 0.6250f, 0.6329f, 0.6390f, 0.6508f, 0.6644f, 0.6755f},
+    // FOLD, dB: +3.9 +2.0 +0.4 -0.7 -1.2 -1.4 -0.5 +0.2 +0.8 +1.3 +1.8 +1.9 +2.0 +2.2 +2.2 +2.3 +2.3 +2.3 +2.4 +2.6 +2.7
+    {1.5668f, 1.2566f, 1.0414f, 0.9246f, 0.8699f, 0.8499f, 0.9409f, 1.0216f, 1.0919f, 1.1594f, 1.2280f, 1.2407f, 1.2628f, 1.2903f, 1.2949f, 1.3037f, 1.3055f, 1.3055f, 1.3230f, 1.3452f, 1.3623f},
 };
 
 // ---- ours --------------------------------------------------------------------------------------------------------------------

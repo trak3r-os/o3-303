@@ -306,8 +306,8 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
 // The two action keys (docs/MODS-PLAN.md 5.3, 5.5): a key that runs at its press and is lit while it is on, not a knob the encoder latches. F8 of MODDED is STOCK, F8 of WOBBLE the WOB action.
 constexpr bool is_action(const Entry& entry) noexcept { return entry.item == Item::Mods || entry.item == Item::WobOn || entry.item == Item::GrowlOn; }
 
-// The eleven mods (voice ids 8..18): turning one while STOCK is on ends STOCK. DECAY is the 303's own knob and STOCK itself is not one.
-constexpr bool is_mod(const Entry& entry) noexcept { return entry.item == Item::Voice && entry.id >= AcidVoice::kFirstMod && entry.id < AcidVoice::Stock; }
+// The eleven mods (voice ids 8..18), RANGE and SUSTAIN: turning one while STOCK is on ends STOCK. DECAY is the 303's own knob and STOCK itself is not one.
+constexpr bool is_mod(const Entry& entry) noexcept { return entry.item == Item::Voice && entry.id >= AcidVoice::kFirstMod && entry.id < AcidVoice::kParamCount && entry.id != AcidVoice::Stock; }
 
 }  // namespace
 

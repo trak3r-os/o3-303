@@ -66,8 +66,9 @@ constexpr Entry kSnapTargets[kSnapTargetCount] = {
     voice(AcidVoice::AccSweep), voice(AcidVoice::Muffler), voice(AcidVoice::SwpSpeed), voice(AcidVoice::Overdrive), voice(AcidVoice::AmpDecay),
     growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB"),
     wobble(kWobbleRate, nullptr), wobble(kWobbleShape, nullptr), wobble(kWobbleDepth, nullptr), wobble(kWobbleTarget, nullptr), wobble(kWobbleReset, nullptr),
-    app_item(Item::WobOn, "WOB")};
-static_assert(kSnapWobbleFirst == 36, "B5a's six targets are the last six");
+    app_item(Item::WobOn, "WOB"),
+    voice(AcidVoice::Range), voice(AcidVoice::Sustain)};
+static_assert(kSnapWobbleFirst == 36, "B5a's six targets follow the first 36");
 static_assert(AcidVoice::AmpDecay - AcidVoice::AccDecay == 10, "the snapshot holds the eleven mods, ids 8 to 18, in order");
 
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
@@ -97,7 +98,7 @@ constexpr core::ParamDesc kScale = {"SCALE", "", kScaleNamePtrs.p, nullptr, 0.0f
 constexpr core::ParamDesc kDensity = {"DENSITY", "%", nullptr, nullptr, 0.0f, 100.0f, 75.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kAccPct = {"ACC %", "%", nullptr, nullptr, 0.0f, 100.0f, 25.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSldPct = {"SLD %", "%", nullptr, nullptr, 0.0f, 100.0f, 20.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kSendA = {"DLY SEND", "%", nullptr, nullptr, 0.0f, 100.0f, 30.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kSendA = {"DLY SEND", "%", nullptr, nullptr, 0.0f, 100.0f, 0.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr const char* kDistModeNames[] = {"OFF", "GRIT", "TUBE", "HARD", "FUZZ", "FOLD"};
 constexpr core::ParamDesc kDistMode = {"DIST", "", kDistModeNames, nullptr, 0.0f, 5.0f, 1.0f, 5, 1, 6, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kLevel = {"VOLUME", "dB", nullptr, nullptr, -60.0f, 3.5f, -6.0f, 127, 6, 0, ParamUnit::Fixed1, ParamCurve::Linear, 0, 0};
@@ -161,7 +162,7 @@ constexpr Page kNotesPage = {"NOTES",
                              {voice(AcidVoice::SoftAtk), voice(AcidVoice::Decay), voice(AcidVoice::AccDecay), voice(AcidVoice::AmpDecay), voice(AcidVoice::Slide), voice(AcidVoice::AccSweep),
                               voice(AcidVoice::SwpSpeed), app_item(Item::Mods, "MODS")}};
 constexpr Page kTonePage = {"TONE",
-                            {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), Entry{}, Entry{},
+                            {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), voice(AcidVoice::Range), voice(AcidVoice::Sustain),
                              app_item(Item::Mods, "MODS")}};
 // The growl in signal order: the formant, the comb, then the growl's mix. F8 is the GROWL key: Mix to 0 and back to its last non-zero value (B5a).
 constexpr Page kGrowlPage = {"GROWL",

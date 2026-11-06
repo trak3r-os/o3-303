@@ -116,7 +116,7 @@ TEST_CASE("row 1: a pad holds its action while it is down; the actions reach the
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(1.0f));
   t.up(action_pad(PerfAction::Throw));
   t.wait(10);
-  CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.3f));
+  CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.0f));
   t.down(action_pad(PerfAction::Freeze));
   CHECK(freeze_active(t) == 1.0f);
   t.up(action_pad(PerfAction::Freeze));

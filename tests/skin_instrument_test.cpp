@@ -370,8 +370,8 @@ TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would 
     INFO(where_name(w));
     CHECK(keys(o, true) == 1u);  // MODS: lit while the mods are heard, which they are at boot
     CHECK(keys(o, false) == 0u);
-    // Seven knobs on NOTES, five on TONE: the key and the empty boxes have no cap (the sprites of the knob row are the 58 px caps).
-    CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) == (w == Where::Notes ? 7u : 5u));
+    // Seven knobs on NOTES, six on TONE (F6 RANGE is a switch): the key and the empty boxes have no cap (the sprites of the knob row are the 58 px caps).
+    CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) == (w == Where::Notes ? 7u : 6u));
     o.t.tap(Button::F8);  // MODS off: the key goes dark
     o.t.wait(60);
     CHECK(keys(o, false) == 1u);
@@ -403,9 +403,9 @@ TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would 
 TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and no label, latch LED or readout; the other slots have all three") {
   struct Blanks {
     Where w;
-    unsigned count;  // F6 and F7 on TONE and WOBBLE; INSTRUMENT, NOTES and GROWL have none (F8 of NOTES is the MODS key, GROWL's the growl's)
+    unsigned count;  // F6 and F7 on WOBBLE; INSTRUMENT, NOTES and GROWL have none (F8 of NOTES is the MODS key, GROWL's the growl's)
   };
-  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 0}, {Where::Tone, 2}, {Where::Growl, 0}, {Where::Wobble, 2}};
+  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 0}, {Where::Tone, 0}, {Where::Growl, 0}, {Where::Wobble, 2}};
   for (const Blanks& expect : kBlanks) {
     OnInstrument o(expect.w);
     INFO(where_name(expect.w));

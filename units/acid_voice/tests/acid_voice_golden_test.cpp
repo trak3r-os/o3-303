@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The golden pin of the voice (docs/MODS-PLAN.md 3.3 point 6): FNV-1a over 200,000 frames of a gesture (notes, accents, slides, ties, every
-// SOUND parameter moved, a note-off, an all-notes-off) for SAW, SQR and a run that toggles Wave. The checksums were taken from the voice as it
-// was before any mod existed, and they must never change with every mod at its stock value: "stock is today", bit for bit.
+// SOUND parameter moved, a note-off, an all-notes-off) for SAW, SQR and a run that toggles Wave. The checksums pin the voice as it is (they
+// were first taken before any mod existed, and the voice was then rewritten on Open303, 2026-11): they change only with the sound, and then
+// they are retaken on purpose.
 //
 // This is a host pin, and it says so. prepare() and set() call libm's std::exp, so the bits depend on the host's glibc: the test checks only
 // on an x86-64 glibc of the recorded version, in Debug and Release alike (x86-64 GCC emits no FMA without -march, and float SSE arithmetic
@@ -24,11 +25,13 @@ using namespace acid_voice_test;
 
 namespace {
 
-// Recorded on 2026-11-01 on x86-64 with glibc 2.39, from the tree at o3-303 c345e39 (the voice before the mods), in Debug and in Release.
+// Recorded on 2026-11-06 on x86-64 with glibc 2.39 from the Open303-based voice (the coupled TB_303 ladder at two sub-steps, the stock loop in
+// four passes), in Debug and in Release. A hash cannot say how far the bits moved: the stock and modded loops are compared sample by sample in
+// acid_voice_behaviour_test.cpp.
 constexpr const char* kGlibc = "2.39";
-constexpr std::uint64_t kGoldenSaw = 0x5ee31901b6392fd4ull;
-constexpr std::uint64_t kGoldenSqr = 0x8fa4c57d0a8ca45aull;
-constexpr std::uint64_t kGoldenToggle = 0x29016f51a4c0e964ull;
+constexpr std::uint64_t kGoldenSaw = 0x7b86e03248ad82b4ull;
+constexpr std::uint64_t kGoldenSqr = 0x87275e3afb2d33d6ull;
+constexpr std::uint64_t kGoldenToggle = 0xfbadaf4bbe8037c3ull;
 
 bool host_is_recorded(const char*& why) {
 #if defined(__x86_64__) && defined(__GLIBC__)

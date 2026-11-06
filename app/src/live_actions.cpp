@@ -325,8 +325,8 @@ void LiveActions::snap_apply(app::Context& ctx, float ms) noexcept {
         controls_->set(e, en, v);
       }
     } else if (i >= kSnapTargetsBeforeMods && controls_->get(e, en) == v) {
-      // A mod (or a growl knob) the blend leaves where it is is not written: Sequencer::slew_value maps the value through the curve and back even when from == goal, so ACC DECAY's 180 ms
-      // would come back 180.000015 and its Log time row would leave the stock constant by a few ulps. One that a glide of this morph had started is put back exactly.
+      // A mod (or a growl knob) the blend leaves where it is is not written: Sequencer::slew_value maps the value through the curve and back even when from == goal, so ACC DECAY
+      // would come back changed and its Log time row would leave the stock constant by a few ulps. One that a glide of this morph had started is put back exactly.
       if ((snap_slewing_ >> i & 1u) != 0u) {
         snap_slewing_ &= ~(std::uint64_t{1} << i);
         (void)rig_->seq->slew_stop(ref.target, ref.id);

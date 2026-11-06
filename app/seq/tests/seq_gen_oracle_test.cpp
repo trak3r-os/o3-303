@@ -22,7 +22,7 @@ namespace rep = Replicant303;
 namespace gen = o3_303::seq::gen;
 
 // Compares one preset field by field; returns the number of differences (and says the first one in `first`).
-unsigned compare(const rep::Preset& o, const gen::Preset& m, std::string& first) {
+unsigned compare(const rep::Preset& o, const gen::Preset& m, std::string& first, bool bare_line = false) {
   unsigned diffs = 0;
   const auto fail = [&](const char* what) {
     if (diffs++ == 0) {
@@ -58,7 +58,8 @@ unsigned compare(const rep::Preset& o, const gen::Preset& m, std::string& first)
   if (p.accent != o.accent) fail("accent amount");
   if (p.tempo != o.tempo) fail("tempo");
   if (p.swing != o.swing) fail("swing");
-  if (p.dist_active != o.distActive) fail("dist active");
+  // The factory line (slot 0 of a bank) loads with the distortion off (the voice rewrite): the one field that differs from Replicant on purpose.
+  if (p.dist_active != (bare_line ? false : o.distActive)) fail("dist active");
   if (p.dist_type != o.distType) fail("dist type");
   if (p.dist_drive != o.distDrive) fail("dist drive");
   if (p.dist_tone != o.distTone) fail("dist tone");
@@ -108,7 +109,7 @@ TEST_CASE("GEN: the vault's factory content matches Replicant's makeFactoryPrese
       gen::Preset mine;
       gen::factory(mine, bank, slot);
       std::string what;
-      if (compare(original, mine, what) != 0u) {
+      if (compare(original, mine, what, slot == 0u) != 0u) {
         if (mismatches == 0u) {
           first = what + " (bank " + std::to_string(bank) + ", slot " + std::to_string(slot) + ")";
         }

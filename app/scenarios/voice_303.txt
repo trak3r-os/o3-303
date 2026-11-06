@@ -1,0 +1,22 @@
+# The rewritten 303 voice (docs/VOICE-303.md): the factory line (125 bpm, 16 steps) through three sections of two bars (3.84 s) each: the voice as it
+# is (the Open303 ladder, cutoff law and amplifier, Whittle's accent sweep), then RANGE on FISH (MODDED TONE F6: the bass is not cut as the 303 range does),
+# then ACC SWEEP on HI RES (MODDED NOTES F6) on top of it. The WAV is the evidence: `voice_303.wav`, which starts at the first Play. Where each section begins,
+# give or take the few milliseconds of the gestures: 1 0.00 s dry, 2 3.84 s RANGE FISH, 3 7.68 s RANGE FISH and HI RES.
+wait 300
+record on
+tap play
+wait 3778
+tap sampleload
+tap sampleload
+tap f6
+turn 1
+wait 3776
+snap 01_range_fish
+tap sampleload
+tap f6
+turn 1
+wait 3776
+snap 02_hi_res
+tap play
+wait 600
+wav voice_303

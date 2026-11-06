@@ -544,6 +544,9 @@ void factory(Preset& out, unsigned bank, unsigned slot) noexcept {
     make_generated(r, b, s, 0u);
   }
   map_preset(out, r);
+  if (s == 0) {
+    out.patch.dist_active = false;  // a factory line is the bare 303; the vault's other sounds keep the distortion they were generated with
+  }
 }
 
 const char* bank_name(unsigned bank) noexcept { return kBankNames[bank < kBanks ? bank : kBanks - 1u]; }

@@ -40,7 +40,7 @@ TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four but
 
   // DELAY THROW is the engine's send A, not a sequencer flag.
   const float base = t.h->engine().mix(0, dsp::MixField::SendA);
-  CHECK(base == doctest::Approx(0.3f));
+  CHECK(base == doctest::Approx(0.0f));
   t.press(Button::Fx);
   t.wait(10);
   CHECK(sequencer.perf() == 0);

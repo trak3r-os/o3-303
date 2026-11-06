@@ -226,7 +226,7 @@ TEST_CASE("every key of FX, GROWL and WOBBLE reaches its parameter") {
   CHECK(key_moves(t, 7, kDelay, units::Delay::Tone));
   const float send0 = t.h->engine().mix(0, dsp::MixField::SendA);  // F7 DLY SEND: slot 0's send A
   t.tap(Button::F7);
-  t.turn(-5);
+  t.turn(5);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) != send0);
 
   t.to_growl();  // GROWL: the formant, the comb, the growl's mix; F8 is an empty well
@@ -645,14 +645,14 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[2].label[1], "SLIDE") == 0);
   CHECK(std::strcmp(v.section[2].label[2], "SUB") == 0);
   CHECK(std::strcmp(v.section[2].label[3], "MODS") == 0);
-  CHECK(std::strcmp(v.section[2].value[0], "180ms") == 0);  // the stock values
+  CHECK(std::strcmp(v.section[2].value[0], "200ms") == 0);  // the stock values
   CHECK(std::strcmp(v.section[2].value[1], "60ms") == 0);
   CHECK(std::strcmp(v.section[2].value[2], "OFF") == 0);
   CHECK(std::strcmp(v.section[2].value[3], "ON") == 0);  // MODS: heard at boot
   CHECK(std::strcmp(v.section[0].label[0], "MODEL") == 0);
   CHECK(std::strcmp(v.section[0].value[0], "TUBE") == 0);
   CHECK(std::strcmp(v.section[1].label[2], "SEND") == 0);
-  CHECK(std::strcmp(v.section[1].value[2], "30%") == 0);  // the base send, 30 % by default
+  CHECK(std::strcmp(v.section[1].value[2], "0%") == 0);  // the base send, 0 % by default
 
   fill_sections(e, c, false, inst, kInstFx, v);  // FX draws the distortion and the delay large
   REQUIRE(v.sections == 2);

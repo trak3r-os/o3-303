@@ -77,7 +77,7 @@ bool key_moves(Hands& t, unsigned k, unsigned id) {
 }
 
 const AcidVoice::Param kNotesIds[7] = {AcidVoice::SoftAtk, AcidVoice::Decay, AcidVoice::AccDecay, AcidVoice::AmpDecay, AcidVoice::Slide, AcidVoice::AccSweep, AcidVoice::SwpSpeed};
-const AcidVoice::Param kToneIds[5] = {AcidVoice::Tracking, AcidVoice::FilterFm, AcidVoice::Overdrive, AcidVoice::Muffler, AcidVoice::SubOsc};
+const AcidVoice::Param kToneIds[7] = {AcidVoice::Tracking, AcidVoice::FilterFm, AcidVoice::Overdrive, AcidVoice::Muffler, AcidVoice::SubOsc, AcidVoice::Range, AcidVoice::Sustain};
 
 
 }  // namespace
@@ -102,13 +102,11 @@ TEST_CASE("MODDED: the titles, the tabs and the eight keys of NOTES and TONE (do
   t.tap(Button::SampleLoad);
   CHECK(is_title(t, "MODDED TONE"));
   const Page& tone = screen_of(t).page_table();
-  for (unsigned k = 0; k < 5; ++k) {
+  for (unsigned k = 0; k < 7; ++k) {
     INFO("TONE F" << k + 1);
     CHECK(tone.entry[k].item == Item::Voice);
     CHECK(tone.entry[k].id == kToneIds[k]);
   }
-  CHECK(tone.entry[5].item == Item::Blank);
-  CHECK(tone.entry[6].item == Item::Blank);
   CHECK(tone.entry[7].item == Item::Mods);
 }
 
@@ -122,13 +120,11 @@ TEST_CASE("MODDED: every key of NOTES and TONE reaches its parameter, and every 
   }
   CHECK(std::strlen(knob_of(t, 7).label) <= 9);
   t.tap(Button::SampleLoad);
-  for (unsigned k = 0; k < 5; ++k) {
+  for (unsigned k = 0; k < 7; ++k) {
     INFO("TONE F" << k + 1);
     CHECK(key_moves(t, k, kToneIds[k]));
     CHECK(std::strlen(knob_of(t, k).label) <= 9);
   }
-  CHECK(knob_of(t, 5).blank);
-  CHECK(knob_of(t, 6).blank);
   CHECK_FALSE(stock(t));  // none of the above ended or began STOCK
 }
 
@@ -176,15 +172,13 @@ TEST_CASE("MODDED: the Shift row is LEARN on every mod and DECAY, and '-' on STO
   CHECK_FALSE(ctx.midi().learning());
   t.tap(Button::SampleLoad);
   t.press(Button::Shift);
-  const char* tone[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "-", "-", "-"};
+  const char* tone[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "-"};
   for (unsigned k = 0; k < 8; ++k) {
     INFO("TONE F" << k + 1);
     CHECK(row(k) == tone[k]);
   }
   t.release(Button::Shift);
   t.shift_tap(Button::F8);
-  CHECK_FALSE(ctx.midi().learning());
-  t.shift_tap(Button::F6);  // an empty key
   CHECK_FALSE(ctx.midi().learning());
   t.shift_tap(Button::F5);  // SUB OSC: a unit parameter
   CHECK(ctx.midi().learning());
@@ -287,6 +281,20 @@ TEST_CASE("a turn of a mod ends STOCK with the words MODS ON; DECAY, a lock and 
   const Status s = status_on_home(t);
   CHECK_FALSE(s.chip);
   CHECK(s.said == "MODS ON");
+}
+
+TEST_CASE("a turn of RANGE or SUSTAIN ends STOCK too: under STOCK they would be silent") {
+  for (const Button key : {Button::F6, Button::F7}) {
+    Hands t;
+    t.tap(Button::SampleLoad);  // MODDED
+    t.tap(Button::SampleLoad);  // TONE
+    t.tap(Button::F8);          // STOCK on
+    REQUIRE(stock(t));
+    t.tap(key);
+    t.turn(1);
+    CHECK_FALSE(stock(t));
+    CHECK(t.param(kVoice, key == Button::F6 ? AcidVoice::Range : AcidVoice::Sustain) > 0.0f);
+  }
 }
 
 TEST_CASE("a turn of a mod with STOCK off leaves it off and says nothing; a turn with a step held writes a lock and ends nothing") {
@@ -508,9 +516,9 @@ TEST_CASE("STOCK is off at boot and again after a LOAD, NEW, REVERT and RESET PR
   REQUIRE(s.settled());
   CHECK_FALSE(s.stock());
   CHECK_FALSE(s.chip());
-  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(180.0f));
+  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(200.0f));
 
-  // LOAD (the session is MODB now, so MODA is read from the card and not the session's own): STOCK ends, and the mod is its stored value (not stock's 180 ms).
+  // LOAD (the session is MODB now, so MODA is read from the card and not the session's own): STOCK ends, and the mod is its stored value (not stock's 200 ms).
   (void)s.h->engine().set_param(kVoice, AcidVoice::AccDecay, 300.0f);
   stock_on();
   REQUIRE(app_project().load("MODA"));
@@ -534,7 +542,7 @@ TEST_CASE("STOCK is off at boot and again after a LOAD, NEW, REVERT and RESET PR
   s.wait(600);  // the reset waits for the transport to stop
   CHECK_FALSE(s.stock());
   CHECK_FALSE(s.chip());
-  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(180.0f));
+  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(200.0f));
 }
 
 // ---- WOBBLE's F8 and LiveActions::toggle_latch() -----------------------------------------------------------------------------------------

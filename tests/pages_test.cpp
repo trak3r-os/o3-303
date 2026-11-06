@@ -89,7 +89,7 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
     std::size_t max_label;
   };
   const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0, 8}, {&kFxPage, 0, 9},
-                         {&kNotesPage, 0, 9},           {&kTonePage, (1u << 5) | (1u << 6), 9},
+                         {&kNotesPage, 0, 9},           {&kTonePage, 0, 9},
                          {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
   for (const Shown& sh : shown) {
     for (unsigned k = 0; k < kKeys; ++k) {
@@ -285,7 +285,7 @@ TEST_CASE("pages: the SOUND page goes through the engine to the voice") {
 TEST_CASE("pages: VOLUME is slot 0's level in dB, silent at the bottom, capped at the engine's 1.5") {
   Rig rig;
   const Entry vol = rig.entry(page_at(kPageSound), 7);
-  CHECK(rig.text(vol) == "-6.0dB");  // the default: headroom for the delay's wet signal and the accents
+  CHECK(rig.text(vol) == "-3.0dB");  // the default: headroom for the delay's wet signal and the accents
   rig.controls.set(rig.engine, vol, 0.0f);
   CHECK(rig.engine.mix(0, dsp::MixField::Level) == doctest::Approx(1.0f).epsilon(0.001));
   rig.controls.set(rig.engine, vol, -6.0f);
@@ -308,6 +308,8 @@ TEST_CASE("pages: the FX page: the distortion, the delay, the send, and the mast
   CHECK(rig.text(drive) == "80%");
   // MODEL: the insert's Active and Type as one key, OFF then the five models.
   const Entry mode = rig.entry(kFxPage, 3);
+  CHECK(rig.text(mode) == "OFF");  // the distortion starts off: the 303 is bare until it is switched on
+  rig.controls.step(rig.engine, mode, 1, false);
   CHECK(rig.text(mode) == "GRIT");  // active, GRIT
   rig.controls.step(rig.engine, mode, 2, false);
   CHECK(rig.text(mode) == "HARD");
@@ -331,8 +333,10 @@ TEST_CASE("pages: the FX page: the distortion, the delay, the send, and the mast
   CHECK(rig.engine.param(rig.wiring.delay, units::Delay::Time) == doctest::Approx(3.0f));
 
   const Entry send = rig.entry(kFxPage, 6);
-  CHECK(rig.text(send) == "30%");
+  CHECK(rig.text(send) == "0%");  // the send starts closed
   rig.controls.apply_send(rig.engine);
+  CHECK(rig.engine.mix(0, dsp::MixField::SendA) == doctest::Approx(0.0f));
+  rig.controls.set(rig.engine, send, 30.0f);
   CHECK(rig.engine.mix(0, dsp::MixField::SendA) == doctest::Approx(0.3f));
   rig.controls.set(rig.engine, send, 60.0f);
   CHECK(rig.engine.mix(0, dsp::MixField::SendA) == doctest::Approx(0.6f));
@@ -437,7 +441,7 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
 
   // The targets: SOUND's seven, the distortion's five, the delay's four, the level and the send, then (P2, D29) the growl's VOWEL, FMT Q, GRL MIX and
   // CMB MIX, then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven mods in id order and the growl's FMT MIX, CMB TUNE and CMB FB, each a real entry the lanes know.
-  CHECK(kSnapTargetCount == 42);  // B5a: then the wobble's five settings and its latch (36..41)
+  CHECK(kSnapTargetCount == 44);  // B5a: then the wobble's five settings and its latch (36..41), then the voice's RANGE and SUSTAIN (42, 43)
   CHECK(snap_target(18).item == Item::Growl);
   CHECK(snap_target(18).id == Growl::Vowel);
   CHECK(snap_target(19).id == Growl::FormantQ);
@@ -448,17 +452,17 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
     const Entry t = snap_target(i);
     CHECK(rig.controls.desc(rig.engine, t) != nullptr);
     LaneRef ref{kLaneNone, 0};
-    CHECK(rig.controls.lane_ref(t, ref) == (i < kSnapWobbleFirst));  // every target but the wobble's can be slewed
+    CHECK(rig.controls.lane_ref(t, ref) == (i < kSnapWobbleFirst || i >= 42));  // every target but the wobble's (36..41) can be slewed
     discrete += rig.controls.snap_discrete(rig.engine, i) ? 1u : 0u;
   }
-  CHECK(discrete == 15);  // (B5a: the wobble's rate, shape, target, reset and latch are five more) the wave, the distortion's switch and model, the delay's time (a list of note values) and mode; the mods' SOFT ATK, SUB OSC, ACC SWEEP, MUFFLER and SWP SPEED
+  CHECK(discrete == 16);  // (B5a: the wobble's rate, shape, target, reset and latch are five more) the wave, the distortion's switch and model, the delay's time (a list of note values) and mode; the mods' SOFT ATK, SUB OSC, ACC SWEEP, MUFFLER and SWP SPEED, and RANGE
   rig.controls.set(rig.engine, rig.entry(page_at(kPageSound), 0), 1200.0f);
   rig.controls.set(rig.engine, rig.entry(page_at(kPageSound), 7), -12.0f);
   float now[kSnapValues];
   rig.controls.snap_capture(rig.engine, now);
   CHECK(now[0] == doctest::Approx(1200.0f));
   CHECK(now[16] == doctest::Approx(-12.0f));  // the level, in dB
-  CHECK(now[17] == doctest::Approx(30.0f));   // the send, in percent
+  CHECK(now[17] == doctest::Approx(0.0f));    // the send, in percent: a TB-303 is dry
   // The growl's four are read in the units GROWL shows (the unit's own: a vowel and the mixes 0..1, the formant's Q 1..20).
   rig.controls.set(rig.engine, snap_target(18), 0.5f);
   rig.controls.set(rig.engine, snap_target(19), 12.0f);
@@ -470,10 +474,10 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(now[20] == doctest::Approx(0.25f));
   CHECK(now[21] == doctest::Approx(0.75f));
   CHECK(now[kSnapTargetCount] == 0.0f);
-  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for six more targets stays zero
+  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for four more targets stays zero
 
   // The mods: targets 22..32 are the voice's ids 8..18 in id order (never STOCK, id 19), and 33..35 the growl's FMT MIX, CMB TUNE and CMB FB; each is read and written in its own units.
-  static_assert(kSnapValues - kSnapTargetCount == 6, "room for six more targets");
+  static_assert(kSnapValues - kSnapTargetCount == 4, "room for four more targets");
   for (unsigned i = 0; i < 11; ++i) {
     CHECK(snap_target(22 + i).item == Item::Voice);
     CHECK(snap_target(22 + i).id == AcidVoice::AccDecay + i);
@@ -495,6 +499,18 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(rig.controls.snap_discrete(rig.engine, 26));
   CHECK_FALSE(rig.controls.snap_discrete(rig.engine, 22));
   CHECK_FALSE(rig.controls.snap_discrete(rig.engine, 34));
+  // RANGE and SUSTAIN (42, 43) are the voice's ids 20 and 21: RANGE is a choice (303 or FISH), SUSTAIN a level.
+  CHECK(snap_target(42).item == Item::Voice);
+  CHECK(snap_target(42).id == AcidVoice::Range);
+  CHECK(snap_target(43).item == Item::Voice);
+  CHECK(snap_target(43).id == AcidVoice::Sustain);
+  rig.controls.set(rig.engine, snap_target(42), 1.0f);
+  rig.controls.set(rig.engine, snap_target(43), 0.4f);
+  rig.controls.snap_capture(rig.engine, now);
+  CHECK(now[42] == doctest::Approx(1.0f));
+  CHECK(now[43] == doctest::Approx(0.4f).epsilon(0.01));
+  CHECK(rig.controls.snap_discrete(rig.engine, 42));
+  CHECK_FALSE(rig.controls.snap_discrete(rig.engine, 43));
 }
 
 TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the wobble's settings in the screen's order, PERF the freeze's roll and stop (M3c)") {

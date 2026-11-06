@@ -320,7 +320,7 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   while (first_sound < frames && take[first_sound * 2] == 0 && take[first_sound * 2 + 1] == 0) {
     ++first_sound;
   }
-  CHECK(first_sound == 0u);
+  CHECK(first_sound <= 1u);  // the voice's first sample is exactly 0 (its filters start at rest); a block early would be 64 or more
   std::size_t out_first = 0;
   while (out_first < out.size() / 2 && out[out_first * 2] == 0 && out[out_first * 2 + 1] == 0) {
     ++out_first;
@@ -336,7 +336,7 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   }
   CHECK(found);
   if (found) {
-    CHECK(offset == out_first);  // the take began on the bar's sample
+    CHECK(offset + first_sound == out_first);  // the take began on the bar's sample
     CHECK(std::memcmp(out.data() + offset * 2, take, static_cast<std::size_t>(frames) * 4u) == 0);
   }
 

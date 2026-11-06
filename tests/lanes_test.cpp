@@ -62,24 +62,24 @@ TEST_CASE("the default lanes are the SOUND page and its keys' p-locks land on th
 
 TEST_CASE("hold a step + the encoder on VOLUME locks the mixer's level lane, scaled with the mixer's range (0..1.5 gain)") {
   Hands t;
-  t.tap(Button::F8);  // VOLUME, -6.0 dB, half a dB a detent
+  t.tap(Button::F8);  // VOLUME, -3.0 dB (the default), half a dB a detent
   t.down(step_pad_of(4));
-  t.turn(6);  // -3.0 dB
+  t.turn(-6);  // -3 -> -6 dB
   t.up(step_pad_of(4));
   CHECK(seq::lane_has_motion(t.pat(), 7));
   for (unsigned lane = 0; lane < 7; ++lane) {
     CHECK_FALSE(seq::lane_has_motion(t.pat(), lane));  // and not the voice's id 7
   }
-  CHECK(point_at(t.pat(), 7, 4) == mixer_value_to_point(kMixerLevel, db_to_gain(-3.0f)));
-  CHECK(point_at(t.pat(), 7, 4) == mixer_value_to_point(kMixerLevel, 0.7079f));
+  CHECK(point_at(t.pat(), 7, 4) == mixer_value_to_point(kMixerLevel, db_to_gain(-6.0f)));
+  CHECK(point_at(t.pat(), 7, 4) == mixer_value_to_point(kMixerLevel, 0.5012f));
   // The page's own VOLUME did not move: a p-lock is the step's.
-  CHECK(t.h->engine().mix(0, dsp::MixField::Level) == doctest::Approx(db_to_gain(-6.0f)).epsilon(0.001));
+  CHECK(t.h->engine().mix(0, dsp::MixField::Level) == doctest::Approx(db_to_gain(-3.0f)).epsilon(0.001));
   // Another turn on the same step goes on from the lock's value, not from the knob's.
   t.down(step_pad_of(4));
-  t.turn(6);  // -3 -> 0 dB
+  t.turn(6);  // -6 -> -3 dB
   t.up(step_pad_of(4));
-  const int unity = mixer_value_to_point(kMixerLevel, 1.0f);
-  CHECK(std::abs(static_cast<int>(point_at(t.pat(), 7, 4)) - unity) <= 1);  // the point's step is 0.006 gain: -3 dB + 3 dB is unity to a point
+  const int back = mixer_value_to_point(kMixerLevel, db_to_gain(-3.0f));
+  CHECK(std::abs(static_cast<int>(point_at(t.pat(), 7, 4)) - back) <= 1);  // the point's step is 0.006 gain: -6 dB + 3 dB is -3 dB to a point
 }
 
 TEST_CASE("a lock on a parameter no lane drives claims the first lane with no motion, in one undo step with the lock") {
@@ -197,12 +197,12 @@ TEST_CASE("a recorded move goes to the lane that drives the knob: DRIVE claims o
   // VOLUME (SOUND F8) is the mixer's level, lane 7.
   t.to_home();
   t.tap(Button::F8);
-  t.turn(4);  // -6 dB -> -4 dB
+  t.turn(4);  // -3 dB -> -1 dB
   t.wait(300);
   CHECK(seq::lane_has_motion(t.pat(), 7));
   found = false;
   for (unsigned i = 0; i < 16 * kMotionPointsPerStep; ++i) {
-    if (t.pat().motion[7][i] == mixer_value_to_point(kMixerLevel, db_to_gain(-4.0f))) {
+    if (t.pat().motion[7][i] == mixer_value_to_point(kMixerLevel, db_to_gain(-1.0f))) {
       found = true;
     }
   }
