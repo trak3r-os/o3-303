@@ -11,8 +11,8 @@ Unofficial; not affiliated with or endorsed by Polyend. "Tracker" is used only t
 with its picture.
 
 **The image** is on the [releases](https://github.com/trak3r-os/o3-303/releases) page: `o3-303-<version>.ptf` and its `SHA256SUMS`.
-Each release's notes say what the unit has shown, and [CHANGELOG.md](docs/CHANGELOG.md) what changed. The first, v0.1.0, is a pre-release:
-MODDED, GROWL and WOBBLE have not run on a unit yet.
+Each release's notes say what the unit has shown, and [CHANGELOG.md](docs/CHANGELOG.md) what changed. The newest, v0.5.0, is a pre-release:
+its notes say what a unit has shown and what it has not.
 
 ## Status
 

@@ -5,8 +5,66 @@ hear says so in plain words.
 
 ## Unreleased
 
-- OBSIDIAN is now the default look. A unit that has already saved its settings keeps the look it had; Config, page 303, SKIN switches it.
+## v0.5.0 (2026-11-06), a pre-release
+
+The changes since v0.1.0 that a player hears, sees or saves.
+
+### What plays or sounds different
+
+- **New defaults:** the growl's CMB TUNE starts at +7 st, not 0, and the wobble's RESET starts off, not on. A value a saved project or
+  snapshot already holds is not changed.
+- **MIDI accent:** a note from a MIDI keyboard at velocity 96 or more is accented, as the sequencer's accent does. The pads and keys now
+  send velocity 90 when unaccented, not 100.
+- **Growl on and off:** GROWL's F8 turns the growl on and off. Off keeps the Mix you set; on brings it back, at 50 % the first time.
+- **MODS:** the STOCK switch is now MODS, lit while the mods are heard. Each mod with a condition has a line that says when it is heard,
+  such as SOFT ATK heard without accent or slide.
+
+### Screens and controls
+
+- **OBSIDIAN is the default look.** A unit that has already saved its settings keeps the look it had; Config, page 303, SKIN switches it.
 - In OBSIDIAN, with Shift held on HOME and PATTERN SETUP, the ENC window also gives the knob's value, so a coarse turn can be read.
+- **Held Left and Right** repeat on HOME, INSTRUMENT, MASTER and PERFORM while an F key is held. Left and Right with an F key held move
+  its knob 1/20 of its range, one step on an enum. Config, page DISPLAY, sets the encoder's curve.
+- **Ladder rows** on HOME (FILT rows 3 and 4) and PERFORM (row 3) can hold any F key's knob: hold the F key and tap the row. Tap it again
+  for its default. Shift + FILT restores both HOME rows.
+- **INSTRUMENT's knobs** sit beside the F keys on VOICE, FX, MODDED, GROWL and WOBBLE.
+- **Steps:** on HOME and INSTRUMENT, Insert makes a note a tie or a rest, and a tie or rest a note; Shift + Insert pushes right. Up or Down
+  on a rest or a tie makes it a note.
+- **ROOT:** Shift + F5 on PATTERN SETUP sets the scale's root, from C to B. With a SCALE on, the scale's keys light mid and the root full.
+- **RECORD** takes the master only. SOURCE, GAIN and MONITOR are gone.
+- **FILE LIBRARY:** Shift + a pad loads slots 16 to 63.
+- **LAST:** a load that replaces the sound keeps it. Shift + F3 on FILE LIBRARY swaps it back.
+- **NO AUTOSAVE** shows as a header chip while autosave is off.
+- A row latched with a colour button ends when you leave the screen.
+- INFO shows the version, 0.5.0.
+
+### MIDI
+
+- A learned controller records motion when REC is on and the line plays.
+- Accent from a keyboard is as above.
+
+### Saved files
+
+- **Projects:** a project saved with v0.1.0 loads on this version. The ladder rows start on their defaults and the wobble's latch is off.
+- **Snapshots:** a slot now holds more of the sound. An older slot takes the new values from the sound when it loads.
+- **Settings:** a settings file that saved SKIN keeps its look. A file with no SKIN entry gives OBSIDIAN.
+- **Not checked:** a project saved by this image and opened on v0.1.0.
+
+### What a unit has shown
+
+On a unit, over the USB console, on this code or, for the older changes, on the test images that led to it:
+
+- **Sound and load:** no audio dropout in two-minute runs on HOME, INSTRUMENT VOICE and WOBBLE, playing. The render peaked at 58.5 % of a block on HOME, and
+  once at 64.8 % across a whole test round, with two blocks over budget and still no dropout.
+- **Worked:** a project from an earlier image loads; the look stays across a restart; the ENC window's value with Shift; INSTRUMENT's layout on VOICE, FX, NOTES,
+  GROWL and WOBBLE; GROWL's and WOBBLE's F8; MODS; TARGET VOWEL refused at Mix 0; the ladder rows on HOME; the ROOT and the key LEDs; FILE LIBRARY's slots; the held
+  repeat; the encoder's curve; a learned controller moving CUTOFF; MIDI accent at velocity 96.
+- **OBSIDIAN's draw time:** at most 5,685 µs a frame, under the budget of 6,000.
+- **Known problem:** once, after a `reset` from the USB console, the unit stayed off USB until it was switched off and on. It left no crash record and the card was
+  untouched, and the cause is not known. Ten more resets came back in about 4.5 s. If it happens, switch the unit off and on.
+- **Not shown on a unit yet:** snapshots and the morph with the wobble; one undo over a held lock; the first repeat's 400 ms; a learned controller recording motion;
+  the ladder rows on MODDED, GROWL, WOBBLE and PERFORM; the new defaults on a new sound; INSTRUMENT's layout on TONE (it is the same drawing as NOTES, and was
+  seen in the simulator); anything by eye or by ear, including how smooth OBSIDIAN looks on VOICE while playing.
 
 ## v0.1.0 (2026-11-02), the first release, a pre-release
 
