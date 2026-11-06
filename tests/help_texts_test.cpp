@@ -7,6 +7,7 @@
 #include "hands.h"
 #include "../app/src/help_texts.h"
 
+#include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/app/help.h>
 #include <o3sdk/app/help_overlay.h>
 #include <o3sdk/platform/host/dir_card.h>
@@ -674,4 +675,30 @@ TEST_CASE("help screens: FILE PROJECTS, its list and its name keyboard (with a c
   tap(*h, app::Button::F8);
   h->run_ms(50);
   check_screen(*h, Id::File, 0u, 0u, "FILE PROJECTS");
+}
+
+TEST_CASE("the heard-on table follows the voice's mods: a line that fits the strip, none for a mod heard on every note, ACCENT 0 named on the accent mods") {
+  using o3_303::AcidVoice;
+  for (unsigned id = AcidVoice::kFirstMod; id < AcidVoice::Stock; ++id) {
+    const auto h = o3_303::help_texts::heard_on(id);
+    if (h.line == nullptr) {
+      CHECK(std::strlen(o3_303::help_texts::heard_line(id, false)) == 0);
+      CHECK(std::strlen(o3_303::help_texts::heard_line(id, true)) == 0);
+      continue;
+    }
+    CHECK(std::strlen(h.line) <= o3_303::help_texts::kHeardMax);
+    CHECK(std::strlen(o3_303::help_texts::heard_line(id, true)) <= o3_303::help_texts::kHeardMax);
+    CHECK(std::strcmp(o3_303::help_texts::heard_line(id, false), h.line) == 0);
+    CHECK((std::strcmp(o3_303::help_texts::heard_line(id, true), "ACCENT IS 0: NOT HEARD") == 0) == h.needs_accent);
+  }
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::SubOsc).line == nullptr);
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::Muffler).line == nullptr);
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::AccDecay).accent);
+  CHECK_FALSE(o3_303::help_texts::heard_on(AcidVoice::AccDecay).needs_accent);  // vcf_c and end_g follow has_accent_, not ACCENT
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::AccSweep).needs_accent);
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::SwpSpeed).needs_accent);
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::Slide).slide);
+  CHECK_FALSE(o3_303::help_texts::heard_on(AcidVoice::Slide).accent);
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::AccDecay - 1).line == nullptr);
+  CHECK(o3_303::help_texts::heard_on(AcidVoice::Stock).line == nullptr);
 }

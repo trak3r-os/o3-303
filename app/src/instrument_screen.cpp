@@ -111,13 +111,16 @@ constexpr InstrumentGroup kWobbleGroup = {1, kWobbleTitles, kWobbleTitles, kWobb
 static_assert(kInstrumentGroup.count <= kMaxGroupPages && kModdedGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages,
               "a group has at most kMaxGroupPages pages");
 
-// The drawing's geometry (the area is the screen's, under the kit's header): the page's knobs large, the read-outs, the drawer's two lines.
-constexpr int kBigY = frame::kStatusH + 4;
+// The drawing's geometry (the area is the screen's, under the kit's header): the read-outs under the status line, then the drawer's two lines, then the page's knobs large at the bottom, directly
+// above the kit's knob strip and PADS line (next to the F keys, as HOME's F row is; BACKLOG 2). The knobs and the drawer hang from the bottom of the area; the hint sits above the drawer.
 constexpr int kBigH = 112;
-constexpr int kSecY = kBigY + kBigH + 8;
+constexpr int kSecY = frame::kStatusH + 4;
 constexpr int kSecH = 100;
-constexpr int kDrawerY = kSecY + kSecH + 8;
 constexpr int kCellRowH = 24;
+constexpr int kDrawerH = 14 + kCellRowH + 2 + kCellRowH;  // the step numbers, NOTE, GATE
+constexpr int kHintH = 18;
+int big_y(const Rect& area) noexcept { return area.h - app::kKnobStripH - 4 - kBigH; }
+int drawer_y(const Rect& area) noexcept { return big_y(area) - 4 - kDrawerH; }
 
 void cut(const char* s, unsigned max, char* out, unsigned cap) noexcept {
   unsigned n = 0;
@@ -149,7 +152,7 @@ int fill_w(float norm, int w) noexcept {
 
 Rect big_box(const Rect& area, unsigned k) noexcept {
   const int cell_w = area.w / static_cast<int>(view::kKnobs);
-  return Rect{area.x + static_cast<int>(k) * cell_w + 3, area.y + kBigY, cell_w - 6, kBigH};
+  return Rect{area.x + static_cast<int>(k) * cell_w + 3, area.y + big_y(area), cell_w - 6, kBigH};
 }
 
 // The eight knobs of the page, large: the F-number and the name over the value, the value as a bar along the bottom of the box and as the fill.
@@ -245,7 +248,7 @@ void draw_sections(ui::Renderer& r, const Rect& area, const InstrumentView& view
 // The drawer's two lines under the page of 16 steps: NOTE and GATE, on the step pads' columns, the cursor, the playhead and the held steps marked.
 void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) noexcept {
   const ui::Theme& theme = r.theme();
-  const int y_numbers = area.y + kDrawerY;
+  const int y_numbers = area.y + drawer_y(area);
   const int y_note = y_numbers + 14;
   const int y_gate = y_note + kCellRowH + 2;
   // The caption of the row the encoder owns is highlighted (a colour button latched it).
@@ -258,7 +261,8 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
     r.panel(Rect{area.x + 4, y_gate, view::kGridX - 8, kCellRowH}, Color::Sel);
   }
   r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_note, kCellRowH), "NOTE", note_owned ? Color::SelText : Color::TextDim, Face::Label);
-  r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_gate, kCellRowH), "GATE", gate_owned ? Color::SelText : Color::TextDim, Face::Label);
+  const bool heard_gate = view.heard_accent || view.heard_slide;  // the latched mod is heard on accents or slides: the GATE row's A and S light
+  r.text(area.x + 8, ui::caps_y(theme, Face::Label, y_gate, kCellRowH), "GATE", gate_owned ? Color::SelText : (heard_gate ? Color::Accent : Color::TextDim), Face::Label);
   const auto cell_x = [&](unsigned k) { return area.x + view::kGridX + static_cast<int>(k) * view::kCellW; };
   const auto mark = [&](unsigned k) -> int {  // 0 plain, 1 cursor, 2 playhead
     const int step = view.marks.page * 16 + static_cast<int>(k);
@@ -293,7 +297,8 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
     const InstrumentCell& c = view.cell[k];
     r.text(cell_x(k) + (view::kCellW - 2 - r.text_width(c.note, Face::Data)) / 2, ui::caps_y(theme, Face::Data, y_note, kCellRowH), c.note, ink,
            Face::Data);
-    r.text(cell_x(k) + (view::kCellW - 2 - r.text_width(c.gate, Face::Data)) / 2, ui::caps_y(theme, Face::Data, y_gate, kCellRowH), c.gate, ink,
+    const bool lit = mark(k) == 0 && ((view.heard_accent && c.accent) || (view.heard_slide && c.slide));
+    r.text(cell_x(k) + (view::kCellW - 2 - r.text_width(c.gate, Face::Data)) / 2, ui::caps_y(theme, Face::Data, y_gate, kCellRowH), c.gate, lit ? Color::Accent : ink,
            Face::Data);
   }
 }
@@ -726,6 +731,15 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     view.hint = "WOB OFF: F8";
   } else if (group_ == &kModdedGroup && rig_->wiring.stock) {
     view.hint = "MODS OFF: F8";
+  } else if (is_mod(pk.focused())) {  // the latched mod says when it is heard (an "OFF: F8" hint above has priority)
+    const help_texts::HeardOn h = help_texts::heard_on(pk.focused().id);
+    const char* line = help_texts::heard_line(pk.focused().id, controls_->get(e, voice(AcidVoice::Accent)) <= 0.0f);
+    if (line[0] != '\0') {
+      view.hint = line;
+      view.heard = true;
+      view.heard_accent = h.accent;
+      view.heard_slide = h.slide;
+    }
   }
   for (unsigned k = 0; k < kKeys; ++k) {
     view.learn[k] = learn_of(ctx, k);
@@ -791,8 +805,8 @@ void InstrumentScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Re
   draw_big_knobs(r, area, view.knob);
   draw_sections(r, area, view);
   draw_drawer(r, area, view);
-  if (std::strstr(view.hint, "OFF: F8") != nullptr) {  // an effect that is off says how to bring it back (B5a); the other hints are the skin's
-    r.text(area.x + 8, area.y + kDrawerY, view.hint, Color::Accent, Face::Label);
+  if (std::strstr(view.hint, "OFF: F8") != nullptr || view.heard) {  // an effect that is off says how to bring it back (B5a), the latched mod when it is heard (BACKLOG 14.3); the other hints are the skin's
+    r.text(area.x + 8, area.y + drawer_y(area) - kHintH, view.hint, Color::Accent, Face::Label);
   }
 
   const Rect strip{area.x, area.y + area.h - app::kKnobStripH, area.w, app::kKnobStripH};

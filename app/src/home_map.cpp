@@ -208,6 +208,7 @@ void HomeMap::leave(app::Context& ctx) noexcept {
   audition_off(ctx);
   pattern_down_ = false;
   overlay_ = false;
+  row_ = DrawerRow::None;  // the row latch ends with the screen (the ENC window is the only display of who owns the encoder)
 }
 
 // ---- Model helpers ----------------------------------------------------------------------------------------------------------

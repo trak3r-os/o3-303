@@ -24,16 +24,16 @@ using skin_assets::Id;
 constexpr int char_w(Face f) noexcept { return f == Face::Data ? 10 : (f == Face::Label ? 8 : 6); }
 int len_of(const char* s) noexcept { return static_cast<int>(std::strlen(s)); }
 
-// The knobs (docs/SKIN-PLAN.md 2.4): eight slots of 100 px under the header, the same grid as the F row's. A slot's label line is the top 16 px, the knob58 (76 px) the middle, the readout
+// The knobs (docs/SKIN-PLAN.md 2.4): eight slots of 100 px at the bottom of the screen, above the tabs (they were under the header until B5b), the same grid as the F row's. A slot's label line is the top 16 px, the knob58 (76 px) the middle, the readout
 // window under it, the latch LED left of the knob and under its label.
-constexpr int kLabelY = 70;
-constexpr int kKnobCy = 124;
+constexpr int kLabelY = 304;  // the knobs hang at the bottom of the screen, above the tabs: next to the F keys (BACKLOG 2)
+constexpr int kKnobCy = 358;
 constexpr int kLedDx = -40;
-constexpr int kLedCy = 154;
-constexpr int kReadoutY = 164;
+constexpr int kLedCy = 388;
+constexpr int kReadoutY = 398;
 constexpr int kReadoutW = 92;
 constexpr int kEmptyW = 80;
-constexpr int kEmptyY = 106;
+constexpr int kEmptyY = 340;
 constexpr int kEmptyH = 40;
 constexpr unsigned kNameMax = 12;                       // a name of up to twelve 6x12 characters fits the slot beside its tab
 constexpr unsigned kPointerW_q4 = 24;                   // knob58's pointer: 3 px across
@@ -42,7 +42,7 @@ constexpr int kKnob58OuterQ4 = 451;                     // ... to 1.8 px short o
 constexpr int kSlot = view::kKnobs;
 
 // The sections' boxes (a legend on the top rule): margin, gap, and the rows inside.
-constexpr int kBoxY = 198;
+constexpr int kBoxY = 84;
 constexpr int kBoxH = 64;
 constexpr int kBoxMargin = 16;
 constexpr int kBoxGap = 12;
@@ -56,10 +56,10 @@ constexpr int kCellGap = 6;
 // The step strip.
 constexpr int kStripX0 = 66;      // the first column's left edge; the columns are 45 px
 constexpr int kPitch = 45;
-constexpr int kNoteY = 290;       // the note text's top (10x20)
-constexpr int kLedY[3] = {326, 342, 359};
-constexpr int kKeyY = 370;
-constexpr int kNumberY = 408;
+constexpr int kNoteY = 172;       // the note text's top (10x20)
+constexpr int kLedY[3] = {202, 218, 235};
+constexpr int kKeyY = 246;
+constexpr int kNumberY = 284;
 constexpr int kCaptionX = 14;
 constexpr int kTabY = 428;
 constexpr int kTabH = 20;
@@ -225,7 +225,8 @@ void queue_strip_text(Panel& p, const InstrumentView& v, unsigned cursor_k, unsi
   const int cy[4] = {kNoteY + 10, kLedY[0], kLedY[1], kLedY[2]};
   for (int i = 0; i < 4; ++i) {
     const bool owned = i == 0 ? note_owned : gate_owned;  // the colour button that owns the row gives its colour: NOTE teal, GATE amber
-    p.text(kCaptionX, cy[i] - 6, kCaption[i], owned ? (i == 0 ? Color::Vol : Color::Accent) : Color::ChromeDim, Face::Micro);
+    const bool heard = (i == 1 && v.heard_accent) || (i == 2 && v.heard_slide);  // the latched mod is heard on accents (A) or slides (S): that row's caption lights
+    p.text(kCaptionX, cy[i] - 6, kCaption[i], owned || heard ? (i == 0 ? Color::Vol : Color::Accent) : Color::ChromeDim, Face::Micro);
   }
   for (unsigned k = 0; k < v.cells; ++k) {
     const InstrumentCell& c = v.cell[k];
@@ -250,7 +251,7 @@ void queue_tabs(Panel& p, const InstrumentView& v) noexcept {
     p.text(x + 8, kTabY + 2, v.tabs[i], on ? Color::SelText : Color::TextDim, Face::Label);
     x += w + 8;
   }
-  p.text(x + 8, kTabY + 4, v.hint, Color::TextDim, Face::Micro);
+  p.text(x + 8, kTabY + 4, v.hint, v.heard ? Color::Accent : Color::TextDim, Face::Micro);  // the latched mod's "heard on" line in the accent colour
 }
 
 }  // namespace
@@ -299,7 +300,7 @@ void draw_instrument(ui::Renderer& r, const InstrumentView& v, const frame::Stat
   fill_header(header, status, in);
   draw_header(panel, header);
 
-  // The page's eight knobs: the F row's slots (kind, readout, state), drawn at the top.
+  // The page's eight knobs: the F row's slots (kind, readout, state), drawn at the bottom.
   FRowView row;
   fill_frow(row, v.knob, false);  // the slots only: this screen draws its own label line (queue_knob_label), so FRowView::shift is not read
   char names[kSlot][kNameMax + 1];

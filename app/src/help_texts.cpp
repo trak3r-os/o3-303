@@ -3,6 +3,7 @@
 
 #include <o3_303/pad_map.h>
 #include <o3_303/pattern.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/app/text_entry.h>
 
 namespace o3_303::help_texts {
@@ -425,7 +426,58 @@ constexpr PatternLabels kPatternLabels{};
 constexpr unsigned kRows = app::kPadRows;
 constexpr unsigned kCols = app::kPadCols;
 
+// One entry per mod, indexed by id - AcidVoice::kFirstMod. The conditions are the unit's: ACC DECAY, ACC SWEEP and SWP SPEED shape the accent's cutoff pulse (sweep_term, which ACCENT at 0 silences); SLIDE is the
+// glide's time (slides only); SOFT ATK fades in the notes without accent; TRACKING is zero at C2 (kLog2C2); AMP DECAY is the amplifier's hold, heard where the gate is longer than it. SUB OSC, FILTER FM,
+// MUFFLER and OVERDRIVE act on every note: no line.
+using Voice = AcidVoice;
+constexpr HeardOn kHeard[AcidVoice::kModValues] = {
+    {"HEARD ON ACCENTED STEPS", true, false, false},         // ACC DECAY (has_accent_ alone, not ACCENT)
+    {"HEARD AWAY FROM C2", false, false, false},             // TRACKING
+    {"HEARD ON SLIDES", false, true, false},                 // SLIDE
+    {"HEARD WITHOUT ACCENT OR SLIDE", false, false, false},  // SOFT ATK
+    {nullptr, false, false, false},                          // SUB OSC
+    {nullptr, false, false, false},                          // FILTER FM
+    {"HEARD ON ACCENTED STEPS", true, false, true},          // ACC SWEEP
+    {nullptr, false, false, false},                          // MUFFLER
+    {"HEARD WITH ACC SWEEP ON", true, false, true},          // SWP SPEED
+    {nullptr, false, false, false},                          // OVERDRIVE
+    {"HEARD UNDER THE GATE LENGTH", false, false, false},    // AMP DECAY
+};
+static_assert(Voice::AccDecay == 8 && Voice::Tracking == 9 && Voice::Slide == 10 && Voice::SoftAtk == 11 && Voice::SubOsc == 12 && Voice::FilterFm == 13 && Voice::AccSweep == 14 &&
+                  Voice::Muffler == 15 && Voice::SwpSpeed == 16 && Voice::Overdrive == 17 && Voice::AmpDecay == 18 && Voice::Stock == 19,
+              "kHeard is indexed by the mods' ids");
+constexpr const char* kAccentZero = "ACCENT IS 0: NOT HEARD";
+constexpr unsigned cstr_len(const char* s) noexcept {
+  unsigned n = 0;
+  while (s[n] != '\0') {
+    ++n;
+  }
+  return n;
+}
+constexpr bool heard_fits() noexcept {
+  unsigned widest = cstr_len(kAccentZero);
+  for (const HeardOn& h : kHeard) {
+    if (h.line != nullptr && cstr_len(h.line) > widest) {
+      widest = cstr_len(h.line);
+    }
+  }
+  return widest <= kHeardMax;
+}
+static_assert(heard_fits(), "a heard-on line fits the strips (kHeardMax characters)");
+
 }  // namespace
+
+HeardOn heard_on(unsigned voice_id) noexcept {
+  return voice_id >= AcidVoice::kFirstMod && voice_id < AcidVoice::Stock ? kHeard[voice_id - AcidVoice::kFirstMod] : HeardOn{};
+}
+
+const char* heard_line(unsigned voice_id, bool accent_zero) noexcept {
+  const HeardOn h = heard_on(voice_id);
+  if (h.line == nullptr) {
+    return "";
+  }
+  return accent_zero && h.needs_accent ? kAccentZero : h.line;
+}
 
 const Text& text(Id id) noexcept {
   const unsigned i = static_cast<unsigned>(id);

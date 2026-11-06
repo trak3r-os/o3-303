@@ -328,6 +328,12 @@ TEST_CASE("the colour buttons are the drawer's rows here, not live actions: noth
   CHECK(home.row() == DrawerRow::Plays);
   t.tap(Button::Pattern);  // leaving: HOME's encoder is the knob's
   CHECK(home.row() == DrawerRow::None);
+  // The latch ends with the screen everywhere (B5b): leave() itself clears it, whichever way the screen is left.
+  t.tap(Button::Note);
+  t.shift_tap(Button::Vol);
+  CHECK(home.row() == DrawerRow::Plays);
+  home.leave(t.h->runtime().context());
+  CHECK(home.row() == DrawerRow::None);
 }
 
 TEST_CASE("the Shift row is MIDI learn: Shift + F arms the knob of a unit parameter, again cancels, the next controller binds it") {

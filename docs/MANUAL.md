@@ -275,7 +275,7 @@ The four colour buttons give the encoder one row of the cursor step (or of every
 | Vol | PLAYS | x1 x2 x3 x4 (the step plays that many times), 75% 50% 25% (a chance), 1:2 2:2 1:4 2:4 3:4 4:4 (only on pass 1 of every 2, and so on), FILL and NOT FILL, shown !FILL (only while FILL is on, or only while it is off), FIRST and NOT FIRST, shown !FIRST (FIRST plays only on the first pass; NOT FIRST on every pass except the first) |
 | Fx | LOCK | The step's own value of the last knob you picked (CUTOFF at first); turned below its lowest, the lock goes ("--") |
 
-The encoder stays on the row until you tap an F key, which gives it back to the knob.
+The encoder stays on the row until you tap an F key, which gives it back to the knob, or you leave the screen: a row never outlives its screen, and the ENC window is the only place that says who owns the encoder. There is no timeout.
 
 ![HOME with step 5 selected and the Vol button pressed: PLAYS is highlighted and step 5 shows x2; the PAGE window says STEP 5 PLAYS x2](manual/img/home-plays-row.png)
 

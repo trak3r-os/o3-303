@@ -596,13 +596,13 @@ TEST_CASE("the classic status line carries a STOCK chip on HOME, PERFORM and MOD
     t.wait(2700);  // the toast of the flip (2.5 s) is gone: what is left is the chip
     return t.h->display().last_frame_words();
   };
-  const std::pair<const char*, std::function<void()>> screens[] = {{"HOME", [&] { t.to_home(); }}, {"PERFORM", [&] { t.to_perform(); }}, {"MODDED", [&] { t.to_modded(0); }}};
+  const std::pair<const char*, std::function<void()>> screens[] = {{"HOME", [&] { t.to_home(); }}, {"PERFORM", [&] { t.to_perform(); }}, {"MODDED", [&] { t.to_modded(1); t.tap(Button::F2); }}};
   for (const auto& [name, go] : screens) {
     INFO(name);
     go();
     const std::size_t off = words();
     t.shift_tap(Button::SampleLoad);
-    CHECK(words() > off);  // the chip's panel and text are drawn
+    CHECK(words() > off);  // the chip's panel and text are drawn (MODDED latches FILTER FM, a mod with no heard-on line, so the hint is the same)
     t.shift_tap(Button::SampleLoad);
     CHECK(words() == off);  // and gone with it
   }

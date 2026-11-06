@@ -30,9 +30,9 @@ using namespace o3_303;
 namespace {
 
 constexpr int kTabsY = 428;         // the page tabs' row (skin/instrument.cpp kTabY)
-constexpr int kLabelY = 70;         // the label line of a knob slot: its tab is a round rect at this y
-constexpr int kReadoutFaceY = 163;  // a readout window's face, one px above the window (y 164)
-constexpr int kEmptyFaceY = 105;    // a blank slot's well face, one px above the well (y 106)
+constexpr int kLabelY = 304;         // the label line of a knob slot: its tab is a round rect at this y
+constexpr int kReadoutFaceY = 397;  // a readout window's face, one px above the window (y 164)
+constexpr int kEmptyFaceY = 339;    // a blank slot's well face, one px above the well (y 106)
 constexpr int kTaglineX = 14;    // the brand's line under the wordmark (skin/header.cpp)
 constexpr int kTaglineY = 52;
 
@@ -348,8 +348,8 @@ TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and
     for (unsigned sct = 0; sct < v.sections; ++sct) {
       values += v.section[sct].count;
     }
-    CHECK_MESSAGE(o.texts_in(190, 191, ui::Color::ChromeDim) == v.sections, where_name(w));
-    CHECK_MESSAGE(o.texts_in(220, 250, ui::Color::Text) == values, where_name(w));
+    CHECK_MESSAGE(o.texts_in(76, 77, ui::Color::ChromeDim) == v.sections, where_name(w));
+    CHECK_MESSAGE(o.texts_in(106, 136, ui::Color::Text) == values, where_name(w));
     o.intact();
   }
 }
@@ -424,10 +424,10 @@ TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and
     unsigned leds = 0;
     for (unsigned i = 0; i < o.q().shapes(); ++i) {
       skin::Panel::SpriteInfo sp;
-      leds += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == 146 ? 1u : 0u;  // the latch LEDs' row (the strip's are lower)
+      leds += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == 380 ? 1u : 0u;  // the latch LEDs' row (the strip's are lower)
     }
     CHECK(wells == expect.count);
-    CHECK(o.texts_in(118, 119, ui::Color::TextDim) == expect.count);  // each well's "Fn", centred in it
+    CHECK(o.texts_in(352, 353, ui::Color::TextDim) == expect.count);  // each well's "Fn", centred in it
     CHECK(labels == 8u - expect.count);
     CHECK(readouts == 8u - expect.count);
     CHECK(leds == 8u - expect.count);
@@ -436,13 +436,13 @@ TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and
 }
 
 TEST_CASE("skin instrument: the ON under a lit key is read at full strength, the OFF under a dark one is quiet") {
-  // The hint window of F8 (x 700..800, y 164..186): its text's colour.
+  // The hint window of F8 (x 700..800, y 398..420): its text's colour.
   const auto hint = [](const OnInstrument& o) {
     unsigned n = 0;
     ui::Color c = ui::Color::Empty;
     for (unsigned i = 0; i < o.q().texts(); ++i) {
       skin::Panel::TextInfo tx;
-      if (o.q().text_at(i, tx) && tx.x >= 700 && tx.y >= 164 && tx.y < 186) {
+      if (o.q().text_at(i, tx) && tx.x >= 700 && tx.y >= 398 && tx.y < 420) {
         c = tx.color;
         ++n;
       }
@@ -596,7 +596,7 @@ TEST_CASE("skin instrument: a held step shows its lock in the readout, in the ac
   unsigned accent = 0;
   for (unsigned i = 0; i < o.q().texts(); ++i) {
     skin::Panel::TextInfo tx;
-    if (o.q().text_at(i, tx) && tx.color == ui::Color::Accent && tx.y >= 164 && tx.y < 190) {
+    if (o.q().text_at(i, tx) && tx.color == ui::Color::Accent && tx.y >= 398 && tx.y < 424) {
       ++accent;
     }
   }
@@ -623,8 +623,8 @@ TEST_CASE("skin instrument: Shift relabels the knobs LEARN or '-' and the F-numb
   }
   CHECK(can + no == static_cast<unsigned>(view::kKnobs));
   CHECK(can > 0u);
-  CHECK(o.texts_in(70, 86, ui::Color::ChromeText) == can);  // LEARN: bright; "-": dim
-  CHECK(o.texts_in(70, 86, ui::Color::TextDim) == no);
+  CHECK(o.texts_in(304, 320, ui::Color::ChromeText) == can);  // LEARN: bright; "-": dim
+  CHECK(o.texts_in(304, 320, ui::Color::TextDim) == no);
   CHECK(no >= before);
   // The knobs and their readouts are still there, as with Shift up.
   CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) > 0u);
@@ -657,7 +657,7 @@ TEST_CASE("skin instrument: LEARN waits in the accent colour on the knob that is
   const skin::Panel& q = skin::panel();
   for (unsigned i = 0; i < q.texts(); ++i) {
     skin::Panel::TextInfo tx;
-    accent_label += (q.text_at(i, tx) && tx.y >= 70 && tx.y < 86 && tx.color == ui::Color::Accent) ? 1u : 0u;
+    accent_label += (q.text_at(i, tx) && tx.y >= 304 && tx.y < 320 && tx.color == ui::Color::Accent) ? 1u : 0u;
   }
   CHECK(accent_label == 1u);
   CHECK(q.dropped() == 0u);
@@ -692,7 +692,7 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
       skin::Panel::RoundRectInfo rr;
       rings += q.round_rect_at(i, rr) && rr.layer == skin::Layer::HeldRim ? 1u : 0u;
       skin::Panel::SpriteInfo sp;
-      if (q.sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y < 370 && sp.y > 310 && !same(sp.rgb, skin::led_tint(skin::StripRow::Step, skin::StepLeds{false, false, skin::StripLed::Off}))) {
+      if (q.sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y < 240 && sp.y > 190 && !same(sp.rgb, skin::led_tint(skin::StripRow::Step, skin::StepLeds{false, false, skin::StripLed::Off}))) {
         ++leds_on;
       }
     }

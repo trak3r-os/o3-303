@@ -56,6 +56,21 @@ struct Text {
 
 const Text& text(Id id) noexcept;
 
+// The "heard on" line of a mod (docs/BACKLOG.md 14.3): when the mod is heard, from the conditions in units/acid_voice. `voice_id` is the unit's parameter id (8..18, the mods). `line` is null for a mod
+// that has no condition (it is heard on every note); `accent` and `slide` say which of the drawer's A and S lights the mod belongs to; `needs_accent` marks the mods that ACCENT at 0 silences
+// (the accent's cutoff lift, AcidVoice::sweep_term). An id that is not a mod gives the empty entry.
+struct HeardOn {
+  const char* line = nullptr;
+  bool accent = false;
+  bool slide = false;
+  bool needs_accent = false;
+};
+HeardOn heard_on(unsigned voice_id) noexcept;
+// The widest line, in characters, that heard_on() and heard_off_accent() give (the strips are tested against it).
+inline constexpr unsigned kHeardMax = 30;
+// The text for a latched mod: its line, or "ACCENT IS 0: NOT HEARD" for an accent mod while ACCENT is at 0; empty when the mod has none.
+const char* heard_line(unsigned voice_id, bool accent_zero) noexcept;
+
 // Copies the Text's fields into `h` (the summary, the F keys' texts, the buttons, the encoder, the groups and the pads line). The pad labels and groups are the caller's next step.
 void fill(o3sdk::app::Help& h, const Text& t) noexcept;
 

@@ -46,6 +46,9 @@ struct InstrumentView {
   unsigned tab_count = 0;    // the group's pages: the skin's tabs (a group of one page has one tab)
   const char* const* tabs = nullptr;  // their names ("VOICE", "FX"): literals of the group
   const char* hint = "";     // the line after the tabs: what the buttons do on this group's pages (a literal)
+  bool heard = false;         // `hint` is the latched mod's "heard on" line (BACKLOG 14.3), not the group's: the classic drawing shows it too
+  bool heard_accent = false;  // the latched mod is heard on accented steps: the drawer's A lights
+  bool heard_slide = false;   // ... on slides: the S lights
   Learn learn[view::kKnobs] = {};  // the Shift row, per knob
 };
 

@@ -70,3 +70,27 @@ snap 13_lock_on_a_step
 padup 5
 wait 100
 snap 14_lock_kept_stock_on
+# The "heard on" line of the latched mod (BACKLOG 14.3, B5b), with STOCK off: SOFT ATK (notes without accent), ACC DECAY (accented steps; the A lights), SLIDE (slides; the S lights), then ACCENT turned to 0 on VOICE
+# and ACC DECAY again: "ACCENT IS 0: NOT HEARD". STOCK's own OFF hint would have priority.
+tap sampleload
+tap sampleload
+tap f8
+wait 100
+tap f1
+wait 100
+snap 15_heard_soft_atk
+tap f3
+wait 100
+snap 15a_heard_acc_decay
+tap f5
+wait 100
+snap 15b_heard_slide
+tap params
+tap f5
+turn -100
+wait 50
+tap sampleload
+wait 50
+tap f3
+wait 100
+snap 15c_accent_zero
