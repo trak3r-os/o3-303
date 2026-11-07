@@ -30,7 +30,10 @@ TEST_CASE("sound: silent until something plays; a key pad plays the voice; Play 
   const std::size_t mark = t.h->audio().size();
   t.tap(Button::Play);
   t.wait(2500);
-  CHECK(rms(t.h->audio(), mark) > 0.05);
+  // The line's RMS reads 0.040 since the feedback high-pass went from 150 to 15 Hz and the resonance began to roll off against the cutoff (2026-11-07:
+  // the ladder is quieter at a low cutoff; it read above 0.05 before). The floor is 0.03, 20 % under the quietest of the three readings below
+  // (0.040, 0.039, 0.041); the level of the app (kAmpScale) is not changed by this.
+  CHECK(rms(t.h->audio(), mark) > 0.03);
   t.tap(Button::Play);
 }
 
@@ -50,7 +53,7 @@ TEST_CASE("sound: MUTE holds the notes back while the pattern runs; VOLUME is th
   const std::size_t a0 = t.h->audio().size();
   t.wait(1500);
   const double playing = rms(std::vector<std::int16_t>(t.h->audio().begin() + static_cast<std::ptrdiff_t>(a0), t.h->audio().end()), 0);
-  REQUIRE(playing > 0.05);
+  REQUIRE(playing > 0.03);  // 0.0386 measured (above 0.05 before the quieter feedback filter, see the first case)
 
   t.tap(Button::Performance);  // PERFORM: the colour buttons are the live actions there (on HOME they are the drawer's rows)
   t.press(Button::Note);       // MUTE
@@ -97,7 +100,7 @@ static double line_rms_with_master(int detents) {
 TEST_CASE("MASTER's F4 is the level of the whole output: turned down, the line is quieter; the level is the engine's master") {
   const double full = line_rms_with_master(0);
   const double down = line_rms_with_master(-70);
-  REQUIRE(full > 0.05);
+  REQUIRE(full > 0.03);  // 0.0413 measured (see the first case)
   CHECK(down < full * 0.5);  // 100 % - 70 detents of 1 %: about 30 %
   Hands t;
   t.tap(Button::Master);

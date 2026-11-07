@@ -35,6 +35,8 @@ struct AcidVoiceTestAccess {
   static inline AcidVoiceTestPeaks peaks{};
 
   static bool modded(const AcidVoice& v) { return v.modded_; }
+  static float pitch_hz(const AcidVoice& v) { return v.inc_ / v.tune_scale_; }    // the oscillator's pitch now (the glide's state)
+  static float target_hz(const AcidVoice& v) { return v.target_hz_; }
   static float ladder_peak(const AcidVoice& v) { return std::max(std::max(std::fabs(v.s_[0]), std::fabs(v.s_[1])), std::max(std::fabs(v.s_[2]), std::fabs(v.s_[3]))); }
   static float env_scale(const AcidVoice& v) { return v.env_scale_; }  // the cutoff law: octaves per unit of envelope
   static float env_off(const AcidVoice& v) { return v.env_off_; }      // and the envelope's value at which the cutoff is the knob's
@@ -88,7 +90,7 @@ struct AcidVoiceTestAccess {
     if (bad(v.od_g_, kOdMin, kOdMax)) return "overdrive gain";
     if (bad(v.swp_m_, 0.0f, kSwpMax)) return "sweep follower (slow)";
     if (bad(v.phase_, 0.0f, 1.0f)) return "oscillator phase";
-    if (!std::isfinite(v.pitch_hz_) || v.pitch_hz_ <= 0.0f) return "pitch";
+    if (!std::isfinite(v.inc_) || v.inc_ <= 0.0f || v.inc_ > 0.45f + 1.0e-6f) return "pitch";
     return nullptr;
   }
 };

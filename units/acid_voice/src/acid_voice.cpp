@@ -57,11 +57,12 @@
 // the Devil Fish (the Devil Fish manual and "What makes the TB-303 unique"): text and a circuit, no code.
 //
 // Structure:
-//   * per sample, in short passes over a control period: the pitch glide, the oscillator and the input high-pass; the envelopes and the
+//   * per sample, in short passes over a control period: the oscillator (its pitch a ramp in Hz) and the input high-pass; the envelopes and the
 //     amplifier's de-clicker; the ladder (two sub-steps, one division each); the output's all-pass, high-pass and notch and the amplifier;
 //   * every kControlPeriod (16) samples (control()): the smoothers of Volume and Accent, the accent sweep circuit, the cutoff law by
-//     core::exp2_fast and the ladder's coefficients by Open303's fits. They are computed for the end of the period and ramped linearly to it
-//     (exact at every period boundary), and set at once when a note starts or the cutoff law changes;
+//     core::exp2_fast and the ladder's coefficients by Open303's fits, and the pitch glide (advance_pitch(): a one pole on the log2 pitch). They
+//     are computed for the end of the period and ramped linearly to it (exact at every period boundary), and set at once when a note starts or
+//     the cutoff law changes;
 //   * on an event: pitch (exp2_fast), envelope coefficients (std::exp), the note stack, the tune and resonance values.
 // Real-time: no allocation, no double, no libm in the sample loop; bounded loops.
 
@@ -146,7 +147,13 @@ constexpr float kLadderTopHz = 10400.0f;    // the top of the ladder's own cutof
 // ---- Open303: what was measured on a TB-303 ------------------------------------------------------------------------------------
 constexpr float kSqrDrive = 69.984f;        // the square: -tanh(dB2amp(36.9) saw + 4.37) of the ramp: the zero crossing is at saw = -0.0624, 46.88 % of the period
 constexpr float kSqrBias = 4.37f;
-constexpr float kFbHpHz = 150.0f;           // TeeBeeFilter: the high-pass in the feedback path
+constexpr float kFbHpHz = 15.0f;            // the high-pass in the feedback path: TeeBeeFilter's 150 Hz, with k far above 1, makes the passband the
+                                            // inverse of that high-pass, a low shelf: 8 dB more fundamental than the Din Sync recording at any RESO
+                                            // above 0 (h1..h4 real minus ours about -8.5, -3.5, -1.3, 0 dB), none at RESO 0. 15 Hz keeps it blocking
+                                            // DC.
+constexpr float kResRollHz = 500.0f;        // the feedback, and the output gain that follows it, scaled by fc/sqrt(fc^2 + 500^2): the resonance runs
+                                            // out of steam at low cutoffs (Burnett's plots of a TB-303, via sequencer.de); 500 fits the recording's
+                                            // centroid best among 150, 300, 500 and 800 Hz
 constexpr float kPreHpHz = 44.486f;         // highpass1: before the filter
 constexpr float kAllpassHz = 14.008f;       // allpass, highpass2 and notch: after it
 constexpr float kPostHpHz = 24.167f;
@@ -169,7 +176,14 @@ inline float accent_to_amp(float a) noexcept {
 }
 constexpr float kReleaseTau = 0.003f;       // the end of a note: see kGateHold
 constexpr float kAccReleaseTau = 0.050f;    // and of an accented one
-constexpr float kSlideScale = 0.2f;         // the glide's time constant against the audible time of Slide (60 ms): Open303, and Whittle's reading of it
+// The glide's time constant against the Slide knob's time (60 ms stock): the 303 slews the 1 V/octave pitch CV through the DAC's 100 k into C35
+// (0.22 uF), a one pole of 22 ms in the log (octave) domain before the exponential converter, so up and down alike, the same time for every
+// interval, and about 60 ms (3 tau) to complete. Whittle's Devil Fish manual (stock slide "normally 60 ms"; the Devil Fish pot adds series
+// resistance, so the time follows the sum), Tim Stinchcombe on synth-diy, May 2012 ("output resistance of the DAC is always 100k ... time constant
+// with the 220n (C35) is 22ms - thus after about 60ms the slide is complete"), and jc303 PR #50 (tau = slide time x 22 / 60 on log frequency).
+constexpr float kSlideTauRatio = 22.0f / 60.0f;
+constexpr float kLog2A4 = 8.7813597f;       // log2(440 Hz): the pitch state is in octaves from A4
+constexpr float kPitchDone = 1.0e-6f;       // octaves: the glide has arrived (0.0012 cents); the pitch is then the target's, exactly
 constexpr float kCutoffFloorHz = 200.0f;    // TeeBeeFilter::setCutoff: the sweep stops here (the knob itself can go lower: a mod)
 constexpr float kLog2C0 = 8.2938f;          // log2 of c0 and c1, the nominal cutoff range the law was measured over (314 to 2,394 Hz)
 constexpr float kLog2C1 = 11.2255f;
@@ -282,6 +296,11 @@ inline float power_n(float c) noexcept {
     c *= c;
   }
   return c;
+}
+
+// The glide's one pole over one control period, for a Slide knob of `ms`: tau = ms x kSlideTauRatio, on the log pitch (advance_pitch()).
+inline float slide_period_coeff(float inv_fs, float ms) noexcept {
+  return 1.0f - std::exp(-static_cast<float>(AcidVoice::kControlPeriod) * inv_fs / (kSlideTauRatio * ms * 0.001f));
 }
 
 // Oscillator303::polyBlep.
@@ -455,9 +474,17 @@ void AcidVoice::set(std::uint16_t id, float v) noexcept {
     case Wave:
       square_ = v >= 0.5f;
       break;
-    case Tune:
+    case Tune: {
+      const float old = tune_scale_;
       tune_scale_ = o3sdk::core::exp2_fast(clamp_param(v, -12.0f, 12.0f) * (1.0f / 12.0f)) * inv_fs_;
+      if (old > 0.0f) {  // the pitch in flight keeps its Hz: its increment follows the scale, and the ramp is planned again from here
+        inc_ = clampf(inc_ * (tune_scale_ / old), inc_lo_, inc_hi_);
+        inc_step_ = 0.0f;
+        ctl_ = 0;
+      }
+      set_target_inc();
       break;
+    }
     case Volume:
       volume_.target = !(v > kSilentDb) ? 0.0f : o3sdk::core::exp2_fast(clamp_param(v, kSilentDb, 6.0f) * kLog2Ten20);  // NaN is silence
       volume_.moving = true;
@@ -521,7 +548,7 @@ void AcidVoice::apply_mod(unsigned id) noexcept {
       break;
     }
     case Slide:
-      slide_coeff_ = v <= kParams[Slide].min ? stock_slide_c_ : 1.0f - std::exp(-inv_fs_ / (kSlideScale * v * 0.001f));
+      slide_coeff_ = v <= kParams[Slide].min ? stock_slide_c_ : slide_period_coeff(inv_fs_, v);
       break;
     case SoftAtk: {
       att_idx_ = static_cast<std::uint8_t>(enum_index(v, 6));
@@ -649,7 +676,7 @@ void AcidVoice::prepare(float sample_rate) noexcept {
   sw_rate_normal_ = static_cast<float>(kControlPeriod) * inv_fs_ / kSweepTau;
   sw_rate_slow_ = static_cast<float>(kControlPeriod) * inv_fs_ / kSweepSlowTau;
   sw_rate_ = sw_rate_normal_;
-  slide_coeff_ = 1.0f - std::exp(-inv_fs_ / (kSlideScale * kParams[Slide].def * 0.001f));
+  slide_coeff_ = slide_period_coeff(inv_fs_, kParams[Slide].def);
   inc_lo_ = 10.0f * inv_fs_;
   inc_hi_ = 0.45f;
 
@@ -701,8 +728,12 @@ void AcidVoice::prepare(float sample_rate) noexcept {
 
   phase_ = 0.0f;
   sqr_hp_ = 0.0f;
-  pitch_hz_ = 110.0f;
   target_hz_ = 110.0f;
+  pitch_oct_ = pitch_oct0_ = target_oct_ = -2.0f;  // log2(110 / 440)
+  set_target_inc();
+  inc_ = target_inc_;
+  inc_step_ = 0.0f;
+  pitch_ran_ = kControlPeriod;
   for (unsigned i = 0; i < 4; ++i) {
     s_[i] = 0.0f;
   }
@@ -736,17 +767,22 @@ void AcidVoice::prepare(float sample_rate) noexcept {
 // ---- events -------------------------------------------------------------------------------------------------------------------
 
 namespace {
-inline float midi_to_hz(std::uint8_t note) noexcept {
-  return 440.0f * o3sdk::core::exp2_fast((static_cast<float>(note) - 69.0f) * (1.0f / 12.0f));
-}
+inline float midi_to_oct(std::uint8_t note) noexcept { return (static_cast<float>(note) - 69.0f) * (1.0f / 12.0f); }
+inline float midi_to_hz(std::uint8_t note) noexcept { return 440.0f * o3sdk::core::exp2_fast(midi_to_oct(note)); }
 }  // namespace
 
 void AcidVoice::note_on(std::uint8_t note, bool accent, bool slide) noexcept {
   // SynthEngine::handleNoteOn: legato when a note is held (or, by the slide flag, while the voice still sounds).
   const bool legato = held_count_ != 0u || (slide && sounding());
   target_hz_ = midi_to_hz(note);
+  target_oct_ = midi_to_oct(note);
+  set_target_inc();
   if (!legato) {
-    pitch_hz_ = target_hz_;
+    // A note that starts the voice jumps; a legato one glides (advance_pitch(), from the next control(), which this note-on forces below).
+    inc_ = target_inc_;
+    pitch_oct_ = pitch_oct0_ = target_oct_;
+    inc_step_ = 0.0f;
+    pitch_ran_ = kControlPeriod;
   }
   // The stack: the new note goes on top. A note that is already held moves to the top instead of being pushed again (a slide onto the
   // same note arrives without a NoteOff for the old one; the one NoteOff that follows must release it), and past kHeld the oldest goes.
@@ -828,6 +864,8 @@ void AcidVoice::note_off(std::uint8_t note) noexcept {
     gate_wait_ = fish_ ? 0u : gate_hold_;
   } else {
     target_hz_ = midi_to_hz(held_[held_count_ - 1u]);
+    target_oct_ = midi_to_oct(held_[held_count_ - 1u]);
+    set_target_inc();
   }
 }
 
@@ -868,11 +906,14 @@ void AcidVoice::apply(const dsp::Event& e) noexcept {
 // Resonance set, and its output gain with the factor 2 of getSample.
 void AcidVoice::ladder_coeffs(float x, float& b, float& k, float& g) const noexcept {
   x = x > x_max_ ? x_max_ : (x < x_min_ ? x_min_ : x);
-  const float fx = o3sdk::core::exp2_fast(x) * fx_scale_;
+  const float fc = o3sdk::core::exp2_fast(x);
+  const float fx = fc * fx_scale_;
   b = (0.00045522346f + 6.1922189f * fx) / (1.0f + 12.358354f * fx + 4.4156345f * fx * fx);
   const float k17 = fx * (fx * (fx * (fx * (fx * (fx + 7198.6997f) - 5837.7917f) - 476.47308f) + 614.95611f) + 213.87126f) + 16.998792f;
-  g = 2.0f * ((k17 * (1.0f / 17.0f) - 1.0f) * res_ + 1.0f) * (1.0f + res_);
-  k = k17 * fb_r_;
+  const float s = fc / std::sqrt(fc * fc + kResRollHz * kResRollHz);
+  const float re = res_ * s;
+  g = 2.0f * ((k17 * (1.0f / 17.0f) - 1.0f) * re + 1.0f) * (1.0f + re);
+  k = k17 * fb_r_ * s;
 }
 
 // The cutoff the filter is set from, in octaves of log2(Hz): the knob, with Tracking's term when it is on. With RANGE 303 (and at STOCK, which is
@@ -885,8 +926,7 @@ float AcidVoice::cutoff_base() const noexcept {
   if (!track_on_) {
     return knob;
   }
-  const float hz = pitch_hz_ > 1.0f ? pitch_hz_ : 1.0f;
-  const float b = knob + track_ * (o3sdk::core::log2_fast(hz) - kLog2C2);
+  const float b = knob + track_ * (pitch_oct_ + (kLog2A4 - kLog2C2));  // the pitch at the end of the period, as the cutoff is
   return b < kLog2MinCutoff ? kLog2MinCutoff : b;
 }
 
@@ -1025,10 +1065,42 @@ void AcidVoice::clamp_slew(std::uint16_t elapsed) noexcept {
   clamp_hi_ = hi > d ? clamp_hi_ + d : (hi < -d ? clamp_hi_ - d : clamp_hi_t_);
 }
 
+// The pitch glide for one control period: a one pole on the log2 pitch (the 303's RC before the exponential converter; kSlideTauRatio), run
+// here once per period and stepped across it as a ramp of the oscillator's phase increment (clamped at the period's end, so the pass has no clamp
+// and no multiply by the tune: it adds one constant per sample). The cost is one exp2_fast per period while a slide is under way (nothing but a
+// few flops at rest). A ramp against the exact exponential differs by under 1e-4 octave at the 2-octave worst case. control() may have been called
+// early (a note, a parameter), so the octave state is first brought to
+// where the last period's samples really got (pitch_ran_ of the 16 it was planned for).
+void AcidVoice::advance_pitch() noexcept {
+  float o = pitch_oct_;
+  if (pitch_ran_ < kControlPeriod) {
+    o = pitch_oct0_ + (pitch_oct_ - pitch_oct0_) * (static_cast<float>(pitch_ran_) * (1.0f / static_cast<float>(kControlPeriod)));
+  }
+  pitch_ran_ = 0;
+  pitch_oct0_ = o;
+  const float d = target_oct_ - o;
+  const float end = o + d * slide_coeff_;
+  // Done when within kPitchDone, or when a step is under half an ulp of the octave (end == o): the glide would stall short
+  // of the note and exp2_fast would keep running.
+  if (absf(d) < kPitchDone || end == o) {
+    pitch_oct_ = pitch_oct0_ = target_oct_;
+    inc_ = target_inc_;
+    inc_step_ = 0.0f;
+    return;
+  }
+  pitch_oct_ = end;
+  const float inc_end = clampf(440.0f * o3sdk::core::exp2_fast(end) * tune_scale_, inc_lo_, inc_hi_);
+  inc_step_ = (inc_end - inc_) * (1.0f / static_cast<float>(kControlPeriod));
+}
+
+// The target's phase increment: its pitch through the tune, inside the oscillator's limits.
+void AcidVoice::set_target_inc() noexcept { target_inc_ = clampf(target_hz_ * tune_scale_, inc_lo_, inc_hi_); }
+
 void AcidVoice::control() noexcept {
   // What runs on time goes by the samples since the last call: a parameter that moves every block calls this early (retune_filter()).
   const std::uint16_t elapsed = since_control_;
   since_control_ = 0;
+  advance_pitch();
   if (vcf_ < kTiny) {
     vcf_ = 0.0f;
   }
@@ -1140,23 +1212,18 @@ void AcidVoice::run(float* out, std::uint32_t n) noexcept {
     {
       float phase = phase_;
       float sqr_hp = sqr_hp_;
-      float pitch = pitch_hz_;
-      const float target = target_hz_;
-      const float slide = slide_coeff_;
-      const float scale = tune_scale_;
-      const float inc_lo = inc_lo_;
-      const float inc_hi = inc_hi_;
+      float inc = inc_;
+      const float istep = inc_step_;
       const float sqr_c = sqr_hp_coeff_;
       float px = pre_x_, py = pre_y_;
       const float pa = pre_a_, pb = pre_b_;
       for (std::uint32_t i = 0; i < n; ++i) {
-        pitch += (target - pitch) * slide;
-        const float inc = clampf(pitch * scale, inc_lo, inc_hi);
+        inc += istep;
         xin[i] = high_pass(osc_sample<Square>(phase, sqr_hp, inc, sqr_c), px, py, pa, pb);
       }
       phase_ = phase;
       sqr_hp_ = sqr_hp;
-      pitch_hz_ = pitch;
+      inc_ = inc;
       pre_x_ = px;
       pre_y_ = py;
     }
@@ -1243,12 +1310,8 @@ void AcidVoice::run(float* out, std::uint32_t n) noexcept {
     {
       float phase = phase_;
       float sqr_hp = sqr_hp_;
-      float pitch = pitch_hz_;
-      const float target = target_hz_;
-      const float slide = slide_coeff_;
-      const float scale = tune_scale_;
-      const float inc_lo = inc_lo_;
-      const float inc_hi = inc_hi_;
+      float inc = inc_;
+      const float istep = inc_step_;
       const float sqr_c = sqr_hp_coeff_;
       float subq = subq_;
       float subl = sub_.v;
@@ -1258,8 +1321,7 @@ void AcidVoice::run(float* out, std::uint32_t n) noexcept {
       float px = pre_x_, py = pre_y_;
       const float pa = pre_a_, pb = pre_b_;
       for (std::uint32_t i = 0; i < n; ++i) {
-        pitch += (target - pitch) * slide;
-        const float inc = clampf(pitch * scale, inc_lo, inc_hi);
+        inc += istep;
         const float p0 = phase;
         const float osc = osc_sample<Square>(phase, sqr_hp, inc, sqr_c);
         // Sub Osc: a square an octave down is a flip-flop on the main oscillator's wraps; its edges are band-limited with the main
@@ -1273,7 +1335,7 @@ void AcidVoice::run(float* out, std::uint32_t n) noexcept {
       }
       phase_ = phase;
       sqr_hp_ = sqr_hp;
-      pitch_hz_ = pitch;
+      inc_ = inc;
       subq_ = subq;
       sub_.v = subl;
       od_g_ = odg;
@@ -1406,6 +1468,7 @@ void AcidVoice::render(float* out, std::uint32_t from, std::uint32_t to) noexcep
       }
     }
     last_out_ = out[from + n - 1u];
+    pitch_ran_ = static_cast<std::uint16_t>(pitch_ran_ + n);
     ctl_ -= n;
     since_control_ = static_cast<std::uint16_t>(since_control_ + n);
     from += n;

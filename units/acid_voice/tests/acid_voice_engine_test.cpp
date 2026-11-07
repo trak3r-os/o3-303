@@ -108,7 +108,8 @@ TEST_CASE("acid_voice: a note sounds from its frame, bounded and finite, both wa
     for (std::uint32_t i = 0; i < 100; ++i) {
       REQUIRE(out[i] == 0.0f);  // nothing before the NoteOn's frame
     }
-    CHECK(rms(out, 200, ms(300)) > 0.05);
+    // 0.040 saw, 0.035 square measured; 0.05 before the resonance scaling lowered the ladder's gain at low cutoffs
+    CHECK(rms(out, 200, ms(300)) > 0.03);
     CHECK(peak(out, 0, out.size()) < 1.0);  // the engine's soft clip keeps it under 1 whatever the voice does
     CHECK(all_finite_normal(out));
     // 25 ms release: -80 dB after 0.25 s, nothing at all (flushed) well before the end.
@@ -181,7 +182,7 @@ TEST_CASE("acid_voice: a velocity of 96 and up accents like the flag; 95 and the
   CHECK(peak(v96, 0, ms(100)) > peak(plain, 0, ms(100)) * 1.1);
 }
 
-TEST_CASE("acid_voice: a slide glides the pitch in about 60 ms and does not retrigger the envelopes") {
+TEST_CASE("acid_voice: a slide glides the pitch in about 60 ms (a one pole of 22 ms on the octave) and does not retrigger the envelopes") {
   // Resonance 0, no env mod: the output is a low-passed saw, so its zero crossings follow the pitch.
   auto make = [](Rig& r) {
     r.set(AcidVoice::Reso, 0.0f);
@@ -195,10 +196,12 @@ TEST_CASE("acid_voice: a slide glides the pitch in about 60 ms and does not retr
   slide.script.off(ms(500), 36);
   slide.script.off(ms(1200), 48);
   const auto s = slide.render(ms(1400));
-  // The pitch is within 5 % of the interval (65.4 Hz) of the target by 60 ms: measured over the next 40 ms, a window of about four periods.
-  const double at60 = crossings_hz(s, ms(500) + ms(60), ms(500) + ms(100));
-  probe("slide: pitch 60..100 ms after the slide", at60);
-  CHECK(std::fabs(at60 - 130.8) < 0.05 * (130.8 - 65.4) + 6.5);  // + one crossing of the window's resolution (44100 / 1764 = 25 Hz per count... 6.5 is a quarter of it)
+  // The glide is the 303's: a one pole of 22 ms on the log pitch (the exact law is in acid_voice_behaviour_test.cpp), 95 % of the octave at 60 ms,
+  // 99 % at 100 ms. Measured over 100..200 ms, the window is a whole 13 periods: within 5 % of the interval of the target, + a quarter of a
+  // crossing of the window's resolution (44100 / 4410 = 10 Hz per count; 2.5 Hz).
+  const double at100 = crossings_hz(s, ms(500) + ms(100), ms(500) + ms(200));
+  probe("slide: pitch 100..200 ms after the slide", at100);
+  CHECK(std::fabs(at100 - 130.8) < 0.05 * (130.8 - 65.4) + 2.5);
   const double early = crossings_hz(s, ms(500), ms(500) + ms(20));
   CHECK(early > 65.0 * 0.8);
   CHECK(early < 130.8 * 0.95);                      // the first 20 ms are still on the way
@@ -279,7 +282,7 @@ TEST_CASE("acid_voice: AllNotesOff releases; a NoteOn with the slide flag and no
   r.script.off(ms(1100), 40);
   const auto out = r.render(ms(1500));
   CHECK(rms(out, ms(300) + ms(300), ms(300) + ms(400)) < 1e-3);
-  CHECK(rms(out, ms(910), ms(1000)) > 0.05);
+  CHECK(rms(out, ms(910), ms(1000)) > 0.03);  // 0.047 measured; the bound was 0.05 before the resonance scaling
   // Its pitch is the note's from the first cycle (no glide from the old pitch).
   CHECK(crossings_hz(out, ms(920), ms(1050)) > 70.0);
 }

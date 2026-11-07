@@ -92,6 +92,74 @@ TEST_CASE("behaviour: HI RES with OVERDRIVE at the bottom rings at the cutoff at
   }
 }
 
+TEST_CASE("behaviour: HI RES: where the ladder rings on its own, per Reso and Cutoff, bounded, finite and without a DC offset") {
+  // The feedback is scaled by fc / sqrt(fc^2 + 500^2) (the resonance runs out of steam at low cutoffs), so the doubled feedback of HI RES needs
+  // a higher cutoff to oscillate than before. The ring is what is left at the output 0.7 to 1.4 s after the oscillator is taken away (OVERDRIVE at
+  // its bottom) with the gate open; "rings" is an RMS above 0.01, as in the test above. The figures are read with O3_303_PROBE=1.
+  // The sweep starts at the bottom of the knob (RANGE FISH, 25 Hz = kMinCutoff), where the ladder must stay bounded and dead.
+  const float cutoffs[] = {25.0f,  50.0f,  100.0f, 150.0f,  200.0f,  250.0f,  300.0f,  325.0f,  350.0f,  375.0f,  400.0f,
+                           500.0f, 600.0f, 700.0f, 850.0f,  1000.0f, 1250.0f, 1500.0f, 2000.0f, 3500.0f, 4800.0f};
+  for (const float reso : {0.65f, 1.0f}) {
+    float first_ring = 0.0f;
+    for (const float cutoff : cutoffs) {
+      const std::vector<float> v = note({{AcidVoice::Cutoff, cutoff}, {AcidVoice::Reso, reso}, {AcidVoice::EnvMod, 0.0f}, {AcidVoice::AccSweep, 2.0f},
+                                         {AcidVoice::Overdrive, -24.0f}, {AcidVoice::Volume, 0.0f}, {AcidVoice::Range, 1.0f}},
+                                        48, 0, 60000, 60000);
+      const double level = rms(v, 30000, 60000);
+      double mean = 0.0;
+      for (std::size_t i = 30000; i < 60000; ++i) mean += static_cast<double>(v[i]);
+      mean /= 30000.0;
+      probe("hi res ring: reso x 100, cutoff, rms", static_cast<double>(reso) * 100.0, static_cast<double>(cutoff), level);
+      INFO("reso " << reso << " cutoff " << cutoff);
+      CHECK(all_finite(v));
+      CHECK(peak(v, 0, v.size()) < 1.0);
+      CHECK(std::fabs(mean) < 0.002);  // the output's high-pass blocks DC
+      if (level > 0.01 && first_ring == 0.0f) first_ring = cutoff;
+    }
+    probe("hi res ring: first cutoff that rings at reso x 100", static_cast<double>(reso) * 100.0, static_cast<double>(first_ring));
+    // Read: by the RMS > 0.01 above it rings from 350 Hz at full RESO (0.006 at 325 Hz, a faint start; dead at 300 and below, down to 25 Hz) and
+    // from 375 Hz at 65 %; docs/VOICE-303.md says so. (The feedback high-pass at 150 Hz and no scaling put them at about 350 Hz and 1 kHz.)
+    if (reso == 1.0f) {
+      CHECK(first_ring >= 325.0f);
+      CHECK(first_ring <= 375.0f);
+    } else {
+      CHECK(first_ring >= 350.0f);
+      CHECK(first_ring <= 425.0f);
+    }
+  }
+}
+
+TEST_CASE("behaviour: HI RES at full RESO with ENV MOD and Filter FM at 100 % at a low cutoff (25 to 200 Hz): accented notes stay finite and bounded, with a bounded offset") {
+  // The resonance roll-off leaves the loop weak at a low cutoff, and ENV MOD and Filter FM push the cutoff up from there while the notes retrigger:
+  // nothing may blow up below 200 Hz (RANGE FISH, the whole knob). Figures with O3_303_PROBE=1: peak 0.89 at every cutoff, the ladder's peak
+  // 0.08 to 1.2. Unlike the sustained ring above, the mean is not zero: 0.017 to 0.022 over the run, 0.08 to 0.12 inside an accented note (the
+  // output there is nearly all offset, a subsonic ladder excursion the 14 Hz high-pass lets through), gone 0.1 s after the gate closes. It needs
+  // ENV MOD and Filter FM together (either alone: mean under 0.001), and it is as large without the 500 Hz roll-off (0.012 to 0.015), so it is
+  // the FM loop's, not the fold's. Bounded and finite, so the check is 0.05; a follow-up for the unit's ear (a sub-bass wobble on a hot patch).
+  for (const float cutoff : {25.0f, 60.0f, 100.0f, 150.0f, 200.0f}) {
+    Rig r;
+    for (const P& p : {P{AcidVoice::Cutoff, cutoff}, P{AcidVoice::Reso, 1.0f}, P{AcidVoice::EnvMod, 1.0f}, P{AcidVoice::FilterFm, 1.0f}, P{AcidVoice::AccSweep, 2.0f},
+                       P{AcidVoice::Range, 1.0f}, P{AcidVoice::Decay, 400.0f}, P{AcidVoice::Volume, 0.0f}}) {
+      r.set(p.first, p.second);
+    }
+    for (std::uint32_t k = 0; k < 8; ++k) {
+      r.script.on(k * 10000u, 36 + static_cast<int>(k % 3u) * 12, (k % 2u) != 0u ? dsp::kNoteAccent : std::uint8_t{0});
+      r.script.off(k * 10000u + 6000u, 36 + static_cast<int>(k % 3u) * 12);
+    }
+    const std::vector<float> v = r.render(120000);
+    double mean = 0.0;
+    for (std::size_t i = 0; i < v.size(); ++i) mean += static_cast<double>(v[i]);
+    mean /= static_cast<double>(v.size());
+    probe("hi res low cutoff + env mod + fm: cutoff, peak, mean", static_cast<double>(cutoff), peak(v, 0, v.size()), mean);
+    probe("hi res low cutoff + env mod + fm: ladder peak", static_cast<double>(AcidVoiceTestAccess::ladder_peak(r.voice)));
+    INFO("cutoff " << cutoff);
+    CHECK(all_finite(v));
+    CHECK(peak(v, 0, v.size()) < 1.0);
+    CHECK(std::fabs(mean) < 0.05);
+    CHECK(AcidVoiceTestAccess::ladder_peak(r.voice) < AcidVoiceTestAccess::kLadder);
+  }
+}
+
 TEST_CASE("behaviour: HI RES at Reso 1 with Filter FM at 100 % over a sweep of the cutoff stays finite and bounded") {
   Rig r;
   for (const P& p : {P{AcidVoice::Reso, 1.0f}, P{AcidVoice::AccSweep, 2.0f}, P{AcidVoice::FilterFm, 1.0f}, P{AcidVoice::Overdrive, -24.0f}, P{AcidVoice::Volume, 0.0f}}) r.set(p.first, p.second);
@@ -756,4 +824,81 @@ TEST_CASE("square: the highest notes stay finite and bounded") {
       CHECK(peak(v, 0, v.size()) < 2.0);
     }
   }
+}
+
+// ---- the slide: the 303's one pole on the log (octave) pitch -------------------------------------------------------------------------
+
+namespace {
+// A note `from`, held, then a slide to `to` at sample kAt; the voice's pitch state after `ms` of the glide, as the fraction of the interval covered
+// in octaves (log2 of the pitch, so the same measure whatever the interval and its direction). `knob_every`: a Cutoff event every that many
+// samples through the glide (control() then runs early, each time: the glide must go by the samples that ran, not by the calls).
+double glide_fraction(int from, int to, float slide_ms, double ms, std::uint32_t knob_every = 0) {
+  constexpr std::uint32_t kAt = 4000;
+  Rig r;
+  r.set(AcidVoice::Slide, slide_ms);
+  r.script.on(0, from);
+  r.script.on(kAt, to, dsp::kNoteSlide);  // before the old note's NoteOff, as the sequencer sends it
+  r.script.off(kAt, from);
+  r.script.off(kAt + 60000, to);
+  const std::uint32_t n = static_cast<std::uint32_t>(ms * 44.1 + 0.5);
+  for (std::uint32_t k = knob_every; knob_every != 0 && k < n; k += knob_every) {
+    r.script.param(kAt + k, AcidVoice::Cutoff, 600.0f + static_cast<float>(k % 5u) * 20.0f);
+  }
+  (void)r.render(kAt + n);
+  const double f0 = 440.0 * std::pow(2.0, (from - 69) / 12.0);
+  return std::log2(static_cast<double>(AcidVoiceTestAccess::pitch_hz(r.voice)) / f0) / (static_cast<double>(to - from) / 12.0);
+}
+}  // namespace
+
+TEST_CASE("slide: at SLIDE 60 the glide is half way, in octaves, after 22 ms x ln 2, up or down, for any interval") {
+  // The 303: 100 k into 0.22 uF before the exponential converter, tau 22 ms, in the octave domain (docs/VOICE-303.md 2). At t = tau ln 2 = 15.25 ms
+  // the
+  // pitch has covered half the interval in octaves: 0.5 for one octave up and down, and for two octaves (a Hz one pole would read 0.29 up, 0.63
+  // down).
+  const double half = 22.0 * std::log(2.0);
+  for (const auto& iv : {std::pair<int, int>{48, 60}, {60, 48}, {48, 72}, {72, 48}, {48, 53}, {55, 48}}) {
+    const double x = glide_fraction(iv.first, iv.second, 60.0f, half);
+    probe("slide half way: from, to, fraction", iv.first, iv.second, x);
+    CHECK(x > 0.45);
+    CHECK(x < 0.55);
+  }
+}
+
+TEST_CASE("slide: tau is 22/60 of the SLIDE time, and the glide ends on the note") {
+  for (const float knob : {60.0f, 120.0f, 240.0f}) {
+    const double tau = static_cast<double>(knob) * 22.0 / 60.0;
+    const double x = glide_fraction(48, 60, knob, tau);
+    probe("slide 63 % time: SLIDE, fraction", knob, x);
+    CHECK(x > 0.632 - 0.03);
+    CHECK(x < 0.632 + 0.03);
+    CHECK(glide_fraction(48, 72, knob, tau * 3.0) > 0.93);          // 3 tau: "about 60 ms" at the stock setting
+    CHECK(glide_fraction(72, 48, knob, tau * 20.0) == doctest::Approx(1.0).epsilon(1e-4));
+  }
+}
+
+TEST_CASE("slide: control() running early (a knob moving through the glide) does not speed it up") {
+  const double half = 22.0 * std::log(2.0);
+  for (const std::uint32_t every : {5u, 7u, 16u, 23u}) {
+    const double x = glide_fraction(48, 72, 60.0f, half, every);
+    probe("slide half way with knob events every", every, x);
+    CHECK(x > 0.45);
+    CHECK(x < 0.55);
+  }
+}
+
+TEST_CASE("slide: a note that starts the voice jumps at once, and a slid note arrives exactly on its pitch") {
+  Rig r;
+  r.script.on(0, 48);
+  r.script.off(2000, 48);
+  r.script.on(4000, 60);  // the voice is silent by now: no slide flag, no held note
+  r.script.off(4400, 60);
+  (void)r.render(4001);
+  CHECK(AcidVoiceTestAccess::pitch_hz(r.voice) == AcidVoiceTestAccess::target_hz(r.voice));
+  Rig s;
+  s.script.on(0, 48);
+  s.script.on(4000, 71, dsp::kNoteSlide);
+  s.script.off(4000, 48);
+  s.script.off(30000, 71);
+  (void)s.render(20000);
+  CHECK(AcidVoiceTestAccess::pitch_hz(s.voice) == AcidVoiceTestAccess::target_hz(s.voice));
 }

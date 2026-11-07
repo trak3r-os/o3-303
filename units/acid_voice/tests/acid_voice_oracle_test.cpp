@@ -53,6 +53,21 @@ void probe(const char* what, double a, double b = 0.0, double c = 0.0) {
   }
 }
 
+// The voice's two deviations from TeeBeeFilter in the ladder (docs/VOICE-303.md, section 2): the feedback high-pass at 15 Hz instead of 150 Hz, and
+// the
+// resonance scaled by s = fc / sqrt(fc^2 + 500^2) (kResRollHz) in both the feedback and the output gain. Both of Open303's k and g are linear in its
+// skewed resonance r, so the reference follows by scaling r: this returns the setResonance() percent whose skew gives r x s.
+constexpr double kFbHpHz = 15.0;
+constexpr double kResRollHz = 500.0;
+double roll(double fc) {
+  return fc / std::sqrt(fc * fc + kResRollHz * kResRollHz);
+}
+double rolled_reso_percent(double reso_percent, double fc) {
+  const double skewed = (1.0 - std::exp(-3.0 * 0.01 * reso_percent)) / (1.0 - std::exp(-3.0));
+  const double r = skewed * roll(fc);
+  return -100.0 * std::log(1.0 - r * (1.0 - std::exp(-3.0))) / 3.0;
+}
+
 // Open303's signal path after the oscillator, as getSample() runs it, from a sawtooth of frequency f0 (double): the pre-filter high-pass
 // and the filter at four times the rate (the anti-aliasing decimator is left out: the lines compared are far below it), then the
 // all-pass, the high-pass and the notch at the base rate. Returns the base-rate samples.
@@ -75,10 +90,10 @@ std::vector<double> reference_saw(double f0, double cutoff, double reso_percent,
   ap.setCutoff(14.008);
   notch.setFrequency(7.5164);
   notch.setBandwidth(4.7);
-  tee.setFeedbackHighpassCutoff(150.0);
+  tee.setFeedbackHighpassCutoff(kFbHpHz);
   tee.setMode(rosic::TeeBeeFilter::TB_303);
   tee.setCutoff(cutoff);
-  tee.setResonance(reso_percent);
+  tee.setResonance(rolled_reso_percent(reso_percent, cutoff));
   std::vector<double> out(frames);
   double phase = 0.0;
   const double inc = f0 / (kOver * kFs);
@@ -263,7 +278,9 @@ TEST_CASE("oracle (a): the ladder's response is TeeBeeFilter's TB_303 in peak fr
       CHECK(m.out_peak < 0.6);  // the amplifier's ceiling is not in play
       k_lo = std::min(k_lo, m.k_db);
       k_hi = std::max(k_hi, m.k_db);
-      CHECK(m.worst_db < 1.5);
+      // 1.7 measured at most (cutoff 2400, Reso 0.9: the peak 0.7 % off on a steep peak between two lines 27.5 Hz apart); 1.5 before the resonance
+      // scaling
+      CHECK(m.worst_db < 2.0);
       // A resonance peak that the lines (27.5 Hz apart) can place: from Reso 0.65, and a cutoff whose settled value is above the first lines.
       if (rs >= 0.65f && c >= 700.0f) {
         CHECK(m.pk_hz_err < 0.03);
@@ -345,7 +362,8 @@ TEST_CASE("oracle (e): the ladder's step, feedback and gain are Open303's, in do
         float b = 0.0f, k = 0.0f, g = 0.0f;
         o3_303::AcidVoiceTestAccess::coeffs(r.voice, x, b, k, g);
         double ob = 0.0, ok = 0.0, og = 0.0;
-        open.at(std::exp2(static_cast<double>(x)), 100.0 * static_cast<double>(reso), ob, ok, og);
+        const double fc = std::exp2(static_cast<double>(x));
+        open.at(fc, rolled_reso_percent(100.0 * static_cast<double>(reso), fc), ob, ok, og);
         worst_b = std::max(worst_b, std::fabs(static_cast<double>(b) - ob) / ob);
         worst_g = std::max(worst_g, std::fabs(static_cast<double>(g) - 2.0 * og) / (2.0 * og));
         if (reso > 0.0f) {

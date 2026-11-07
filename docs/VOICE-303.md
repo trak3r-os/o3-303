@@ -21,7 +21,7 @@ Self-oscillation was not the cause either: the old ladder rings alone without in
 
 | Part | Before (Replicant) | Now | Source |
 |---|---|---|---|
-| Filter | Replicant's ladder: feedback gain 17.2, 40 Hz high-pass in the feedback, rings alone at high RESO | Open303's four coupled poles at twice the sample rate (two sub-steps), 150 Hz high-pass in the feedback, no self-oscillation at stock | Open303's `TeeBeeFilter`; Stinchcombe and Whittle for the behaviour |
+| Filter | Replicant's ladder: feedback gain 17.2, 40 Hz high-pass in the feedback, rings alone at high RESO | Open303's four coupled poles at twice the sample rate (two sub-steps), 15 Hz high-pass in the feedback (Open303's 150 Hz in v0.5.1), the resonance rolled off toward a low cutoff, no self-oscillation at stock | Open303's `TeeBeeFilter`; Stinchcombe and Whittle for the behaviour |
 | Cutoff law | 5.2 octaves of Env Mod above the knob, 2.2 more on an accent | Open303's measured law: the sweep goes below the knob as well as above, and its span depends on Cutoff and Env Mod. The law's offset has a slope of 0.15 in where the knob sits (Open303: 0.0483), its scale and the offset at the bottom are Open303's. On RANGE 303 the knob is held to 200 to 2,394 Hz before the law; FISH leaves it at 25 to 4,500 Hz. The ladder's own top is 10,400 Hz (Open303 stops at 20 kHz, v0.5.1 at 4,800), where the sweep and Tracking can reach | Open303; the top agrees with one recording within about 5 %, the floor is read roughly from it; the slope from the Din Sync recording, the 10.4 kHz from where the polynomials hold |
 | Reso law | Feedback in proportion to RESO | `(1 - exp(-3p)) / 0.95` | Open303 |
 | Saw | Parabolic bend of .15 | Plain ramp, same level | Open303 |
@@ -30,7 +30,7 @@ Self-oscillation was not the cause either: the old ladder rings alone without in
 | Amplifier | Decay time constant 4 s | Time constant 1.43 s, 0.10 of the main envelope added on every note, a de-clicker at 200 Hz; the main part stays down 4.4 ms (194 samples) after a note starts the voice from quiet (rule below), the accent's part does not | Open303 for the structure; the 1.43 s, the 0.10 and the 4.4 ms from the Din Sync recording (Whittle's figure is a typical 4 ms delay and then a 3 ms attack) |
 | Note end | 25 ms release at the gate | 8 ms hold after the gate, then a 3 ms release (50 ms on an accent) | Whittle for the hold, Open303 for the accent's release, ours for the 3 ms |
 | Accent | .45 x ACCENT in the amplifier, a fixed lift of the cutoff | `max(0, 2.6 x ACCENT - 0.6)` of the main envelope added in the amplifier (the function `accent_to_amp`), with a decay of 87 ms, and the sweep circuit: at high RESO close accents climb. It reads 0.3, 3.3, 5.5 and 7.3 dB at ACCENT 25, 50, 75 and 100 %, against 0.2 dB below plain, then 3.6, 6.2 and 7.3 dB on the recording | Whittle for the circuit; the line and the 87 ms from the Din Sync recording (Open303 has 4 x ACCENT and 200 ms) |
-| Slide | 60 ms as a time constant | 60 ms as the audible time (time constant 0.2 x SLIDE) | Whittle |
+| Slide | 60 ms as a time constant, in Hz | a one pole on the pitch in octaves, time constant 22/60 of SLIDE (22 ms at the default 60; about 60 ms, 3 tau, to arrive; the same time up or down and for any interval) | Whittle; Stinchcombe (synth-diy, 2012); jc303 PR #50 |
 | Defaults | Distortion on, send 30 %, level -6 dB | Distortion off and send 0 on new projects and the eight factory lines, level -3 dB | The maintainer's goal: a TB-303 has neither |
 
 Generated vault sounds keep their distortion. A saved project keeps its knobs, and sounds different because the voice under them is new.
@@ -50,6 +50,8 @@ reference as a named constant, so what is still Open303's is still compared exac
 | Main envelope in the amplifier (`kMainToAmp`) | 0.45 | 0.10 | the 0.45 |
 | Accent in the amplifier | 4 x ACCENT | `max(0, 2.6 x ACCENT - 0.6)` | the 4, and that it is a power of the knob; the structure (the accent's share adds to the main input's at the same weight, to 4 %) is still proved |
 | Law's offset slope (`kLawOffF`) | 0.048292930943553 | 0.15; the constant term (`kLawOffC`) 0.294391201442418 is unchanged | the slope; the scale and the offset at the bottom of the knob are still compared to float accuracy |
+| Feedback high-pass (`kFbHpHz`) | 150 Hz (Open303's and v0.5.1's) | 15 Hz, set from the Din Sync measurement (section 4): at 150 Hz the loop's high-pass cut the filter's low end and the accent's climb more than the recording does; 15 Hz still keeps DC out of the loop. a1k0n/303 also has a high-pass in the feedback loop, the model for having one at all | the 150 Hz: the oracle's reference carries the 15 Hz; the structure (the same filter in the same place) is still compared |
+| Resonance against cutoff (`kResRollHz`) | none: the feedback `k` and the gain `g` are the same at every cutoff | 500 Hz: both are multiplied by `s = fc / sqrt(fc^2 + 500^2)`, so the resonance is full from a few kHz and falls off toward a low cutoff (s = .45 at 250 Hz, .71 at 500 Hz, .97 at 2 kHz). Burnett's plots of a real TB-303 show the resonance much stronger at higher frequencies and running out of steam at a low cutoff (https://www.sequencer.de/synthesizer/threads/tb-303-filterantwort.107220/) and the Din Sync measurement fixed the fit | the reso law at a low cutoff: the oracle's reference rolls `k` and `g` the same way (helper `rolled_reso_percent`), so the filter at a fixed cutoff is still compared, with the roll-off as its one change |
 
 The oscillator, the filter at a fixed cutoff and the reso law are still Open303's, and the oracle compares them as before.
 
@@ -80,7 +82,7 @@ Ranges and behaviour are from Robin Whittle's published Devil Fish manual. No co
 | AMP DECAY | 16 ms to 4 s, stock 1430 ms, settling at SUSTAIN |
 | SUSTAIN (id 21, TONE F7) | The level the amplifier settles at while the gate is held |
 | RANGE (id 20, TONE F6) | 303 or FISH. FISH widens ENV MOD to zero and three times the top, lets CUTOFF reach the whole 25 to 4,500 Hz, fills the bass (high-pass at 12 Hz, notch off), and starts and ends a note at once (de-clicker 1500 Hz, no amplifier delay, no gate hold, 8 ms release) |
-| ACC SWEEP | OFF, NORMAL or HI RES. HI RES doubles the feedback, so the filter oscillates: from about 350 Hz at full RESO and from 1 kHz at 65 % |
+| ACC SWEEP | OFF, NORMAL or HI RES. HI RES doubles the feedback, so the filter oscillates: from about 350 Hz at full RESO (a faint start at 325 Hz) and from about 375 Hz at 65 %, taking a ring as an rms above 0.01 (host measurement, section 4); below that it stays quiet, down to the knob's 25 Hz |
 | OVERDRIVE | -24 to +36 dB, about 63 times (Whittle gives 66.6). At the bottom no oscillator reaches the filter, so HI RES plays it alone |
 | SOFT ATK | 0.3 to 30 ms on a plain note: that value is the fade-in, with no 4.4 ms delay. OFF is the stock start, with the delay. An accented note keeps the delay |
 | FILTER FM, TRACKING, MUFFLER, SWP SPEED, SUB OSC | As on the MODDED pages. SWP SPEED has FAST, NORMAL and SLOW; the sweep's capacitor keeps its charge between accents |
@@ -117,7 +119,9 @@ The filter alone, fit harmonic by harmonic at steady state to 30 clips from the 
 The coupled filter is better on 23 of the 30 clips, and its median is slightly worse. It is a modest gain. Driving it harder did not help.
 
 Ladder checks, on a prototype of this ladder: peak frequency and level at two sub-steps are within 3 % and 1 dB of sixteen. At stock feedback it does not self-oscillate at any
-cutoff up to full RESO. With HI RES's doubled feedback it stays bounded in a fast sweep, with a worst level of .84.
+cutoff up to full RESO. With HI RES's doubled feedback it stays bounded in a fast sweep, with a worst level of .84 (measured with the earlier 150 Hz feedback filter).
+
+HI RES against the feedback filter and the resonance roll-off (2026-11-07, host, a SAW at C2 held after a long silent prelude, the rms of the output before VOLUME): at full RESO the ladder is silent at a cutoff of 300 Hz and below, a faint .006 at 325 Hz, .032 at 350 Hz (rings, by an rms above .01, from there), .047 at 400 Hz and .094 at 4,800 Hz; at RESO 65 % it is silent at 350 Hz and below, rings at 375 Hz (.012), .030 at 400 Hz and .084 from 3,500 Hz. Across the cutoff range, 25 Hz (the bottom of the knob, RANGE FISH) to 4,800 Hz, at both Resos the peak stays under 1.0, the mean under .002 (the DC is still blocked) and every sample is finite; the ladder is dead from 25 to 300 Hz. The one corner that is not clean: at full RESO with ENV MOD and Filter FM both at 100 % and accented notes, cutoff 25 to 200 Hz, the output stays finite and under 1.0 (peak .89) but carries an offset, a mean of .017 to .022 over the run and .08 to .12 inside an accented note, gone 0.1 s after the gate closes (either control alone: under .001; the same without the 500 Hz roll-off, .012 to .015, so it belongs to the FM loop, not to the roll-off); needs the unit's ear. The stock filter never rings. The edge of ringing is a slow one: just above it the ladder decays with a time constant of about 0.4 s, so a test that compares a live change with a set-before needs a silent prelude of 120,000 frames. Before the change the ring started near 350 Hz at full RESO and 1 kHz at 65 % (the earlier wording of the table); the unit's figure is owed.
 
 Cost, an estimate from the cross build's disassembly, not a measurement (v0.5.1; the figures for this change are in the paragraph after the next): the stock SAW loop's usual path is about 335 cycles a sample, before the
 control period's share, with two divisions. It runs in four short passes over a control period, because one long loop spilled most of its
@@ -168,8 +172,8 @@ centroid at a note's start. A sweep is measured only up to 9 kHz.
 - **The square.** Open303's `-tanh(...)` shape, with a Pade tanh that is off by .0235 at most. A host measurement of the aliasing against the earlier BLEP square: better at C2 and C5 (about 2.3 and 2.7 dB), the same at C6, and
   2.4 and 3.1 dB worse at C7 and C8. Whether that is audible is for a unit.
 - **Accent level.** Fitted by a line to four readings of the Din Sync recording (section 2); between and beyond those four positions it is the line, not a measurement. No published figure in dB was found.
-- **The models against GRIT.** The distortion's trim table was fitted on the earlier voice and `src/distortion.cpp` is not touched here: with this voice the four models run hotter than GRIT, by +0.2 to +2.4 dB at the default and up to 3.4 dB on average across Drive, and +1.6 to +9.2 dB at Drive 0 to 0.2 (the host chain test prints them). The trim table should be fitted again.
-- **Our own choices.** `kSweepOctaves`, `kSweepSlowTau`, `kFishHpHz`, `kFishDeclickHz`, `kReleaseTau`, `kAmpScale` and `kKnee` have no source: they
+- **The models against GRIT.** The distortion's trim table (`units/distortion/src/distortion.cpp`) was fitted again on 2026-11-07 for the voice with the 15 Hz feedback high-pass (`O3_303_PRINT_TRIM=1`). TUBE, HARD and FUZZ match GRIT's level at each Drive. FOLD is held 1.9 dB under GRIT above Drive 0.25, as its peak reached 1.57 at GRIT's level, and fades in dB from M3's trim below it. GRIT's own row is held non-increasing above the default Drive. TUBE and FOLD now sit up to 0.75 dB (0.7458 against 0.6839) and 0.55 dB above M3's fixed trims, where the earlier fit only brought them down.
+- **Our own choices.** `kSweepOctaves`, `kSweepSlowTau`, `kFishHpHz`, `kFishDeclickHz`, `kReleaseTau`, `kAmpScale`, `kKnee` and `kResRollHz` have no source (`kResRollHz`'s 500 Hz is a fit by ear and by the shape of Burnett's plots, not a published number): they
   were set by judgement.
 - **The bass.** Whittle gives -5 dB at 32 Hz; Open303's chain gives about -10.6 dB. Open303's is kept, because it fits the a1k0n low end better.
 - **Not modelled.** The sweep's path into the amplifier: the direct term of the main envelope is Open303's and stands in for it. The stock ladder's
@@ -190,6 +194,7 @@ centroid at a note's start. A sweep is measured only up to 9 kHz.
 - Tim Stinchcombe on the diode ladder: http://www.timstinchcombe.co.uk/index.php?pge=diode
 - Kernmayer's thesis (2020): https://phaidra.ustp.at/api/object/o:4344/download
 - Din Sync, "TB-303 reference recordings for x0xb0x builders" (2010): http://dinsync.info (one recording of one unit, approximate knob positions, licence unstated: measured only, nothing copied)
+- Burnett's plots of a real TB-303's filter (the resonance against cutoff): https://www.sequencer.de/synthesizer/threads/tb-303-filterantwort.107220/
 - Recordings: https://github.com/a1k0n/303, https://commons.wikimedia.org/wiki/File:The_Sound_of_Roland_TB-303_for_Wikipedia.ogg
 
 Looked at and not used: JC303 (GPL-3.0, its filter is Open303's and adds no measurement), Nekobee and Nekobi (GPL-2.0, a Chamberlin filter, not

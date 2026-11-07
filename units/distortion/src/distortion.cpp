@@ -77,21 +77,22 @@ constexpr float kScale[Distortion::kModelCount] = {0.85f, 0.90f, 0.85f, 0.80f, 0
 // above it the gain that holds its wet peak (the larger of the two waves) at its value at 0.5, which falls to -2.7 dB by Drive 0.85
 // (its RMS rises by only 1 to 2 dB there, its peak by 2.5 dB). The others: the gain that makes their level GRIT's, trimmed as it is, at
 // the same Drive, faded in over Drive 0 .. 0.25 (at 0 it is M3's trim; GRIT's 450 Hz high-pass makes it far quieter than the others
-// at low Drive, where they are near-transparent). Re-measured on 2026-11-06 for the Open303-based voice; the fade below Drive
+// at low Drive, where they are near-transparent). Re-measured on 2026-11-07 for the voice with the 15 Hz feedback high-pass; the fade below Drive
 // 0.25 is linear in dB from the knot-0 trim, which is assumed, not measured. Measure again when a model, the voice or the
 // line changes: the "distortion levels" cases of acid_voice_chain_test.cpp check this table against GRIT's level and peaks, on the line and
 // on two other voice settings.
 constexpr float kTrimTable[Distortion::kModelCount][Distortion::kTrimKnots] = {
-    // GRIT, dB: +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 -0.4 -0.6 -0.8 -1.0 -1.2 -1.4 -1.5 -1.6 -1.6 -1.6
-    {1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 0.9596f, 0.9333f, 0.9169f, 0.8900f, 0.8715f, 0.8538f, 0.8372f, 0.8314f, 0.8297f, 0.8273f},
-    // TUBE, dB: -3.3 -4.8 -6.5 -7.7 -8.4 -8.6 -7.7 -6.9 -6.3 -5.7 -5.1 -5.0 -4.9 -4.7 -4.6 -4.5 -4.4 -4.3 -4.2 -4.0 -3.9
-    {0.6839f, 0.5759f, 0.4716f, 0.4104f, 0.3804f, 0.3696f, 0.4105f, 0.4494f, 0.4861f, 0.5205f, 0.5531f, 0.5600f, 0.5711f, 0.5852f, 0.5899f, 0.5977f, 0.6034f, 0.6078f, 0.6180f, 0.6300f, 0.6400f},
-    // HARD, dB: -1.6 -3.4 -5.3 -6.7 -7.5 -7.7 -6.7 -5.8 -5.0 -4.3 -3.7 -3.5 -3.3 -3.1 -3.0 -2.8 -2.7 -2.6 -2.5 -2.3 -2.1
-    {0.8318f, 0.6781f, 0.5402f, 0.4623f, 0.4239f, 0.4101f, 0.4629f, 0.5146f, 0.5638f, 0.6101f, 0.6539f, 0.6667f, 0.6836f, 0.7036f, 0.7119f, 0.7236f, 0.7326f, 0.7397f, 0.7537f, 0.7698f, 0.7833f},
-    // FUZZ, dB: -5.7 -7.2 -8.8 -9.6 -9.7 -9.4 -8.2 -7.2 -6.4 -5.6 -5.0 -4.8 -4.6 -4.3 -4.2 -4.1 -4.0 -3.9 -3.7 -3.6 -3.4
-    {0.5188f, 0.4344f, 0.3638f, 0.3313f, 0.3260f, 0.3393f, 0.3886f, 0.4360f, 0.4806f, 0.5223f, 0.5615f, 0.5736f, 0.5892f, 0.6071f, 0.6147f, 0.6250f, 0.6329f, 0.6390f, 0.6508f, 0.6644f, 0.6755f},
-    // FOLD, dB: +3.9 +2.0 +0.4 -0.7 -1.2 -1.4 -0.5 +0.2 +0.8 +1.3 +1.8 +1.9 +2.0 +2.2 +2.2 +2.3 +2.3 +2.3 +2.4 +2.6 +2.7
-    {1.5668f, 1.2566f, 1.0414f, 0.9246f, 0.8699f, 0.8499f, 0.9409f, 1.0216f, 1.0919f, 1.1594f, 1.2280f, 1.2407f, 1.2628f, 1.2903f, 1.2949f, 1.3037f, 1.3055f, 1.3055f, 1.3230f, 1.3452f, 1.3623f},
+    // GRIT, dB: +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 +0.0 -0.4 -0.6 -0.8 -0.9 -1.0 -1.0 -1.1 -1.3 -1.4 -1.5  (held non-increasing: the measured knot 0.8 read 0.8908)
+    {1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 1.0000f, 0.9579f, 0.9353f, 0.9137f, 0.8994f, 0.8872f, 0.8872f, 0.8788f, 0.8605f, 0.8477f, 0.8436f},
+    // TUBE, dB: -3.3 -4.2 -5.5 -6.3 -6.5 -6.2 -5.2 -4.4 -3.8 -3.3 -2.9 -2.9 -2.8 -2.8 -2.7 -2.7 -2.5 -2.6 -2.7 -2.8 -2.8
+    {0.6839f, 0.6182f, 0.5298f, 0.4825f, 0.4728f, 0.4888f, 0.5466f, 0.5999f, 0.6465f, 0.6863f, 0.7202f, 0.7173f, 0.7231f, 0.7253f, 0.7296f, 0.7325f, 0.7458f, 0.7436f, 0.7337f, 0.7262f, 0.7234f},
+    // HARD, dB: -1.6 -2.9 -4.7 -5.8 -6.4 -6.4 -5.3 -4.5 -3.7 -3.1 -2.6 -2.6 -2.4 -2.3 -2.2 -2.1 -1.9 -1.9 -1.9 -1.9 -1.9
+    {0.8318f, 0.7187f, 0.5853f, 0.5103f, 0.4803f, 0.4789f, 0.5403f, 0.5984f, 0.6509f, 0.6974f, 0.7384f, 0.7422f, 0.7549f, 0.7638f, 0.7749f, 0.7843f, 0.8047f, 0.8081f, 0.8026f, 0.7993f, 0.8007f},
+    // FUZZ, dB: -5.7 -7.0 -8.7 -9.7 -10.0 -9.6 -8.4 -7.3 -6.4 -5.7 -5.0 -4.9 -4.6 -4.5 -4.3 -4.1 -3.9 -3.8 -3.8 -3.8 -3.8
+    {0.5188f, 0.4465f, 0.3674f, 0.3271f, 0.3177f, 0.3300f, 0.3815f, 0.4316f, 0.4785f, 0.5213f, 0.5601f, 0.5699f, 0.5857f, 0.5978f, 0.6109f, 0.6221f, 0.6415f, 0.6470f, 0.6449f, 0.6442f, 0.6469f},
+    // FOLD, dB: +3.9 +3.3 +2.6 +2.0 +1.3 +0.7 +1.8 +2.6 +3.3 +3.8 +4.2 +4.2 +4.3 +4.3 +4.3 +4.3 +4.4 +4.4 +4.2 +4.1 +4.0
+    // (the measured gain x 0.80 from Drive 0.25, faded in dB from M3's trim below it: at GRIT's full level its peak reached 1.57, so FOLD sits about 1.9 dB under GRIT)
+    {1.5668f, 1.4556f, 1.3524f, 1.2564f, 1.1673f, 1.0845f, 1.2240f, 1.3486f, 1.4550f, 1.5453f, 1.6230f, 1.6178f, 1.6312f, 1.6350f, 1.6416f, 1.6434f, 1.6666f, 1.6541f, 1.6239f, 1.5991f, 1.5847f},
 };
 
 // ---- ours --------------------------------------------------------------------------------------------------------------------

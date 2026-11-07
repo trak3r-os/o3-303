@@ -415,7 +415,11 @@ TEST_CASE("mods: no click when Stock is toggled mid-note, either way, with every
       // through the wide-open filter about 50 samples after the toggle, a change of sound that the toggle's own sample does not carry. So that
       // window is held to 1.8 (+10 %; 2.0 in the first fold) for the "all max" cases, and what a click would be, a jump at the toggle sample, is
       // held to 1.25 everywhere below.
-      CHECK(stock_toggle_ratio(square, hi, true, 0.0f, &at_off) <= (hi ? 1.8 : 1.25));
+      // With the feedback filter of 2026-11-07 (15 Hz high-pass, resonance rolled off against the cutoff) the "all max" window reads 2.46 (SAW) and
+      // 2.44 (SQR): the voice with Stock off rings more in the 10 ms after the toggle (HI RES, an open filter) over a baseline that is itself
+      // quieter (the reference sample steps fell with the level). The jump at the toggle sample, the click, is unchanged and is checked below
+      // (at_off, 0.46 at most), so the window is held to 2.8 (+14 %) for the "all max" cases.
+      CHECK(stock_toggle_ratio(square, hi, true, 0.0f, &at_off) <= (hi ? 2.8 : 1.25));
       CHECK(at_on <= 1.1);   // the jump at the toggle sample: 0.95 measured at most (SAW all max), +16 %
       CHECK(at_off <= 0.6);  // 0.46 measured at most (SQR all max), +30 %
     }
@@ -446,7 +450,12 @@ TEST_CASE("mods: no click when a switch mod, a ramped mod or Stock-free mod chan
       INFO((square ? "SQR " : "SAW ") << c.name);
       const double ratio = click_ratio({{c.id, c.from}}, {{c.id, c.to}}, square);
       probe(c.name, ratio);
-      CHECK(ratio <= 1.25);
+      // OVERDRIVE 0 to +36 on a square reads 1.38 since the feedback filter of 2026-11-07 (largest step in the 10 ms after 0.144 against the sound's
+      // own 0.104 once at +36; it was inside 1.25 before). It is the 36 dB jump of a gain, the largest in the table, the ratio is of the ringing
+      // after
+      // it and not a click at the change (the ramp case below checks that), so this one is held to 1.5.
+      const bool od_hi_sqr = square && c.id == AcidVoice::Overdrive && c.to > 30.0f;
+      CHECK(ratio <= (od_hi_sqr ? 1.5 : 1.25));
     }
   }
 }
@@ -647,43 +656,28 @@ TEST_CASE("mods: ACC DECAY scales the time the accented sweep takes, AMP DECAY t
 }
 
 TEST_CASE("mods: SLIDE sets the glide's time constant") {
-  // Note 36, then a slide to 48: the pitch moves a one pole in Hz; the time to cover 63 % of the way is tau.
-  const auto t63_ms = [&](float tau) {
+  // Note 36, then a slide to 48: the pitch moves a one pole in the octave domain (the 303's RC before the exponential converter); the time to cover
+  // 63 % of the way in octaves is tau = 22/60 of the SLIDE time (22 ms at 60 ms, 88 ms at 240). The pitch is read from the voice's state.
+  const auto frac = [&](float knob, double ms) {
     Rig r;
     for (const P& p : kOpen) {
       r.set(p.first, p.second);
     }
-    r.set(AcidVoice::Slide, tau);
+    r.set(AcidVoice::Slide, knob);
     r.script.on(0, 36);
     r.script.on(20000, 48, dsp::kNoteSlide);
     r.script.off(60000, 48);
-    const std::vector<float> v = r.render(60000);
-    const double f0 = hz_of(36);
-    const double f1 = hz_of(48);
-    const double goal = f0 + 0.632 * (f1 - f0);
-    // The upward zero crossings, placed by linear interpolation; the pitch is the inverse of their spacing.
-    double prev = -1.0;
-    for (std::size_t i = 20001; i < v.size(); ++i) {
-      if (v[i - 1] < 0.0f && v[i] >= 0.0f) {
-        const double t = static_cast<double>(i - 1) + static_cast<double>(-v[i - 1]) / static_cast<double>(v[i] - v[i - 1]);
-        if (prev >= 0.0 && kRate / (t - prev) >= goal) {
-          return (t - 20000.0) / 44.1;
-        }
-        prev = t;
-      }
-    }
-    return 1e9;
+    (void)r.render(20000 + static_cast<std::uint32_t>(ms * 44.1 + 0.5));
+    return std::log2(static_cast<double>(o3_303::AcidVoiceTestAccess::pitch_hz(r.voice)) / hz_of(36));
   };
-  const double t60 = t63_ms(60.0f);
-  const double t240 = t63_ms(240.0f);
-  probe("slide: 60 ms, 240 ms (63 % time)", t60, t240);
-  // The SLIDE knob is a time at the 303's scale: the glide's time constant is kSlideScale (0.2) of it, so 60 ms is a 12 ms glide (within 5 % of
-  // the interval by 60 ms, as the engine test checks). The pitch is read from the spacing of crossings, about a period late (about 11 ms at the
-  // start): the delay is the same for both, the slope is the scale.
-  CHECK((t240 - t60) / 180.0 > 0.2 * 0.85);
-  CHECK((t240 - t60) / 180.0 < 0.2 * 1.15);
-  CHECK(t60 > 0.2 * 60.0);
-  CHECK(t60 < 0.2 * 60.0 + 20.0);
+  const double a60 = frac(60.0f, 22.0), a240 = frac(240.0f, 88.0), b240 = frac(240.0f, 22.0);
+  probe("slide: 63 % at 22 ms of SLIDE 60, 88 ms of 240; 22 ms of 240", a60, a240, b240);
+  CHECK(a60 > 0.632 - 0.03);
+  CHECK(a60 < 0.632 + 0.03);
+  CHECK(a240 > 0.632 - 0.03);
+  CHECK(a240 < 0.632 + 0.03);
+  CHECK(b240 < 0.25);  // SLIDE 240 is four times slower: 1 - exp(-1/4) = 0.22 of the octave at 22 ms
+  CHECK(b240 > 0.19);
 }
 
 TEST_CASE("mods: TRACKING moves the cutoff with the note, C2 stays put") {
@@ -734,7 +728,16 @@ TEST_CASE("mods: FILTER FM changes the sound and stays bounded") {
   probe("filter fm: diff half, full; bright off, half, full", diff(off, half), diff(off, full), bright(full, 8000, 30000) / bright(off, 8000, 30000));
   CHECK(diff(off, half) > 0.02);
   CHECK(diff(off, full) > 0.02);
-  CHECK(bright(full, 8000, 30000) > 1.05 * bright(off, 8000, 30000));  // and it is brighter (1.18 x measured)
+  // And it is brighter where the resonance does not dominate the first difference: at Reso 0.3 and Cutoff 700 it reads 1.11 x (1.06 .. 1.11 from
+  // Cutoff 400 to 2500; 1.4 .. 1.5 at Reso 0). At Reso 0.8 it is 1.01 x since the feedback filter of 2026-11-07 (1.18 x before): the ladder's peak,
+  // not the cutoff, sets the brightness there, and FM smears the peak (0.77 x at Cutoff 2500); the sound still moves (diff above), so that
+  // case is no longer asked to be brighter.
+  {
+    const std::initializer_list<P> mid = {{AcidVoice::Cutoff, 700.0f}, {AcidVoice::Reso, 0.3f}, {AcidVoice::EnvMod, 0.3f}, {AcidVoice::Decay, 2500.0f}, {AcidVoice::Volume, 0.0f}};
+    const std::vector<float> mo = hold_v(with(mid, {}), 36, 0, 30000, 30000);
+    const std::vector<float> mf = hold_v(with(mid, {{AcidVoice::FilterFm, 1.0f}}), 36, 0, 30000, 30000);
+    CHECK(bright(mf, 8000, 30000) > 1.05 * bright(mo, 8000, 30000));
+  }
   constexpr std::size_t kN = 16384;
   const std::vector<double> so = spectrum(off, 8000, kN);
   const std::vector<double> sf = spectrum(full, 8000, kN);
@@ -759,7 +762,9 @@ TEST_CASE("mods: MUFFLER lowers the peak, HARD lets the bass through") {
   CHECK(all_finite(soft));
   CHECK(all_finite(hard));
   CHECK(p_soft < p_off * 0.97);  // 0.265 against 0.277 (0.956 measured, +1.5 %; 0.9 before) since the 2026-11-07 levels: the line is lower, so less of it reaches the 0.7 where SOFT starts to flatten
-  CHECK(p_hard < p_off * 0.92);  // 0.896 measured (+2.7 %; the bound was 0.9 and is 0.9 still in kind: HARD flattens more than SOFT)
+  // 0.929 measured with the feedback filter of 2026-11-07 (0.896 before: the line is lower again, HARD's clip at -14 dB above 150 Hz reaches less of
+  // it); +1.2 %, and still under SOFT's 0.961
+  CHECK(p_hard < p_off * 0.94);
   const std::vector<double> so = spectrum(off, 8000, kN);
   const std::vector<double> sh = spectrum(hard, 8000, kN);
   const double bass = db(band(sh, kN, 20.0, 100.0) / band(so, kN, 20.0, 100.0));
@@ -856,11 +861,16 @@ TEST_CASE("mods: SWP SPEED, FAST gives the first accent more, SLOW rises higher 
   const double normal_max = *std::max_element(normal.begin(), normal.end());
   CHECK(slow_max > normal_max);
   CHECK(slow[5] / slow[0] > normal[5] / normal[0]);
-  // Consecutive accents climb at Reso 1 (the capacitor keeps its charge between them): the best of the later ones against the first (2.5 x
-  // measured), and more than at Reso 0 (1.75 x there, where the first accent is only cold: the lift is smoothed from zero).
+  // Consecutive accents climb at Reso 1 (the capacitor keeps its charge between them): the best of the later ones against the first.
+  // With the feedback filter of 2026-11-07 (15 Hz high-pass, resonance rolled off against the cutoff) this is 1.80 x at Cutoff 300 (3.0 x with the
+  // 150 Hz high-pass and no roll-off, 2.5 x at the first fold; the 15 Hz high-pass alone brings it to 1.33 x, the roll-off lifts it back to 1.80 x).
+  // It no longer exceeds Reso 0's climb (2.10 x, where the first accent is only cold: the lift is smoothed from zero): the brightness here is the
+  // first difference over the RMS, and a full-Reso peak at the low end carries more of the RMS now. The climb is still there, the sweep is
+  // unchanged, and the order against Reso 0 is reported (a finding for the maintainer's ear), not asserted.
   const auto climb = [](const std::vector<double>& v) { return *std::max_element(v.begin() + 1, v.end()) / v[0]; };
-  CHECK(climb(hi1) > 2.0);
-  CHECK(climb(hi1) > 1.25 * climb(flat));
+  probe("swp climb: reso 1, reso 0", climb(hi1), climb(flat));
+  CHECK(climb(hi1) > 1.5);
+  CHECK(climb(flat) > 1.5);
 }
 
 TEST_CASE("mods: ACC SWEEP OFF lifts nothing, HI RES resonates more") {
@@ -910,11 +920,17 @@ TEST_CASE("mods: ACC SWEEP OFF lifts nothing, HI RES resonates more") {
 // that arrives while the voice runs, with no note and no ramp going, must make that choice too. A mod set live between notes is, once the
 // voice has settled, heard exactly as if it had been set before the voice started (the same bits).
 TEST_CASE("mods: a mod set live, between notes, is heard exactly as if it had been set before the voice started, every mod at both ends") {
-  constexpr std::uint32_t kPre = 40000;   // silence before the gesture: the live set is at 2000, and the free-running filter settles after it
+  constexpr std::uint32_t kPreDefault = 40000;  // silence before the gesture: the live set is at 2000, and the free-running filter settles after it
+  // HI RES doubles the feedback, and at the default Cutoff and Reso (350 Hz, 65 %) the ladder is at the edge of ringing on its own (since the
+  // feedback filter of 2026-11-07 it rings from about 375 Hz at 65 %): what the seed started in the silent prelude decays with a time constant of
+  // 0.4 s, so a live set at 2000 and a set from the start differ by 4.4e-3 after 20000 frames, 1.3e-3 after 40000, 4.5e-8 after 120000 and 0 after
+  // 300000 (measured). ACC SWEEP gets the longer prelude, and the same bound as the others.
+  constexpr std::uint32_t kPreHiRes = 120000;
   constexpr std::uint32_t kLen = 60000;   // the first twelve steps of the gesture: accents, two slides, three parameter moves
   for (const bool square : {false, true}) {
     for (unsigned id = kFirst; id < kLast; ++id) {
       for (const float extreme : {lo_of(id), hi_of(id)}) {
+        const std::uint32_t kPre = id == AcidVoice::AccSweep ? kPreHiRes : kPreDefault;
         INFO((square ? "SQR " : "SAW ") << "mod " << std::string(desc(id).name) << " at " << extreme);
         Rig before;
         before.set(AcidVoice::Wave, square ? 1.0f : 0.0f);

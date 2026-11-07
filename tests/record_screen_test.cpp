@@ -321,8 +321,14 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
     ++first_sound;
   }
   // The voice holds its amplifier down for 4.4 ms (194 samples at 44.1 kHz, kAmpDelay) on a note that starts it from quiet, so the first step's first sound is one exact sample, which this pins
-  // (measured: 195, the 194 samples of the delay and one more: the first sample after the note starts): a block (64 frames) early would read 64 less, and a change of kAmpDelay or of the de-clicker moves it.
-  CHECK(first_sound == 195u);
+  // (measured: 198): a block (64 frames) early would read 64 less, and a change of kAmpDelay or of the de-clicker moves it.
+  // This is the first sample that rounds to a whole 16-bit step, so it reads a level too: the onset rises smoothly (-1, -3, -6, -11, -17 from 198 on)
+  // and a quieter one crosses half a step later. It read 195 (194 of the delay and one more) before the feedback high-pass went from 150 to 15 Hz and the
+  // resonance began to roll off at a low cutoff (2026-11-07: 196 with the 15 Hz high-pass alone, 198 with both): the ladder's cutoff coefficient is
+  // scaled by fc / sqrt(fc^2 + 500^2), so the onset is slower and smaller. Not the pitch: a note
+  // that starts the voice sets its phase increment at once (acid_voice_behaviour_test.cpp, "slide: a note that starts the voice jumps"), and the unit's own
+  // first sound is still exactly kAmpDelay (the "start" cases there).
+  CHECK(first_sound == 198u);
   std::size_t out_first = 0;
   while (out_first < out.size() / 2 && out[out_first * 2] == 0 && out[out_first * 2 + 1] == 0) {
     ++out_first;

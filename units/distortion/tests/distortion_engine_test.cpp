@@ -148,11 +148,12 @@ TEST_CASE("distortion: the parameter table is valid and in the contract's order"
 TEST_CASE("distortion: the model trim follows Drive smoothly, keeps the default-Drive levels, and holds GRIT's growth above the default") {
   CHECK(Distortion::kTrimKnots == 21);
   // The levels at Drive's default, re-measured on the Open303-based voice (O3_303_PRINT_TRIM=1 in acid_voice_chain_test): GRIT is the
-  // reference at 0 dB; the others sit where they match GRIT's level on that voice (M3's fixed trims were 0.6839, 0.8318 and 1.5668).
+  // reference at 0 dB; the others sit where they match GRIT's level on that voice, FOLD 1.9 dB under it to hold its peak (re-measured
+  // 2026-11-07 with the 15 Hz feedback high-pass; M3's fixed trims were 0.6839, 0.8318 and 1.5668).
   CHECK(Distortion::trim(Distortion::Grit, 0.5f) == 1.0f);
-  CHECK(Distortion::trim(Distortion::Tube, 0.5f) == doctest::Approx(0.5531f).epsilon(1e-3));
-  CHECK(Distortion::trim(Distortion::Hard, 0.5f) == doctest::Approx(0.6539f).epsilon(1e-3));
-  CHECK(Distortion::trim(Distortion::Fold, 0.5f) == doctest::Approx(1.228f).epsilon(1e-3));
+  CHECK(Distortion::trim(Distortion::Tube, 0.5f) == doctest::Approx(0.7202f).epsilon(1e-3));
+  CHECK(Distortion::trim(Distortion::Hard, 0.5f) == doctest::Approx(0.7384f).epsilon(1e-3));
+  CHECK(Distortion::trim(Distortion::Fold, 0.5f) == doctest::Approx(1.6230f).epsilon(1e-3));
   for (unsigned m = 0; m < Distortion::kModelCount; ++m) {
     INFO("model " << m);
     float prev = Distortion::trim(m, 0.0f);
@@ -176,11 +177,12 @@ TEST_CASE("distortion: the model trim follows Drive smoothly, keeps the default-
     CHECK(Distortion::trim(Distortion::Grit, static_cast<float>(i) * 0.01f) <= Distortion::trim(Distortion::Grit, static_cast<float>(i - 1) * 0.01f));
   }
   CHECK(Distortion::trim(Distortion::Grit, 1.0f) < 0.85f);
-  // TUBE, HARD and FOLD are nowhere louder than M3's fixed trims (the fit only brings them down toward GRIT).
+  // TUBE, HARD and FOLD are nowhere more than 1 dB louder than M3's fixed trims. On the voice with the 15 Hz feedback high-pass (2026-11-07)
+  // the fit brings TUBE up to 0.75 dB (0.7458 against 0.6839) and FOLD up to 0.55 dB above them, where it used to bring them only down toward GRIT.
   const float m3[] = {1.0f, 0.6839f, 0.8318f, 0.0f, 1.5668f};
   for (const unsigned m : {Distortion::Tube, Distortion::Hard, Distortion::Fold}) {
     for (int i = 0; i <= 100; ++i) {
-      CHECK(Distortion::trim(m, static_cast<float>(i) * 0.01f) <= m3[m] + 1e-5f);
+      CHECK(Distortion::trim(m, static_cast<float>(i) * 0.01f) <= m3[m] * 1.122f);
     }
   }
   // A model out of range is the last one's (the same clamp as the Type parameter's).

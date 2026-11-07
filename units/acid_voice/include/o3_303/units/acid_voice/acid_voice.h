@@ -101,6 +101,8 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   void all_notes_off() noexcept;
   void render(float* out, std::uint32_t from, std::uint32_t to) noexcept;
   void control() noexcept;
+  void advance_pitch() noexcept;
+  void set_target_inc() noexcept;
   void ladder_coeffs(float x, float& b, float& k, float& g) const noexcept;
   float accent_sweep(float m, float periods) noexcept;
   void update_law() noexcept;
@@ -163,9 +165,17 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   float phase_ = 0.0f;
   float sqr_hp_ = 0.0f;
   float sqr_hp_coeff_ = 0.992f;
-  float pitch_hz_ = 110.0f;     // gliding towards target_hz_ (60 ms one pole)
+  // The glide is a one pole on the log2 pitch (advance_pitch(), once per control period; the oscillator pass only adds inc_step_ per sample).
+  // All written on the audio thread only (events and render run in the same context).
+  float inc_ = 0.0f;            // the oscillator's phase increment now (pitch x tune / fs), a ramp across the period
+  float inc_step_ = 0.0f;       // per sample
+  float target_inc_ = 0.0f;     // the target note's, clamped
   float target_hz_ = 110.0f;
-  float slide_coeff_ = 0.0004f;
+  float pitch_oct_ = -2.0f;     // octaves from A4 at the end of the period the ramp was planned for
+  float pitch_oct0_ = -2.0f;    // and at its start
+  float target_oct_ = -2.0f;
+  std::uint16_t pitch_ran_ = kControlPeriod;  // samples of that period that have run (control() may come early)
+  float slide_coeff_ = 0.0f;    // the one pole's coefficient over one control period (tau = 22/60 of the SLIDE time)
   float tune_scale_ = 0.0f;     // 2^(tune / 12) / fs
   float inc_lo_ = 0.0f;         // phase increment limits: 10 Hz .. 0.45 fs
   float inc_hi_ = 0.45f;
@@ -235,7 +245,7 @@ class AcidVoice final : public o3sdk::dsp::Unit {
 
   float stock_accent_c_ = 0.9999f;      // the coefficients prepare() computes from the constants: assigned back at the stock value, never recomputed
   float stock_accent_cn_ = 0.9999f;
-  float stock_slide_c_ = 0.0004f;
+  float stock_slide_c_ = 0.0f;
   float stock_hold_c_ = 0.99999f;
   float reso_ = 0.0f;                   // Reso as set: the pot's position
   bool fish_ = false;                   // Range FISH

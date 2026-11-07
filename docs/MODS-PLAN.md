@@ -932,7 +932,7 @@ A host test is not this check. The slices name the unit check they leave to it.
   - S1 makes it a disassembly count, and it applies the every-other-sample fallback itself when the count is over 120 cycles a sample
     (S1's acceptance).
   - If the unit still measures the storm over 75 % after that, SUB OSC's BLEP goes to a plain square next, before any mod is cut.
-- **HI RES** can self-oscillate loudly with RESO high. The clamps bound it, and S1's test bounds the peak (at most 2.0 before VOLUME);
+- **HI RES** can self-oscillate with RESO high (from a cutoff of about 350 Hz at full RESO, 2026-11-07, `docs/VOICE-303.md`). The clamps bound it, and S1's test bounds the peak (at most 2.0 before VOLUME);
   the unit gate listens for it.
 - **Bit-exactness on the MK66:** GCC contracts to FMA there (gnu++17). The objdump diff of S1 proves that the stock instantiations are
   today's code; after that, the unit is checked only by ear.

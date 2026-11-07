@@ -27,12 +27,18 @@ namespace {
 
 // Retaken on 2026-11-07 on x86-64 with glibc 2.39 from the Open303-based voice (the coupled TB_303 ladder at two sub-steps, the stock loop in
 // four passes) with the amplifier start of 4.4 ms, the 200 Hz floor of the cutoff on RANGE 303, the tanh square and the constants measured against the Din Sync
-// recording (VOICE-303.md, section 2): the sound changed on purpose (retaken twice on 2026-11-07, the second time for those constants).
+// recording (VOICE-303.md, section 2): the sound changed on purpose (retaken twice on 2026-11-07, the second time for those constants), and a third
+// time
+// the same day for the slide (a one pole of 22 ms in the octave domain, run once per control period with the increment ramped, VOICE-303.md section
+// 2).
+// A fourth time the same day for the feedback filter: the high-pass in the feedback loop at 15 Hz (150 Hz before) and the resonance rolled off
+// against
+// the cutoff, s = fc / sqrt(fc^2 + 500^2) on the feedback gain and on the output gain (kFbHpHz, kResRollHz, VOICE-303.md section 2).
 // A hash cannot say how far the bits moved: the stock and modded loops are compared sample by sample in acid_voice_behaviour_test.cpp.
 constexpr const char* kGlibc = "2.39";
-constexpr std::uint64_t kGoldenSaw = 0xe7d68ce891a940ceull;
-constexpr std::uint64_t kGoldenSqr = 0x03077abc50dda0acull;
-constexpr std::uint64_t kGoldenToggle = 0xed26b34ed845403bull;
+constexpr std::uint64_t kGoldenSaw = 0xb78dbb914889a5dbull;
+constexpr std::uint64_t kGoldenSqr = 0x67a2189a61ea6d6eull;
+constexpr std::uint64_t kGoldenToggle = 0x5601feb27342987cull;
 
 bool host_is_recorded(const char*& why) {
 #if defined(__x86_64__) && defined(__GLIBC__)
