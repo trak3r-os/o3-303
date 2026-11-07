@@ -3,6 +3,21 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## Unreleased
+
+The voice's note start, its cutoff range, its square and a set of constants, brought closer to a TB-303 by measuring one reference recording of one unit (Din Sync's "TB-303 reference recordings for x0xb0x builders", 2010; approximate knob positions, licence unstated, so it was measured and nothing was copied). It needs more testing: the host tests pass, and it still has to be heard on a unit.
+
+### What plays or sounds different
+
+- **Saved projects sound different.** The voice under the knobs has changed, so a project saved by v0.5.1 or earlier loads without an error and sounds different, on the same knob values. With MODS on, a project that has AMP DECAY at 1230 ms and ACC DECAY at 200 ms (the old defaults) keeps those two values, which are no longer the new defaults, so it plays a shorter amplifier decay (1.23 s against 1.43 s) and a longer accent decay (200 ms against 87 ms) than a new project does. With MODS off, or after setting the two to 1430 and 87, it plays the new stock sound.
+- **The new defaults.** ACC DECAY starts at 87 ms (was 200) and AMP DECAY at 1430 ms (was 1230); both ranges are the same. DECAY keeps its range and its default and is still a time constant in milliseconds.
+- **A note starts 4.4 ms late.** The sound of a note begins a few milliseconds after its gate while the filter's sweep has already started. It applies to every note that starts the voice from quiet, accented or not; a slide or a tied note does not have it. On a tail (the next step starts as the last one ends) the voice waits only as long as it takes to avoid a dip: 7 samples when the note ends and starts in the same frame, and none on an accent. An accent's loud part starts at once, without the delay. With SOFT ATK on a value, that value is the fade-in and there is no delay; RANGE FISH starts a note at once as before. All-notes-off during the wait stops the note with no blip.
+- **The accent, the square and the cutoff law follow the measurement.** An accent adds `max(0, 2.6 x ACCENT - 0.6)` to the amplifier and its filter sweep decays in 87 ms; the SQR wave is at 0.54 of the saw's level; the sweep's offset against the knob has a steeper slope; the filter can open to 10.4 kHz (the knob's range is the same). The line is a little quieter at the default Accent, and an accent's brightness at the default is lower than before.
+- **CUTOFF has a floor and a ceiling on RANGE 303.** The filter now plays 200 Hz to 2,394 Hz when RANGE is 303 (and with MODS off); RANGE FISH keeps the whole 25 Hz to 4,500 Hz. Roughly the bottom third of the knob (below about 200 Hz) and the top fifth (above about 2,400 Hz) now sound the same as the nearest end of that range. The knob still shows its own value in Hz. A saved project with a CUTOFF outside the range keeps its value, and plays the nearest end on RANGE 303; switch RANGE to FISH to hear it as before. The generated sounds of the vault are affected the same way: 54 of the 504 generated sounds (not the eight factory lines) sit below 200 Hz and 5 above 2,394 Hz, so they now play at the end of the range. When RANGE changes, the two ends of that range glide to their new places instead of jumping.
+- **The SQR wave has the shape of Open303's square.** A little rounder at the falling edge, with a duty near 47 %, a touch more aliasing at the highest notes (2 to 3 dB at C7 and C8 in a host measurement) and slightly less at low notes.
+- **The voice is quieter.** A note is about 2.4 dB lower than in v0.5.1, an accent about 3.5 dB and the SQR wave about 6.6 dB, at the same VOLUME. Raise VOLUME to compensate.
+- **The distortion models run hotter than GRIT.** Their levels were fitted on the earlier voice; with this one they sit about 1 to 2.4 dB above GRIT at the default and up to 3.4 dB across Drive. Their level table needs fitting again.
+
 ## v0.5.1 (2026-11-06), a pre-release
 
 A new voice. It needs more testing: on a unit its CPU was measured (render at most 49.8 % with everything on, 0 underruns) and a project saved by v0.5.0 loaded, but its sound still has to be

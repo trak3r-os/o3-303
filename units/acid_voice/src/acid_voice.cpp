@@ -112,7 +112,7 @@ constexpr o3sdk::core::ParamDesc kParams[AcidVoice::kParamCount] = {
     {"TUNE", "st", nullptr, nullptr, -12.0f, 12.0f, 0.0f, 240, 10, 0, ParamUnit::Fixed1, ParamCurve::Linear, 0, 0},
     {"VOLUME", "dB", nullptr, nullptr, -60.0f, 6.0f, -3.0f, 132, 4, 0, ParamUnit::Fixed1, ParamCurve::Linear, kSmooth, 0},
     // The mods (docs/MODS-PLAN.md 3.1): each default is the stock voice. Time rows are Log with a positive minimum.
-    {"ACC DECAY", "ms", nullptr, nullptr, 30.0f, 3000.0f, 200.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Log, 0, 0},
+    {"ACC DECAY", "ms", nullptr, nullptr, 30.0f, 3000.0f, 87.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Log, 0, 0},
     {"TRACKING", "%", nullptr, nullptr, 0.0f, 150.0f, 0.0f, 150, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0},
     {"SLIDE", "ms", nullptr, nullptr, 60.0f, 360.0f, 60.0f, 60, 10, 0, ParamUnit::Int, ParamCurve::Log, 0, 0},
     {"SOFT ATK", "", kSoftAtkNames, nullptr, 0.0f, 5.0f, 0.0f, 5, 1, 6, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
@@ -122,7 +122,7 @@ constexpr o3sdk::core::ParamDesc kParams[AcidVoice::kParamCount] = {
     {"MUFFLER", "", kMufflerNames, nullptr, 0.0f, 2.0f, 0.0f, 2, 1, 3, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"SWP SPEED", "", kSpeedNames, nullptr, 0.0f, 2.0f, 1.0f, 2, 1, 3, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"OVERDRIVE", "dB", nullptr, nullptr, -24.0f, 36.0f, 0.0f, 120, 4, 0, ParamUnit::Fixed1, ParamCurve::Linear, kSmooth, 0},
-    {"AMP DECAY", "ms", nullptr, nullptr, 16.0f, 4000.0f, 1230.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Log, 0, 0},
+    {"AMP DECAY", "ms", nullptr, nullptr, 16.0f, 4000.0f, 1430.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Log, 0, 0},
     {"STOCK", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"RANGE", "", kRangeNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"SUSTAIN", "%", nullptr, nullptr, 0.0f, 1.0f, 0.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, 0, 0},
@@ -134,13 +134,18 @@ constexpr dsp::UnitInfo kInfo{"ACID", dsp::UnitKind::Instrument, kParams, AcidVo
 // ---- Replicant 303: the oscillator -------------------------------------------------------------------------------------------
 constexpr float kPi = 3.14159265f;
 constexpr float kSawLevel = 0.95f;
-constexpr float kSqrLevel = 0.90f;
+constexpr float kSqrLevel = 0.54f;          // the square against the saw: 0.54 of its level, from the Din Sync recording (docs/VOICE-303.md 2)
 constexpr float kSqrDroopHz = 25.0f;        // the RC droop high-pass of the square
 constexpr float kMinCutoff = 25.0f;         // the knob's ends
 constexpr float kMaxCutoff = 4800.0f;
+constexpr float kLadderTopHz = 10400.0f;    // the top of the ladder's own cutoff (the envelope's reach, the accent and Tracking can go there). Open303 clamps at
+                                            // 20 kHz (its 4,800 Hz is Replicant's knob top), and the Din Sync recording shows the sweep past 9 kHz. 10.4 kHz is where
+                                            // the coefficient polynomials hold (valid up to pi/4 of the sub-step rate, rosic_TeeBeeFilter.h:115-117: about 11 kHz at
+                                            // 88.2 kHz) and where kB0Max sits, so the stock and the modded loop take the same step up to it
 
 // ---- Open303: what was measured on a TB-303 ------------------------------------------------------------------------------------
-constexpr float kSqrDuty = 0.4688f;         // the square: -tanh(dB2amp(36.9) saw + 4.37) crosses zero at saw = -0.0624
+constexpr float kSqrDrive = 69.984f;        // the square: -tanh(dB2amp(36.9) saw + 4.37) of the ramp: the zero crossing is at saw = -0.0624, 46.88 % of the period
+constexpr float kSqrBias = 4.37f;
 constexpr float kFbHpHz = 150.0f;           // TeeBeeFilter: the high-pass in the feedback path
 constexpr float kPreHpHz = 44.486f;         // highpass1: before the filter
 constexpr float kAllpassHz = 14.008f;       // allpass, highpass2 and notch: after it
@@ -149,17 +154,34 @@ constexpr float kNotchHz = 7.5164f;
 constexpr float kNotchTwoR = 4.9021f;       // the notch's bandwidth of 4.7 octaves: 2 sinh(ln 2 / 2 x 4.7), the damping of its state-variable form
 constexpr float kDeclickHz = 200.0f;        // ampDeClicker: a 12 dB low-pass of the amplifier's envelope, Q sqrt(0.5)
 constexpr float kDeclickDamp = 1.41421356f;
-constexpr float kMainToAmp = 0.45f;         // the filter envelope in the amplifier, on every note
-constexpr float kAccentToAmp = 4.0f;        // and on an accent, x Accent
-constexpr float kAccentTau = 0.200f;        // seconds: the filter envelope's decay on an accent (Whittle too)
-constexpr float kHoldTau = 1.230f;          // the amplifier's decay
+constexpr float kMainToAmp = 0.10f;         // the filter envelope in the amplifier, on every note
+constexpr float kAccentTau = 0.087f;        // seconds: the filter envelope's decay on an accent, 87 ms from the Din Sync recording (Whittle gives about 200 ms; v0.5.1 had Open303's 200)
+constexpr float kHoldTau = 1.430f;          // the amplifier's decay
+constexpr float kAmpDelay = 0.0044f;        // seconds: after a note's gate the amplifier's main input (the amplifier's decay and kMainToAmp of the filter
+                                            // envelope) stays down this long, then steps up; the de-clicker above is its rise. Measured on one recording of one unit
+                                            // (Whittle gives "a typical 4 ms delay and then a 3 ms attack time"). The accent's term is not delayed.
+// The accent's share in the amplifier, in the filter envelope's units: max(0, 2.6 a - 0.6) of the ACCENT knob a. Fitted to the Din Sync recording
+// (docs/VOICE-303.md 2): 0.3, 3.3, 5.5 and 7.3 dB at 25, 50, 75 and 100 % against the 303's -0.2, 3.6, 6.2 and 7.3. A line, not a power of the knob:
+// the knob does nothing at the bottom, then rises.
+inline float accent_to_amp(float a) noexcept {
+  const float b = 2.6f * a - 0.6f;
+  return b > 0.0f ? b : 0.0f;
+}
 constexpr float kReleaseTau = 0.003f;       // the end of a note: see kGateHold
 constexpr float kAccReleaseTau = 0.050f;    // and of an accented one
 constexpr float kSlideScale = 0.2f;         // the glide's time constant against the audible time of Slide (60 ms): Open303, and Whittle's reading of it
 constexpr float kCutoffFloorHz = 200.0f;    // TeeBeeFilter::setCutoff: the sweep stops here (the knob itself can go lower: a mod)
-constexpr float kLog2C0 = 8.2938f;          // log2 of c0 and c1, the nominal cutoff range the law was measured over
-constexpr float kInvLog2Span = 1.0f / (11.2255f - kLog2C0);
-constexpr float kLawOffF = 0.048292930943553f;
+constexpr float kLog2C0 = 8.2938f;          // log2 of c0 and c1, the nominal cutoff range the law was measured over (314 to 2,394 Hz)
+constexpr float kLog2C1 = 11.2255f;
+constexpr float kLog2KnobLo = 7.6438562f;   // log2(200 Hz): where RANGE 303 stops the knob from below. The law's c0 stays Open303's; this floor is fitted
+                                            // roughly to one recording of one unit (its bottom half sat near 200 to 250 Hz). The top, 2,394 Hz, is Open303's
+                                            // and agrees with that recording to within about 5 %.
+constexpr float kKnobSlew = 0.04f;          // octaves per control period (110 per second at 44.1 kHz) that the clamp's two ends move at after RANGE
+                                            // changes: 3 octaves take 27 ms (the FISH floor, 7.6 octaves, 69 ms). See clamp_slew().
+constexpr float kLog2FishLo = 0.0f;         // what the clamp's ends head for on RANGE FISH: beyond the knob's whole range (25 to 4,500 Hz)
+constexpr float kLog2FishHi = 14.0f;
+constexpr float kInvLog2Span = 1.0f / (kLog2C1 - kLog2C0);
+constexpr float kLawOffF = 0.15f;                  // the envelope's offset against the knob: Open303's 0.048292930943553, 0.15 from the Din Sync recording
 constexpr float kLawOffC = 0.294391201442418f;
 constexpr float kLawLoF = 3.773996325111173f;
 constexpr float kLawLoC = 0.736965594166206f;
@@ -194,11 +216,10 @@ constexpr float kLog2Ten20 = 0.16609640f;   // log2(10) / 20: dB to a power of t
 constexpr float kLadderBound = 2.0f;        // the level at which the ladder's input saturates: nearly linear on the oscillator, and it bounds HI RES and Overdrive
 constexpr float kInvLadderBound = 1.0f / kLadderBound;
 constexpr float kInvSqrt2 = 0.70710678f;
-constexpr float kAmpScale = 0.45f;          // the amplifier's gain: on the factory line an accent peaks just under full scale, and a note sits about 9 dB under it, as on the instrument
+constexpr float kAmpScale = 0.45f;          // the amplifier's gain: on the factory line an accent peaks just under full scale, and a note sits about 9 dB under it (read off the Din Sync recording)
 constexpr float kKnee = 0.9f;               // the output's ceiling: linear to here, then it bends towards 1. Nothing after the voice limits, and a bright accent has the reach to clip
 constexpr float kInvKneeRoom = 1.0f / (1.0f - kKnee);
 constexpr float kFishDeclickHz = 1500.0f;   // Devil Fish: notes start within 0.5 ms
-constexpr float kB0Max = 0.25f;             // the ladder's step at about 10 kHz: the ceiling of Filter FM's modulated step
 constexpr float kOscSeed = 1.0e-6f;         // into the modded ladder: with the oscillator off, something for HI RES to grow from
 
 // ---- the mods ----------------------------------------------------------------------------------------------------------------
@@ -315,13 +336,11 @@ inline float osc_sample(float& phase, float& hp, float inc, float hp_coeff) noex
   if constexpr (!Square) {
     return (2.0f * phase - 1.0f - poly_blep(phase, inc)) * kSawLevel;
   } else {
-    float sqr = phase < kSqrDuty ? 1.0f : -1.0f;
+    // Open303's square: -tanh(dB2amp(36.9) x saw + 4.37) of the ramp. The falling edge is the shaper's slope, about 4 % of a period wide, so it
+    // scales with the period; the rising edge at the wrap is a hard step, band-limited with poly_blep. The shaper is the saturating Pade
+    // (one division, only in the edge: the rest of the period is a compare). tanh_sat is off the true tanh by .0235 at most.
+    float sqr = -tanh_sat(kSqrDrive * (2.0f * phase - 1.0f) + kSqrBias);
     sqr += poly_blep(phase, inc);
-    float shifted = phase - kSqrDuty;
-    if (shifted < 0.0f) {
-      shifted += 1.0f;
-    }
-    sqr -= poly_blep(shifted, inc);
     const float out = hp_coeff * (hp + sqr);
     hp = out - sqr;
     return out * kSqrLevel;
@@ -395,8 +414,12 @@ void AcidVoice::update_range() noexcept {
   post_b_ = 0.5f * (1.0f + post_a_);
   notch_two_r_ = fish_ ? 0.0f : kNotchTwoR;
   declick_f_ = 2.0f * std::sin(kPi * (fish_ ? kFishDeclickHz : kDeclickHz) * inv_fs_);
+  clamp_lo_t_ = fish_ ? kLog2FishLo : kLog2KnobLo;
+  clamp_hi_t_ = fish_ ? kLog2FishHi : kLog2C1;
   update_law();
+  const bool fresh = fresh_;
   retune_filter();
+  fresh_ = fresh;  // a switch of RANGE (or of Stock) while playing moves the cutoff's law: the filter ramps to it over the period instead of jumping
 }
 
 void AcidVoice::set(std::uint16_t id, float v) noexcept {
@@ -457,11 +480,7 @@ void AcidVoice::set_mod(std::uint16_t id, float v) noexcept {
     const bool on = (v - v == 0.0f) && v >= 0.5f;  // a number that is not finite is OFF
     if (on != stock_) {
       stock_ = on;
-      const bool fresh = fresh_;
-      refresh_mods();
-      if (on) {
-        fresh_ = fresh;  // from the mods, loud and with the filter far away: it ramps over the next control period, as a jump of its gain clicks
-      }
+      refresh_mods();  // update_range() inside keeps fresh_: the filter ramps over the next control period, as a jump of its gain clicks
     }
     return;
   }
@@ -574,7 +593,7 @@ void AcidVoice::apply_mod(unsigned id) noexcept {
 void AcidVoice::snap() noexcept {
   jump(accent_, accent_.target);
   jump(volume_, volume_.target);
-  accent_boost_ = kAccentToAmp * accent_.target;
+  accent_boost_ = accent_to_amp(accent_.target);
   gain_ = volume_.target;
 
   // The mods' ramps are at their targets from the first sample, as a fresh voice has them.
@@ -602,7 +621,7 @@ void AcidVoice::prepare(float sample_rate) noexcept {
   fs_ = sample_rate < 1000.0f ? 1000.0f : sample_rate;
   inv_fs_ = 1.0f / fs_;
   smooth_k_ = 1.0f - std::exp(-static_cast<float>(kControlPeriod) * inv_fs_ / kSmoothTau);
-  x_max_ = o3sdk::core::log2_fast(kMaxCutoff);
+  x_max_ = o3sdk::core::log2_fast(kLadderTopHz);
   x_min_ = o3sdk::core::log2_fast(kMinCutoff);
   x_floor_ = o3sdk::core::log2_fast(kCutoffFloorHz);
   fx_scale_ = kInvSqrt2 * 0.5f * inv_fs_;  // fc / (sqrt 2 x the sub-step's rate): Open303's fx
@@ -626,6 +645,7 @@ void AcidVoice::prepare(float sample_rate) noexcept {
   release_acc_c_ = std::exp(-inv_fs_ / kAccReleaseTau);
   release_fish_c_ = std::exp(-inv_fs_ / kFishReleaseTau);
   gate_hold_ = static_cast<std::uint16_t>(kGateHold * fs_ + 0.5f);
+  start_wait_n_ = static_cast<std::uint16_t>(kAmpDelay * fs_ + 0.5f);
   sw_rate_normal_ = static_cast<float>(kControlPeriod) * inv_fs_ / kSweepTau;
   sw_rate_slow_ = static_cast<float>(kControlPeriod) * inv_fs_ / kSweepSlowTau;
   sw_rate_ = sw_rate_normal_;
@@ -676,6 +696,8 @@ void AcidVoice::prepare(float sample_rate) noexcept {
     set(static_cast<std::uint16_t>(p), kParams[p].def);
   }
   snap();  // the defaults are in use from the first sample
+  clamp_lo_ = clamp_lo_t_;
+  clamp_hi_ = clamp_hi_t_;
 
   phase_ = 0.0f;
   sqr_hp_ = 0.0f;
@@ -702,6 +724,8 @@ void AcidVoice::prepare(float sample_rate) noexcept {
   released_ = true;
   gate_wait_ = 0;
   since_control_ = 0;
+  start_g_ = 1.0f;
+  start_wait_ = 0;
   amp_lift_ = 0.0f;
   gate_ = false;
   has_accent_ = false;
@@ -762,6 +786,26 @@ void AcidVoice::note_on(std::uint8_t note, bool accent, bool slide) noexcept {
   } else {
     att_ = 1.0f;
   }
+  // A note that starts the voice is late: the amplifier's main input stays down kAmpDelay (start_pass()). The accent's share is not delayed, so
+  // at ACCENT 0 an accented note starts as a plain one. That delay belongs to Soft Atk OFF: on a plain note a Soft Atk value is the attack itself,
+  // with no delay (an accented note has no Soft Atk, so it keeps the delay). RANGE FISH starts at once. A legato or sliding note keeps its
+  // start (and one already under way keeps running). A restart while the last note still sounds holds the input at the de-clicker's level and
+  // waits the part of the delay that is left to climb, so nothing jumps.
+  if (!legato) {
+    start_g_ = 1.0f;
+    start_wait_ = 0;
+    if ((accent || att_idx_ == 0u) && !fish_) {
+      const float g0 = clampf(dk_lp_ * (1.0f / (1.0f + kMainToAmp)), 0.0f, 1.0f);
+      if (g0 < 1.0f) {
+        start_g_ = g0;
+        start_wait_ = static_cast<std::uint16_t>(static_cast<float>(start_wait_n_) * (1.0f - g0));
+      }
+    }
+  }
+  if (!legato) {
+    clamp_lo_ = clamp_lo_t_;  // a note starts from the clamp's place: the filter is set from its first sample as it is
+    clamp_hi_ = clamp_hi_t_;
+  }
   fresh_ = true;
   ctl_ = 0;  // the filter follows the new envelopes from the first sample
   since_control_ = 0;  // what passed before the note is not the note's: the sweep starts from here, wherever the period had got to
@@ -791,6 +835,14 @@ void AcidVoice::all_notes_off() noexcept {
   held_count_ = 0;
   gate_ = false;
   gate_wait_ = 0;
+  if (start_wait_ != 0u) {
+    // A note's start under way ends with the note: the delayed input would arrive after the silence as a blip of a note nobody holds (a tail
+    // restart keeps the de-clicker's level and lets it fall). The envelopes the held input was waiting to let through go to zero with it.
+    vca_ = 0.0f;
+    vcf_ = 0.0f;
+  }
+  start_wait_ = 0;
+  start_g_ = 1.0f;
 }
 
 void AcidVoice::apply(const dsp::Event& e) noexcept {
@@ -823,14 +875,18 @@ void AcidVoice::ladder_coeffs(float x, float& b, float& k, float& g) const noexc
   k = k17 * fb_r_;
 }
 
-// What the mods that live at the control rate add to the cutoff, in octaves of log2(Hz): the base, with Tracking's term when it is on.
-// Never a zero term at stock: track_on_ is false there, and the result is cutoff_l2_ itself.
+// The cutoff the filter is set from, in octaves of log2(Hz): the knob, with Tracking's term when it is on. With RANGE 303 (and at STOCK, which is
+// RANGE 303) the knob reads from 200 to 2,394 Hz: below it the filter stays at the low end, above it at the high one. (update_law() reads the
+// law over Open303's 314 to 2,394 Hz and clamps there by itself.) RANGE FISH has the knob's whole range. The clamp's two ends are not set at
+// once by a switch of RANGE: they slew to their new places (clamp_slew(), 30 ms for 3 octaves), as a step of the cutoff with the knob low
+// (or high) would be a click of its own.
 float AcidVoice::cutoff_base() const noexcept {
+  const float knob = clampf(cutoff_l2_, clamp_lo_, clamp_hi_);
   if (!track_on_) {
-    return cutoff_l2_;
+    return knob;
   }
   const float hz = pitch_hz_ > 1.0f ? pitch_hz_ : 1.0f;
-  const float b = cutoff_l2_ + track_ * (o3sdk::core::log2_fast(hz) - kLog2C2);
+  const float b = knob + track_ * (o3sdk::core::log2_fast(hz) - kLog2C2);
   return b < kLog2MinCutoff ? kLog2MinCutoff : b;
 }
 
@@ -961,6 +1017,14 @@ void AcidVoice::advance_mods() noexcept {
   modded_ = mods_needed();
 }
 
+// The clamp's two ends, toward the places RANGE gives them, at kKnobSlew per control period.
+void AcidVoice::clamp_slew(std::uint16_t elapsed) noexcept {
+  const float d = kKnobSlew * static_cast<float>(elapsed) * (1.0f / static_cast<float>(kControlPeriod));
+  const float lo = clamp_lo_t_ - clamp_lo_, hi = clamp_hi_t_ - clamp_hi_;
+  clamp_lo_ = lo > d ? clamp_lo_ + d : (lo < -d ? clamp_lo_ - d : clamp_lo_t_);
+  clamp_hi_ = hi > d ? clamp_hi_ + d : (hi < -d ? clamp_hi_ - d : clamp_hi_t_);
+}
+
 void AcidVoice::control() noexcept {
   // What runs on time goes by the samples since the last call: a parameter that moves every block calls this early (retune_filter()).
   const std::uint16_t elapsed = since_control_;
@@ -979,7 +1043,7 @@ void AcidVoice::control() noexcept {
   }
 
   if (accent_.moving) {
-    accent_boost_ = kAccentToAmp * step(accent_, 1.0e-4f);
+    accent_boost_ = accent_to_amp(step(accent_, 1.0e-4f));
   }
   if (volume_.moving) {
     gain_ = step(volume_, 1.0e-6f);
@@ -1001,6 +1065,7 @@ void AcidVoice::control() noexcept {
   // The cutoff, Open303::getSample: knob x 2^(scale x (env - offset) + accent lift). The sweep stops at the floor, or at the knob if the knob is lower.
   // It is computed for the end of the period and the filter ramps to it, so the coefficients are right at every period boundary; after a
   // note-on they start from the values at the first sample instead of from the old ones.
+  clamp_slew(elapsed);
   const float base = cutoff_base();  // cutoff_l2_ at stock; Tracking adds its term
   const float lo = base < x_floor_ ? base : x_floor_;
   if (fresh_) {
@@ -1020,6 +1085,48 @@ void AcidVoice::control() noexcept {
 }
 
 // ---- audio --------------------------------------------------------------------------------------------------------------------
+
+// The envelopes of one control period while a note's start is under way (start_wait_ != 0): the modded loop's second pass, with the
+// amplifier's main input held at start_g_ and the accent's share (the lift above the main envelope's) as it is. Used by both loops, so MODS
+// off and Soft Atk OFF sound the same. It runs for the first 5 ms of a note, so it is not counted in the loops' budget.
+void AcidVoice::start_pass(float* amp, std::uint32_t n) noexcept {
+  float vcf = vcf_;
+  float vca = vca_;
+  float att = att_;
+  const float vcf_c = has_accent_ ? accent_coeff_ : decay_coeff_;
+  const float vca_c = released_ ? (fish_ ? release_fish_c_ : (has_accent_ ? release_acc_c_ : release_c_)) : hold_coeff_;
+  const float vca_add = released_ ? 0.0f : sustain_ * (1.0f - hold_coeff_);
+  const float att_c = att_c_;
+  const float lift = amp_lift_;
+  float dlp = dk_lp_, dbp = dk_bp_;
+  const float dkf = declick_f_;
+  const float held = start_g_;
+  std::uint16_t wait = start_wait_;
+  const float lift_main = released_ ? 0.0f : kMainToAmp;
+  const float lift_acc = lift - lift_main;
+  for (std::uint32_t i = 0; i < n; ++i) {
+    vcf *= vcf_c;
+    vca = vca * vca_c + vca_add;
+    att += (1.0f - att) * att_c;
+    float g = 1.0f;
+    if (wait != 0u) {
+      --wait;
+      g = held;
+    }
+    dlp += dkf * dbp;
+    dbp += dkf * (g * (vca + lift_main * vcf) + lift_acc * vcf - dlp - kDeclickDamp * dbp);
+    amp[i] = dlp * att * kAmpScale;
+  }
+  vcf_ = vcf;
+  vca_ = vca;
+  att_ = att;
+  dk_lp_ = dlp;
+  dk_bp_ = dbp;
+  start_wait_ = wait;
+  if (wait == 0u) {
+    start_g_ = 1.0f;
+  }
+}
 
 template <bool Square, bool Modded>
 void AcidVoice::run(float* out, std::uint32_t n) noexcept {
@@ -1053,7 +1160,9 @@ void AcidVoice::run(float* out, std::uint32_t n) noexcept {
       pre_x_ = px;
       pre_y_ = py;
     }
-    {
+    if (__builtin_expect(start_wait_ != 0u, 0)) {
+      start_pass(amp, n);  // the first milliseconds of a plain note
+    } else {
       // The envelopes, and the amplifier through its de-clicker (a state-variable low-pass).
       float vcf = vcf_;
       float vca = vca_;
@@ -1171,7 +1280,9 @@ void AcidVoice::run(float* out, std::uint32_t n) noexcept {
       pre_x_ = px;
       pre_y_ = py;
     }
-    {
+    if (__builtin_expect(start_wait_ != 0u, 0)) {
+      start_pass(amp, n);
+    } else {
       float vcf = vcf_;
       float vca = vca_;
       float att = att_;

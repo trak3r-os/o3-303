@@ -320,7 +320,9 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   while (first_sound < frames && take[first_sound * 2] == 0 && take[first_sound * 2 + 1] == 0) {
     ++first_sound;
   }
-  CHECK(first_sound <= 1u);  // the voice's first sample is exactly 0 (its filters start at rest); a block early would be 64 or more
+  // The voice holds its amplifier down for 4.4 ms (194 samples at 44.1 kHz, kAmpDelay) on a note that starts it from quiet, so the first step's first sound is one exact sample, which this pins
+  // (measured: 195, the 194 samples of the delay and one more: the first sample after the note starts): a block (64 frames) early would read 64 less, and a change of kAmpDelay or of the de-clicker moves it.
+  CHECK(first_sound == 195u);
   std::size_t out_first = 0;
   while (out_first < out.size() / 2 && out[out_first * 2] == 0 && out[out_first * 2 + 1] == 0) {
     ++out_first;

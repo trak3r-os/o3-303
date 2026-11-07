@@ -10,8 +10,10 @@
 //     and the way a note starts and ends.
 //   * Open303 by Robin Schmidt (MIT): the coupled four-pole ladder of TeeBeeFilter (TB_303 mode) with its fitted step, feedback and gain, the
 //     150 Hz high-pass in the feedback, the measured law of the cutoff against Cutoff, Env Mod and the envelope, the high-passes, all-pass and
-//     notch around the filter, the amplifier (the filter envelope in it, 0.45 on every note and 4 x Accent on an accent, through a 200 Hz
-//     de-clicker), the accent decay of 200 ms and the amplifier decay of 1,230 ms.
+//     notch around the filter, the amplifier's structure (the filter envelope in it, through a 200 Hz de-clicker).
+//   * One recording of one TB-303 (Din Sync, "TB-303 reference recordings for x0xb0x builders", http://dinsync.info, 2010), measured, nothing
+//     copied: the amplifier's 4.4 ms start, the filter envelope's share in it (0.10), the accent's share (max(0, 2.6 Accent - 0.6)), the accent
+//     decay of 87 ms, the amplifier decay of 1,430 ms, the square's level, the cutoff's range and the law's offset. docs/VOICE-303.md section 2.
 //   * Robin Whittle's published text on the TB-303 and the Devil Fish: the accent sweep circuit, with C13 keeping its charge between accents; a
 //     slide of 60 ms being the audible time, not the time constant; the 8 ms hold after the gate; the mods' ranges.
 // The difference from Open303, to fit the Cortex-M4F: two sub-steps a sample where it has four (the peak moves under 3 % against sixteen), no
@@ -26,11 +28,11 @@
 //   2 Env Mod 0..1 (shown as %), default 0.6                                      6 Tune    semitones, -12..+12
 //   3 Decay   ms, 30..3000 (the filter envelope's time constant; a TB-303 200..2000) 7 Volume  dB, -60..+6; at or below -59.5 silence
 // The mods (docs/MODS-PLAN.md section 3, appended after Volume). Each default is the TB-303: at their stock values the stock loop runs.
-//   8 Acc Decay  ms, 30..3000 (Log), 200  the filter envelope's decay on an accent        14 Acc Sweep  0 OFF, 1 NORMAL, 2 HI RES
+//   8 Acc Decay  ms, 30..3000 (Log), 87   the filter envelope's decay on an accent        14 Acc Sweep  0 OFF, 1 NORMAL, 2 HI RES
 //   9 Tracking   %, 0..150, 0             the cutoff follows the note's pitch            15 Muffler    0 OFF, 1 SOFT, 2 HARD
 //  10 Slide      ms, 60..360 (Log), 60    the glide's audible time                       16 Swp Speed  0 FAST, 1 NORMAL, 2 SLOW
 //  11 Soft Atk   0 OFF, 1..5 = 0.3, 1, 3,                                               17 Overdrive  dB, -24..+36, 0; the bottom is none at all
-//                10, 30 ms (non-accented notes fade in)                                 18 Amp Decay  ms, 16..4000 (Log), 1230 (the amplifier's decay)
+//                10, 30 ms (non-accented notes fade in)                                 18 Amp Decay  ms, 16..4000 (Log), 1430 (the amplifier's decay)
 //  12 Sub Osc    0 OFF, 1 LOW, 2 MID, 3 HIGH (a square an octave down)                  19 Stock      0 OFF, 1 ON: every mod at its stock value
 //  13 Filter FM  0..1 (shown as %), 0    the output frequency-modulates the filter      20 Range      0 303, 1 FISH: Env Mod from zero to three times the
 //  21 Sustain    0..1 (shown as %), 0    the level the amplifier decays to                            top, the bass of the Devil Fish, a note's end at the gate
@@ -40,10 +42,16 @@
 // Events. NoteOn: dsp::kNoteAccent is the accent; dsp::kNoteSlide, or a NoteOn while another note is held, glides from the sounding pitch
 // without retriggering the envelopes. NoteOff ends the note, 8 ms later and in about 8 ms (an accent in 50 ms), only when it names the note that
 // holds the gate: a slide's NoteOn before the old note's NoteOff leaves the gate open. AllNotesOff releases at once. The note stack holds
-// kHeld notes.
+// kHeld notes. A NoteOn that starts the voice from quiet (not legato or a slide) holds the amplifier's main input down for 4.4 ms (kAmpDelay,
+// measured on one recording of one unit; Whittle gives 4 ms and then a 3 ms attack): the filter envelope and the accent's share start at the gate.
+// The rule is "from quiet": on a tail that still sounds (a NoteOn after a NoteOff, or in the same frame as one, which is how the sequencer
+// writes a full gate) the input is held at the de-clicker's level and waits only the part of the delay still to climb, so nothing dips: the
+// louder the tail, the shorter the delay, and none on a tail at full level. Soft Atk on a value replaces the delay with that attack; RANGE FISH
+// has neither. AllNotesOff cancels a start under way.
 //
-// Cost: not measured on a unit yet: the CPU % of the render there is the figure. An estimate from the cross build's disassembly: about 335 cycles a sample on the stock SAW loop's usual path,
-// before the control period's share, with two divisions a sample where the voice before this had thirteen.
+// Cost: the CPU % of the render on a unit is the figure. The unit figures in docs/hw/2026-11-06-v051.md are those of the v0.5.1 voice; the CPU of this
+// build (the amplifier's start, the cutoff's floor and top, the square) is owed: it is not measured on a unit yet. An estimate from the cross build's
+// disassembly: see docs/VOICE-303.md section 4.
 
 #include <o3sdk/dsp/smooth.h>
 #include <o3sdk/dsp/unit.h>
@@ -121,11 +129,16 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   float tail_estimate() const noexcept;
   bool mods_needed() const noexcept;
   float cutoff_base() const noexcept;
+  void clamp_slew(std::uint16_t elapsed) noexcept;
+  void start_pass(float* amp, std::uint32_t n) noexcept;
 
   float fs_ = 44100.0f;
   float inv_fs_ = 1.0f / 44100.0f;
   float smooth_k_ = 0.02f;      // the smoothing coefficient per control period
-  float x_max_ = 13.0f;         // log2 of the highest and lowest cutoff, and of the floor of the sweep
+  // The ladder's step b at the top of the cutoff (10.4 kHz, 0.2507 at 44.1 kHz): the ceiling of Filter FM's modulated step. It sits on the top's own
+  // step, so the cap never changes the stock loop's step (which has none) and MODS on and off agree up to the top.
+  static constexpr float kB0Max = 0.2508f;
+  float x_max_ = 13.3443f;        // log2 of the highest (10.4 kHz) and lowest cutoff, and of the floor of the sweep
   float x_min_ = 4.6f;
   float x_floor_ = 7.6f;
   float fx_scale_ = 0.0f;       // Hz to Open303's fx at the sub-step's rate
@@ -133,6 +146,10 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   // Parameters as the user set them (targets) and as the voice uses them (smoothed).
   // Taken at once, as the original does (a jump of these changes the response, not the signal path: the filter states stay continuous):
   float cutoff_l2_ = 8.0f;      // log2 of the base cutoff in Hz
+  float clamp_lo_ = 7.6438562f; // the ends the knob is clamped between (log2 Hz), and where RANGE sends them: they slew there (clamp_slew()) and
+  float clamp_hi_ = 11.2255f;   // are set at once by a note that does not slide. prepare() sets them to RANGE 303's
+  float clamp_lo_t_ = 7.6438562f;
+  float clamp_hi_t_ = 11.2255f;
   float env_mod_ = 0.0f;        // Env Mod, 0..1
   float env_scale_ = 0.0f;      // the law from the two knobs: octaves per unit of envelope, and the envelope's value at which the cutoff is the knob's
   float env_off_ = 0.0f;
@@ -183,6 +200,15 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   std::uint16_t gate_hold_ = 353;      // kGateHold, in samples
   std::uint16_t gate_wait_ = 0;        // samples left of it
   std::uint16_t since_control_ = 0;    // samples since control() last ran: it runs early when a parameter moves
+  // The start of a note that starts the voice (not legato or a slide, not RANGE FISH, and for a plain note Soft Atk OFF): the amplifier's main
+  // input is held at start_g_ (0 on a silent voice) for start_wait_ samples (kAmpDelay), then steps to 1; the accent's term is not held. The
+  // de-clicker is the rise. A restart on a voice that still sounds holds the input at the de-clicker's level and waits less, so nothing jumps:
+  // the delay applies from quiet, on a tail only what avoids a dip. all_notes_off() clears it.
+  // Counted in samples inside the loops, never by control(), which may run early. Written by note_on() and start_pass() only, on the one audio
+  // context.
+  float start_g_ = 1.0f;
+  std::uint16_t start_wait_ = 0;
+  std::uint16_t start_wait_n_ = 194;   // kAmpDelay, in samples at 44.1 kHz (prepare() sets it)
   bool gate_ = false;
   bool released_ = true;
   bool has_accent_ = false;
@@ -196,7 +222,7 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   // Engine (SynthEngine): the held notes (the last is the one sounding) and the control period.
   std::uint8_t held_[kHeld] = {};
   std::uint8_t held_count_ = 0;
-  float accent_boost_ = 0.0f;   // Accent x 4, smoothed: the filter envelope's extra share of the amplifier on an accent
+  float accent_boost_ = 0.0f;   // accent_to_amp(Accent), smoothed: the filter envelope's extra share of the amplifier on an accent
   float gain_ = 0.0f;
   std::uint32_t ctl_ = 0;       // samples left until the next control()
   bool fresh_ = true;           // a note started: the next control() sets the coefficient to its value at once instead of ramping

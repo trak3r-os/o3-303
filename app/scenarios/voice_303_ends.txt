@@ -1,0 +1,28 @@
+# The 303 voice's note start, cutoff ends and square (docs/VOICE-303.md): the factory line at its default (CUTOFF 350 Hz, SAW: every note starts 4.4 ms late),
+# then CUTOFF turned to the bottom of the knob (on RANGE 303 the filter holds at 200 Hz from about a third of the travel down) and to the top (it holds at
+# 2,394 Hz from about four fifths up), then WAVE on SQR (the VOICE page's F6). The screens show the knob's own value in Hz, not the Hz heard. The WAV is the
+# evidence: `voice_303_ends.wav` starts at the first Play; the sections begin at about 0 s, 3.84 s (low), 7.68 s (high), 11.5 s (square).
+wait 300
+tap params
+record on
+tap play
+wait 3500
+snap 01_plain
+tap f1
+turn -100
+turn -100
+turn -100
+wait 3500
+snap 02_cutoff_bottom
+turn 100
+turn 100
+turn 100
+wait 3800
+snap 03_cutoff_top
+tap f6
+turn 1
+wait 3800
+snap 04_square
+tap play
+wait 600
+wav voice_303_ends

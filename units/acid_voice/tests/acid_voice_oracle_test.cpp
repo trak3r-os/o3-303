@@ -6,9 +6,22 @@
 //      The voice's input level is its own, so one constant (the median difference in dB) is fitted per cell and must be the same over the
 //      grid; what is checked is the shape: the peak's frequency and height, and every line within a tolerance.
 //  (b) the cutoff law: the voice's envelope scale and offset against Open303::calculateEnvModScalerAndOffset, to float accuracy.
-//  (c) the amplifier: the peak of an accented note over the peak of a plain one, against 0.45 and 4 x Accent.
+//  (c) the amplifier: the peak of an accented note over the peak of a plain one, against (1 + main + boost) / (1 + main) of the voice's own constants.
 //  (d) the output's all-pass, high-pass and notch: the same comparison at 16.35 Hz, where they decide the shape.
+//  (e) the ladder's coefficients: the voice's b, k and g (ladder_coeffs) against TeeBeeFilter's calculateCoefficientsApprox4 in double at twice the
+//      sample rate, at 201 cutoffs from the floor to the top (10.4 kHz), Reso 0, 0.3, 0.7 and 1, with and without HI RES: to 1e-6 (2.6e-7 measured), and kB0Max
+//      against the b of the top (0.2507).
 // Not compared: the envelopes' shapes and the oscillator (the voice's are its own, tested in acid_voice_engine_test and the mods test).
+//
+// Deviations from Open303, each fitted to the Din Sync recording (docs/VOICE-303.md 2, "Deviations from Open303") and each carried into the
+// reference of this file as a named constant, so that what is still Open303's is still compared exactly and nothing is loosened:
+//  - the law's offset: 0.15 x c + 0.2943912 (c: where the knob sits between 314 and 2,394 Hz, 0..1) where Open303 has 0.048292930943553 x c +
+//    0.2943912. (b) adds the difference to the reference's offset, and (a) settles the reference's filter at the voice's cutoff, not Open303's.
+//    What (b) no longer proves is that the offset's slope in c is Open303's; the scale, and the offset at c = 0, still are.
+//  - the amplifier's accent share: the filter envelope is in the amplifier at 0.10 (Open303: 0.45) and the accent adds max(0, 2.6 Accent - 0.6)
+//    (Open303: 4 Accent). (c) takes both into its wanted ratio. What it no longer proves is Open303's 0.45 and 4; it still proves the structure:
+//    the accent's share adds to the main input's at the same weight, at any knob position, to 4 %.
+//  The start delay, the square's level, the accent and hold time constants are not in the paths compared here.
 #include <doctest/doctest.h>
 
 #include "acid_voice_access.h"
@@ -97,6 +110,30 @@ struct LawProbe : rosic::Open303 {
 };
 
 
+// Open303's own coefficients (TeeBeeFilter::calculateCoefficientsApprox4 in TB_303 mode, in double) at a cutoff and a Resonance: the step b0, the
+// feedback k and the output gain g (without getSample's factor 2).
+struct CoeffProbe : rosic::TeeBeeFilter {
+  void at(double hz, double reso_percent, double& b, double& kk, double& gg) {
+    setMode(TB_303);
+    setSampleRate(2.0 * kFs);  // the voice runs two sub-steps per sample
+    setResonance(reso_percent, false);
+    cutoff = hz;  // set directly: setCutoff() floors at 200 Hz, the voice's floor is 25 Hz (a deviation of its own, docs/VOICE-303.md)
+    calculateCoefficientsApprox4();
+    b = b0;
+    kk = k;
+    gg = g;
+  }
+};
+
+// The law's offset slope in c: the voice's 0.15 against Open303's 0.048292930943553 (Din Sync recording).
+constexpr double kLawOffFDelta = 0.15 - 0.048292930943553;
+
+// c of the law: where the knob sits over c0..c1 on a log scale, as the voice reads it (kLog2C0 and kLog2C1 are the voice's own rounded values).
+double law_c(double clamped_cutoff) {
+  const double c = (std::log2(clamped_cutoff) - 8.2938) / (11.2255 - 8.2938);
+  return std::min(std::max(c, 0.0), 1.0);
+}
+
 // The cutoff the voice settles at on a plain note once its filter envelope has fallen to nothing: the knob, lowered by the law's offset
 // (Open303: cutoff x 2^(scaler x (env - offset)), env = 0), held at the same floor.
 double settled_cutoff(double knob, double env_mod) {
@@ -104,7 +141,9 @@ double settled_cutoff(double knob, double env_mod) {
   constexpr double kC1 = 2.394411986817546e+003;
   LawProbe open;
   double scaler = 0.0, offset = 0.0;
-  open.law(std::min(std::max(knob, kC0), kC1), 100.0 * env_mod, scaler, offset);
+  const double cl = std::min(std::max(knob, kC0), kC1);
+  open.law(cl, 100.0 * env_mod, scaler, offset);
+  offset += kLawOffFDelta * law_c(cl);  // the voice's offset slope, not Open303's (the filter itself is compared at the same cutoff)
   return std::max(knob * std::pow(2.0, -scaler * offset), std::min(knob, 200.0));
 }
 
@@ -268,18 +307,74 @@ TEST_CASE("oracle (b): the cutoff law is Open303's, inside c0..c1 and clamped ou
         const double got_scale = static_cast<double>(o3_303::AcidVoiceTestAccess::env_scale(r.voice));
         const double got_off = static_cast<double>(o3_303::AcidVoiceTestAccess::env_off(r.voice));
         const double es = std::fabs(got_scale - want_scale);
-        const double eo = std::fabs(got_off - offset);
+        // Open303's offset plus the one documented deviation (a slope in c, 0 at c = 0).
+        const double want_off = offset + kLawOffFDelta * law_c(cl);
+        const double eo = std::fabs(got_off - want_off);
         probe("law: scale err, offset err, scale", es, eo, want_scale);
         worst = std::max(worst, std::max(es, eo));
         CHECK(es < 2e-5 * (1.0 + std::fabs(want_scale)));
         CHECK(eo < 2e-5);
+        if (cl <= kC0) {
+          CHECK(std::fabs(got_off - offset) < 2e-5);  // at c = 0 the offset is Open303's own, undeviated
+        }
       }
     }
   }
   probe("law: worst", worst);
 }
 
-TEST_CASE("oracle (c): an accented note peaks at (1 + 0.45 + 4 Accent) / (1 + 0.45) of a plain one, the amplifier of Open303") {
+TEST_CASE("oracle (e): the ladder's step, feedback and gain are Open303's, in double, from the floor to the 10.4 kHz top, and the step cap sits on the top's own step") {
+  // The voice's float polynomials (acid_voice.cpp ladder_coeffs) against TeeBeeFilter::calculateCoefficientsApprox4 at 2 x 44.1 kHz (the voice's sub-step rate), TB_303 mode, in double, at the
+  // same cutoff (2^x Hz, x the float the voice takes). They differ by the float rounding of the polynomials and by exp2_fast (relative error under 1e-7), so the
+  // tolerance is small. The voice's top is 10.4 kHz because the approximations hold only up to a normalised cutoff of pi/4 (88.2 kHz: about 11 kHz), and Open303's
+  // polynomials are the exact reference there, which a looser check (a bound on the response) could not be.
+  constexpr int kN = 200;
+  double worst_b = 0.0, worst_k = 0.0, worst_g = 0.0, top_b = 0.0;
+  for (const float reso : {0.0f, 0.3f, 0.7f, 1.0f}) {
+    for (const float acc_sweep : {0.0f, 2.0f}) {  // ACC SWEEP ON and HI RES (the feedback doubled)
+      Rig r;
+      r.set(AcidVoice::Reso, reso);
+      r.set(AcidVoice::AccSweep, acc_sweep);
+      (void)r.render(64);
+      const double xmin = static_cast<double>(o3_303::AcidVoiceTestAccess::x_min(r.voice));
+      const double xmax = static_cast<double>(o3_303::AcidVoiceTestAccess::x_max(r.voice));
+      const double fb_scale = acc_sweep == 2.0f ? 2.0 : 1.0;
+      CoeffProbe open;
+      for (int i = 0; i <= kN; ++i) {
+        const float x = static_cast<float>(xmin + (xmax - xmin) * static_cast<double>(i) / kN);
+        float b = 0.0f, k = 0.0f, g = 0.0f;
+        o3_303::AcidVoiceTestAccess::coeffs(r.voice, x, b, k, g);
+        double ob = 0.0, ok = 0.0, og = 0.0;
+        open.at(std::exp2(static_cast<double>(x)), 100.0 * static_cast<double>(reso), ob, ok, og);
+        worst_b = std::max(worst_b, std::fabs(static_cast<double>(b) - ob) / ob);
+        worst_g = std::max(worst_g, std::fabs(static_cast<double>(g) - 2.0 * og) / (2.0 * og));
+        if (reso > 0.0f) {
+          worst_k = std::max(worst_k, std::fabs(static_cast<double>(k) - fb_scale * ok) / (fb_scale * ok));
+        } else {
+          CHECK(k == 0.0f);
+        }
+        if (i == kN) top_b = ob;
+      }
+      // Above the top the voice holds the top's coefficients.
+      float b1 = 0.0f, k1 = 0.0f, g1 = 0.0f, b2 = 0.0f, k2 = 0.0f, g2 = 0.0f;
+      o3_303::AcidVoiceTestAccess::coeffs(r.voice, static_cast<float>(xmax), b1, k1, g1);
+      o3_303::AcidVoiceTestAccess::coeffs(r.voice, static_cast<float>(xmax) + 2.0f, b2, k2, g2);
+      CHECK(b1 == b2);
+      CHECK(k1 == k2);
+      CHECK(g1 == g2);
+    }
+  }
+  probe("coefficients: worst relative error b, k, g (x 1e6)", worst_b * 1e6, worst_k * 1e6, worst_g * 1e6);
+  probe("coefficients: Open303's b at the top, kB0Max", top_b, static_cast<double>(o3_303::AcidVoiceTestAccess::kB0Max));
+  CHECK(worst_b < 1e-6);  // 2.5e-7 measured: float rounding and exp2_fast
+  CHECK(worst_k < 1e-6);  // 1.9e-7
+  CHECK(worst_g < 1e-6);  // 2.6e-7
+  // The step cap of Filter FM's modulated step (the modded loop's only) is the top's own step with a trace of room, so it never changes the stock loop's step.
+  CHECK(static_cast<double>(o3_303::AcidVoiceTestAccess::kB0Max) >= top_b);
+  CHECK(static_cast<double>(o3_303::AcidVoiceTestAccess::kB0Max) < top_b * 1.002);
+}
+
+TEST_CASE("oracle (c): an accented note peaks at (1 + 0.10 + boost) / (1 + 0.10) of a plain one, boost = max(0, 2.6 Accent - 0.6): Open303's amplifier with the Din Sync constants") {
   const auto peak_of_note = [](bool accent, float accent_amt) {
     Rig r;
     r.set(AcidVoice::Wave, 0.0f);
@@ -300,7 +395,9 @@ TEST_CASE("oracle (c): an accented note peaks at (1 + 0.45 + 4 Accent) / (1 + 0.
   for (const float a : {0.0f, 0.35f, 0.7f, 1.0f}) {
     const double plain = peak_of_note(false, a);
     const double acc = peak_of_note(true, a);
-    const double want = (1.0 + 0.45 + 4.0 * static_cast<double>(a)) / (1.0 + 0.45);
+    // Open303: (1 + 0.45 + 4 a) / (1.45). The voice's two constants are fitted to the Din Sync recording; the structure is Open303's.
+    const double boost = std::max(0.0, 2.6 * static_cast<double>(a) - 0.6);
+    const double want = (1.0 + 0.10 + boost) / (1.0 + 0.10);
     probe("amp: accent, ratio, wanted", static_cast<double>(a), acc / plain, want);
     REQUIRE(plain > 0.01);
     CHECK(acc / plain == doctest::Approx(want).epsilon(0.04));

@@ -471,8 +471,8 @@ speeds' time constants, the height of the accent's sweep); the ranges and the st
 | Mod | Where | What you hear | Range | Stock |
 |---|---|---|---|---|
 | SOFT ATK | NOTES F1 | Non-accented notes fade in over the time. OFF is the plain 303's quick attack. Accents and slides keep it | OFF, 0.3, 1, 3, 10, 30 ms | OFF |
-| ACC DECAY | NOTES F3 | How long the filter's envelope lasts on an accented note. Normal notes keep DECAY | 30 to 3000 ms | 200 ms |
-| AMP DECAY | NOTES F4 | How fast a held note loses its level. Short values give plucks | 16 to 4000 ms | 1230 ms |
+| ACC DECAY | NOTES F3 | How long the filter's envelope lasts on an accented note. Normal notes keep DECAY | 30 to 3000 ms | 87 ms |
+| AMP DECAY | NOTES F4 | How fast a held note loses its level. Short values give plucks | 16 to 4000 ms | 1430 ms |
 | SLIDE | NOTES F5 | The time a slide takes to reach the note | 60 to 360 ms | 60 ms |
 | ACC SWEEP | NOTES F6 | OFF: accents do not sweep the filter. NORMAL: the plain 303. HI RES: the sweep with doubled feedback, and the filter can whistle by itself at mid and high cutoffs | OFF, NORMAL, HI RES | NORMAL |
 | SWP SPEED | NOTES F7 | How a run of accents builds the sweep. FAST: the first accent is the strongest and the next ones smaller. NORMAL: the plain 303, where RESO decides: low, each accent is a quick pulse; high, the sweep rises late and each close accent climbs higher. SLOW: it rises later, up to twice as high, and takes longer to settle | FAST, NORMAL, SLOW | NORMAL |

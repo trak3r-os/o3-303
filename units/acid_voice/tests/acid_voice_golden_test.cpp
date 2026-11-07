@@ -25,13 +25,14 @@ using namespace acid_voice_test;
 
 namespace {
 
-// Recorded on 2026-11-06 on x86-64 with glibc 2.39 from the Open303-based voice (the coupled TB_303 ladder at two sub-steps, the stock loop in
-// four passes), in Debug and in Release. A hash cannot say how far the bits moved: the stock and modded loops are compared sample by sample in
-// acid_voice_behaviour_test.cpp.
+// Retaken on 2026-11-07 on x86-64 with glibc 2.39 from the Open303-based voice (the coupled TB_303 ladder at two sub-steps, the stock loop in
+// four passes) with the amplifier start of 4.4 ms, the 200 Hz floor of the cutoff on RANGE 303, the tanh square and the constants measured against the Din Sync
+// recording (VOICE-303.md, section 2): the sound changed on purpose (retaken twice on 2026-11-07, the second time for those constants).
+// A hash cannot say how far the bits moved: the stock and modded loops are compared sample by sample in acid_voice_behaviour_test.cpp.
 constexpr const char* kGlibc = "2.39";
-constexpr std::uint64_t kGoldenSaw = 0x7b86e03248ad82b4ull;
-constexpr std::uint64_t kGoldenSqr = 0x87275e3afb2d33d6ull;
-constexpr std::uint64_t kGoldenToggle = 0xfbadaf4bbe8037c3ull;
+constexpr std::uint64_t kGoldenSaw = 0xe7d68ce891a940ceull;
+constexpr std::uint64_t kGoldenSqr = 0x03077abc50dda0acull;
+constexpr std::uint64_t kGoldenToggle = 0xed26b34ed845403bull;
 
 bool host_is_recorded(const char*& why) {
 #if defined(__x86_64__) && defined(__GLIBC__)

@@ -645,7 +645,7 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[2].label[1], "SLIDE") == 0);
   CHECK(std::strcmp(v.section[2].label[2], "SUB") == 0);
   CHECK(std::strcmp(v.section[2].label[3], "MODS") == 0);
-  CHECK(std::strcmp(v.section[2].value[0], "200ms") == 0);  // the stock values
+  CHECK(std::strcmp(v.section[2].value[0], "87ms") == 0);  // the stock values
   CHECK(std::strcmp(v.section[2].value[1], "60ms") == 0);
   CHECK(std::strcmp(v.section[2].value[2], "OFF") == 0);
   CHECK(std::strcmp(v.section[2].value[3], "ON") == 0);  // MODS: heard at boot

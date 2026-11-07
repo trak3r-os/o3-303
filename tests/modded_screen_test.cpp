@@ -516,9 +516,9 @@ TEST_CASE("STOCK is off at boot and again after a LOAD, NEW, REVERT and RESET PR
   REQUIRE(s.settled());
   CHECK_FALSE(s.stock());
   CHECK_FALSE(s.chip());
-  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(200.0f));
+  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(87.0f));
 
-  // LOAD (the session is MODB now, so MODA is read from the card and not the session's own): STOCK ends, and the mod is its stored value (not stock's 200 ms).
+  // LOAD (the session is MODB now, so MODA is read from the card and not the session's own): STOCK ends, and the mod is its stored value (not stock's 87 ms).
   (void)s.h->engine().set_param(kVoice, AcidVoice::AccDecay, 300.0f);
   stock_on();
   REQUIRE(app_project().load("MODA"));
@@ -542,7 +542,7 @@ TEST_CASE("STOCK is off at boot and again after a LOAD, NEW, REVERT and RESET PR
   s.wait(600);  // the reset waits for the transport to stop
   CHECK_FALSE(s.stock());
   CHECK_FALSE(s.chip());
-  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(200.0f));
+  CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(87.0f));
 }
 
 // ---- WOBBLE's F8 and LiveActions::toggle_latch() -----------------------------------------------------------------------------------------
