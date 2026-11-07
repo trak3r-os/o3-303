@@ -49,9 +49,9 @@
 // louder the tail, the shorter the delay, and none on a tail at full level. Soft Atk on a value replaces the delay with that attack; RANGE FISH
 // has neither. AllNotesOff cancels a start under way.
 //
-// Cost: the CPU % of the render on a unit is the figure. The unit figures in docs/hw/2026-11-06-v051.md are those of the v0.5.1 voice; the CPU of this
-// build (the amplifier's start, the cutoff's floor and top, the square) is owed: it is not measured on a unit yet. An estimate from the cross build's
-// disassembly: see docs/VOICE-303.md section 4.
+// Cost: the CPU % of the render on a unit is the figure. The unit figures of this build (the amplifier's start, the cutoff's floor and top, the square)
+// are in docs/hw/2026-11-07-de6704f.md, those of the v0.5.1 voice in docs/hw/2026-11-06-v051.md. An estimate from the cross build's disassembly: see
+// docs/VOICE-303.md section 4.
 
 #include <o3sdk/dsp/smooth.h>
 #include <o3sdk/dsp/unit.h>

@@ -4,7 +4,7 @@ The maintainer asked on 2026-11-06 for "el sonido mas identico a la 303 de rolan
 changed in `units/acid_voice` to get there, where each number comes from, what was measured, and what is still not known. It replaces the
 rule "Stock is today" of `docs/MODS-PLAN.md`: stock is now a TB-303.
 
-Status: built, and it needs more testing on a unit. The render's CPU of v0.5.1 was measured on the unit (`docs/hw/2026-11-06-v051.md`); the Unreleased changes (section 2, "Deviations from Open303") are not measured there yet. The other figures below come from the simulator and the cross
+Status: built, and it needs more testing on a unit. The render's CPU of v0.5.1 was measured on the unit (`docs/hw/2026-11-06-v051.md`); that of the Unreleased changes (section 2, "Deviations from Open303") in `docs/hw/2026-11-07-de6704f.md`. The other figures below come from the simulator and the cross
 build. Section 6 lists what is still owed.
 
 ## 1. Why the voice changed
@@ -125,15 +125,15 @@ registers. The old voice's loop counted 424 to 443 cycles, but that count takes 
 Counted the same way the new function is about 700, which includes code that runs once a control period or only at a wrap. The modded loops cost
 more than the stock loop.
 
-Measured on the unit (`docs/hw/2026-11-06-v051.md`), on one saved project at 142 BPM: render max 39.7 % with the mods, growl and wobble off, and 49.8 % with the mods, growl, wobble,
+The v0.5.1 voice, measured on the unit (`docs/hw/2026-11-06-v051.md`), on one saved project at 142 BPM: render max 39.7 % with the mods, growl and wobble off, and 49.8 % with the mods, growl, wobble,
 distortion and delay all on, with 0 underruns.
 
-The note start, the cutoff floor, the tanh square and the Din Sync constants (Unreleased) are estimates from the cross build, not measured. The stock SAW loop's passes are the same instructions as above, so its
+What follows on the note start, the cutoff floor, the tanh square and the Din Sync constants (Unreleased) are estimates from the cross build; the unit's figure for them is at the end of this paragraph. The stock SAW loop's passes are the same instructions as above, so its
 usual path stays near 335 cycles a sample. The amplifier's start adds a fifth short pass (`start_pass`, about 20 cycles a sample, my count of its 0x158 bytes) only for the 194 samples
 after a note starts the voice: under 1 cycle a sample on average at 125 BPM with 16th notes. The cutoff's clamp is two compares a control period. The stock SQR loop's oscillator
 pass has 9 more instructions than the SAW's (48 against 39 in the body, the `run<true,false>` and `run<false,false>` disassembly), so SQR costs about 10 cycles a sample more on the usual path, and the shaper's
 division (a Pade tanh) runs in the edge, about 4 % of the samples at any pitch: another 1 to 2 cycles a sample on average. The cross build has no double helper (`nm` on the linked image and on the unit's archive
-find no `__aeabi_d*`). The unit's render CPU for this build is the check still owed.
+find no `__aeabi_d*`). On the unit, on the same project, this voice's render reads at most 47.8 %, 35.7 % with the mods, growl and wobble off and 44.3 % with everything on, with 0 underruns (`docs/hw/2026-11-07-de6704f.md`).
 
 ### The Din Sync recording
 
