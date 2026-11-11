@@ -27,16 +27,16 @@ constexpr unsigned kHeldMs = 1500;
 
 TEST_CASE("B6 held Left with an F key held keeps stepping its knob, a tap steps it once") {
   Hands t;
-  const float start = t.param(kVoice, AcidVoice::Cutoff);
-  t.press(Button::F1);  // CUTOFF
+  const float start = t.param(kVoice, AcidVoice::Reso);
+  t.press(Button::F2);  // RESO: CUTOFF (F1) stops at the live floor of 200 Hz (F1 of the review), a repeat would hit it
   t.tap(Button::Left);
-  const float once = t.param(kVoice, AcidVoice::Cutoff);
+  const float once = t.param(kVoice, AcidVoice::Reso);
   CHECK(once < start);
   t.press(Button::Left);
   t.wait(kHeldMs);
   t.release(Button::Left);
-  const float held = t.param(kVoice, AcidVoice::Cutoff);
-  t.release(Button::F1);
+  const float held = t.param(kVoice, AcidVoice::Reso);
+  t.release(Button::F2);
   CHECK(held < once - (start - once) * 1.5f);  // the press and at least two repeats more than a tap
 }
 
