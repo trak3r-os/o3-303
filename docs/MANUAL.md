@@ -336,7 +336,8 @@ saved in the project (an older project loads with the defaults); snapshots do no
 #### Long patterns
 
 A pattern of 32 or 64 steps has pages of 16. The step pads show the page the cursor is on; while the line plays they follow the step
-playing.
+playing. A tap on a step pad, or Left or Right to another page, while it plays holds the pads on that page (the title says PAGE n
+HELD) so you can work on it; Stop, or a change of pattern, gives the follow back.
 
 ### PATTERN SETUP
 

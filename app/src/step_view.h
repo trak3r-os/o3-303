@@ -31,6 +31,7 @@ inline constexpr int kPointW = kCellW / 4;
 // What the view marks besides the pattern.
 struct Marks {
   int page = 0;                 // the page of 16 steps shown
+  bool page_held = false;       // playing, and the page was pinned by the player (F4): the label says HELD
   int cursor = -1;              // global step of the cursor, -1 none
   int playhead = -1;            // global step the playhead is on (only when this pattern is playing), -1 none
   int playpoint = 0;            // the playhead's quarter of its step, for the motion lane

@@ -153,6 +153,7 @@ void HomeMap::init(Rig& rig) noexcept {
   cursor_ = 0;
   view_page_ = 0;
   last_play_page_ = -1;
+  page_held_ = false;
   lane_ = 0;
   on_lane_ = false;
   knob_ = Entry{};
@@ -363,13 +364,17 @@ void HomeMap::update(app::Context& ctx) noexcept {
     if (ph.pattern >= 0 && static_cast<unsigned>(ph.pattern) != sel()) {
       rig_->bank->select(static_cast<unsigned>(ph.pattern));
       clamp_cursor();
+      page_held_ = false;  // another pattern: the pinned page meant the old one
     }
     if (ph.step >= 0 && ph.step / 16 != last_play_page_) {
       last_play_page_ = ph.step / 16;
-      view_page_ = last_play_page_;
+      if (!page_held_) {
+        view_page_ = last_play_page_;
+      }
     }
   } else {
     last_play_page_ = -1;
+    page_held_ = false;
   }
   if (pattern_down_ && !overlay_ && ctx.uptime_ms() - pattern_down_ms_ >= kHoldMs) {
     overlay_ = true;
@@ -505,6 +510,9 @@ void HomeMap::step_press(app::Context& ctx, unsigned k) noexcept {
   }
   held_step_[k] = s;
   step_used_[k] = false;
+  if (playing_ && length() > 16u) {
+    page_held_ = true;  // F4: a tap on a page pins it, the playhead no longer takes the pads away
+  }
   // A modifier held alone: the step pads are its TR-style switches.
   const std::uint8_t flag = modifier_flag_down();
   if (flag != 0u) {
@@ -968,7 +976,11 @@ void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
       (void)rig_->bank->rotate(sel(), d);
       toast(ctx, d > 0 ? "ROTATED RIGHT" : "ROTATED LEFT");
     } else {
+      const int page_before = view_page_;
       move_cursor(ctx, wrap(cursor_ + d, static_cast<int>(length())));
+      if (playing_ && view_page_ != page_before) {
+        page_held_ = true;  // F4: crossing a page edge by hand pins the page it lands on
+      }
     }
     return;
   }
@@ -1279,6 +1291,7 @@ view::Marks HomeMap::drawer(app::Context& ctx) const noexcept {
   const unsigned len = length();
   view::Marks m;
   m.page = view_page_;
+  m.page_held = page_held_ && playing_ && length() > 16u;
   m.cursor = cursor_;
   m.playhead = ph.playing && ph.pattern == static_cast<int>(sel()) ? ph.step : -1;
   m.playpoint = ph.point;

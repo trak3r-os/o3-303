@@ -198,11 +198,17 @@ void draw_steps(ui::Renderer& r, const Rect& area, const Pattern& p, const Marks
   }
   const int page_count = static_cast<int>((len + 15u) / 16u);
   if (page_count > 1) {
-    char label[10] = "PAGE ";
+    char label[16] = "PAGE ";
     unsigned n = 5;
     n += fmt_uint(static_cast<unsigned>(m.page + 1), label + n);
     label[n++] = '/';
     n += fmt_uint(static_cast<unsigned>(page_count), label + n);
+    if (m.page_held) {
+      static constexpr char kHeld[] = " HELD";
+      for (unsigned i = 0; kHeld[i] != '\0'; ++i) {
+        label[n++] = kHeld[i];
+      }
+    }
     label[n] = '\0';
     r.text(gx + 3, g.numbers.y + 3, label, Color::TextDim, Face::Micro);
   }

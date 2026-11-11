@@ -25,6 +25,9 @@ hear says so in plain words.
   round (A, B, C, B, C ...: the pattern that was playing is not part of the round) until a single tap with Pattern held replaces the chain.
   Before, the chain played once and its last pattern then repeated for ever. One queued pattern behaves as before. Nothing in a saved
   project changes.
+- **In a long pattern the step pads stay on the page you chose while it plays.** A tap on a step pad, or Left or Right across a page
+  edge, holds the pads on that page ("PAGE 2 HELD" in the title); before, they jumped to the playhead's page under your fingers.
+  Stop or a change of pattern gives the follow back (Shift + Left/Right is ROTATE and does not).
 
 ## v0.6.1 (2026-11-09), a pre-release
 

@@ -207,6 +207,7 @@ class HomeMap {
   int cursor_ = 0;
   int view_page_ = 0;
   int last_play_page_ = -1;
+  bool page_held_ = false;  // F4: while playing, the step pads stay on the page the player chose (main loop only; Stop or another pattern gives the follow back)
   unsigned lane_ = 0;
   bool on_lane_ = false;
   Entry knob_;  // the knob the encoder owns (knob_latched)

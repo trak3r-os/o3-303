@@ -69,6 +69,56 @@ TEST_CASE("playing, taps with Pattern held queue the next pattern and several ta
   CHECK_FALSE(t.h->engine().playing());
 }
 
+namespace {
+
+// Is a step pad lit as the playhead's? (The page the pads show is the only one that can hold the playhead.)
+// The cursor's own pad blinks On as well, so it is skipped: `cursor_pad` is its index on the page.
+bool playhead_on_pads(Hands& t, unsigned cursor_pad) {
+  for (unsigned k = 0; k < 16; ++k) {
+    if (k != cursor_pad && t.led(step_pad_of(k)) == app::kLedOn) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}  // namespace
+
+TEST_CASE("long patterns, F4: a tap on a step pins the page while the line plays; Stop gives the follow back") {
+  Hands t;
+  t.length_steps(1);  // 32 steps: two pages, a little under 4 s a pass
+  REQUIRE(t.pat().length == 32);
+  t.tap(Button::Play);
+  t.wait(300);
+  t.pad(step_pad_of(4));  // page 1 pinned
+  t.wait(2200);           // the playhead is on page 2
+  CHECK_FALSE(playhead_on_pads(t, 4));
+  t.wait(2200);           // and back on page 1: the pads show it again
+  CHECK(playhead_on_pads(t, 4));
+  t.tap(Button::Play);    // Stop
+  t.wait(50);
+  t.tap(Button::Play);
+  t.wait(2400);           // the page is not pinned any more: the pads went to page 2 with the playhead (the cursor is on page 1)
+  CHECK(playhead_on_pads(t, 99));
+  t.tap(Button::Play);
+}
+
+TEST_CASE("long patterns, F4: Left across the page edge pins the page it lands on") {
+  Hands t;
+  t.length_steps(1);
+  REQUIRE(t.pat().length == 32);
+  t.tap(Button::Play);
+  t.wait(300);
+  t.tap(Button::Left);  // from step 1 round to step 32: page 2, while the playhead is on page 1
+  t.wait(30);
+  CHECK_FALSE(playhead_on_pads(t, 15));
+  t.wait(2000);         // the playhead reaches page 2: the page is the pinned one
+  CHECK(playhead_on_pads(t, 15));
+  t.wait(2000);         // and leaves it again: the pads stay
+  CHECK_FALSE(playhead_on_pads(t, 15));
+  t.tap(Button::Play);
+}
+
 TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the playhead take the page along") {
   Hands t;
   t.length_steps(1);  // PATTERN SETUP's LENGTH up (today's DOUBLE): 32 steps
