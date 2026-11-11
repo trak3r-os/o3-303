@@ -373,39 +373,46 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
 // A take of n bars at a tempo whose sixteenths are whole samples (125 BPM: 5,292; 150 BPM: 4,410). The recorder ends it at the n x 16th Step event and the take is the frames between two
 // steps. The transport reaches a whole tick at the first frame whose position is AT OR PAST it; since o3-sdk's "Exact landing" (a Q32.64 position, kit-fix1) a grid that is exactly whole
 // samples lands on them, so a take that begins at Play's first sample is exactly n bars, and so is one that begins at a later bar line. (Before it the first was n bars + 1: U5 rows 24 and 33.)
-TEST_CASE("a take of 1, 2, 4 and 8 bars is exactly n bars, from Play's first sample and from a later bar line, at two tempos with whole-sample sixteenths") {
-  for (const std::uint32_t mbpm : {125'000u, 150'000u}) {
-    for (const unsigned bars : {1u, 2u, 4u, 8u}) {
-      const std::uint32_t bar = bar_frames(mbpm);
-      REQUIRE(bar % 16u == 0u);  // whole-sample sixteenths
-      INFO("tempo " << mbpm << " bars " << bars);
-      {  // armed on a stopped transport: the take begins at Play's frame 0
-        Session s;
-        REQUIRE(s.h->engine().set_tempo(mbpm));
-        s.open_record();
-        s.choose_bars(bars);
-        s.tap(Button::F1);
-        REQUIRE(s.rec().state() == State::Waiting);
-        s.tap(Button::Play);
-        REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, bars * 2200u));
-        CHECK(s.rec().frames() == bars * bar);
-        CHECK(s.rec().overrun() == 0u);
-      }
-      {  // armed while the line plays: the take begins at a later bar line
-        Session s;
-        REQUIRE(s.h->engine().set_tempo(mbpm));
-        s.open_record();
-        s.choose_bars(bars);
-        s.tap(Button::Play);
-        s.tap(Button::F1);
-        REQUIRE(s.rec().state() == State::Waiting);
-        REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, (bars + 1u) * 2200u));
-        CHECK(s.rec().frames() == bars * bar);
-        CHECK(s.rec().overrun() == 0u);
-      }
-    }
+// A take of n bars is exactly n bars, from Play's first sample and from a later bar line, at a tempo whose sixteenths are whole samples. One test case for each
+// bar count and tempo (the 8 bar takes are most of this file's time; they are spread over the shards by their place in the file), so that the shards of the file (O3SDK_TEST_SHARD) can run them apart.
+static void take_is_exactly_n_bars(const std::uint32_t mbpm, const unsigned bars) {
+  const std::uint32_t bar = bar_frames(mbpm);
+  REQUIRE(bar % 16u == 0u);  // whole-sample sixteenths
+  INFO("tempo " << mbpm << " bars " << bars);
+  {  // armed on a stopped transport: the take begins at Play's frame 0
+    Session s;
+    REQUIRE(s.h->engine().set_tempo(mbpm));
+    s.open_record();
+    s.choose_bars(bars);
+    s.tap(Button::F1);
+    REQUIRE(s.rec().state() == State::Waiting);
+    s.tap(Button::Play);
+    REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, bars * 2200u));
+    CHECK(s.rec().frames() == bars * bar);
+    CHECK(s.rec().overrun() == 0u);
+  }
+  {  // armed while the line plays: the take begins at a later bar line
+    Session s;
+    REQUIRE(s.h->engine().set_tempo(mbpm));
+    s.open_record();
+    s.choose_bars(bars);
+    s.tap(Button::Play);
+    s.tap(Button::F1);
+    REQUIRE(s.rec().state() == State::Waiting);
+    REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, (bars + 1u) * 2200u));
+    CHECK(s.rec().frames() == bars * bar);
+    CHECK(s.rec().overrun() == 0u);
   }
 }
+
+TEST_CASE("a take of 1 bar is exactly 1 bar long, from Play's first sample and from a later bar line, at 125 BPM") { take_is_exactly_n_bars(125000u, 1u); }
+TEST_CASE("a take of 8 bars is exactly 8 bars long, from Play's first sample and from a later bar line, at 125 BPM") { take_is_exactly_n_bars(125000u, 8u); }
+TEST_CASE("a take of 1 bar is exactly 1 bar long, from Play's first sample and from a later bar line, at 150 BPM") { take_is_exactly_n_bars(150000u, 1u); }
+TEST_CASE("a take of 8 bars is exactly 8 bars long, from Play's first sample and from a later bar line, at 150 BPM") { take_is_exactly_n_bars(150000u, 8u); }
+TEST_CASE("a take of 4 bars is exactly 4 bars long, from Play's first sample and from a later bar line, at 125 BPM") { take_is_exactly_n_bars(125000u, 4u); }
+TEST_CASE("a take of 4 bars is exactly 4 bars long, from Play's first sample and from a later bar line, at 150 BPM") { take_is_exactly_n_bars(150000u, 4u); }
+TEST_CASE("a take of 2 bars is exactly 2 bars long, from Play's first sample and from a later bar line, at 125 BPM") { take_is_exactly_n_bars(125000u, 2u); }
+TEST_CASE("a take of 2 bars is exactly 2 bars long, from Play's first sample and from a later bar line, at 150 BPM") { take_is_exactly_n_bars(150000u, 2u); }
 
 TEST_CASE("a take armed while the line plays starts at the next bar, not before") {
   Session s;

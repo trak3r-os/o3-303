@@ -31,7 +31,8 @@ namespace fs = std::filesystem;
 
 namespace {
 
-// O3_303_SCENARIO_SHARD="i/n" (tests/CMakeLists.txt runs three ctests): this process takes the i-th of n shares. Unset: everything.
+// O3_303_SCENARIO_SHARD="i/n" (tests/CMakeLists.txt runs six ctests): this process takes the i-th of n shares. Unset: everything.
+// O3_303_SCENARIO_LIST=<file>: instead of running, append the name of each scenario this share takes to that file (o3_303_shard_coverage).
 struct Shard {
   unsigned i = 0;
   unsigned n = 1;
@@ -199,10 +200,15 @@ TEST_CASE("scenarios: every one runs, writes its pictures and its WAV, and every
 
   // A directory of this run's own (the process id): ctest runs from several engineers at once must not remove each other's pictures.
   const fs::path out = fs::temp_directory_path() / ("o3_303_scenarios_test_" + std::to_string(static_cast<long>(getpid())));
+  const char* const list_file = std::getenv("O3_303_SCENARIO_LIST");
   for (std::size_t k = 0; k < files.size(); ++k) {
     const fs::path& file = files[k];
     const bool is_stock = file.stem().string().rfind("mods_stock", 0) == 0;
     if ((is_stock ? stock_index : k) % shard.n != shard.i) {
+      continue;
+    }
+    if (list_file != nullptr) {  // list mode (the coverage guard, tests/CMakeLists.txt): name the scenario this share takes and run nothing
+      std::ofstream(list_file, std::ios::app) << file.filename().string() << '\n';
       continue;
     }
     ran_stock = ran_stock || is_stock;

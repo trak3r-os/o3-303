@@ -23,6 +23,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -1156,18 +1157,64 @@ void length_trial(Session& s, unsigned k, unsigned j, bool from_instrument, bool
 
 }  // namespace
 
-TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3)") {
+namespace {
+
+// The trials of one share (the instrument screen or the pads, the transport playing or stopped, a group of k): how many UNDOs landed inside the staged
+// encode and inside the write. Each share is its own test case, so that o3_303_tests can run them apart (they were one case of 60 trials, 3 minutes alone).
+struct Landed {
+  unsigned encode = 0;
+  unsigned write = 0;
+};
+
+Landed length_trials(const bool instrument, const bool playing, const std::initializer_list<unsigned> ks) {
   Session s(true, 1'000);
   s.run(500);
-  for (const bool instrument : {false, true}) {
-    for (const bool playing : {false, true}) {
-      for (const unsigned k : {0u, 1u, 3u, 8u, 40u}) {
-        for (const unsigned j : {0u, 2u, 15u}) {
-          length_trial(s, k, j, instrument, playing);
-        }
-      }
+  Landed landed;
+  for (const unsigned k : ks) {
+    for (const unsigned j : {0u, 2u, 15u}) {
+      const unsigned encode = g_mid_encode;
+      const unsigned write = g_mid_write;
+      length_trial(s, k, j, instrument, playing);
+      landed.encode += g_mid_encode - encode;
+      landed.write += g_mid_write - write;
     }
   }
-  CHECK(g_mid_encode >= 10u);  // the trials did land inside the staged encode
-  CHECK(g_mid_write >= 3u);    // and inside the write
+  return landed;
+}
+
+}  // namespace
+
+// k = 0, 1, 3: the UNDO comes in the first milliseconds of the encode, and all nine trials land inside it; k = 8, 40: later, k = 8 still inside the encode and
+// k = 40 inside the write (the three j each; the checks ask for one). The checks are the same guard as the single case had, per share: the trials did land inside the staged encode and the write.
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), pads, stopped, early UNDO") {
+  CHECK(length_trials(false, false, {0u, 1u, 3u}).encode >= 6u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), pads, stopped, late UNDO") {
+  const Landed landed = length_trials(false, false, {8u, 40u});
+  CHECK(landed.encode >= 1u);
+  CHECK(landed.write >= 1u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), pads, playing, early UNDO") {
+  CHECK(length_trials(false, true, {0u, 1u, 3u}).encode >= 6u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), pads, playing, late UNDO") {
+  const Landed landed = length_trials(false, true, {8u, 40u});
+  CHECK(landed.encode >= 1u);
+  CHECK(landed.write >= 1u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), instrument, stopped, early UNDO") {
+  CHECK(length_trials(true, false, {0u, 1u, 3u}).encode >= 6u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), instrument, stopped, late UNDO") {
+  const Landed landed = length_trials(true, false, {8u, 40u});
+  CHECK(landed.encode >= 1u);
+  CHECK(landed.write >= 1u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), instrument, playing, early UNDO") {
+  CHECK(length_trials(true, true, {0u, 1u, 3u}).encode >= 6u);
+}
+TEST_CASE("project service: LEN 64 saved after a length change, an UNDO mid-encode and a SAVE comes back at LEN 64 (U3), instrument, playing, late UNDO") {
+  const Landed landed = length_trials(true, true, {8u, 40u});
+  CHECK(landed.encode >= 1u);
+  CHECK(landed.write >= 1u);
 }
