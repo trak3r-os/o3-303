@@ -549,6 +549,54 @@ TEST_CASE("STOCK is off at boot, after a NEW, REVERT and RESET PROJECT, and a LO
   CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(87.0f));
 }
 
+TEST_CASE("a new project starts with eight factory snapshots: a boot, NEW and RESET PROJECT give them, a LOAD of a project saved without any keeps its empty slots (REVIEW I4)") {
+  Session s;
+  const auto all_used = [] {
+    for (unsigned i = 0; i < kSnapSlots; ++i) {
+      if (!app_snapshots().used(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+  const auto none_used = [] {
+    for (unsigned i = 0; i < kSnapSlots; ++i) {
+      if (app_snapshots().used(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+  CHECK(all_used());  // the first boot
+
+  // An old project: saved with no snapshot at all.
+  app_snapshots().clear();
+  REQUIRE(app_project().save_as("OLDS"));
+  REQUIRE(s.settled());
+  app_project().want_list(true);
+  app_project().refresh_list();
+  s.wait(300);
+  REQUIRE(s.settled());
+  REQUIRE(app_project().list_valid());
+
+  // NEW: the eight are there again (the outgoing project OLDS was saved as it was).
+  REQUIRE(app_project().new_project("NEWS"));
+  REQUIRE(s.settled());
+  CHECK(all_used());
+  CHECK(app_snapshots().stored(0, 0) == doctest::Approx(s.param(AcidVoice::Cutoff)));  // slot 1 is the sound the project starts with
+
+  // LOAD of the old project: its empty slots stay empty, nothing is installed over them.
+  REQUIRE(app_project().load("OLDS"));
+  REQUIRE(s.settled());
+  CHECK(none_used());
+
+  // RESET PROJECT installs them again, even over a project that has none.
+  o3sdk_app().config_run(s.h->runtime().context(), config::kResetProject);
+  REQUIRE(s.settled());
+  s.wait(600);  // the reset waits for the transport to stop
+  CHECK(all_used());
+}
+
 // ---- WOBBLE's F8 and LiveActions::toggle_latch() -----------------------------------------------------------------------------------------
 
 TEST_CASE("WOBBLE F8 latches and releases PERFORM's WOB action: a colour button's latch is cleared, a screen change keeps it, ALL OFF lets it go") {

@@ -6,7 +6,8 @@ wait 300
 # Sound 1: the sound as it is, stored on pad 1 of row 2 (Shift + pad 12).
 tap performance
 wait 100
-snap 01_snapshots_empty
+# A new project starts with eight factory snapshots (REVIEW I4): row 2 shows eight dim lamps, and Shift + a pad overwrites one.
+snap 01_snapshots_factory
 press shift
 pad 12 60
 release shift
@@ -52,9 +53,7 @@ snap 07_morph_start_is_snapshot_1
 turn 32
 wait 300
 snap 08_morph_end_is_snapshot_2
-# An empty pad says so; Shift + turn is the coarse step.
-pad 16 60
-snap 09_empty_pad
+# Shift + turn is the coarse step.
 press shift
 turn -2
 release shift

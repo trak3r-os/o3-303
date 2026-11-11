@@ -397,6 +397,10 @@ stores the sound as it is. A tap recalls it, and then the encoder morphs between
 ENC window says MORPH 1>2 50%). The first recall morphs from the sound as it was: recalling snapshot 2 first reads MORPH LIVE>2 100%.
 An empty slot says so and does nothing. Snapshots are saved with the project.
 
+A new project (first start, NEW and RESET PROJECT) starts with all eight filled, so the pads play at once: **1** the sound as it is, **2** CLOSED DUB (a dark, short saw with a quarter-note delay),
+**3** SCREAMER (high resonance, a big envelope and a little tube), **4** HOLLOW (the square wave), **5** OVERDRIVEN (the voice's overdrive and the grit up), **6** LONG (long decays), **7** FISH (RANGE FISH with
+the Devil Fish mods on) and **8** GROWL (the growl on). Shift + a pad replaces any of them. A project you saved before keeps its own snapshots, empty ones included.
+
 ![PERFORM after snapshot 2 was recalled: pad 2 green, SNAP 2 RECALLED in the PAGE window and MORPH 1>2 50% in the ENC window](manual/img/perform-morph.png)
 
 *Snapshot 2 recalled, the encoder halfway back towards snapshot 1.*

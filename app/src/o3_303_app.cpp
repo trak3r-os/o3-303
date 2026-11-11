@@ -202,6 +202,7 @@ class O3_303App final : public app::App {
     rig_.bank->clear_history();  // the boot load is no edit of the user's: the first UNDO must not empty A01
 
     live_.init(rig_);
+    o3_303::install_factory_snapshots(e, rig_);  // a first boot's eight snapshots (REVIEW I4), after live_.init has emptied the bank; a project read from the card replaces them with its own
     config_.init(live_, project_);  // the values it holds start at their defaults; the kit's settings read (after setup) then set them
     main_.init(rig_);
     perform_.init(rig_, main_);
@@ -395,6 +396,7 @@ class O3_303App final : public app::App {
   const char* update_blocker(const app::Context& ctx) const noexcept override { return record_.blocker(ctx); }
 
   o3_303::seq::Sequencer& sequencer() noexcept { return sequencer_; }
+  o3_303::SnapBank& snapshots() noexcept { return rig_.wiring.snaps; }
   o3_303::ProjectService& project() noexcept { return project_; }
 
  private:
@@ -435,6 +437,7 @@ o3sdk::app::App& o3sdk_app() noexcept {
 namespace o3_303 {
 
 seq::Sequencer& app_sequencer() noexcept { return static_cast<O3_303App&>(o3sdk_app()).sequencer(); }
+SnapBank& app_snapshots() noexcept { return static_cast<O3_303App&>(o3sdk_app()).snapshots(); }
 
 ProjectService& app_project() noexcept { return static_cast<O3_303App&>(o3sdk_app()).project(); }
 

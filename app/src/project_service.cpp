@@ -268,6 +268,7 @@ void ProjectService::reset_step(Context& ctx) noexcept {
   seq::gen::Preset first;  // the factory line in A01, as a first boot and NEW have it
   seq::gen::factory(first, 0, 0);
   load_preset(e, *rig_, first, LoadWhat::Both);
+  install_factory_snapshots(e, *rig_);  // a new project's eight snapshots (REVIEW I4): the sound as it is and seven named ones
   notice("PROJECT RESET - LAST: SHIFT F3");
 }
 
@@ -1184,6 +1185,7 @@ void ProjectService::apply_request(Context& ctx) noexcept {
     seq::gen::Preset first;
     seq::gen::factory(first, 0, 0);
     load_preset(e, *rig_, first, LoadWhat::Both);
+    install_factory_snapshots(e, *rig_);  // a new project's eight snapshots (REVIEW I4); a LOAD never gets them
     rig_->bank->clear_history();
     copy_name(name_, req_name_);
     copy_name(prev_name_, req_name_);

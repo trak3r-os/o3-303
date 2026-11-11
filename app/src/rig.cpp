@@ -25,6 +25,46 @@ void read_sound(const o3sdk::dsp::Engine& e, const Rig& rig, float* voice, float
   }
 }
 
+// The eight factory snapshots (install_factory_snapshots): slot 0 is the sound as it stands, the others set a few targets of it. `target` is a position in pages.cpp's kSnapTargets (a snapshot's
+// own order), `value` is in the units that entry shows (Hz, ms, 0..1 for a percent knob, the enum's number). Every value is inside the parameter's own range and the CUTOFFs are inside the
+// 200..2,394 Hz the voice plays on RANGE 303 (F1 of the review); tests/snapshots_app_test.cpp checks both. The sounds are for the maintainer's ear on the unit.
+enum SnapTarget : std::uint8_t {
+  kTCutoff = 0, kTReso = 1, kTEnvMod = 2, kTDecay = 3, kTAccent = 4, kTWave = 5,
+  kTDistActive = 7, kTDistType = 8, kTDrive = 9, kTDistTone = 10, kTDistMix = 11,
+  kTDlyTime = 12, kTDlyFeedback = 13, kTDlyTone = 14, kTSend = 17,
+  kTVowel = 18, kTFmtQ = 19, kTGrowlMix = 20, kTCombMix = 21,
+  kTAccDecay = 22, kTTracking = 23, kTSlide = 24, kTSoftAtk = 25, kTSubOsc = 26, kTFilterFm = 27, kTAccSweep = 28, kTMuffler = 29, kTOverdrive = 31, kTAmpDecay = 32,
+  kTRange = 42,
+};
+
+struct FactoryValue {
+  std::uint8_t slot;
+  std::uint8_t target;
+  float value;
+};
+
+constexpr FactoryValue kFactorySnaps[] = {
+    // 2 CLOSED DUB: a dark saw, low cutoff, short, with a quarter-note delay
+    {1, kTCutoff, 260.0f}, {1, kTReso, 0.30f}, {1, kTEnvMod, 0.25f}, {1, kTDecay, 160.0f}, {1, kTAccent, 0.45f}, {1, kTWave, 0.0f}, {1, kTDistActive, 0.0f}, {1, kTGrowlMix, 0.0f},
+    {1, kTDlyTime, 3.0f}, {1, kTDlyFeedback, 55.0f}, {1, kTDlyTone, 1800.0f}, {1, kTSend, 35.0f},
+    // 3 SCREAMER: high resonance, a big envelope, accents, a little tube
+    {2, kTCutoff, 900.0f}, {2, kTReso, 0.95f}, {2, kTEnvMod, 0.85f}, {2, kTDecay, 350.0f}, {2, kTAccent, 0.90f}, {2, kTWave, 0.0f},
+    {2, kTDistActive, 1.0f}, {2, kTDistType, 1.0f}, {2, kTDrive, 0.45f}, {2, kTDistMix, 0.70f}, {2, kTGrowlMix, 0.0f},
+    // 4 HOLLOW: the square wave, middle cutoff, little resonance
+    {3, kTCutoff, 700.0f}, {3, kTReso, 0.50f}, {3, kTEnvMod, 0.35f}, {3, kTDecay, 500.0f}, {3, kTAccent, 0.60f}, {3, kTWave, 1.0f}, {3, kTDistActive, 0.0f}, {3, kTGrowlMix, 0.0f},
+    // 5 OVERDRIVEN: the voice's overdrive up and the grit on
+    {4, kTCutoff, 600.0f}, {4, kTReso, 0.60f}, {4, kTEnvMod, 0.60f}, {4, kTDecay, 300.0f}, {4, kTOverdrive, 18.0f},
+    {4, kTDistActive, 1.0f}, {4, kTDistType, 0.0f}, {4, kTDrive, 0.70f}, {4, kTDistTone, 0.55f}, {4, kTDistMix, 0.90f}, {4, kTGrowlMix, 0.0f},
+    // 6 LONG: a long decay on both envelopes
+    {5, kTCutoff, 450.0f}, {5, kTReso, 0.60f}, {5, kTEnvMod, 0.50f}, {5, kTDecay, 2400.0f}, {5, kTAmpDecay, 3200.0f}, {5, kTAccent, 0.50f}, {5, kTDistActive, 0.0f}, {5, kTGrowlMix, 0.0f}, {5, kTSend, 20.0f},
+    // 7 FISH: RANGE FISH with the Devil Fish mods
+    {6, kTRange, 1.0f}, {6, kTCutoff, 1200.0f}, {6, kTReso, 0.80f}, {6, kTEnvMod, 0.75f}, {6, kTDecay, 400.0f}, {6, kTSoftAtk, 2.0f}, {6, kTSubOsc, 1.0f}, {6, kTAccSweep, 2.0f},
+    {6, kTMuffler, 1.0f}, {6, kTOverdrive, 6.0f}, {6, kTTracking, 50.0f}, {6, kTFilterFm, 0.15f}, {6, kTDistActive, 0.0f}, {6, kTGrowlMix, 0.0f},
+    // 8 GROWL: the growl on (the formants and the comb), the sound open
+    {7, kTCutoff, 500.0f}, {7, kTReso, 0.70f}, {7, kTEnvMod, 0.60f}, {7, kTDecay, 450.0f}, {7, kTWave, 0.0f}, {7, kTDistActive, 0.0f},
+    {7, kTVowel, 0.25f}, {7, kTFmtQ, 6.0f}, {7, kTGrowlMix, 0.60f}, {7, kTCombMix, 0.40f},
+};
+
 }  // namespace
 
 void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what, bool keep_timing) noexcept {
@@ -47,6 +87,21 @@ void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset
 void last_capture(const o3sdk::dsp::Engine& e, Rig& rig) noexcept {
   read_sound(e, rig, rig.last_voice, rig.last_dist);
   rig.last_used = true;
+}
+
+void install_factory_snapshots(const o3sdk::dsp::Engine& e, Rig& rig) noexcept {
+  float base[kSnapValues];
+  rig.controls.snap_capture(e, base);
+  for (unsigned slot = 0; slot < kSnapSlots; ++slot) {
+    float v[kSnapValues];
+    std::memcpy(v, base, sizeof v);
+    for (const FactoryValue& f : kFactorySnaps) {
+      if (f.slot == slot) {
+        v[f.target] = f.value;
+      }
+    }
+    rig.wiring.snaps.store(slot, v);
+  }
 }
 
 bool last_swap(o3sdk::dsp::Engine& e, Rig& rig) noexcept {

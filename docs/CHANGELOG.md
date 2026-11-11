@@ -14,6 +14,9 @@ hear says so in plain words.
   written as motion on the knob's lane (the limit of eight lanes applies and says so). A tap on a mod while MODS is off switches MODS on,
   as the encoder does. The colour buttons stay PERFORM's four actions.
 - **Performance flips PERFORM and PERFORM KNOBS.** Shift + Performance opens PERFORM SETUP from any screen, and Performance leaves it.
+- **A new project starts with eight snapshots.** PERFORM's row 2 plays at once: the sound as it is, CLOSED DUB, SCREAMER, HOLLOW, OVERDRIVEN,
+  LONG, FISH (RANGE FISH with the Devil Fish mods) and GROWL. NEW, RESET PROJECT and a first start fill them; a project you loaded keeps the
+  snapshots it was saved with, empty slots included. The sounds still need a listen on the unit.
 - **Rows with a switch or a short list have a pad a value**, on HOME's FILT and PERFORM's row 3 too: a tap sets the value at once.
 - **A saved project holds two more rows** (PERFORM KNOBS' rows 1 and 2). A project saved by an older version loads with ENV MOD and DECAY on
   them, and one saved by this version loads in the older ones with their own defaults for the rows they know. Nothing you hear changes.

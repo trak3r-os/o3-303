@@ -376,6 +376,7 @@ TEST_CASE("ROLL repeats at the rate PERFORM SETUP's F7 set: 1/16 by default, 1/3
 
 TEST_CASE("row 2: Shift + a snapshot pad stores the sound, a tap recalls it and the encoder becomes the morph until an F key is tapped") {
   Hands t;
+  app_snapshots().clear();  // a new project starts with eight factory snapshots (REVIEW I4); this case wants empty pads
   t.to_perform();
   CHECK(lamp(t, pp(kRow2, 0)) == app::kLedOff);  // empty
   const float c0 = cutoff(t);

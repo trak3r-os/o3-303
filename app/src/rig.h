@@ -115,6 +115,11 @@ void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset
 
 // LAST: the sound as it is now goes into LAST.
 void last_capture(const o3sdk::dsp::Engine& e, Rig& rig) noexcept;
+// A new project's eight snapshots (REVIEW I4, docs/TRACT-KNOBS-PLAN.md 12.6 R10): call it after the sound is the project's own (a NEW, RESET PROJECT and a first boot, after the factory line is
+// loaded). Slot 1 holds the sound as it is, the others are named sounds: a closed dubby one, a screaming high-reso one, a hollow square, an overdriven one, a long decay, FISH (RANGE FISH with
+// the Devil Fish mods) and the growl on. Each is the sound as it stands with a few targets set from a constant table (rig.cpp); a project that is loaded is never given them, so its empty slots stay empty.
+void install_factory_snapshots(const o3sdk::dsp::Engine& e, Rig& rig) noexcept;
+
 // Swaps the sound on the unit and LAST (the values a load writes); false, nothing changed, when LAST is empty.
 bool last_swap(o3sdk::dsp::Engine& e, Rig& rig) noexcept;
 

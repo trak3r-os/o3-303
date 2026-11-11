@@ -39,6 +39,7 @@ struct OnPerform {
   Hands t;
   PerformScreen* s = nullptr;
   OnPerform() {
+    app_snapshots().clear();  // a new project starts with eight factory snapshots (REVIEW I4); these cases want empty pads
     t.skin_on();
     t.to_perform();
     t.wait(60);

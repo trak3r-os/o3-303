@@ -37,6 +37,7 @@ void store(Hands& t, unsigned slot) {
 
 TEST_CASE("snapshots: store two sounds, recall them, morph between them; the engine ends on the blend") {
   Hands t;
+  app_snapshots().clear();  // a new project starts with eight factory snapshots (REVIEW I4); this case wants empty pads
   const float c0 = cutoff(t);
   t.to_perform();  // the snapshots are PERFORM's row 2
   store(t, 0);     // store this sound on pad 1
@@ -79,6 +80,63 @@ TEST_CASE("snapshots: store two sounds, recall them, morph between them; the eng
   const float before = cutoff(t);
   t.turn(3);
   CHECK(cutoff(t) != before);
+}
+
+TEST_CASE("snapshots: a new project's eight factory snapshots (REVIEW I4) recall inside the voice's ranges, the cutoffs on the 303 floor, FISH on RANGE FISH") {
+  Hands t;
+  REQUIRE(app_snapshots().used(0));
+  struct Target {
+    unsigned index;  // the position in a snapshot (pages.cpp kSnapTargets)
+    dsp::UnitId unit;
+    unsigned id;
+  };
+  const Target targets[] = {
+      {0, kVoice, AcidVoice::Cutoff}, {1, kVoice, AcidVoice::Reso}, {2, kVoice, AcidVoice::EnvMod}, {3, kVoice, AcidVoice::Decay}, {4, kVoice, AcidVoice::Accent}, {5, kVoice, AcidVoice::Wave},
+      {7, kDist, Distortion::Active}, {8, kDist, Distortion::Type}, {9, kDist, Distortion::Drive}, {10, kDist, Distortion::Tone}, {11, kDist, Distortion::Mix},
+      {12, kDelay, 0}, {13, kDelay, 1}, {14, kDelay, 2},  // the delay's Time, Feedback and Tone
+      {18, kGrowl, Growl::Vowel}, {19, kGrowl, Growl::FormantQ}, {20, kGrowl, Growl::Mix}, {21, kGrowl, Growl::CombMix},
+      {22, kVoice, AcidVoice::AccDecay}, {23, kVoice, AcidVoice::Tracking}, {24, kVoice, AcidVoice::Slide}, {25, kVoice, AcidVoice::SoftAtk}, {26, kVoice, AcidVoice::SubOsc},
+      {27, kVoice, AcidVoice::FilterFm}, {28, kVoice, AcidVoice::AccSweep}, {29, kVoice, AcidVoice::Muffler}, {31, kVoice, AcidVoice::Overdrive}, {32, kVoice, AcidVoice::AmpDecay},
+      {42, kVoice, AcidVoice::Range},
+  };
+  const SnapBank& snaps = app_snapshots();
+  for (unsigned slot = 0; slot < kSnapSlots; ++slot) {
+    CAPTURE(slot);
+    REQUIRE(snaps.used(slot));
+    for (const Target& tg : targets) {  // every stored value is inside its parameter's own range: the engine would clamp it, and it would not come back
+      const core::ParamDesc* d = t.h->engine().param_desc(tg.unit, static_cast<std::uint16_t>(tg.id));
+      REQUIRE(d != nullptr);
+      CAPTURE(tg.index);
+      CHECK(snaps.stored(slot, tg.index) >= d->min);
+      CHECK(snaps.stored(slot, tg.index) <= d->max);
+    }
+    if (slot != 6) {  // FISH plays RANGE FISH, whose floor is wider; the rest sit inside the 303's 200..2,394 Hz
+      CHECK(snaps.stored(slot, 0) >= 200.0f);
+      CHECK(snaps.stored(slot, 0) <= 2394.0f);
+    }
+  }
+  // The eight are not one sound: slot 1 is the sound the project starts with, the others each differ from it.
+  CHECK(snaps.stored(0, 0) == doctest::Approx(cutoff(t)));
+  for (unsigned slot = 1; slot < kSnapSlots; ++slot) {
+    bool differs = false;
+    for (unsigned i = 0; i < kSnapTargetCount; ++i) {
+      differs = differs || snaps.stored(slot, i) != snaps.stored(0, i);
+    }
+    CHECK_MESSAGE(differs, "slot " << slot);
+  }
+  // FISH (slot 7) recalled: RANGE is FISH, and the engine holds the stored values.
+  t.to_perform();
+  CHECK(t.param(kVoice, AcidVoice::Range) == doctest::Approx(0.0f));
+  t.pad(snap_pad(6), 10);
+  t.wait(400);
+  CHECK(t.param(kVoice, AcidVoice::Range) == doctest::Approx(1.0f));
+  CHECK(cutoff(t) == doctest::Approx(snaps.stored(6, 0)).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::SubOsc) == doctest::Approx(snaps.stored(6, 26)));
+  // SCREAMER (slot 3): the resonance and the distortion come with it.
+  t.pad(snap_pad(2), 10);
+  t.wait(400);
+  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(snaps.stored(2, 1)).epsilon(0.001));
+  CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(1.0f));
 }
 
 TEST_CASE("snapshots: the growl's VOWEL, FMT Q, GRL MIX and CMB MIX are stored and recalled with the rest (D29)") {
