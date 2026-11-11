@@ -106,7 +106,7 @@ STOCK is a voice parameter, not something the app writes for each mod, for three
   heard again at STOCK OFF;
 - a save made during STOCK writes the real values (section 5.11).
 
-STOCK is excluded everywhere else: `carried()` returns false for it (not saved), it is not a snapshot target, and it has no lane, no
+STOCK is excluded everywhere else: `carried()` returns false for it (no mod value saved; the on/off state is the app value MODS on, F13a), it is not a snapshot target, and it has no lane, no
 lock and no MIDI learn (`Item::Stock` is an app item).
 
 ### 3.2 Each mod: behaviour (public sources), model, guards
@@ -582,7 +582,8 @@ No change:
 - `Item::Stock` is an app item (not a unit item, so no lane, no learn and no snapshot). It writes voice id 19 through `Controls`, and
   `Rig` keeps a mirror for the chip.
 - STOCK is OFF at boot. A project load, NEW, REVERT and RESET PROJECT also turn it OFF (`project::apply()`, the one entry of all of them),
-  so a project is always heard as saved first. It is never saved.
+  so a project is heard as saved first. F13a (2026-11-11) overturns "never saved": MODS on or off is an appended app value (SND id 10), and `apply()` ends
+  STOCK first and then puts the saved state back; an older project has the mods heard.
 - A turn of the encoder on any of the eleven mods (not DECAY, not a lock) ends STOCK first, with the words STOCK OFF: a player who reaches
   for a mod wants to hear it. A controller, a lane, a lock or a snapshot recall writes the stored value and leaves STOCK as it is. MODDED's HELP summary says both ("A TURN ENDS STOCK. A CC, LANE, LOCK OR
   SNAPSHOT MOVES A MOD UNDER STOCK"); S4's manual says it in full.
@@ -906,7 +907,7 @@ A host test is not this check. The slices name the unit check they leave to it.
 | MD8 | ACC SWEEP: OFF (no sweep), NORMAL (today), HI RES (the DF's "whistly": sweep plus doubled feedback) | three positions as the sources say; OFF reads as it sounds; the DF's "no sweep, high resonance" is left out |
 | MD9 | SWP SPEED NORMAL is today's sweep (no C13 build-up); SLOW accumulates, FAST tires | stock must be today; the hardware's build-up is what SLOW gives |
 | MD10 | SOUND's DECAY stays the filter's normal decay, its range unchanged; AMP DECAY is new | projects, lanes and MIDI maps store values against today's descriptors; the TD-3-MO's volume decay still gets a knob |
-| MD11 | STOCK is a voice parameter (id 19), driven by an app item; never saved; OFF at boot, load, NEW and RESET | atomic, keeps the stored values (lanes, snapshots and CCs go on writing them), and a project is always heard as saved |
+| MD11 | STOCK is a voice parameter (id 19), driven by an app item; saved since F13a as an app value; OFF at boot, NEW and RESET | atomic, keeps the stored values (lanes, snapshots and CCs go on writing them), and a project is always heard as saved |
 | MD12 | A mod turned while STOCK is on ends STOCK | a player who reaches for a mod wants to hear it |
 | MD13 | One `InstrumentScreen` class in four instances with page groups | one path for learn, LOCK, lanes, HELP and both drawings; no new screen class to keep in step |
 | MD14 | The voice ids 8..15 keep M3-PLAN's reserved order, with "Sweep" as ACC SWEEP (default NORMAL, the position that reproduces Replicant) | the reservation's own rule ("each default reproduces Replicant") |

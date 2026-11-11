@@ -1143,7 +1143,8 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
     }
     return true;
   });
-  CHECK(project::kAppWobbleOn == project::kAppValueCount - 1u);
+  CHECK(project::kAppModsOn == project::kAppWobbleOn + 1u);
+  CHECK(project::kAppGrowlLastMix == project::kAppValueCount - 1u);
   Session c;
   c.rig.wiring.wob_want = 1;  // a session with the latch on: the old project has none, so it ends off
   REQUIRE(load(old, s).status == project::Status::Ok);
@@ -1167,6 +1168,62 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
   CHECK(c.engine.param(c.rig.wiring.growl, Growl::CombTune) == 7.0f);       // CMB TUNE defaults to +7 st
   CHECK(c.rig.wiring.wob_want == 0);
   CHECK_FALSE(c.sequencer->wobble().reset_on_note);
+}
+
+TEST_CASE("project: F13a, MODS on or off and the growl's last mix are saved, and a project of the format before loads with the mods heard and 50 %") {
+  Session a;
+  scramble(a);
+  a.rig.controls.set(a.engine, Entry{Item::Mods, 0, nullptr}, 0.0f);  // MODS off: STOCK on
+  REQUIRE(a.rig.wiring.stock);
+  a.rig.wiring.growl_last_mix = 0.3f;
+  const std::vector<std::uint8_t> img = encode_session(a);
+  Session b;
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  project::apply(b.rig, b.engine, s);
+  CHECK(b.rig.wiring.stock);
+  CHECK(b.engine.param(b.rig.wiring.voice, AcidVoice::Stock) == 1.0f);
+  CHECK(b.rig.wiring.growl_last_mix == doctest::Approx(0.3f));
+  CHECK(encode_session(b) == img);
+  // A load into a session that has STOCK on, of a project saved with the mods heard, ends it.
+  Session c;
+  c.rig.controls.set(c.engine, Entry{Item::Mods, 0, nullptr}, 0.0f);
+  a.rig.controls.set(a.engine, Entry{Item::Mods, 0, nullptr}, 1.0f);
+  REQUIRE_FALSE(a.rig.wiring.stock);
+  const std::vector<std::uint8_t> heard = encode_session(a);
+  REQUIRE(load(heard, s).status == project::Status::Ok);
+  project::apply(c.rig, c.engine, s);
+  CHECK_FALSE(c.rig.wiring.stock);
+  CHECK(c.engine.param(c.rig.wiring.voice, AcidVoice::Stock) == 0.0f);
+
+  // The format before: no SND entry for either (app ids 10 and 11). The session's STOCK ends and the mix is 50 %.
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "SND ")) {
+      std::vector<std::uint8_t> out(p.begin(), p.begin() + 4);
+      unsigned kept = 0;
+      const unsigned n = (static_cast<unsigned>(p[2]) << 8) | p[3];
+      for (unsigned i = 0; i < n; ++i) {
+        const std::uint8_t* en = &p[4 + i * 8];
+        const unsigned pid = (static_cast<unsigned>(en[2]) << 8) | en[3];
+        if (en[0] == project::kSndApp && (pid == project::kAppModsOn || pid == project::kAppGrowlLastMix)) {
+          continue;
+        }
+        out.insert(out.end(), en, en + 8);
+        ++kept;
+      }
+      out[2] = static_cast<std::uint8_t>(kept >> 8);
+      out[3] = static_cast<std::uint8_t>(kept);
+      p = out;
+    }
+    return true;
+  });
+  Session d;
+  d.rig.controls.set(d.engine, Entry{Item::Mods, 0, nullptr}, 0.0f);
+  d.rig.wiring.growl_last_mix = 0.9f;
+  REQUIRE(load(old, s).status == project::Status::Ok);
+  project::apply(d.rig, d.engine, s);
+  CHECK_FALSE(d.rig.wiring.stock);
+  CHECK(d.rig.wiring.growl_last_mix == doctest::Approx(0.5f));
 }
 
 TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {

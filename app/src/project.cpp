@@ -152,6 +152,10 @@ float app_value(const Rig& rig, const dsp::Engine& e, unsigned id) noexcept {
       return static_cast<float>(w.wobble.target);
     case kAppWobbleOn:  // the WOB latch: what a load asked for until LiveActions takes it, else the sequencer's LFO (on while the latch is)
       return (w.wob_want >= 0 ? w.wob_want == 1 : (w.seq != nullptr && w.seq->wobble().on)) ? 1.0f : 0.0f;
+    case kAppModsOn:  // the voice's Stock is the view over the stored mod values, which the SND entries carry as they are
+      return w.stock ? 0.0f : 1.0f;
+    case kAppGrowlLastMix:
+      return w.growl_last_mix * 100.0f;
     default:
       break;
   }
@@ -183,6 +187,10 @@ float app_default(unsigned id) noexcept {
       return static_cast<float>(wob.target);
     case kAppWobbleOn:
       return 0.0f;
+    case kAppModsOn:
+      return 1.0f;
+    case kAppGrowlLastMix:
+      return 50.0f;
     default:
       break;
   }
@@ -226,6 +234,11 @@ void set_app_value(Wiring& w, dsp::Engine& e, unsigned id, float v) noexcept {
       break;
     case kAppWobbleOn:
       w.wob_want = v >= 0.5f ? 1 : 0;  // LiveActions::update latches or unlatches it
+      break;
+    case kAppModsOn:  // needs Controls (the voice's Stock parameter): apply() does it after this loop
+      break;
+    case kAppGrowlLastMix:
+      w.growl_last_mix = clampf(v, 1.0f, 100.0f, 50.0f) * 0.01f;
       break;
     default:
       break;  // a value a later build has
@@ -778,8 +791,8 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     (void)find_entry(s, target, id, v);
     (void)e.set_param(unit, id, v);  // clamped by the engine
   });
-  // STOCK is never saved and always ends here (docs/MODS-PLAN.md 5.11): a boot, a LOAD, REVERT, NEW and RESET PROJECT are heard as saved first. The mods' stored values are in by now, so the
-  // voice changes once.
+  // STOCK ends here first (a boot, a LOAD, REVERT, NEW and RESET PROJECT are heard as saved), then the project's own MODS state is put back below (F13a). The mods' stored values are in by now, so
+  // the voice changes once.
   if (w.stock) {
     rig.controls.set(e, Entry{Item::Mods, 0, nullptr}, 1.0f);  // the mods heard
   }
@@ -787,6 +800,12 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     float v = app_default(id);
     (void)find_entry(s, kSndApp, static_cast<std::uint16_t>(id), v);
     set_app_value(w, e, id, v);
+  }
+  // MODS as saved (F13a; a project without the entry has the mods heard): the stored mod values are in, only the voice's view changes.
+  float mods_on = app_default(kAppModsOn);
+  (void)find_entry(s, kSndApp, static_cast<std::uint16_t>(kAppModsOn), mods_on);
+  if (mods_on < 0.5f) {
+    rig.controls.set(e, Entry{Item::Mods, 0, nullptr}, 0.0f);
   }
   rig.controls.apply_level(e);
   rig.controls.apply_send(e);

@@ -56,7 +56,7 @@ inline constexpr char kSongId[5] = "SONG";
 inline constexpr std::uint8_t kSndFreeze = 16;
 inline constexpr std::uint8_t kSndApp = 32;
 // The app's values of SND (target kSndApp, id = this), in the units the entries show: dB, percent, percent (0..150), FILL's variant, the wobble's
-// rate, shape, depth in percent, reset (0 or 1), target and the WOB latch (0 or 1). Append, never insert.
+// rate, shape, depth in percent, reset (0 or 1), target, the WOB latch (0 or 1), MODS heard (0 or 1) and the growl's last mix in percent. Append, never insert.
 enum AppValue : std::uint16_t {
   kAppLevel,
   kAppSend,
@@ -68,6 +68,8 @@ enum AppValue : std::uint16_t {
   kAppWobbleReset,
   kAppWobbleTarget,
   kAppWobbleOn,  // B5a: the WOB latch (0 or 1); an older file lacks it and loads with it off
+  kAppModsOn,    // F13a: MODS heard (1) or off, the STOCK view (0); an older file lacks it and loads with the mods heard
+  kAppGrowlLastMix,  // F13a: GROWL F8's "last mix", percent (1..100); an older file lacks it and loads with 50
   kAppValueCount,
 };
 

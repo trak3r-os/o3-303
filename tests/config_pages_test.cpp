@@ -19,6 +19,7 @@
 #include <o3_303/config_keys.h>
 #include <o3_303/seq/gen.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/growl/growl.h>
 
 #include <cstdint>
@@ -294,7 +295,7 @@ TEST_CASE("RESET PROJECT: the factory line, the default sound and tempo, the oth
   t.config_run(config::kResetProject);  // the kit calls it after the second F1; the transport stops first
   t.wait(100);
   CHECK_FALSE(t.h->engine().playing());
-  CHECK(std::string(app_project().info().notice) == "PROJECT RESET");
+  CHECK(std::string(app_project().info().notice) == "PROJECT RESET - LAST: SHIFT F3");
   CHECK(std::memcmp(&bank().pattern(0), &factory, sizeof factory) == 0);
   CHECK(std::memcmp(&bank().pattern(3), &fresh, sizeof fresh) == 0);
   CHECK(bank().selected() == 0);
@@ -315,6 +316,21 @@ TEST_CASE("RESET PROJECT: the factory line, the default sound and tempo, the oth
   CHECK(std::memcmp(&bank().pattern(3), &fresh, sizeof fresh) == 0);
 }
 
+TEST_CASE("RESET PROJECT stores the sound it takes away in the library's LAST (F13c): FILE LIBRARY's Shift + F3 brings it back") {
+  Hands t;
+  (void)t.h->engine().set_param(kVoice, AcidVoice::Cutoff, 900.0f);
+  (void)t.h->engine().set_param(kDist, Distortion::Drive, 0.8f);
+  const float drive = t.param(kDist, Distortion::Drive);
+  t.config_run(config::kResetProject);
+  t.wait(100);
+  REQUIRE(t.param(kVoice, AcidVoice::Cutoff) != doctest::Approx(900.0f));  // the default sound is in
+  t.tap(Button::File);
+  t.tap(Button::File);  // FILE LIBRARY
+  t.shift_tap(Button::F3);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(900.0f));
+  CHECK(t.param(kDist, Distortion::Drive) == doctest::Approx(drive));
+}
+
 TEST_CASE("RESET PROJECT with a card is a change like any other: autosave writes it, and the project keeps its name") {
   Session s;
   s.run(1500);
@@ -326,7 +342,7 @@ TEST_CASE("RESET PROJECT with a card is a change like any other: autosave writes
   s.run(4000);
   CHECK(app_project().saves() > saves0);
   CHECK(std::string(app_project().name()) == "UNTITLED");
-  CHECK(std::string(app_project().info().notice) == "PROJECT RESET");
+  CHECK(std::string(app_project().info().notice) == "PROJECT RESET - LAST: SHIFT F3");
 }
 
 TEST_CASE("RESET PROJECT is never refused: it waits for an encode in progress (no torn image), then resets") {
@@ -348,7 +364,7 @@ TEST_CASE("RESET PROJECT is never refused: it waits for an encode in progress (n
   }
   s.run(3000);
   CHECK(std::memcmp(&seq::project_bank().pattern(2), &fresh, sizeof fresh) == 0);
-  CHECK(std::string(app_project().info().notice) == "PROJECT RESET");
+  CHECK(std::string(app_project().info().notice) == "PROJECT RESET - LAST: SHIFT F3");
 }
 
 

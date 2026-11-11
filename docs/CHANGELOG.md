@@ -21,6 +21,13 @@ hear says so in plain words.
 
 ### What works differently (a habit changes)
 
+- **MODS on or off and the growl's last mix are saved with the project.** A project saved with MODS off opens with MODS off (the STOCK chip
+  shows); a load, REVERT, NEW and RESET PROJECT no longer always turn MODS on, they bring back what the project holds (NEW and RESET: on). F8
+  GROWL's "last value" is saved too. The file gets two more entries; a project from an older version loads with MODS on and a last mix of
+  50 %, and an older version skips the two.
+- **RESET PROJECT keeps the sound it takes away.** The voice and distortion go into the library's LAST first, and the notice says
+  "PROJECT RESET - LAST: SHIFT F3": Shift + F3 on FILE LIBRARY brings them back.
+
 - **FILE LIBRARY's slots are drawn as the pads are.** The grid is 4 rows of 12 (slots 0 to 47, or 16 to 63 while Shift is held), so the
   first pad of row 2 is the first cell of row 2. Up and Down move a row of twelve (they moved eight), and the pad LEDs dim-mark every
   fourth pad. Nothing saved changes.

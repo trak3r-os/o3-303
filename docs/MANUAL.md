@@ -513,13 +513,14 @@ speeds' time constants, the height of the accent's sweep); the ranges and the st
 MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen mods to their stock values, so you hear the plain 303, and on again, to what you had.
 
 - **On and off:** F8 MODS on either MODDED page, or **Shift + Sample Load** from any screen, with no change of screen. The status line
-  says MODS ON or MODS OFF, and MODS OFF: F8 while they are off. While they are off, the header shows a STOCK chip (CLASSIC) or the words STOCK . MODS OFF (OBSIDIAN).
+  says MODS ON or MODS OFF, and MODS OFF: F8 while they are off. While they are off, the header shows a STOCK chip (CLASSIC) or the words STOCK . MODS OFF (OBSIDIAN). A project saved with MODS off opens with them off.
 - **Your settings are kept.** MODS changes what you hear, not the values. Turning it off brings each mod back as it was.
 - **What ends the plain 303:** a turn of the encoder on one of the mods (MODS goes on first, and the status line says MODS ON, so the change
-  is heard), and a LOAD, NEW, REVERT or RESET PROJECT, or the load at start-up: every project is heard as saved first.
+  is heard), and a LOAD, NEW, REVERT or RESET PROJECT, or the load at start-up, when the project was saved with MODS on (see below).
 - **What does not end it:** a MIDI controller, a lane of a pattern, a lock or a snapshot recall. They write the stored value, and you hear
   it when MODS goes on. DECAY, the 303's own knobs, the FX, the growl and the wobble are not touched by MODS.
-- MODS is not saved in a project. A project keeps the mods' values.
+- **MODS is saved in the project**, with the mods' values: a load, NEW, REVERT or the load at start-up brings it back as it was saved. A project saved
+  before this (no MODS state in it), NEW and RESET PROJECT have it on.
 
 ### GROWL
 
@@ -539,7 +540,7 @@ comb, then the mix), and F8 switches the growl on and off.
 | F5 CMB FB | The comb's feedback | -0.95 to +0.95 | 0.6 |
 | F6 CMB MIX | How much of the comb is heard | 0 to 100 % | 50 % |
 | F7 GRL MIX | The growl's wet and dry, for the whole growl | 0 to 100 % | 0 % (off) |
-| F8 GROWL | Mix to 0 (off), and back to the last value, 50 % at first (not saved). The strip says GROWL OFF: F8 while off | OFF, ON | OFF |
+| F8 GROWL | Mix to 0 (off), and back to the last value, 50 % at first (saved with the project). The strip says GROWL OFF: F8 while off | OFF, ON | OFF |
 
 Shift + an F key is MIDI learn for F1 to F7 (section 10). The pads are the home map, so the line plays and edits while you shape the growl.
 Like the other knobs, a growl knob can be locked per step and recorded as motion.
@@ -810,8 +811,8 @@ hold a project with the same name.
 All on FILE PROJECTS (see [FILE PROJECTS](#file-projects)): F1 LOAD, F3 SAVE AS, F4 NEW, F5 REVERT, F6 DELETE.
 
 Config's **RESET PROJECT** (F1, then F1 again) starts the project you are in again from the factory line, keeping its name. It stops the
-transport and resets everything else too: the sound (the mods, the growl and the wobble included), the snapshots, PERFORM's assignments,
-the generator's settings, the tempo (125 BPM) and the song. The PAGE window says PROJECT RESET. UNDO brings back only the patterns and the song; the rest is gone
+transport and resets everything else too: the sound (the mods, the growl and the wobble included; the voice and distortion go to the library's LAST first, Shift + F3 on FILE LIBRARY brings them back), the snapshots, PERFORM's assignments,
+the generator's settings, the tempo (125 BPM) and the song. The PAGE window says PROJECT RESET - LAST: SHIFT F3. UNDO brings back only the patterns and the song; the rest is gone
 unless you REVERT to your last save.
 
 ---
@@ -959,7 +960,7 @@ button.
 | NAME TAKEN | A project of that name is on the card. Pick another |
 | NOT A PROJECT NAME | The typed name cannot be a project folder: it must start with a letter or a digit, must not end with a space, cannot hold a dot, and cannot be Samples. Change it on the keyboard, which stays open |
 | BUSY | A project job (a load, save, new project, revert or delete, or the load at start-up) is still running. Wait a moment and press the key again |
-| PROJECT RESET | Config's RESET PROJECT has run (section 8). UNDO brings back the patterns and the song |
+| PROJECT RESET - LAST: SHIFT F3 | Config's RESET PROJECT has run (section 8). UNDO brings back the patterns and the song; the old sound is in the library's LAST |
 | NAME USED BEFORE: PICK ANOTHER | A project of that name was deleted before, and the card keeps the name. Pick another |
 | TOO MANY PROJECTS | The list is full. Delete one you do not need |
 | 8 LANES USED: CLEAR LOCKS (SETUP) | A pattern holds locks and motion for eight knobs at most. PATTERN SETUP's Shift + F4 clears them |

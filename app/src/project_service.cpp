@@ -252,6 +252,7 @@ void ProjectService::reset_step(Context& ctx) noexcept {
   if (rig_->live != nullptr) {
     rig_->live->all_off(ctx);
   }
+  last_capture(e, *rig_);  // the sound this reset takes away goes to the library's LAST slot first (F13c): FILE LIBRARY's Shift + F3 brings it back
   big_->probe = project::ProjectState{};  // a new project's: the default sound, no snapshots, the default assignments, 125 BPM (change detection gathers into it again)
   (void)project::apply(*rig_, e, big_->probe, false);
   seq::Bank& bank = *rig_->bank;
@@ -267,7 +268,7 @@ void ProjectService::reset_step(Context& ctx) noexcept {
   seq::gen::Preset first;  // the factory line in A01, as a first boot and NEW have it
   seq::gen::factory(first, 0, 0);
   load_preset(e, *rig_, first, LoadWhat::Both);
-  notice("PROJECT RESET");
+  notice("PROJECT RESET - LAST: SHIFT F3");
 }
 
 bool ProjectService::save_as(const char* name) noexcept {
