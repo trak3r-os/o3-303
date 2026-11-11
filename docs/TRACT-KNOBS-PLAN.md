@@ -659,3 +659,53 @@ These replace the matching parts of sections 3 and 6 (A1 to A3) where they diffe
    with its state in locals, then the count again; A1 starts only if Full or Lite fits under 56 % with the unit's read. Fit: F1 and F2
    within 4.2 % (Full) of Peterson-Barney; F3 of E is +11 % and of U +32 % (structural, the test allows 40 % for that one). The
    lattice is not passive under fast k motion: `Tube::sanitize()` and a +-8 clamp on the wet path are its safety nets.
+
+## 12. o3-303: the order of work after KNOBS (prepared 2026-11-11; starts on the maintainer's "puedes empezar con 303")
+
+Built before this order: K1 to K3 (d6a4973, f36c077; the unit checks of section 8 for KNOBS are still owed), X1 and X2, and the CI
+round (O3SDK_CI_SCOPE=changed against `refs/ci/green/<mode>`, sharded tests, a remote run counts for `verify_gate`). Section 11
+replaces A1 to A3 of section 6; this section gives the slices as they will be built.
+
+### 12.1 Two lanes, one file owner each
+
+Lane T builds the tract, lane U the interface (section 10.5). Each lane is one implementer at a time with its own build directory
+(`build-tract-host`, `build-ui-host`, nice 10, -j4). They share `help_texts.*`, `docs/MANUAL.md` and the CHANGELOG: whoever commits
+second rebases its hunk and runs `help_texts_test`. While iterating a lane runs the filtered tests of its area; the full suite runs
+on the remote once per batch (12.4), and its green ref keeps the next scope runs small.
+
+### 12.2 Lane T, in order
+
+| Slice | Content | Gate to the next |
+|---|---|---|
+| **X3** (o3-sdk `extras/tract/`, synced with o3-303-a5 first: the vocoder builds the same files) | Sanitize every few control steps; the per-frame loop chunked between control steps with the tube's state in locals; the half-band pushes reviewed; the count from the cross build's disassembly again, both qualities. Output bit-identical or within the tests' tolerance (`processor_test`, ASAN, UBSAN) | Count + 49.5 % under 56 % at Full or at Lite, on paper. If neither fits, stop and report: the next option (the tract at fs/4 only, or the delay's cost) is the maintainer's |
+| **A1** | `units/tract` (`TractFx`, unit id 5, insert 2, the quality X3 chose), `kLaneTract = 7` for motion of the seven knobs, SND carry, `sanitize()`, silent at Mix 0 | Every existing scenario WAV byte-identical; v0.6.0 project loads; SRAM from the link |
+| **A1b** | The TRACT pattern: 48 lines of 64 steps ("-" or A E I O U, a GLD bit), a length (SAME, 4, 8, 16, 32, 64), LINE on/off; the project chunk (an old project loads empty, LINE on only if a line holds vowels); COPY PAT, PASTE, DUP>NEXT, UNDO and SONG carry it; the hook writes VOWEL, and GLIDE on a GLD step, at the step's frame, polymetric on the same clock | Codec round trip and old-file tests; hook timing at the frame; polymetric wrap; the 3 KB in SDRAM |
+| **A2** | The page (section 11.4 and 11.6): Sample Play opens TRACT, again flips to GROWL; F row; pads rows 1 and 2 the line, row 3 the palette, GLD and LINE (column 12), row 4 live (LINE off: writes VOWEL; LINE on: hold overrides, release returns; REC + playing writes the current step); Shift row LEN, CLEAR; the wobble's MOUTH; snapshots 48; learn; HELP; both skins | Scenarios `tract.txt` (F8 off bit-exact), `tract_line.txt` (a line over the factory pattern, LINE on and off, live override), `tract_wobble.txt`, `skin_tract.txt`; the remote full run |
+| **A2b** | NEW for the line (Shift row): vowels, "-" and GLD drawn from the pattern's seed, one undo | Seed stability test; a scenario WAV |
+| **A3** | MANUAL (TRACT section, GROWL now second, WOBBLE's MOUTH), MODS-PLAN, CHANGELOG (the habit change of Sample Play), THIRD_PARTY | Manual images regenerated |
+
+### 12.3 Lane U, in order (section 10.5; U8's item e is done in e68b669)
+
+U4 and U7 together (the two F-row habit changes, one release, one manual change), then U1, U2 (note entry), U3 (ties in NEW; kept
+only after the maintainer hears it), U6 (key kinds drawn), U8 (the rest). **U5 (tabs everywhere) waits for A2**, because it draws
+`TRACT | GROWL`. If both lanes are free at once, U never takes `instrument_screen.cpp` or `o3_303_app.cpp` while A2 holds them.
+
+### 12.4 Batches, the gate and the unit
+
+- **Batch 1**: X3, A1, A1b, U4 + U7, U1, U2. One remote full run at the end (`tools/remote_ci.sh host` and `mk66`; the image's
+  static ctests).
+- **Batch 2**: A2, A2b, U3, U6, U5, U8, A3. The remote full run, then `fw-gate-check` on the image.
+- **One hw-session after batch 2** (skill `hw-session`, the maintainer flashes the `.ptf` from the card): CPU with voice +
+  distortion + growl + tract + delay and the wobble on MOUTH (the 56 % rule; Lite if above), F8 A/B and a line by ear, LINE and live
+  pads by hand, KNOBS by hand with REC and its LED bars (owed from K2/K3), U1's nearest step at 125 and 160 BPM, U6's key drawings at
+  arm's length, U3's ties by ear.
+- No push, tag or release without the maintainer's word; the version number is theirs.
+
+### 12.5 Risks particular to this order
+
+1. **X3 may not reach 56 %.** Then nothing of lane T after X3 starts until the maintainer chooses; lane U goes on alone.
+2. **The snapshot is full at 48** after A2 (section 7.8).
+3. **The TRACT pattern chunk** is a project format step: v0.6.x opens a newer project without the lines (it must skip the unknown
+   chunk; A1b proves it with a v0.6.0-shaped reader, as K1 did for PERF).
+4. **Sample Play's first press changes** (GROWL to TRACT): a player's habit; the CHANGELOG and HELP say it, the toast on the first
+   press of a session is not planned.
