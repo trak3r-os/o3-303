@@ -201,6 +201,7 @@ void HomeMap::enter(app::Context& ctx) noexcept {
   }
   pattern_down_ = false;
   overlay_ = false;
+  trnsp_hold_ = 0;
   pat_copy_held_ = false;
   pat_delete_held_ = false;
   row_ = DrawerRow::None;  // a screen shown again: the encoder is the knob's (the ENC text says so)
@@ -210,7 +211,7 @@ void HomeMap::enter(app::Context& ctx) noexcept {
 
 void HomeMap::leave(app::Context& ctx) noexcept {
   for (unsigned i = 0; i < app::kPadCount; ++i) {
-    if (key_note_[i] >= 0) {
+    if (key_note_[i] >= 0 || trnsp_hold_ == i + 1u) {
       key_release(ctx, i);
     }
   }
@@ -418,7 +419,7 @@ void HomeMap::audition_off(app::Context& ctx) noexcept {
   }
 }
 
-void HomeMap::key_press(app::Context& ctx, unsigned pad) noexcept {
+void HomeMap::key_press(app::Context& ctx, unsigned pad, bool shift) noexcept {
   const int note = key_note(pad, octave_);
   if (note < 0 || scale_locked_out(note)) {  // not a key, or out of the scale the keyboard is locked to (R8): the pad is dark and does nothing
     return;
@@ -471,6 +472,14 @@ void HomeMap::key_press(app::Context& ctx, unsigned pad) noexcept {
     // TRNSP: the keyboard transposes the running pattern; the bottom left C is no transposition.
     int t = note - kLowestNote;
     t = t < -36 ? -36 : (t > 36 ? 36 : t);
+    if (shift) {  // I6: with Shift the lift lasts while the key is held (key_release gives back what the line was transposed by)
+      if (trnsp_hold_ == 0u) {
+        trnsp_back_ = static_cast<std::int8_t>(live_->live_transpose());
+      }
+      trnsp_hold_ = static_cast<std::uint8_t>(pad + 1u);
+    } else {
+      trnsp_hold_ = 0;  // a plain key after it is a latched lift: nothing to give back
+    }
     live_->set_live_transpose(t);
     sound = false;
   }
@@ -513,6 +522,12 @@ void HomeMap::rec_hold_walk() noexcept {
 }
 
 void HomeMap::key_release(app::Context& ctx, unsigned pad) noexcept {
+  if (trnsp_hold_ == pad + 1u) {  // the momentary lift of a Shift + key ends with the last key of it (an older one still down changes nothing)
+    trnsp_hold_ = 0;
+    if (live_->trnsp()) {
+      live_->set_live_transpose(trnsp_back_);
+    }
+  }
   if (rec_hold_.on && rec_hold_.pad == pad) {
     rec_hold_.on = false;
   }
@@ -791,7 +806,7 @@ void HomeMap::pad_input(app::Context& ctx, const Input& in) noexcept {
       if (filt_) {  // FILT on: rows 3 and 4 are the CUTOFF and RESO ladders
         ladder_press(ctx, pad);
       } else {  // (a latched WOBBLE does not touch the keys here: its rate picker is PERFORM's row 3, UX-303 5.3 and 6.1 rule 3)
-        key_press(ctx, pad);
+        key_press(ctx, pad, in.shift);
       }
       break;
     case PadRole::None:

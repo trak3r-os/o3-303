@@ -257,7 +257,7 @@ are a knob, a slide switch and a key.
 | ACC, SLIDE (row 1, columns 9 and 10) | Tap: accent or slide on the cursor step, on or off. Held + a step pad: that step's accent or slide, on or off, like a drum machine |
 | TIE, REST (row 1, columns 11 and 12) | Tap: tie or rest on the cursor step. With REC on they are written like a note. Held + a step pad: that step's tie or rest |
 | OCT-, OCT+ (row 2, columns 9 and 10) | The keys' octave down or up (three octaves either way) |
-| TRNSP (row 2, column 11) | On: while the line plays, a key transposes it (the C at the bottom left is no transpose). Off: the keys play the voice |
+| TRNSP (row 2, column 11) | On: while the line plays, a key transposes it (the C at the bottom left is no transpose); a key held with Shift lifts it only while you hold it, and the line goes back to what it was. Off: the keys play the voice |
 | FILT (row 2, column 12) | On: rows 3 and 4 become the filter ladders (below) |
 | Keys (rows 3 and 4) | Play the voice. With REC on: stopped, write and move on; playing, write at the step playing |
 

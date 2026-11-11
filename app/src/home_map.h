@@ -162,7 +162,7 @@ class HomeMap {
 
   // ---- input
   void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
-  void key_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
+  void key_press(o3sdk::app::Context& ctx, unsigned pad, bool shift) noexcept;
   void key_release(o3sdk::app::Context& ctx, unsigned pad) noexcept;
   void rec_hold_walk() noexcept;  // update(): the steps the playhead enters while a recorded key is still down become ties
   void step_press(o3sdk::app::Context& ctx, unsigned k) noexcept;
@@ -215,6 +215,10 @@ class HomeMap {
   int view_page_ = 0;
   int last_play_page_ = -1;
   bool page_held_ = false;  // F4: while playing, the step pads stay on the page the player chose (main loop only; Stop or another pattern gives the follow back)
+  // TRNSP, Shift + a key (I6): the lift lasts while the key is held. trnsp_hold_ is the key's pad + 1 (0: none), trnsp_back_ what the line was
+  // transposed by before. Main loop only; 2 bytes, in the padding after page_held_.
+  std::uint8_t trnsp_hold_ = 0;
+  std::int8_t trnsp_back_ = 0;
   unsigned lane_ = 0;
   bool on_lane_ = false;
   Entry knob_;  // the knob the encoder owns (knob_latched)

@@ -170,6 +170,55 @@ TEST_CASE("TRNSP off is the default: playing, a key plays the voice and does not
   t.tap(Button::Play);
 }
 
+TEST_CASE("TRNSP: a key held with Shift lifts the line only while it is held and gives back what it was (I6 a); a plain key stays") {
+  Hands t;
+  seq::Sequencer& s = app_sequencer();
+  t.tap(Button::Play);
+  t.wait(200);
+  t.toggle_trnsp();
+  t.pad(key_pad(43), 10);  // G2: +7, latched
+  t.wait(40);
+  REQUIRE(s.live_transpose() == 7);
+  t.press(Button::Shift);
+  t.down(key_pad(45));  // A2, +9, momentary
+  t.release(Button::Shift);  // Shift may go first: the key's release is what ends it
+  t.wait(40);
+  CHECK(s.live_transpose() == 9);
+  t.up(key_pad(45));
+  t.wait(40);
+  CHECK(s.live_transpose() == 7);  // back to the latched +7
+  // Two keys held with Shift: the last one decides, and its release gives back the lift from before the first.
+  t.press(Button::Shift);
+  t.down(key_pad(40));  // +4
+  t.down(key_pad(41));  // +5
+  t.release(Button::Shift);
+  CHECK(s.live_transpose() == 5);
+  t.up(key_pad(40));  // the older key: nothing changes
+  t.wait(20);
+  CHECK(s.live_transpose() == 5);
+  t.up(key_pad(41));
+  t.wait(40);
+  CHECK(s.live_transpose() == 7);
+  // A plain key while a Shift key is down is a latched lift: the release gives nothing back.
+  t.press(Button::Shift);
+  t.down(key_pad(38));  // +2 momentary
+  t.release(Button::Shift);
+  t.pad(key_pad(47), 10);  // plain B2: +11
+  t.wait(20);
+  t.up(key_pad(38));
+  t.wait(40);
+  CHECK(s.live_transpose() == 11);
+  // TRNSP off while held: the release leaves the line as written.
+  t.press(Button::Shift);
+  t.down(key_pad(42));
+  t.release(Button::Shift);
+  t.toggle_trnsp();
+  t.up(key_pad(42));
+  t.wait(40);
+  CHECK(s.live_transpose() == 0);
+  t.tap(Button::Play);
+}
+
 TEST_CASE("stopped, TRNSP on or off: a key plays the voice (there is no line to transpose)") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
