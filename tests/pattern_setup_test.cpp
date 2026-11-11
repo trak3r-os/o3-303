@@ -553,6 +553,52 @@ TEST_CASE("Shift + F5 gives the encoder the generator's root (C to B, no wrap); 
   CHECK(std::strcmp(sc, "--") == 0);
 }
 
+TEST_CASE("PATTERN SETUP: F5 held and a tap of a bottom-row key sets the root; without F5 the key is no root; Shift + F5 stays the encoder's way (X4)") {
+  Hands t;
+  open_setup(t);
+  t.tap(Button::F5);
+  t.turn(-40);
+  t.turn(3);  // Major: the keyboard is locked, so the root shows on the pads
+  const auto root_on = [&](unsigned note) {
+    t.tap(Button::Pattern);  // HOME
+    t.wait(40);
+    const bool on = t.led(key_pad(note)) == app::kLedOn;
+    t.tap(Button::Pattern);  // back to SETUP
+    t.wait(40);
+    return on;
+  };
+  REQUIRE(root_on(36));  // C by default
+  t.press(Button::F5);
+  t.pad(key_pad(39));  // D#
+  t.release(Button::F5);
+  t.wait(40);
+  CHECK(root_on(39));
+  CHECK(!root_on(36));
+  t.press(Button::F5);
+  t.pad(key_pad(47));  // B: the last key of the row
+  t.release(Button::F5);
+  t.wait(40);
+  CHECK(root_on(47));
+  t.pad(key_pad(38));  // no F key held: a key of the keyboard, not a root
+  CHECK(root_on(47));
+  t.press(Button::F5);
+  t.pad(key_pad(52));  // a key of the row above: not one of the twelve
+  t.release(Button::F5);
+  t.wait(40);
+  CHECK(root_on(47));
+  t.press(Button::F1);  // another F key held: no root either
+  t.pad(key_pad(40));
+  t.release(Button::F1);
+  t.wait(40);
+  CHECK(root_on(47));
+  // The tap left F5 as it found it: the encoder is SCALE's, and Shift + F5 still hands it the root.
+  t.turn(1);
+  CHECK(root_on(47));
+  t.shift_tap(Button::F5);
+  t.turn(-2);
+  CHECK(root_on(45));  // A
+}
+
 TEST_CASE("Left / Right with an F key held move that knob by 1/20 of its range and stop at the ends; without a key they move the cursor") {
   Hands t;
   const float v0 = t.param(kVoice, 0);  // F1 CUTOFF

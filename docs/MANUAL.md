@@ -375,7 +375,7 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F7 ACC % | How many accents NEW draws | 0 to 100 % (25 %) |
 | F8 SLD % | How many slides NEW draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
 
-The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5). With a scale on, the scale's value shows its root ("D MAJOR"), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark.
+The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5). With a scale on, the scale's value shows its root ("D MAJOR"), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark. To set the root without the encoder, hold F5 and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
 pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F7 REDO, F8 UNDO.

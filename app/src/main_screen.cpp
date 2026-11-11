@@ -171,12 +171,39 @@ void MainScreen::update(app::Context& ctx) noexcept {
 
 void MainScreen::input(app::Context& ctx, const Input& in) noexcept {
   if (in.kind == core::InputKind::Pad) {
-    (void)home_.input(ctx, in);
+    if (!root_tap(ctx, in)) {
+      (void)home_.input(ctx, in);
+    }
   } else if (in.kind == core::InputKind::Encoder) {
     turn_input(ctx, in);
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
+}
+
+// PATTERN SETUP, F5 (SCALE) held: a tap of a key of the bottom row (C to B, pads 36..47) is the generator's root, without the encoder. The press
+// is the whole gesture (the key's release reaches the home map and finds no note to end); the held key's release gives the latch back.
+bool MainScreen::root_tap(app::Context& ctx, const Input& in) noexcept {
+  const unsigned pad = in.pad();
+  if (!setup_ || !in.pad_press() || pad < 36u || pad >= 48u) {
+    return false;
+  }
+  const PageKeys& fk = fkeys();
+  const Page& pg = fk.page();
+  bool scale_held = false;
+  for (unsigned k = 0; k < kKeys; ++k) {
+    scale_held = scale_held || (pg.entry[k].item == Item::Scale && (fk.held() >> k & 1u) != 0u);
+  }
+  if (!scale_held) {
+    return false;
+  }
+  rig_->wiring.gen.root = static_cast<std::uint8_t>(pad - 36u);
+  char text[12] = "ROOT ";
+  (void)root_name(pad - 36u, text + 5, sizeof text - 5u);
+  toast(ctx, text);
+  fkeys().mark_turned();
+  ctx.redraw();
+  return true;
 }
 
 void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {

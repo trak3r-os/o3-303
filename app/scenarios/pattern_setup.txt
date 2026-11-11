@@ -128,3 +128,16 @@ tap right
 wait 100
 snap 23_home_f1_held_right
 release f1
+# X4: on PATTERN SETUP, F5 held and a tap of a bottom-row key sets the root (F here); the scale box says F MAJOR, HOME lights F full.
+tap pattern
+wait 100
+press f5
+wait 50
+pad 41
+wait 50
+release f5
+wait 100
+snap 24_setup_root_by_key
+tap pattern
+wait 200
+snap 25_home_root_f

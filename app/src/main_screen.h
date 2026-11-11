@@ -82,6 +82,7 @@ class MainScreen final : public o3sdk::app::Screen {
   // ---- PATTERN SETUP (main_screen.cpp)
   void setup_toggle(o3sdk::app::Context& ctx) noexcept;
   void setup_tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  bool root_tap(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void duplicate_to_next(o3sdk::app::Context& ctx) noexcept;
   // The F keys' page: SETUP's own, or the shared SOUND page (Rig::sound_keys).
   PageKeys& fkeys() noexcept { return setup_ ? setup_keys_ : rig_->sound_keys; }

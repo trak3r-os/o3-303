@@ -31,6 +31,8 @@ hear says so in plain words.
   them, and one saved by this version loads in the older ones with their own defaults for the rows they know. Nothing you hear changes.
 - **Copy and Delete with a pattern pad.** Hold Pattern, hold Copy and tap a pad: the pattern you are on is copied onto that pad's
   pattern (one undo). Hold Pattern, hold Delete and tap a pad: that pattern is cleared (one undo). PATTERN SETUP's Shift + F1 / F2 stay.
+- **The root by a key.** On PATTERN SETUP hold F5 and tap a key of the bottom row of pads (C to B): that is the generator's root. Shift + F5
+  with the encoder stays.
 - **NEW and RHYTHM tie notes.** PATTERN SETUP's F8 SLD % now also sets the ties: after a step that plays, a step becomes a tie (the note
   goes on) with half the chance of a slide, never on step 1. At SLD % 0 NEW, VARY, RHYTHM and NOTES draw exactly the lines they did before;
   at the default 20 % a NEW line differs from v0.6.0's for the same seed, with a tie here and there. By ear on the unit first: it stays only if it sounds right.
