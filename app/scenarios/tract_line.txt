@@ -1,0 +1,66 @@
+# The TRACT line on the TRACT page (docs/TRACT-KNOBS-PLAN.md A2 rest): the pads are the pattern's line. Rows 1 and 2 (pads 0 to 23) are its steps, 24 a page; row 3 is the palette
+# (pads 24 to 28 write A E I O U, 29 writes "-", 34 is GLD, 35 is LINE); row 4 (pads 36 to 47) stays live: with LINE off a tap writes VOWEL, with LINE on and the pattern playing a hold
+# overrides the line and the release gives it back. A write goes to the held steps, else to the cursor, and the cursor moves on. Shift + F4 is LEN, Shift + F5 CLEAR.
+#
+#   mkdir -p <dir> && build-line-host/app/o3_303_sim --scenario app/scenarios/tract_line.txt --out <dir>
+#
+# 01 TRACT, stopped, the line empty; 02 a line typed over the factory pattern: A E I O U - A E (the cursor on step 8); 03 GLD on the step 7 (E glides in); 04 LEN 8: the steps past it go dark;
+# 05 playing with LINE on: the playhead runs over the line; 06 a live vowel held on row 4: the line stands aside; 07 released: the line takes over at the next step; 08 LINE off, playing:
+# the line is stored but the vowel is the knob's; 09 CLEAR. The WAV: the factory line under the tract, the line moving the vowel for two bars, a hold on O, the line again, LINE off.
+wait 300
+record on
+tap sampleplay
+wait 100
+tap f8
+tap f7
+turn 50
+wait 100
+snap 01_tract_stopped
+# Typing the line: palette pads write at the cursor, which moves on.
+pad 24 40
+pad 25 40
+pad 26 40
+pad 27 40
+pad 28 40
+pad 29 40
+pad 24 40
+pad 25 40
+wait 100
+snap 02_line_typed
+# GLD on step 7 (select it, then the GLD pad).
+pad 7 40
+pad 34 40
+wait 100
+snap 03_gld_on_step_7
+# LEN: Shift + F4 twice, SAME to 4 to 8.
+press shift
+tap f4
+tap f4
+release shift
+wait 100
+snap 04_len_8
+# LINE on, play: the playhead runs over the line.
+pad 35 40
+tap play
+wait 2400
+snap 05_playing_line_on
+# A live vowel held on row 4 (pad 39 is O): the line stands aside.
+paddown 39
+wait 900
+snap 06_live_hold
+padup 39
+wait 1500
+snap 07_released
+# LINE off: the line is stored, the vowel is the knob's.
+pad 35 40
+wait 1600
+snap 08_line_off_playing
+tap play
+wait 300
+press shift
+tap f5
+release shift
+wait 100
+snap 09_cleared
+wait 300
+wav tract_line

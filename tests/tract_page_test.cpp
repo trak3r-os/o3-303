@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The TRACT page (TRACT-KNOBS-PLAN A2, first part): Sample Playback opens it and flips to GROWL and back, F8 is the on / off key that remembers the last mix, the bottom row of pads
-// holds the live vowels A E I O U (a tap writes the VOWEL knob) and the other pads do nothing yet, the wobble's MOUTH target swings VOWEL, and the TARGET refusal with the tract off.
+// holds the live vowels A E I O U (a tap writes the VOWEL knob), rows 1 to 3 are the line and its palette (A2 rest), the wobble's MOUTH target swings VOWEL, and the TARGET refusal with the tract off.
 // The pure parts (the read-out, the vowel table, the page entries) are in pages_test.cpp.
 #include <doctest/doctest.h>
 
@@ -12,6 +12,7 @@
 
 #include <o3sdk/dsp/engine.h>
 #include <o3_303/app_access.h>
+#include <o3_303/tract_line.h>
 #include <o3_303/tract_vowels.h>
 #include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tract/tract.h>
@@ -77,7 +78,7 @@ TEST_CASE("tract page: F8 is the on / off key (Mix 0 off, the last mix on), F7 i
   CHECK(t.param(kTract, TractFx::Vowel) > 0.0f);  // the knob moves the unit
 }
 
-TEST_CASE("tract page: the bottom row's first five pads are the live vowels, a tap writes VOWEL, the LEDs follow, the other pads do nothing") {
+TEST_CASE("tract page: the bottom row's first five pads are the live vowels, a tap writes VOWEL, the LEDs follow, the inert pads do nothing") {
   Hands t;
   t.to_tract();
   const float point[5] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
@@ -85,8 +86,7 @@ TEST_CASE("tract page: the bottom row's first five pads are the live vowels, a t
     CHECK(t.led(vowel_pad(v)) != app::kLedOff);  // the five are lit (dim, the one that sounds on)
   }
   CHECK(t.led(vowel_pad(5)) == app::kLedOff);
-  CHECK(t.led(app::pad_at(0, 0)) == app::kLedOff);  // rows 1 to 3 are dark and silent until the line slice
-  CHECK(t.led(app::pad_at(2, 3)) == app::kLedOff);
+  CHECK(t.led(vowel_pad(11)) == app::kLedOff);
   for (unsigned v : {2u, 4u, 0u, 3u, 1u}) {
     t.pad(vowel_pad(v));
     t.wait(20);
@@ -98,10 +98,10 @@ TEST_CASE("tract page: the bottom row's first five pads are the live vowels, a t
       }
     }
   }
-  // Other pads: no step is selected or toggled, no note sounds, the vowel stays.
+  // The inert pads (the rest of the live row, the palette's empty places, the line's pads past its end): no step toggled, no note, the vowel stays, the line is untouched.
   const float before = t.param(kTract, TractFx::Vowel);
   const auto pattern = t.pat();
-  for (unsigned p : {app::pad_at(0, 0), app::pad_at(1, 4), app::pad_at(2, 7), app::pad_at(3, 5), app::pad_at(3, 11)}) {
+  for (unsigned p : {app::pad_at(3, 5), app::pad_at(3, 11), app::pad_at(2, 6), app::pad_at(2, 9), app::pad_at(1, 11)}) {
     t.pad(p);
   }
   t.wait(20);
@@ -111,6 +111,184 @@ TEST_CASE("tract page: the bottom row's first five pads are the live vowels, a t
   // Back on GROWL the pads are the 303's again.
   t.to_growl();
   CHECK(t.led(vowel_pad(0)) != app::kLedOff);  // the keyboard's own LEDs, not the vowels' (the home map)
+}
+
+namespace {
+
+unsigned pal_pad(unsigned col) { return app::pad_at(2, col); }
+std::uint8_t step_of(unsigned s) { return bank().tract_step(bank().selected(), s); }
+unsigned vowel_of(unsigned s) { return o3_303::tract_vowel(step_of(s)); }
+unsigned line_len_of(Hands& t) { return o3_303::tract_length(t.pat().tract, t.pat().length != 0u ? t.pat().length : o3_303::kDefaultLength); }
+
+}  // namespace
+
+TEST_CASE("tract page: rows 1 and 2 are the line, 24 steps a page; the LEDs show its steps inside the length and nothing past it") {
+  Hands t;
+  t.to_tract();
+  REQUIRE(line_len_of(t) == 16u);
+  for (unsigned n = 0; n < 16; ++n) {
+    CHECK(t.led(n) != app::kLedOff);  // "-" inside the length: dim (the cursor's blinks)
+  }
+  for (unsigned n = 16; n < 24; ++n) {
+    CHECK(t.led(n) == app::kLedOff);
+  }
+  CHECK(bank().set_tract_length(t.selected(), 32));
+  t.wait(40);
+  for (unsigned n = 0; n < 24; ++n) {
+    CHECK(t.led(n) != app::kLedOff);
+  }
+  CHECK(bank().set_tract_step(t.selected(), 3, 2, false));
+  CHECK(bank().set_tract_step(t.selected(), 4, 2, true));
+  t.wait(40);
+  CHECK(t.led(3) == app::kLedLow);
+  CHECK(t.led(4) == app::kLedMid);
+  CHECK(t.led(9) == app::kLedDim);
+}
+
+TEST_CASE("tract page: a step pad selects it, the palette writes it and goes on, held steps take one write together, GLD flips the glide, undo is one step") {
+  Hands t;
+  t.to_tract();
+  REQUIRE(line_len_of(t) == 16u);
+  t.pad(2);
+  t.pad(pal_pad(3));  // O (4) on step 2, the cursor goes on to 3
+  CHECK(vowel_of(2) == 4u);
+  t.pad(pal_pad(0));  // A on step 3
+  t.pad(pal_pad(1));  // E on step 4
+  CHECK(vowel_of(3) == 1u);
+  CHECK(vowel_of(4) == 2u);
+  // Past the end of the line the pad is inert: the cursor keeps its place.
+  t.pad(20);
+  t.pad(pal_pad(2));  // I on the cursor's step (5)
+  CHECK(vowel_of(5) == 3u);
+  // Held steps: no advance, the same write on both.
+  t.down(5);
+  t.down(6);
+  t.pad(pal_pad(4));
+  t.up(6);
+  t.up(5);
+  CHECK(vowel_of(5) == 5u);
+  CHECK(vowel_of(6) == 5u);
+  // GLD: on a "-" step it is refused (and nothing changes); on a vowel it flips.
+  t.pad(9);
+  t.pad(pal_pad(10));
+  CHECK(step_of(9) == 0u);
+  t.pad(5);
+  t.pad(pal_pad(10));
+  CHECK(o3_303::tract_glide(step_of(5)));
+  CHECK(vowel_of(5) == 5u);
+  t.wait(40);
+  CHECK(t.led(pal_pad(10)) == app::kLedMid);  // the cursor's step glides
+  t.pad(5);
+  t.pad(pal_pad(10));
+  CHECK(!o3_303::tract_glide(step_of(5)));
+  // "-" clears a step.
+  t.down(6);
+  t.pad(pal_pad(5));
+  t.up(6);
+  CHECK(step_of(6) == 0u);
+  CHECK(vowel_of(5) == 5u);
+  // One undo for the "-": step 6 is a vowel again (HOME's Shift + F8).
+  t.to_home();
+  t.shift_tap(Button::F8);
+  CHECK(vowel_of(6) == 5u);
+  CHECK(vowel_of(5) == 5u);
+}
+
+TEST_CASE("tract page: Left and Right move the line's cursor, the LINE pad flips LINE, Shift + F4 steps the length, Shift + F5 clears the line") {
+  Hands t;
+  t.to_tract();
+  t.pad(4);
+  t.tap(Button::Right);
+  t.pad(pal_pad(0));  // A on step 5
+  CHECK(vowel_of(5) == 1u);
+  t.tap(Button::Left);  // from the cursor (6) back to 5
+  t.tap(Button::Left);
+  t.pad(pal_pad(1));  // E on step 4
+  CHECK(vowel_of(4) == 2u);
+  // LINE.
+  CHECK(!app_sequencer().tract_line_on());
+  t.pad(pal_pad(11));
+  CHECK(app_sequencer().tract_line_on());
+  t.wait(40);
+  CHECK(t.led(pal_pad(11)) == app::kLedOn);
+  t.pad(pal_pad(11));
+  CHECK(!app_sequencer().tract_line_on());
+  CHECK(t.led(pal_pad(11)) == app::kLedLow);
+  // LEN: SAME (16) -> 4 -> 8 -> 16 -> 32 -> 64 -> SAME.
+  CHECK(t.pat().tract.len == o3_303::kTractSame);
+  const unsigned want[] = {4, 8, 16, 32, 64, 0};
+  for (unsigned w : want) {
+    t.shift_tap(Button::F4);
+    CHECK(t.pat().tract.len == w);
+    CHECK(std::strcmp(t.title(), "TRACT") == 0);
+  }
+  t.shift_tap(Button::F4);  // 4: the pads past the fourth are dark
+  t.wait(40);
+  CHECK(t.led(5) == app::kLedOff);
+  CHECK(t.led(2) != app::kLedOff);
+  // CLEAR.
+  t.shift_tap(Button::F5);
+  for (unsigned n = 0; n < 16; ++n) {
+    CHECK(step_of(n) == 0u);
+  }
+  CHECK(t.pat().tract.len == o3_303::kTractSame);
+}
+
+TEST_CASE("tract page: the Shift row shows LEN and CLEAR on F4 and F5 and LEARN on the other unit knobs") {
+  Hands t;
+  t.to_tract();
+  app::Context& ctx = t.h->runtime().context();
+  const auto row = [&](unsigned k) {
+    app::SoftKeys keys;
+    ctx.screen()->soft_keys(ctx, keys);
+    return std::string(keys.label[k] != nullptr ? keys.label[k] : "");
+  };
+  CHECK(row(3).empty());
+  t.press(Button::Shift);
+  CHECK(row(0) == "LEARN");
+  CHECK(row(3) == "LEN");
+  CHECK(row(4) == "CLEAR");
+  t.release(Button::Shift);
+}
+
+TEST_CASE("tract page: a live pad over a playing line overrides it while held and the knob comes back on release; Rec writes the sounding step") {
+  Hands t;
+  t.to_tract();
+  t.pad(pal_pad(11));  // LINE on
+  REQUIRE(app_sequencer().tract_line_on());
+  t.pad(vowel_pad(1));  // stopped: the tap is the knob's
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(0.25f));
+  t.tap(Button::Play);
+  t.wait(60);
+  REQUIRE(app_sequencer().tract_playhead() >= 0);
+  t.down(vowel_pad(3));
+  t.wait(20);
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(0.75f));
+  CHECK((app_sequencer().perf() & o3_303::seq::kPerfTractLive) != 0u);
+  t.down(vowel_pad(4));  // a second pad: the knob follows, the first value stays what comes back
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(1.0f));
+  t.up(vowel_pad(3));
+  CHECK((app_sequencer().perf() & o3_303::seq::kPerfTractLive) != 0u);
+  t.up(vowel_pad(4));
+  t.wait(20);
+  CHECK((app_sequencer().perf() & o3_303::seq::kPerfTractLive) == 0u);
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(0.25f));
+  // Rec while it plays: the vowel is written into the line's step that sounds (one step of the 16).
+  for (unsigned n = 0; n < 16; ++n) {
+    REQUIRE(step_of(n) == 0u);
+  }
+  t.tap(Button::Rec);
+  t.down(vowel_pad(2));
+  t.up(vowel_pad(2));
+  t.tap(Button::Rec);
+  unsigned written = 0;
+  for (unsigned n = 0; n < 16; ++n) {
+    written += vowel_of(n) == 3u ? 1u : 0u;
+  }
+  CHECK(written == 1u);
+  t.tap(Button::Play);
+  t.wait(40);
+  CHECK((app_sequencer().perf() & o3_303::seq::kPerfTractLive) == 0u);
 }
 
 TEST_CASE("tract page: the wobble's TARGET stops before MOUTH while the tract is off (TRACT IS OFF), and goes on with it on") {

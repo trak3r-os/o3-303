@@ -542,7 +542,22 @@ MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen 
 
 Press **Sample Play**. TRACT is a mouth after the growl: F1 VOWEL (A E I O U morphed; the read-out is a letter on a vowel and "E 37%" between), F2 TONGUE,
 F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8, which switches the tract on and off (off is Mix 0, the dry sound bit for bit; on brings back the last
-mix). The bottom row of pads plays the vowels A E I O U live. Shift + F1 to F7 is MIDI learn. Another press of Sample Play flips to GROWL and back.
+mix). Shift + F1 to F3, F6 and F7 are MIDI learn (Shift + F4 and F5 are the line's LEN and CLEAR, below). Another press of Sample Play flips to GROWL and back.
+
+The pads are the TRACT line of the pattern shown, the vowel the mouth takes on each step (48 patterns, 48 lines of up to 64 steps; a step with "-" leaves the
+VOWEL knob as it is). With LINE on the line plays with the pattern; with LINE off it is only stored.
+
+- **Rows 1 and 2** are the line's steps, 24 a page (the page follows the playhead while the pattern plays, until you touch a step or Left / Right; stopped, it
+  shows the cursor's). A pad past the line's length is dark. Tap a step to select it (it blinks); hold steps to select several. Dim is "-", low a vowel, mid a
+  vowel with GLD, bright the step that sounds.
+- **Row 3** is the palette: columns 1 to 5 write A E I O U, column 6 writes "-", column 11 is GLD (a glide into the step; a step with "-" has none) and column
+  12 is LINE. A write goes to the steps you hold, else to the selected step, and then the selection moves on, so a line is typed in; Left and Right move
+  the selection. One undo step per write (Shift + F8 on HOME).
+- **Row 4**, the first five pads, are live vowels. With LINE off, or stopped, a tap writes the VOWEL knob. With LINE on and the pattern playing, holding a
+  pad overrides the line with that vowel; on release the knob goes back to what it was and the line takes over at its next step. Rec on while the pattern plays
+  also writes the vowel into the line's step that sounds.
+- **Shift + F4 LEN** steps the line's length SAME (the pattern's), 4, 8, 16, 32, 64. **Shift + F5 CLEAR** empties the line ("-" everywhere, GLD off, SAME).
+  (MIDI learn is not offered on RES, GLIDE and SIZE while you are on this page.)
 
 ### GROWL
 

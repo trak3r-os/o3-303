@@ -259,6 +259,39 @@ bool Bank::set_tract_step(unsigned index, unsigned step, std::uint8_t vowel, boo
       kKeyTractStep | step);
 }
 
+bool Bank::paint_tract(unsigned index, std::uint64_t steps, int vowel, int glide) noexcept {
+  if (vowel > static_cast<int>(kTractVowels) || steps == 0u) {
+    return false;
+  }
+  unsigned only = kTractSteps;  // the one step of a single-bit mask: its key joins like set_tract_step's
+  if ((steps & (steps - 1u)) == 0u) {
+    only = 0;
+    while (((steps >> only) & 1u) == 0u) {
+      ++only;
+    }
+  }
+  return edit(
+      index,
+      [&](Pattern& p) {
+        bool changed = false;
+        for (unsigned n = 0; n < kTractSteps; ++n) {
+          if (((steps >> n) & 1u) == 0u) {
+            continue;
+          }
+          const std::uint8_t cur = p.tract.step[n];
+          const std::uint8_t v = vowel >= 0 ? static_cast<std::uint8_t>(vowel) : tract_vowel(cur);
+          const bool g = v != kTractFollow && (glide >= 0 ? glide != 0 : tract_glide(cur));
+          const std::uint8_t value = tract_make(v, g);
+          if (value != cur) {
+            p.tract.step[n] = value;
+            changed = true;
+          }
+        }
+        return changed;
+      },
+      only < kTractSteps ? (kKeyTractStep | only) : 0u);  // several steps: an undo step of its own
+}
+
 bool Bank::set_tract_length(unsigned index, unsigned length) noexcept {
   if (!tract_valid_len_field(length)) {
     return false;

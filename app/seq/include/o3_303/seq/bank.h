@@ -153,6 +153,9 @@ class Bank {
     return step < kTractSteps ? pattern(index).tract.step[step] : kTractFollow;
   }
   bool set_tract_step(unsigned index, unsigned step, std::uint8_t vowel, bool glide) noexcept;
+  // One edit over many steps (the TRACT page's pads, A2): bit n of `steps` is step n (0..63). `vowel` < 0 keeps each step's vowel, `glide` < 0 keeps its GLD; a step that ends with no
+  // vowel loses GLD. One undo step (one step alone joins its turns as set_tract_step does). false when nothing changed.
+  bool paint_tract(unsigned index, std::uint64_t steps, int vowel, int glide) noexcept;
   bool set_tract_length(unsigned index, unsigned length) noexcept;  // kTractSame, 4, 8, 16, 32 or 64
   bool clear_tract(unsigned index) noexcept;                        // every step "-", GLD off, SAME
   bool random_fill(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;

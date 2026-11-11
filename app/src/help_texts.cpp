@@ -182,11 +182,16 @@ constexpr HelpPadGroup kHomeFiltGroups[] = {
     {"LADDERS", "12 PLACES. F + TAP ASSIGNS. SHIFT+FILT: RESET", Color::Instr},
 };
 
-// TRACT's pads (A2): the live vowels of the bottom row; the rest of the grid is dark.
+// TRACT's pads (A2): rows 1 and 2 the line's steps, row 3 the palette (A E I O U "-", GLD and LINE), row 4 the live vowels.
 constexpr HelpPadGroup kTractGroups[] = {
-    {"VOWELS", "TAP: SET THE VOWEL KNOB (F1)", Color::Instr},
+    {"LINE", "TAP: SELECT A STEP. HOLD IT, THEN TAP ROW 3", Color::Instr},
+    {"PALETTE", "A E I O U - : WRITE THE STEP, THEN GO ON", Color::Accent},
+    {"GLD, LINE", "GLD: GLIDE OF THE STEP. LINE: ON / OFF", Color::Accent},
+    {"LIVE VOWELS", "TAP: VOWEL KNOB. LINE ON: HOLD TO OVERRIDE", Color::Instr},
 };
 constexpr const char* kVowelPads[] = {"A", "E", "I", "O", "U"};
+constexpr const char* kPalettePads[] = {"A", "E", "I", "O", "U", "-"};
+constexpr const char* kGldLinePads[] = {"GLD", "LINE"};
 
 constexpr HelpPadGroup kPerformGroups[] = {
     {"ACTIONS", "HOLD A PAD FOR ITS ACTION. SHIFT: LATCH", Color::Accent},
@@ -327,7 +332,7 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Tract
     {"TRACT",
-     "A MOUTH AFTER THE GROWL: THE VOICE TALKS. VOWEL MORPHS A E I O U, TONGUE AND LIPS SHAPE IT, RES, GLIDE, SIZE, F8 THE TRACT ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
+     "A MOUTH AFTER THE GROWL: THE VOICE TALKS. VOWEL MORPHS A E I O U, TONGUE AND LIPS SHAPE IT, RES, GLIDE, SIZE, F8 THE TRACT ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F: LEARN, F4 LEN, F5 CLEAR.",
      {"VOWEL: A E I O U", "TONGUE: BACK TO FRONT", "LIPS: ROUND TO SPREAD", "RESONANCE OF THE MOUTH", "GLIDE TIME BETWEEN VOWELS", "SIZE OF THE MOUTH", "WET / DRY OF THE TRACT", "TRACT: MIX 0 / LAST VALUE"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
@@ -335,7 +340,7 @@ constexpr Text kTexts[kIdCount] = {
      kTractButtons.n,
      kTractGroups,
      count_of(sizeof kTractGroups / sizeof kTractGroups[0]),
-     "BOTTOM ROW: LIVE VOWELS A E I O U. PATTERN HELD: PATTERNS."},
+     "ROWS 1-2: THE LINE. ROW 3: PALETTE. ROW 4: LIVE VOWELS. LEFT / RIGHT: CURSOR."},
     // Growl
     {"GROWL",
      "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE GROWL ON / OFF. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
@@ -568,7 +573,10 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
 }
 
 void fill_tract_pads(Help& h) noexcept {
-  app::help_pads(h, 3, 0, 3, 4, 1, kVowelPads);
+  app::help_pads(h, 0, 0, 1, 11, 1);
+  app::help_pads(h, 2, 0, 2, 5, 2, kPalettePads);
+  app::help_pads(h, 2, 10, 2, 11, 3, kGldLinePads);
+  app::help_pads(h, 3, 0, 3, 4, 4, kVowelPads);
 }
 
 void fill_perform_pads(Help& h, bool knobs) noexcept {

@@ -307,6 +307,47 @@ TEST_CASE("the tract line: the Bank's accessors, undo coalescing and carry") {
   CHECK(bank->tract_line(3).len == 16u);
   CHECK(bank->tract_step(3, 7) == (kTractE | kTractGlide));
 
+  // paint_tract: one edit over a mask of steps (the TRACT page's pads), one undo step; -1 keeps the vowel or the GLD; no vowel, no GLD.
+  bank->clear_history();
+  CHECK(bank->clear_tract(3));
+  bank->clear_history();
+  const std::uint64_t mask = (1ull << 2) | (1ull << 5) | (1ull << 40);
+  CHECK(bank->paint_tract(3, mask, kTractE, -1));
+  CHECK(bank->tract_step(3, 2) == kTractE);
+  CHECK(bank->tract_step(3, 40) == kTractE);
+  CHECK(bank->tract_step(3, 3) == kTractFollow);
+  CHECK(bank->paint_tract(3, 1ull << 5, -1, 1));  // GLD on a vowel step keeps the vowel
+  CHECK(bank->tract_step(3, 5) == (kTractE | kTractGlide));
+  CHECK(bank->paint_tract(3, 1ull << 5, kTractU, -1));  // a new vowel keeps the GLD
+  CHECK(bank->tract_step(3, 5) == (kTractU | kTractGlide));
+  CHECK(bank->paint_tract(3, mask, -1, 1));
+  CHECK(bank->tract_step(3, 2) == (kTractE | kTractGlide));
+  CHECK_FALSE(bank->paint_tract(3, mask, -1, 1));  // unchanged
+  CHECK(bank->paint_tract(3, mask | (1ull << 9), kTractFollow, -1));  // "-" takes the GLD with it
+  CHECK(bank->tract_step(3, 2) == kTractFollow);
+  CHECK(bank->tract_step(3, 9) == kTractFollow);
+  CHECK(bank->paint_tract(3, 1ull << 9, -1, 1) == false);  // GLD on a "-" step means nothing
+  CHECK(bank->tract_step(3, 9) == kTractFollow);
+  CHECK_FALSE(bank->paint_tract(3, 0, kTractA, -1));
+  CHECK_FALSE(bank->paint_tract(3, mask, 6, -1));
+  CHECK_FALSE(bank->paint_tract(48, mask, kTractA, -1));
+  // Several steps at once are an undo step of their own; a lone step joins its turns.
+  bank->clear_history();
+  CHECK(bank->paint_tract(3, mask, kTractA, 0));
+  CHECK(bank->paint_tract(3, mask, kTractI, -1));
+  CHECK(bank->undo() == 3);
+  CHECK(bank->tract_step(3, 40) == kTractA);
+  CHECK(bank->undo() == 3);
+  CHECK(bank->tract_step(3, 40) == kTractFollow);
+  CHECK_FALSE(bank->can_undo());
+  CHECK(bank->paint_tract(3, 1ull << 7, kTractA, -1));
+  CHECK(bank->paint_tract(3, 1ull << 7, kTractO, -1));
+  CHECK(bank->undo() == 3);
+  CHECK(bank->tract_step(3, 7) == kTractFollow);
+  CHECK_FALSE(bank->can_undo());
+  CHECK(bank->set_tract_length(3, 16));  // the line the next block starts from: SAME is 16 here, step 7 E with GLD
+  CHECK(bank->set_tract_step(3, 7, kTractE, true));
+
   // The line rides with the pattern: COPY PAT and PASTE, DUP>NEXT (replace), undo of a paste.
   bank->clear_history();
   CHECK(bank->clear_tract(3));

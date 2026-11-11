@@ -96,7 +96,7 @@ struct HomePads {
 // The home map (HOME, PATTERN SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
 // keys' note names (the labels point into it). `h` already has the screen's Text (fill()).
 void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noexcept;
-// TRACT: the pads are not the home map's: the bottom row's first five are the live vowels A E I O U, the rest dark. `h` already has the screen's Text (fill()).
+// TRACT: the pads are not the home map's: rows 1 and 2 the pattern's TRACT line, row 3 the palette (A E I O U "-", GLD, LINE), row 4 the live vowels A E I O U. `h` already has the screen's Text (fill()).
 void fill_tract_pads(o3sdk::app::Help& h) noexcept;
 // PERFORM and PERFORM SETUP: row 1 the eleven live actions and ALL OFF, row 2 the snapshots and the variations, row 3 the ladder, row 4 the keys. `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
 void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false) noexcept;

@@ -115,14 +115,14 @@ void queue_knob(Panel& p, int cx, float norm) noexcept {
 // The label line of slot `k`: "Fn NAME", or while Shift is held "Fn LEARN" (bright when armed) and "Fn -" (dim), on an amber tab.
 void queue_knob_label(Panel& p, int cx, const view::Knob& kn, const FSlot& slot, Learn learn, char (&name)[kNameMax + 1]) noexcept {
   const bool shift = learn != Learn::None;
-  const char* text = learn == Learn::No ? "-" : (shift ? "LEARN" : kn.label);
+  const char* text = learn == Learn::No ? "-" : (shift && learn != Learn::Tool ? "LEARN" : kn.label);
   cut_to(name, sizeof name, text, kNameMax);
   Color ink = slot.focus ? Color::ChromeText : Color::ChromeDim;
   if (learn == Learn::Armed) {
     ink = Color::Accent;
   } else if (learn == Learn::No) {
     ink = Color::TextDim;
-  } else if (learn == Learn::Can) {
+  } else if (learn == Learn::Can || learn == Learn::Tool) {
     ink = Color::ChromeText;
   }
   queue_label(p, cx, kLabelY, slot.fkey, name, ink, shift ? Color::Accent : Color::Rec, shift ? Color::AccentText : Color::SelText, len_of(name) <= 8 ? Face::Label : Face::Micro);

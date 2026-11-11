@@ -1454,8 +1454,8 @@ void Sequencer::line_step(dsp::BlockContext& ctx, unsigned frame, unsigned step,
   ++line_n_;
   tract_head_.store(static_cast<int>(idx), std::memory_order_relaxed);
   line_gld_pending_ = false;
-  if (tract_line_on_.load(std::memory_order_relaxed) == 0u || !resolvable(kLaneTract, kTractVowelParam)) {
-    line_release(ctx, frame, true, true);  // LINE off (or no tract unit): the knobs rule
+  if (tract_line_on_.load(std::memory_order_relaxed) == 0u || (perf_.load(std::memory_order_relaxed) & kPerfTractLive) != 0u || !resolvable(kLaneTract, kTractVowelParam)) {
+    line_release(ctx, frame, true, true);  // LINE off, a live vowel pad held (or no tract unit): the knobs rule
     return;
   }
   const std::uint8_t st = line.step[idx];
@@ -1490,7 +1490,7 @@ void Sequencer::line_glide_q1(dsp::BlockContext& ctx, unsigned frame) noexcept {
     return;
   }
   line_gld_pending_ = false;
-  if (tract_line_on_.load(std::memory_order_relaxed) == 0u || !resolvable(kLaneTract, kTractGlideParam)) {
+  if (tract_line_on_.load(std::memory_order_relaxed) == 0u || (perf_.load(std::memory_order_relaxed) & kPerfTractLive) != 0u || !resolvable(kLaneTract, kTractGlideParam)) {
     return;
   }
   const float bpm = ctx.transport().tempo_bpm();
@@ -1786,6 +1786,12 @@ void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {
   }
   refresh_shadow();
   block_end_tick_ = t.end() >> 32;
+  const bool live = (perf_.load(std::memory_order_relaxed) & kPerfTractLive) != 0u;
+  if (live && !line_live_) {  // a live vowel pad came down (A2): the knob (already written) has the mouth now, not a step later
+    line_release(ctx, 0, true, true);
+    line_gld_pending_ = false;
+  }
+  line_live_ = live;
   if (song_done_) {  // the song ended with the loop off: the transport runs on, nothing plays
     publish();
     return;

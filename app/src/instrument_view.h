@@ -31,7 +31,8 @@ struct InstrumentCell {
 };
 
 // What the Shift row says of a knob (MIDI learn, UX-303 5.5): nothing while Shift is up; "-" for a knob that is not a unit parameter (and for an empty box); LEARN; LEARN waiting for its controller.
-enum class Learn : std::uint8_t { None, No, Can, Armed };
+// Tool: a Shift key the page itself uses (the TRACT line's LEN and CLEAR, A2): the knob's label already holds its name.
+enum class Learn : std::uint8_t { None, No, Can, Armed, Tool };
 
 struct InstrumentView {
   static constexpr unsigned kMaxSections = 4;
