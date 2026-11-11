@@ -124,8 +124,9 @@ class Bank {
   bool set_note(unsigned index, unsigned step, unsigned note, unsigned join = kJoinOwn) noexcept;
   bool toggle_flag(unsigned index, unsigned step, std::uint8_t flag) noexcept;
   bool set_flag(unsigned index, unsigned step, std::uint8_t flag, bool on) noexcept;
-  // REC entry; returns the next cursor (0 at the end of the length).
-  unsigned write_advance(unsigned index, unsigned step, unsigned note, std::uint8_t flags) noexcept;
+  // REC entry; returns the next cursor (0 at the end of the length). `hold` != 0 (a held key written while playing): consecutive entries with the same
+  // `hold` (low byte) are ONE undo step, the note and the ties it spreads over. A new held note takes another value.
+  unsigned write_advance(unsigned index, unsigned step, unsigned note, std::uint8_t flags, unsigned hold = 0) noexcept;
   bool insert_step(unsigned index, unsigned at) noexcept;
   bool delete_step(unsigned index, unsigned at) noexcept;
   bool rotate(unsigned index, int steps) noexcept;

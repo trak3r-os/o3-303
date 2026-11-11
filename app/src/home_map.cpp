@@ -172,6 +172,7 @@ void HomeMap::init(Rig& rig) noexcept {
     n = -1;
   }
   audition_note_ = -1;
+  rec_hold_ = RecHold{};
   pattern_down_ = false;
   overlay_ = false;
   chain_started_ = false;
@@ -376,6 +377,9 @@ void HomeMap::update(app::Context& ctx) noexcept {
     last_play_page_ = -1;
     page_held_ = false;
   }
+  if (rec_hold_.on) {
+    rec_hold_walk();
+  }
   if (pattern_down_ && !overlay_ && ctx.uptime_ms() - pattern_down_ms_ >= kHoldMs) {
     overlay_ = true;
     chain_started_ = false;
@@ -437,9 +441,20 @@ void HomeMap::key_press(app::Context& ctx, unsigned pad) noexcept {
     const unsigned next = rig_->bank->write_advance(sel(), static_cast<unsigned>(cursor_), un, flags);
     move_cursor(ctx, static_cast<int>(next));
   } else if (rec_ && playing_) {
+    // The nearest step: past half of the one the playhead is in, the next one (the note on the voice now is not touched). The key held down
+    // spreads over the steps that start under it as ties (rec_hold_walk), and the whole note is one undo step.
     const seq::Playhead ph = rig_->seq->playhead();
     if (ph.playing && ph.step >= 0 && ph.pattern >= 0) {
-      (void)rig_->bank->write_advance(static_cast<unsigned>(ph.pattern), static_cast<unsigned>(ph.step), un, flags);
+      const unsigned pp = static_cast<unsigned>(ph.pattern);
+      const unsigned len = rig_->bank->pattern(pp).length != 0u ? rig_->bank->pattern(pp).length : kDefaultLength;
+      const bool ahead = ph.phase >= kNearestStepPhase;
+      unsigned at = static_cast<unsigned>(ph.step);
+      if (ahead) {
+        at = at + 1u >= len ? 0u : at + 1u;
+      }
+      rec_hold_id_ = rec_hold_id_ % 255u + 1u;
+      (void)rig_->bank->write_advance(pp, at, un, flags, rec_hold_id_);
+      rec_hold_ = RecHold{true, ahead, pad, pp, at, at, rec_hold_id_};
     }
   } else if (playing_ && live_->trnsp()) {
     // TRNSP: the keyboard transposes the running pattern; the bottom left C is no transposition.
@@ -456,7 +471,40 @@ void HomeMap::key_press(app::Context& ctx, unsigned pad) noexcept {
   ctx.redraw();
 }
 
+// The playhead entered another step while a recorded key is still down: that step is a tie. The hold ends when the key goes up (key_release), REC
+// goes off, the transport stops or leaves the pattern, the playhead jumps, or a lap would reach the note's own step. Tick-late by up to the update
+// period (the main loop's frame): a tie is written when the main loop sees the step, and the sequencer plays it from the next lap.
+void HomeMap::rec_hold_walk() noexcept {
+  RecHold& h = rec_hold_;
+  const seq::Playhead ph = rig_->seq->playhead();
+  if (!rec_ || !ph.playing || ph.pattern != static_cast<int>(h.pattern) || ph.step < 0) {
+    h.on = false;
+    return;
+  }
+  const Pattern& p = rig_->bank->pattern(h.pattern);
+  const unsigned len = p.length != 0u ? p.length : kDefaultLength;
+  const unsigned now = static_cast<unsigned>(ph.step);
+  if (h.wait) {  // the note is on the next step: the ties start after the playhead has been on it
+    if (now == h.last) {
+      h.wait = false;
+    }
+    return;
+  }
+  for (unsigned n = 0; n < len && h.last != now; ++n) {
+    const unsigned next = h.last + 1u >= len ? 0u : h.last + 1u;
+    if (next == h.first) {
+      h.on = false;  // a whole lap: the note's own step is not overwritten
+      return;
+    }
+    (void)rig_->bank->write_advance(h.pattern, next, rig_->bank->pattern(h.pattern).steps[next].note, kStepTie, h.id);
+    h.last = next;
+  }
+}
+
 void HomeMap::key_release(app::Context& ctx, unsigned pad) noexcept {
+  if (rec_hold_.on && rec_hold_.pad == pad) {
+    rec_hold_.on = false;
+  }
   if (key_note_[pad] >= 0) {
     (void)ctx.engine().note_off(rig_->wiring.voice, static_cast<std::uint8_t>(key_note_[pad]));
     key_note_[pad] = -1;

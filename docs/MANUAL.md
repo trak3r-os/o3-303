@@ -194,6 +194,10 @@ step. Play sixteen notes or rests, then press **Rec** again to leave write mode.
 
 *Sixteen steps written with REC on. The dots in the GATE row are rests. The PADS line says what the keys do now.*
 
+With REC on and the line playing, hold a key and the note lasts as long as you hold it: the steps it covers become ties. A key played just
+before a step lands on it (past half of a step, a key goes on the next one; the note that sounds now is the key's own). The whole held note
+is one UNDO step. Played with the line stopped, the keys write and move on as above.
+
 ### Add accents and slides
 
 Hold a **step pad** and tap **ACC** (row 1, column 9) or **SLIDE** (row 1, column 10). Steps 1 to 8 are row 1, columns 1 to 8; steps 9

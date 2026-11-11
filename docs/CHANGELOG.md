@@ -57,6 +57,9 @@ hear says so in plain words.
   gone: it answers "UNDO IS SHIFT + F8" for this release (SONG's Shift row had both already).
 - **No holes in the F row on RECORD and SONG.** RECORD is ARM, BARS, SAVE and DISCARD on F1 to F4 (BARS was F3, SAVE F6, DISCARD F7);
   SONG is PLAYS, LOOP, CHAIN and CLEAR on F1 to F4 (CLEAR was F7). SAVE and DISCARD and CLEAR still ask twice. Nothing saved changes.
+- **Hold a key with REC on and the note lasts as long as you hold it.** While the line plays, a key lands on the nearest step (past half of a
+  step, on the next one) and every step that starts while you still hold it is written as a tie; one UNDO takes the whole note back. Played
+  with the line stopped, the keys write and move on as before.
 
 ## v0.6.1 (2026-11-09), a pre-release
 

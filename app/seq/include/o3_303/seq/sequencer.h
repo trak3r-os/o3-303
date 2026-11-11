@@ -175,6 +175,8 @@ struct Playhead {
   int pattern = -1;        // the pattern being played (0..kPatternCount-1), -1 when stopped
   int step = -1;           // the step that started last (0..63), -1 when stopped
   int point = 0;           // its quarter (0..3) now: where a motion recording lands
+  int phase = 0;           // how far into that step the end of the last block is, in sixteenths of its length (0..15; phase / 4 == point): where a key
+                           // played now is nearer to (HomeMap's nearest step)
   int queued = -1;         // the pattern that starts when this one ends (the next of the chain, or its first when a looping chain
                            // is at its end), -1 if the playing pattern simply repeats
   unsigned queue_length = 0;  // chain entries still to come after the playing one (a loop's wrap not counted), 0..kMaxQueue
@@ -512,6 +514,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   std::uint64_t pt_tick_ = 0;       // the tick of the next motion quarter
   std::uint64_t cur_start_ = 0;     // the current step's start and length in ticks
   std::uint32_t cur_len_ = 0;
+  std::uint64_t block_end_tick_ = 0;  // the whole tick the last block ended at (the next block's first), for Playhead::phase
   int held_ = -1;                   // the note on the voice now (0..127), -1 none
   bool prev_slide_ = false;         // the last step held its note into the next one with a slide
   std::uint8_t chain_[kMaxQueue] = {};

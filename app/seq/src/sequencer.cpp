@@ -49,12 +49,12 @@ constexpr unsigned kSlewExtraEvents = 4;  // a slew's last event (its goal) may 
 
 // The playhead word: one atomic, so a reader never sees half of it.
 //   bit 0 playing | 1..6 pattern | 7..13 step + 1 (0: none) | 14..15 point | 16..22 queued + 1 (0: none) | 23..27 queue length | 28 sounding
-//   | 29 fill
+//   | 29 fill | 30..31 the two low bits of the phase (the phase is point * 4 + them: a sixteenth of the step)
 std::uint32_t pack_playhead(const Playhead& h) noexcept {
   const auto u = [](int v) { return static_cast<std::uint32_t>(v); };
   return (h.playing ? 1u : 0u) | ((u(h.pattern < 0 ? 0 : h.pattern) & 0x3Fu) << 1) | ((u(h.step + 1) & 0x7Fu) << 7) |
          ((u(h.point) & 3u) << 14) | ((u(h.queued + 1) & 0x7Fu) << 16) | ((h.queue_length & 0x1Fu) << 23) | ((h.sounding ? 1u : 0u) << 28) |
-         ((h.fill ? 1u : 0u) << 29);
+         ((h.fill ? 1u : 0u) << 29) | ((u(h.phase) & 3u) << 30);
 }
 
 Playhead unpack_playhead(std::uint32_t w) noexcept {
@@ -67,6 +67,7 @@ Playhead unpack_playhead(std::uint32_t w) noexcept {
   h.queue_length = (w >> 23) & 0x1Fu;
   h.sounding = ((w >> 28) & 1u) != 0u;
   h.fill = ((w >> 29) & 1u) != 0u;
+  h.phase = (h.point << 2) | static_cast<int>(w >> 30);
   return h;
 }
 
@@ -1565,6 +1566,14 @@ void Sequencer::publish() noexcept {
   h.pattern = running_ ? static_cast<int>(playing_) : -1;
   h.step = running_ ? cur_step_ : -1;
   h.point = cur_point_;
+  if (running_ && cur_step_ >= 0 && cur_len_ != 0u && block_end_tick_ >= cur_start_) {
+    const std::uint64_t into = ((block_end_tick_ - cur_start_) * 16u) / cur_len_;  // 0..15 inside the step
+    int sub = static_cast<int>(into > 15u ? 15u : into) - h.point * 4;
+    sub = sub < 0 ? 0 : (sub > 3 ? 3 : sub);  // the quarter's own event is what says which quarter: the phase never leaves it
+    h.phase = h.point * 4 + sub;
+  } else {
+    h.phase = h.point * 4;
+  }
   h.queued = chain_queued();
   h.queue_length = chain_len_ > chain_next_ ? chain_len_ - chain_next_ : 0u;
   h.sounding = held_ >= 0;
@@ -1659,6 +1668,7 @@ void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {
     begin_run(t);
   }
   refresh_shadow();
+  block_end_tick_ = t.end() >> 32;
   if (song_done_) {  // the song ended with the loop off: the transport runs on, nothing plays
     publish();
     return;

@@ -35,6 +35,10 @@
 
 namespace o3_303 {
 
+// U1, hold = length: a key played while REC runs lands on the NEAREST step. Played this far into a step (sixteenths of it: 8 is 50 %) or later, it goes
+// on the next step; the note that sounds now is the key's own and does not move. One constant, to tune by feel (docs/TRACT-KNOBS-PLAN.md U1).
+inline constexpr int kNearestStepPhase = 8;
+
 inline constexpr std::uint64_t kHoldMs = 300;  // a press shorter than this is a tap; Pattern held this long: the 48 pads are the patterns
 
 // The toast when a lock or a recorded turn finds all eight lanes in use (UX-303 D2). A lane is free once its last lock is gone; the toast names the
@@ -160,6 +164,7 @@ class HomeMap {
   void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void key_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
   void key_release(o3sdk::app::Context& ctx, unsigned pad) noexcept;
+  void rec_hold_walk() noexcept;  // update(): the steps the playhead enters while a recorded key is still down become ties
   void step_press(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void modifier_tap(o3sdk::app::Context& ctx, PadRole role) noexcept;
   void toggle_flag_on_held_or_cursor(o3sdk::app::Context& ctx, std::uint8_t flag) noexcept;
@@ -222,6 +227,19 @@ class HomeMap {
   std::uint64_t mod_down_ms_[kRoles] = {};  // when it went down: a tap is shorter than kHoldMs
   int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)
   int audition_note_ = -1;           // a step's note sounding for the hand
+  // A key recorded while the pattern plays and still down (U1): the steps that start while it is held are written as ties, all of it one undo
+  // step (Bank::write_advance's `hold`). Main loop only.
+  struct RecHold {
+    bool on = false;
+    bool wait = false;      // the key went on the NEXT step and the playhead has not reached it yet: no tie before it does
+    unsigned pad = 0;
+    unsigned pattern = 0;
+    unsigned first = 0;     // the step the note is on: a lap round the pattern ends the hold there, it never overwrites its own note
+    unsigned last = 0;      // the last step written (the note's, then the ties')
+    unsigned id = 0;        // the undo join id, 1..255
+  };
+  RecHold rec_hold_;
+  unsigned rec_hold_id_ = 0;
 
   // Pattern held: the 48 pads are the patterns.
   bool pattern_down_ = false;

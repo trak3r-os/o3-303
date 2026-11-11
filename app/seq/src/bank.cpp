@@ -23,6 +23,7 @@ constexpr std::uint32_t kKeySongPattern = 0x0D000000u;  // | row: the song's cel
 constexpr std::uint32_t kKeySongRepeat = 0x0E000000u;
 constexpr std::uint32_t kKeySongTranspose = 0x0F000000u;
 constexpr std::uint32_t kKeySongAppend = 0x10000000u;  // a run of appends from the END line
+constexpr std::uint32_t kKeyHold = 0x11000000u;  // | hold id: a key held while recording, the note and its ties (HomeMap)
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
 // Word accesses, not bytes: the patterns are 4-byte aligned and a multiple of 4 long (bank.h), and a write window over the SDRAM stays
@@ -177,9 +178,9 @@ bool Bank::set_flag(unsigned index, unsigned step, std::uint8_t flag, bool on) n
   return edit(index, [&](Pattern& p) { seq::set_flag(p, step, flag, on); });
 }
 
-unsigned Bank::write_advance(unsigned index, unsigned step, unsigned note, std::uint8_t flags) noexcept {
+unsigned Bank::write_advance(unsigned index, unsigned step, unsigned note, std::uint8_t flags, unsigned hold) noexcept {
   unsigned next = 0;
-  (void)edit(index, [&](Pattern& p) { next = seq::write_advance(p, step, note, flags); });
+  (void)edit(index, [&](Pattern& p) { next = seq::write_advance(p, step, note, flags); }, hold != 0u ? kKeyHold | (hold & 0xFFu) : 0u);
   return next;
 }
 

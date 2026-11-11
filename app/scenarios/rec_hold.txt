@@ -1,0 +1,36 @@
+# U1, hold = length (docs/TRACT-KNOBS-PLAN.md): REC while the pattern plays, a key held writes its note on the nearest step and every step that starts
+# under it as a TIE; a key tapped writes one step; one UNDO takes the held note back whole. An empty pattern (13) at the default tempo.
+press pattern
+wait 350
+pad 12
+release pattern
+wait 100
+snap 01_empty
+tap rec
+tap play
+wait 300
+# A key held for about four steps (a sixteenth is 125 ms at 120 BPM): the note and three ties, on the step view and its LEDs.
+pad 43 500
+wait 100
+snap 02_held_over_steps
+tap play
+wait 100
+snap 03_stopped
+# A key tapped writes its one step.
+tap play
+wait 300
+pad 40 20
+wait 100
+tap play
+snap 04_tapped_too
+# UNDO (Shift + F8) takes the tapped note back, again the held one: one step each.
+press shift
+tap f8
+release shift
+wait 50
+snap 05_undo_tapped
+press shift
+tap f8
+release shift
+wait 50
+snap 06_undo_held
