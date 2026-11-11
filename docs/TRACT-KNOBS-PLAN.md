@@ -643,3 +643,12 @@ These replace the matching parts of sections 3 and 6 (A1 to A3) where they diffe
 5. **VOWEL stays** as a knob: the base for "-" steps, the live morph through every in-between value, MIDI learnable, recordable as
    motion like any knob, and the wobble's MOUTH target swings around the vowel that sounds. TONGUE, LIPS and SIZE bend whatever
    vowel sounds.
+6. **Live and the TRACT pattern, both, with the pattern switchable** (the maintainer, 2026-11-11):
+   - **LINE on / off**: a pad (row 3, column 12, lit when on, as FILT on HOME) switches the TRACT pattern. Off: the line is kept but
+     not played, and the mouth is the knobs and the live pads only. Saved with the project; a project without it loads with LINE on
+     when its lines hold vowels, off when they are empty.
+   - **Row 4, live vowels**: with LINE off a tap moves the mouth to that vowel and it stays (it writes the VOWEL knob, so the F1
+     read-out follows). With LINE on, holding a pad overrides the line with that vowel, and the release gives the line back. REC on
+     while playing writes the tapped vowel into the current step, in both cases.
+   - **NEW for the line** (Shift + F row, beside LEN and CLEAR): draws a line of vowels and GLD flags from the pattern's seed,
+     with "-" on some steps, so a line can be generated as well as written. One undo.
