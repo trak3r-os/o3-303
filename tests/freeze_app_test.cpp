@@ -136,10 +136,10 @@ bool same(const std::vector<std::int16_t>& a, const std::vector<std::int16_t>& b
 
 }  // namespace
 
-TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the freeze and the growl, and only slot 0 sounds (C1)") {
+TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the freeze, the growl and the tract, and only slot 0 sounds (C1)") {
   Hands t;
   dsp::Engine& e = t.h->engine();
-  CHECK(e.unit_count() == 5u);
+  CHECK(e.unit_count() == 6u);
   NEED(e.unit_info(kVoice) != nullptr);
   CHECK(std::string(e.unit_info(kVoice)->name) == "ACID");
   CHECK(std::string(e.unit_info(kDist)->name) == "DISTORTION");
@@ -147,7 +147,8 @@ TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the f
   CHECK(std::string(e.unit_info(kFreeze)->name) == "FREEZE");
   CHECK(e.unit_info(kFreeze)->kind == dsp::UnitKind::Effect);
   CHECK(std::string(e.unit_info(4)->name) == "GROWL");  // M3c: attached after the freeze, so the ids above stay
-  CHECK(e.unit_info(5) == nullptr);                        // no second voice, no unit after the growl
+  CHECK(std::string(e.unit_info(5)->name) == "TRACT");  // A1: attached last, so the ids above stay
+  CHECK(e.unit_info(6) == nullptr);                          // no second voice, no unit after the tract
   t.tap(Button::Play);
   float slot0 = 0.0f;
   float others = 0.0f;

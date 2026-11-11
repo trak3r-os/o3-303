@@ -64,7 +64,7 @@ std::uint32_t g_generation = 0;
 // ---- The sound ---------------------------------------------------------------------------------------------------------------------------------
 
 // The units a project carries parameters of, as SND targets.
-constexpr std::uint8_t kUnitTargets[] = {kLaneVoice, kLaneDist, kLaneDelay, kLaneGrowl, kSndFreeze};
+constexpr std::uint8_t kUnitTargets[] = {kLaneVoice, kLaneDist, kLaneDelay, kLaneGrowl, kLaneTract, kSndFreeze};
 
 dsp::UnitId unit_of(const Wiring& w, std::uint8_t target) noexcept {
   switch (target) {
@@ -76,6 +76,8 @@ dsp::UnitId unit_of(const Wiring& w, std::uint8_t target) noexcept {
       return w.delay;
     case kLaneGrowl:
       return w.growl;
+    case kLaneTract:
+      return w.tract;
     case kSndFreeze:
       return w.freeze;
     default:
@@ -156,6 +158,8 @@ float app_value(const Rig& rig, const dsp::Engine& e, unsigned id) noexcept {
       return w.stock ? 0.0f : 1.0f;
     case kAppGrowlLastMix:
       return w.growl_last_mix * 100.0f;
+    case kAppTractLastMix:
+      return w.tract_last_mix * 100.0f;
     default:
       break;
   }
@@ -190,6 +194,7 @@ float app_default(unsigned id) noexcept {
     case kAppModsOn:
       return 1.0f;
     case kAppGrowlLastMix:
+    case kAppTractLastMix:
       return 50.0f;
     default:
       break;
@@ -239,6 +244,9 @@ void set_app_value(Wiring& w, dsp::Engine& e, unsigned id, float v) noexcept {
       break;
     case kAppGrowlLastMix:
       w.growl_last_mix = clampf(v, 1.0f, 100.0f, 50.0f) * 0.01f;
+      break;
+    case kAppTractLastMix:
+      w.tract_last_mix = clampf(v, 1.0f, 100.0f, 50.0f) * 0.01f;
       break;
     default:
       break;  // a value a later build has
@@ -416,6 +424,7 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
       case kLaneDist:
       case kLaneDelay:
       case kLaneGrowl:
+      case kLaneTract:
         ok = id < seq::kKnobs;
         break;
       case kLaneMixer:

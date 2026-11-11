@@ -21,7 +21,7 @@ add_custom_command(
   COMMENT "Generating the obsidian skin's bitmaps (tools/gen_skin.py)"
   VERBATIM)
 o3sdk_app(o3_303 SOURCES ${O3_303_APP_SOURCES}
-  DEPENDS unit_delay unit_acid_voice unit_distortion unit_freeze unit_growl o3_303_seq
+  DEPENDS unit_delay unit_acid_voice unit_distortion unit_freeze unit_growl unit_tract o3_303_seq
   # The boot logo of the image (o3-sdk docs/FRAMEWORK.md, "The boot logo"): the groovebox drawing, converted at build time; a grey picture, drawn white.
   LOGO ../logo/logo.png)
 # <o3_303/pad_map.h>: the pure parts of the app, which the tests include.

@@ -32,6 +32,9 @@ hear says so in plain words.
   shows); a load, REVERT, NEW and RESET PROJECT no longer always turn MODS on, they bring back what the project holds (NEW and RESET: on). F8
   GROWL's "last value" is saved too. The file gets two more entries; a project from an older version loads with MODS on and a last mix of
   50 %, and an older version skips the two.
+- **A new effect, TRACT, sits after the growl, silent for now.** The vocal-tract filter is in the sound path at Mix 0 (a bit-exact bypass:
+  nothing you hear changes) and its settings are saved with the project; the page and keys to play it come later. A project saved by an older
+  version loads with TRACT at Mix 0, and an older version skips its entries.
 - **RESET PROJECT keeps the sound it takes away.** The voice and distortion go into the library's LAST first, and the notice says
   "PROJECT RESET - LAST: SHIFT F3": Shift + F3 on FILE LIBRARY brings them back.
 

@@ -57,6 +57,8 @@ enum class Item : std::uint8_t {
   Mods,       // B5a: the mods heard, the voice's Stock switch seen the other way round (1 = Stock off; docs/MODS-PLAN.md 5.11). An app item: no lane, no learn, no snapshot; MODDED's F8 and Shift + Sample Loader write it
   WobOn,      // MODS S2: the WOBBLE action as a key (WOBBLE's F8): the screen latches PERFORM's WOB action; the entry only gives the key its name and its ON / OFF. A snapshot target since B5a: set asks the latch (Wiring::wob_want)
   GrowlOn,    // B5a: GROWL's F8: the growl heard (Mix above 0); the screen flips Mix between 0 and Wiring::growl_last_mix
+  Tract,      // A1: a parameter of the tract on slot 0's insert 2 after the growl (id = its parameter id)
+  TractOn,    // A1: the tract heard (Mix above 0); flips Mix between 0 and Wiring::tract_last_mix
 };
 
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
@@ -138,7 +140,8 @@ struct Wiring {
   o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId freeze = o3sdk::dsp::kNoUnit;  // master insert 0: the beat freeze (units/freeze, M3b R6)
-  o3sdk::dsp::UnitId growl = o3sdk::dsp::kNoUnit;   // slot 0's insert 1: the growl (units/growl, M3c G); attached after the freeze (ids: voice 0, dist 1, delay 2, freeze 3)
+  o3sdk::dsp::UnitId growl = o3sdk::dsp::kNoUnit;   // slot 0's insert 1: the growl (units/growl, M3c G); attached after the freeze (ids: voice 0, dist 1, delay 2, freeze 3, growl 4, tract 5)
+  o3sdk::dsp::UnitId tract = o3sdk::dsp::kNoUnit;   // slot 0's insert 2, after the growl: the tract (units/tract, A1); attached last (id 5)
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;  // FILL's variant (PERFORM SETUP); null: the entry reads and writes nothing
   seq::GenParams gen;        // the generator's settings (PATTERN SETUP)
@@ -153,6 +156,7 @@ struct Wiring {
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
   std::int8_t wob_want = -1;  // B5a: the WOB latch a project load or a snapshot recall asks for (0 off, 1 on, -1 nothing): Controls::set(Item::WobOn) writes it, LiveActions::update takes it. Main loop only
   float growl_last_mix = 0.5f;  // B5a: GROWL's F8 gives Mix this back (Mix as a 0..1 fraction); the Mix F8 read from the engine when it last turned the growl off, 50 % at a boot, never stored. Main loop only
+  float tract_last_mix = 0.5f;  // A1: what TractOn gives Mix back (0..1); 50 % at a boot, saved with the project (kAppTractLastMix). Main loop only
   LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3], kDefaultLadder[4]};  // what each ladder row holds (main loop; saved in the project's PERF chunk)
 };
 

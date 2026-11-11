@@ -11,6 +11,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
+#include <o3_303/units/tract/tract.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
@@ -34,6 +35,7 @@ struct Rig {
   float fr[kCap] = {};
   Freeze freeze{fl, fr, kCap};
   Growl growl;
+  TractFx tract;
   dsp::Engine engine;
   std::unique_ptr<seq::Bank> bank = std::make_unique<seq::Bank>();
   std::unique_ptr<seq::Sequencer> sequencer = std::make_unique<seq::Sequencer>(*bank);
@@ -46,9 +48,11 @@ struct Rig {
     wiring.delay = engine.attach(delay);
     wiring.freeze = engine.attach(freeze);
     wiring.growl = engine.attach(growl);
+    wiring.tract = engine.attach(tract);
     (void)engine.set_source(0, wiring.voice);
     (void)engine.set_insert(0, 0, wiring.dist);
     (void)engine.set_insert(0, 1, wiring.growl);
+    (void)engine.set_insert(0, 2, wiring.tract);
     (void)engine.set_send_effect(0, wiring.delay);
     bank->init();
     wiring.bank = bank.get();
@@ -571,6 +575,34 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(now[43] == doctest::Approx(0.4f).epsilon(0.01));
   CHECK(rig.controls.snap_discrete(rig.engine, 42));
   CHECK_FALSE(rig.controls.snap_discrete(rig.engine, 43));
+}
+
+TEST_CASE("pages: A1, the tract's parameters are Item::Tract entries, lane targets of kLaneTract; TractOn flips Mix between 0 and the last mix") {
+  Rig rig;
+  const Entry vowel{Item::Tract, TractFx::Vowel, nullptr};
+  CHECK(rig.controls.get(rig.engine, vowel) == rig.engine.param(rig.wiring.tract, TractFx::Vowel));
+  rig.controls.set(rig.engine, vowel, 0.6f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Vowel) == doctest::Approx(0.6f));
+  LaneRef ref{kLaneNone, 99};
+  REQUIRE(rig.controls.lane_ref(vowel, ref));
+  CHECK(ref.target == kLaneTract);
+  CHECK(ref.id == TractFx::Vowel);
+  const Entry back = rig.controls.lane_entry(ref);
+  CHECK(back.item == Item::Tract);
+  CHECK(back.id == TractFx::Vowel);
+  CHECK(std::string(rig.controls.lane_name(rig.engine, ref)) == "VOWEL");
+  // TractOn: off at a boot (Mix 0), on gives the last mix (50 %), off keeps what it was heard at.
+  const Entry on{Item::TractOn, 0, nullptr};
+  CHECK(rig.controls.get(rig.engine, on) == 0.0f);
+  rig.controls.set(rig.engine, on, 1.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == doctest::Approx(0.5f));
+  CHECK(rig.controls.get(rig.engine, on) == 1.0f);
+  rig.controls.set(rig.engine, Entry{Item::Tract, TractFx::Mix, nullptr}, 0.7f);
+  rig.controls.set(rig.engine, on, 0.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == 0.0f);
+  CHECK(rig.wiring.tract_last_mix == doctest::Approx(0.7f));
+  rig.controls.set(rig.engine, on, 1.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == doctest::Approx(0.7f));
 }
 
 TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the wobble's settings in the screen's order, PERF the freeze's roll and stop (M3c)") {

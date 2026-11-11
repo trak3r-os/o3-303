@@ -47,6 +47,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
+#include <o3_303/units/tract/tract.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cstdint>
@@ -139,6 +140,8 @@ class O3_303App final : public app::App {
       item = o3_303::Item::Delay;
     } else if (unit == w.growl) {
       item = o3_303::Item::Growl;
+    } else if (unit == w.tract) {
+      item = o3_303::Item::Tract;
     } else {
       return;
     }
@@ -161,14 +164,17 @@ class O3_303App final : public app::App {
     const dsp::UnitId delay = e.attach(delay_);
     const dsp::UnitId freeze = e.attach(freeze_);  // after the others: the units' ids (voice 0, distortion 1, delay 2, freeze 3) are the tests' contract
     const dsp::UnitId growl = e.attach(growl_);    // M3c: slot 0's insert 1, after the distortion; attached last, so the ids above stay
+    const dsp::UnitId tract = e.attach(tract_);    // A1: slot 0's insert 2, after the growl; attached last (id 5), so the ids above stay; Mix 0 is a bit-exact bypass
     (void)e.set_source(0, voice);
     (void)e.set_insert(0, 0, dist);
     (void)e.set_insert(0, 1, growl);
+    (void)e.set_insert(0, 2, tract);
     (void)e.set_send_effect(0, delay);
     (void)e.set_master_insert(0, freeze);
     (void)ctx.midi().route(voice);  // MIDI notes on the user's channel (system Config, MIDI) play the voice; no device, no effect
     (void)sequencer_.setup(e, voice, dist, delay);  // adds its hook to the engine; the lanes may drive the voice, the distortion, the delay
     (void)sequencer_.set_unit(o3_303::kLaneGrowl, growl);  // ... and the growl, whose Note the hook sets on every note start (after setup(), before start())
+    (void)sequencer_.set_unit(o3_303::kLaneTract, tract);  // the tract's lanes and slews
     // A run starts with no performance flag, no live transpose and no chain (the app object outlives a run in the simulator's tests).
     sequencer_.set_perf(0);
     sequencer_.set_fill_variant(o3_303::seq::FillVariant::Mutate);
@@ -184,6 +190,7 @@ class O3_303App final : public app::App {
     rig_.wiring.delay = delay;
     rig_.wiring.freeze = freeze;
     rig_.wiring.growl = growl;
+    rig_.wiring.tract = tract;
     rig_.wiring.bank = rig_.bank;
     rig_.controls.init(rig_.wiring);
 
@@ -405,6 +412,7 @@ class O3_303App final : public app::App {
   units::Delay delay_{g_delay_l, g_delay_r, kDelayCapacity};
   o3_303::Freeze freeze_{g_freeze_l.v, g_freeze_r.v, kFreezeCapacity};
   o3_303::Growl growl_;
+  o3_303::TractFx tract_;
   o3_303::seq::Sequencer sequencer_{o3_303::seq::project_bank()};
   o3_303::Rig& rig_ = sdram_instance<o3_303::Rig, 0>();  // SDRAM (sdram_instance)
   o3_303::LiveActions live_;

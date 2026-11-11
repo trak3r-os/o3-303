@@ -162,7 +162,8 @@ inline constexpr std::uint8_t kLaneDelay = 3;  // the delay: id = its parameter 
 inline constexpr std::uint8_t kLaneMixer = 4;  // slot 0's mixer: id = o3sdk::dsp::MixField (the mixer ids below)
 inline constexpr std::uint8_t kLaneGrowl = 5;  // M3c: the growl (units/growl), slot 0's insert 1: id = its parameter id
 inline constexpr std::uint8_t kLaneSeq = 6;    // M3c: the sequencer's own performance values: id = the kSeq* ids below
-inline constexpr unsigned kLaneTargetCount = 7;
+inline constexpr std::uint8_t kLaneTract = 7;  // TRACT (units/tract), slot 0's insert 2 after the growl: id = its parameter id (appended after kLaneSeq to keep the saved targets)
+inline constexpr unsigned kLaneTargetCount = 8;
 
 // The one parameter of the voice that is never a lane's target: acid_voice's Stock (id 19), the switch that reads every mod at its stock value. It
 // is not a sound setting, and a lane on it would flip every mod at a step (docs/MODS-PLAN.md 5.8). The sequencer's resolvable(), the LOCK row's
@@ -225,7 +226,7 @@ constexpr std::uint8_t mixer_value_to_point(unsigned field, float value) noexcep
 }
 
 struct LaneRef {
-  std::uint8_t target;  // kLaneNone .. kLaneSeq
+  std::uint8_t target;  // kLaneNone .. kLaneTract
   std::uint8_t id;
 };
 

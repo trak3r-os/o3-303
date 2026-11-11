@@ -8,6 +8,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
+#include <o3_303/units/tract/tract.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
@@ -129,6 +130,7 @@ constexpr const char* kOffOnNames[] = {"OFF", "ON"};
 constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL"};
 // WOBBLE's F8 key (Item::WobOn): the action's name and its two places; the value is the screen's (the latch), not a setting.
 constexpr core::ParamDesc kGrowlOn = {"GROWL", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kTractOn = {"TRACT", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kModsKey = {"MODS", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kWobOn = {"WOB", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
@@ -235,6 +237,10 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kModsKey;
     case Item::GrowlOn:
       return &kGrowlOn;
+    case Item::Tract:
+      return e.param_desc(w_->tract, entry.id);
+    case Item::TractOn:
+      return &kTractOn;
     case Item::WobOn:
       return &kWobOn;
     case Item::Blank:
@@ -315,6 +321,10 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return w_->stock ? 0.0f : 1.0f;  // the mods are heard when Stock is off
     case Item::GrowlOn:
       return e.param(w_->growl, Growl::Mix) > 0.0f ? 1.0f : 0.0f;
+    case Item::Tract:
+      return e.param(w_->tract, entry.id);
+    case Item::TractOn:
+      return e.param(w_->tract, TractFx::Mix) > 0.0f ? 1.0f : 0.0f;
     case Item::WobOn:
       return w_->seq != nullptr && w_->seq->wobble().on ? 1.0f : 0.0f;
     case Item::Blank:
@@ -462,6 +472,21 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       }
       break;
     }
+    case Item::Tract:
+      (void)e.set_param(w_->tract, entry.id, v);
+      break;
+    case Item::TractOn: {
+      const float mix = e.param(w_->tract, TractFx::Mix);
+      if (v >= 0.5f) {
+        (void)e.set_param(w_->tract, TractFx::Mix, mix > 0.0f ? mix : w_->tract_last_mix);
+      } else {
+        if (mix > 0.0f) {
+          w_->tract_last_mix = mix;
+        }
+        (void)e.set_param(w_->tract, TractFx::Mix, 0.0f);
+      }
+      break;
+    }
     case Item::WobOn:  // the latch is LiveActions'; a load or a recall asks for it (LiveActions::update takes the request), the key itself uses toggle_latch
       w_->wob_want = v >= 0.5f ? 1 : 0;
       break;
@@ -528,11 +553,11 @@ void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse
   if (d == nullptr || detents == 0) {
     return;
   }
-  if (entry.item == Item::Voice || entry.item == Item::Dist || entry.item == Item::Delay || entry.item == Item::Freeze || entry.item == Item::Growl) {
+  if (entry.item == Item::Voice || entry.item == Item::Dist || entry.item == Item::Delay || entry.item == Item::Freeze || entry.item == Item::Growl || entry.item == Item::Tract) {
     const dsp::UnitId unit = entry.item == Item::Voice
                                  ? w_->voice
                                  : (entry.item == Item::Dist ? w_->dist
-                                                             : (entry.item == Item::Delay ? w_->delay : (entry.item == Item::Freeze ? w_->freeze : w_->growl)));
+                                                             : (entry.item == Item::Delay ? w_->delay : (entry.item == Item::Freeze ? w_->freeze : (entry.item == Item::Growl ? w_->growl : w_->tract))));
     KnobSpan span;
     const bool bounded = live_span(e, entry, span);  // F1: the travel ends where the voice stops answering
     const float before = bounded ? get(e, entry) : 0.0f;
@@ -606,6 +631,9 @@ bool Controls::lane_ref(const Entry& entry, LaneRef& out) const noexcept {
     case Item::Growl:
       out = LaneRef{kLaneGrowl, static_cast<std::uint8_t>(entry.id)};
       return entry.id < seq::kKnobs;
+    case Item::Tract:
+      out = LaneRef{kLaneTract, static_cast<std::uint8_t>(entry.id)};
+      return entry.id < seq::kKnobs;
     case Item::Level:
       out = LaneRef{kLaneMixer, kMixerLevel};
       return true;
@@ -628,6 +656,8 @@ Entry Controls::lane_entry(const LaneRef& ref) const noexcept {
       return Entry{Item::Delay, ref.id, nullptr};
     case kLaneGrowl:
       return Entry{Item::Growl, ref.id, nullptr};
+    case kLaneTract:
+      return Entry{Item::Tract, ref.id, nullptr};
     case kLaneMixer:
       if (ref.id == kMixerLevel) {
         return Entry{Item::Level, 0, nullptr};

@@ -400,6 +400,9 @@ bool learn_target(const Wiring& wiring, const Entry& entry, dsp::UnitId& unit, s
     case Item::Growl:
       unit = wiring.growl;
       break;
+    case Item::Tract:
+      unit = wiring.tract;
+      break;
     case Item::Freeze:
       unit = wiring.freeze;
       break;

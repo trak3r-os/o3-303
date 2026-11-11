@@ -104,6 +104,7 @@
 //   growl       given to set_unit(kLaneGrowl, id), the growl's parameters are lane and slew targets like the other units' (kLaneGrowl), and
 //               the hook sets its Note parameter (kGrowlNoteParam, the MIDI note that starts, clamped as played) at every note start, ratchet
 //               hits included: one Param event a note.
+//   tract       given to set_unit(kLaneTract, id): its parameters are lane and slew targets like the growl's (no per-note event).
 //
 // SG1 (UX-303 5.7, the song), on top of those:
 //
@@ -227,7 +228,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   bool setup(o3sdk::dsp::Engine& engine, o3sdk::dsp::UnitId voice, o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit,
              o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit) noexcept;
 
-  // Gives a unit to a lane target that setup() did not get: kLaneDist, kLaneDelay or kLaneGrowl (M3c: the growl, slot 0's insert 1). Call it
+  // Gives a unit to a lane target that setup() did not get: kLaneDist, kLaneDelay, kLaneGrowl (M3c: the growl, slot 0's insert 1) or kLaneTract (the tract, insert 2). Call it
   // after setup() (which forgets the units) and before engine.start() (the render reads the table); false otherwise, for another target or a
   // unit the engine does not know. kNoUnit takes the target away. With the growl given, the hook sets its Note parameter at every note start.
   bool set_unit(std::uint8_t target, o3sdk::dsp::UnitId unit) noexcept;

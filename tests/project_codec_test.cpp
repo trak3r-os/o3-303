@@ -17,6 +17,7 @@
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
+#include <o3_303/units/tract/tract.h>
 
 #include <chrono>
 #include <cmath>
@@ -49,6 +50,7 @@ struct Session {
   float fr[kCap] = {};
   Freeze freeze{fl, fr, kCap};
   Growl growl;
+  TractFx tract;
   dsp::Engine engine;
   std::unique_ptr<seq::Bank> bank = std::make_unique<seq::Bank>();
   std::unique_ptr<seq::Sequencer> sequencer = std::make_unique<seq::Sequencer>(*bank);
@@ -61,9 +63,11 @@ struct Session {
     w.delay = engine.attach(delay);
     w.freeze = engine.attach(freeze);
     w.growl = engine.attach(growl);
+    w.tract = engine.attach(tract);
     (void)engine.set_source(0, w.voice);
     (void)engine.set_insert(0, 0, w.dist);
     (void)engine.set_insert(0, 1, w.growl);
+    (void)engine.set_insert(0, 2, w.tract);
     (void)engine.set_send_effect(0, w.delay);
     bank->init();
     rig.bank = bank.get();
@@ -1144,7 +1148,8 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
     return true;
   });
   CHECK(project::kAppModsOn == project::kAppWobbleOn + 1u);
-  CHECK(project::kAppGrowlLastMix == project::kAppValueCount - 1u);
+  CHECK(project::kAppGrowlLastMix == project::kAppValueCount - 2u);  // A1 appended the tract's last mix after it
+  CHECK(project::kAppTractLastMix == project::kAppValueCount - 1u);
   Session c;
   c.rig.wiring.wob_want = 1;  // a session with the latch on: the old project has none, so it ends off
   REQUIRE(load(old, s).status == project::Status::Ok);
@@ -1224,6 +1229,71 @@ TEST_CASE("project: F13a, MODS on or off and the growl's last mix are saved, and
   project::apply(d.rig, d.engine, s);
   CHECK_FALSE(d.rig.wiring.stock);
   CHECK(d.rig.wiring.growl_last_mix == doctest::Approx(0.5f));
+}
+
+TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane round-trip; a project of v0.6.0's shape loads with TRACT at Mix 0 and a last mix of 50 %") {
+  Session a;
+  const Wiring& wa = a.rig.wiring;
+  CHECK(static_cast<unsigned>(kLaneTract) == 7u);
+  CHECK(a.engine.param(wa.tract, TractFx::Mix) == 0.0f);  // silent by default
+  (void)a.engine.set_param(wa.tract, TractFx::Vowel, 0.7f);
+  (void)a.engine.set_param(wa.tract, TractFx::Tongue, 40.0f);
+  (void)a.engine.set_param(wa.tract, TractFx::Lips, -30.0f);
+  (void)a.engine.set_param(wa.tract, TractFx::Size, 3.0f);
+  (void)a.engine.set_param(wa.tract, TractFx::Mix, 0.8f);
+  a.rig.wiring.tract_last_mix = 0.25f;
+  Pattern p = random_pattern(9);
+  p.lanes[1] = LaneRef{kLaneTract, TractFx::Vowel};
+  p.lanes[6] = LaneRef{kLaneTract, TractFx::Mix};
+  (void)a.bank->restore(0, p);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  Session b;
+  project::apply(b.rig, b.engine, s);
+  const Wiring& wb = b.rig.wiring;
+  CHECK(b.engine.param(wb.tract, TractFx::Vowel) == 0.7f);
+  CHECK(b.engine.param(wb.tract, TractFx::Tongue) == 40.0f);
+  CHECK(b.engine.param(wb.tract, TractFx::Lips) == -30.0f);
+  CHECK(b.engine.param(wb.tract, TractFx::Size) == 3.0f);
+  CHECK(b.engine.param(wb.tract, TractFx::Mix) == doctest::Approx(0.8f));
+  CHECK(wb.tract_last_mix == doctest::Approx(0.25f));
+  const Pattern& got = b.bank->pattern(0);
+  CHECK(got.lanes[1].target == kLaneTract);
+  CHECK(got.lanes[1].id == TractFx::Vowel);
+  CHECK(got.lanes[6].target == kLaneTract);
+  CHECK(got.lanes[6].id == TractFx::Mix);
+  CHECK(encode_session(b) == img);
+
+  // v0.6.0's shape: no SND entry of target 7 (the tract's parameters) and none for the app value kAppTractLastMix.
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& pl) {
+    if (is(id, "SND ")) {
+      std::vector<std::uint8_t> out(pl.begin(), pl.begin() + 4);
+      unsigned kept = 0;
+      const unsigned n = (static_cast<unsigned>(pl[2]) << 8) | pl[3];
+      for (unsigned i = 0; i < n; ++i) {
+        const std::uint8_t* en = &pl[4 + i * 8];
+        const unsigned pid = (static_cast<unsigned>(en[2]) << 8) | en[3];
+        if (en[0] == kLaneTract || (en[0] == project::kSndApp && pid == project::kAppTractLastMix)) {
+          continue;
+        }
+        out.insert(out.end(), en, en + 8);
+        ++kept;
+      }
+      out[2] = static_cast<std::uint8_t>(kept >> 8);
+      out[3] = static_cast<std::uint8_t>(kept);
+      pl = out;
+    }
+    return true;
+  });
+  Session d;
+  (void)d.engine.set_param(d.rig.wiring.tract, TractFx::Mix, 0.9f);  // a session that had the tract heard: the load takes it back to the default
+  d.rig.wiring.tract_last_mix = 0.9f;
+  REQUIRE(load(old, s).status == project::Status::Ok);
+  project::apply(d.rig, d.engine, s);
+  CHECK(d.engine.param(d.rig.wiring.tract, TractFx::Mix) == 0.0f);
+  CHECK(d.engine.param(d.rig.wiring.tract, TractFx::Vowel) == a.engine.param_desc(wa.tract, TractFx::Vowel)->def);
+  CHECK(d.rig.wiring.tract_last_mix == doctest::Approx(0.5f));
 }
 
 TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {

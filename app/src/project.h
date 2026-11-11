@@ -9,7 +9,7 @@
 //         writes of one project (the service's), so that boot and LOAD take the newest of live.o3a, its .bak and project.o3a; a 1.0 file has none and reads as 0
 //   GEN   the generator's settings, seven u8 (seq::GenParams in order)
 //   PATS  count u8 (48), bytes a pattern u16 (sizeof(Pattern) = 2,260), then the patterns byte for byte in struct order
-//   SND   n u16; n entries of {target u8, 0 u8, id u16, value f32}: the units' parameters by id (targets 1 voice, 2 distortion, 3 delay, 5 growl,
+//   SND   n u16; n entries of {target u8, 0 u8, id u16, value f32}: the units' parameters by id (targets 1 voice, 2 distortion, 3 delay, 5 growl, 7 tract,
 //         16 the freeze's four settings) and the app's values (target 32, ids AppValue)
 //   SNAP  slots u8 (8), values a slot u8 (the snapshot targets at write time), used mask u8, then slots x values f32
 //   PERF  the PerfAction of Note, Instr, Vol and Fx, u8 each
@@ -70,6 +70,7 @@ enum AppValue : std::uint16_t {
   kAppWobbleOn,  // B5a: the WOB latch (0 or 1); an older file lacks it and loads with it off
   kAppModsOn,    // F13a: MODS heard (1) or off, the STOCK view (0); an older file lacks it and loads with the mods heard
   kAppGrowlLastMix,  // F13a: GROWL F8's "last mix", percent (1..100); an older file lacks it and loads with 50
+  kAppTractLastMix,  // A1: TRACT's "last mix", percent (1..100); an older file lacks it and loads with 50
   kAppValueCount,
 };
 

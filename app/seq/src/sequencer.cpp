@@ -168,14 +168,14 @@ bool Sequencer::setup(dsp::Engine& engine, dsp::UnitId voice, dsp::UnitId dist, 
   for (auto& t : tab_) {
     t = UnitTable{};
   }
-  const dsp::UnitId ids[kLaneTargetCount] = {dsp::kNoUnit, voice, dist, delay, dsp::kNoUnit, dsp::kNoUnit, dsp::kNoUnit};
+  const dsp::UnitId ids[kLaneTargetCount] = {dsp::kNoUnit, voice, dist, delay, dsp::kNoUnit, dsp::kNoUnit, dsp::kNoUnit, dsp::kNoUnit};
   for (unsigned target = kLaneVoice; target <= kLaneDelay; ++target) {
     const dsp::UnitInfo* ui = ids[target] != dsp::kNoUnit ? engine.unit_info(ids[target]) : nullptr;
     if (ui != nullptr) {
       tab_[target] = UnitTable{ids[target], ui->params, ui->param_count};
     }
   }
-  tab_[kLaneSeq] = UnitTable{dsp::kNoUnit, kSeqParams, kSeqValueCount};  // set_unit() adds the growl's
+  tab_[kLaneSeq] = UnitTable{dsp::kNoUnit, kSeqParams, kSeqValueCount};  // set_unit() adds the growl's and the tract's
   // The hook forgets what a previous run left (the app object outlives a run in the simulator's tests): setup() runs before the render.
   for (auto& s : slews_) {
     s = Slew{};
@@ -218,7 +218,7 @@ void Sequencer::update() noexcept {
   if (engine_ == nullptr) {
     return;
   }
-  for (unsigned target = kLaneVoice; target <= kLaneGrowl; ++target) {
+  for (unsigned target = kLaneVoice; target <= kLaneTract; ++target) {  // kLaneSeq has no unit: skipped below
     const UnitTable& t = tab_[target];
     if (target == kLaneMixer || t.unit == dsp::kNoUnit) {
       continue;
@@ -243,7 +243,7 @@ float Sequencer::unstored_or(unsigned target, unsigned id, float stored) noexcep
 }
 
 bool Sequencer::is_unit_target(std::uint8_t target) const noexcept {
-  return target == kLaneVoice || target == kLaneDist || target == kLaneDelay || target == kLaneGrowl;
+  return target == kLaneVoice || target == kLaneDist || target == kLaneDelay || target == kLaneGrowl || target == kLaneTract;
 }
 
 bool Sequencer::resolvable(std::uint8_t target, std::uint8_t id) const noexcept {
@@ -265,7 +265,7 @@ const core::ParamDesc* Sequencer::desc_of(std::uint8_t target, std::uint8_t id) 
 }
 
 bool Sequencer::set_unit(std::uint8_t target, dsp::UnitId unit) noexcept {
-  if (engine_ == nullptr || engine_->started() || (target != kLaneDist && target != kLaneDelay && target != kLaneGrowl)) {
+  if (engine_ == nullptr || engine_->started() || (target != kLaneDist && target != kLaneDelay && target != kLaneGrowl && target != kLaneTract)) {
     return false;
   }
   if (unit == dsp::kNoUnit) {
