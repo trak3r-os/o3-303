@@ -3,6 +3,23 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## v0.6.1 (2026-11-09), a pre-release
+
+A fix for a voice that looks set up and plays nothing. It needs more testing: the host tests pass, the cause was found and cured on a
+unit by listening to its USB output, but the v0.6.1 image itself has not been heard there yet.
+
+### What plays or sounds different
+
+- **OVERDRIVE reads OFF at the bottom of its range.** On MODDED TONE, F3 OVERDRIVE at its lowest value (-24 dB) sends no oscillator into
+  the filter at all, as the Devil Fish's pot does, so with MODS on the voice is nearly silent (about -43 dBFS on the master where the
+  same line plays at about -4 dBFS at 0 dB). The screen showed "-24.0dB", which looked like a level that still sounds; it now shows
+  OFF, without a unit, on the knob and in the TONE read-out of MODDED NOTES. One detent up it reads -23.5dB and plays. The sound is
+  unchanged: the bottom is still silent on purpose, so HI RES can whistle alone.
+- **If your unit is silent after an update**, look at OVERDRIVE first: a project that has it at the bottom (it may come from v0.5.0 or
+  earlier, where the bottom was only a cut of 24 dB) loads with it there. Turn it up to 0.0 dB (the default), or press Shift + Sample
+  Load for STOCK. The manual's "No sound" tip says so now.
+- Nothing else changes: saved projects load as in v0.6.0, with the same values.
+
 ## v0.6.0 (2026-11-07), a pre-release
 
 The voice's note start, its cutoff range, its square, its filter and its slide, brought closer to a TB-303 by measuring one reference recording of one unit (Din Sync's "TB-303 reference recordings for x0xb0x builders", 2010; approximate knob positions, licence unstated, so it was measured and nothing was copied). It needs more testing: the host tests pass and its CPU was measured on a unit (render at most 49.5 %, 0 underruns), but its sound still has to be judged by ear there.
