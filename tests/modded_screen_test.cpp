@@ -490,7 +490,7 @@ struct Session {
 
 }  // namespace
 
-TEST_CASE("STOCK is off at boot and again after a LOAD, NEW, REVERT and RESET PROJECT, and the project is heard as saved") {
+TEST_CASE("STOCK is off at boot, after a NEW, REVERT and RESET PROJECT, and a LOAD gives the project as it was saved (MODS on or off, F13a)") {
   Session s;
   CHECK_FALSE(s.stock());
   CHECK_FALSE(s.chip());
@@ -518,14 +518,18 @@ TEST_CASE("STOCK is off at boot and again after a LOAD, NEW, REVERT and RESET PR
   CHECK_FALSE(s.chip());
   CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(87.0f));
 
-  // LOAD (the session is MODB now, so MODA is read from the card and not the session's own): STOCK ends, and the mod is its stored value (not stock's 87 ms).
+  // LOAD (the session is MODB now, so MODA is read from the card and not the session's own): MODA was left with the mods out (NEW above saved it so, F13a), and the project
+  // is heard as saved: STOCK on, and the mod is its stored value (not stock's 87 ms).
   (void)s.h->engine().set_param(kVoice, AcidVoice::AccDecay, 300.0f);
-  stock_on();
   REQUIRE(app_project().load("MODA"));
   REQUIRE(s.settled());
-  CHECK_FALSE(s.stock());
-  CHECK_FALSE(s.chip());
+  CHECK(s.stock());
+  CHECK(s.chip());
   CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(900.0f));
+  s.shift_tap(app::Button::SampleLoad);  // the mods heard again, and saved so
+  CHECK_FALSE(s.stock());
+  app_project().save();
+  REQUIRE(s.settled());
 
   // REVERT (the last save of the session's project).
   stock_on();
