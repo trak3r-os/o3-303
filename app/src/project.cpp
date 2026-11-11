@@ -27,8 +27,10 @@ namespace {
 
 // ---- The layout (the contract: a change of one of these bumps its chunk's major) ----------------------------------------------------------------
 
-static_assert(sizeof(Pattern) == 2260 && alignof(Pattern) == 4, "PATS stores a pattern byte for byte: a change of Pattern bumps the chunk's major");
-static_assert(offsetof(Pattern, lanes) + sizeof(Pattern::lanes) == sizeof(Pattern), "a Pattern has no padding: every field is one byte");
+static_assert(kPatBytes == 2260 && alignof(Pattern) == 4, "PATS stores a pattern's first 2,260 bytes as they are: a change of them bumps the chunk's major");
+static_assert(offsetof(Pattern, lanes) + sizeof(Pattern::lanes) == kPatBytes, "PATS' record has no padding: every field is one byte");
+static_assert(sizeof(TractLine) == 68 && offsetof(Pattern, tract) + sizeof(TractLine) == sizeof(Pattern),
+              "TRCT stores a line as it is, the last 68 bytes of a Pattern: a change of TractLine bumps the chunk's major");
 static_assert(std::is_trivially_copyable<Pattern>::value, "a pattern is copied as bytes");
 static_assert(kPatternCount == 48, "PATS holds 48 patterns");
 static_assert(kSnapSlots == 8, "SNAP holds 8 slots");
@@ -39,6 +41,7 @@ constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
 constexpr unsigned kLadderBytes = kLadderRows * 2;  // the ladder rows after the buttons (PERF, appended): target u8, id u8 each
 constexpr unsigned kPerfPayload = 2 + kPerfButtons + kLadderBytes;
+constexpr unsigned kTrctPayload = 2 + 1 + 2 + kPatternCount * sizeof(TractLine);  // TRCT (appended): version, count, bytes a line, the lines
 constexpr unsigned kSongPayload = 2 + 1 + seq::kSongRows * sizeof(seq::SongRow);  // version, length, the rows (at most)
 constexpr unsigned kSongReserve = 4096;  // room kept for the SONG chunk (kSongPayload and its header, 267 bytes, fit it many times over)
 static_assert(8 + kSongPayload + (kSongPayload & 1u) <= kSongReserve, "the SONG chunk must fit its reserve");
@@ -49,7 +52,7 @@ constexpr std::size_t chunk_bytes(std::size_t payload) noexcept { return 8 + pay
 
 // The largest image encode() can make (SND full, the song reserve included): it must fit the buffer, so that a save cannot fail for want of room.
 constexpr std::size_t kMaxImageBytes =
-    chunk::kHeaderBytes + chunk_bytes(kHeadPayload) + chunk_bytes(kGenPayload) + chunk_bytes(2 + 1 + 2 + std::size_t{kPatternCount} * sizeof(Pattern)) +
+    chunk::kHeaderBytes + chunk_bytes(kHeadPayload) + chunk_bytes(kGenPayload) + chunk_bytes(2 + 1 + 2 + std::size_t{kPatternCount} * kPatBytes) + chunk_bytes(kTrctPayload) +
     chunk_bytes(2 + 2 + std::size_t{kMaxSound} * kSoundEntryBytes) + chunk_bytes(kSnapHeader + std::size_t{kSnapSlots} * kSnapTargetCount * 4) +
     chunk_bytes(kPerfPayload) + kSongReserve + chunk::kCrcChunkBytes;
 static_assert(kMaxImageBytes <= kProjectBytes, "the project image must fit its 128 KiB buffer");
@@ -160,6 +163,8 @@ float app_value(const Rig& rig, const dsp::Engine& e, unsigned id) noexcept {
       return w.growl_last_mix * 100.0f;
     case kAppTractLastMix:
       return w.tract_last_mix * 100.0f;
+    case kAppTractLine:
+      return (w.seq != nullptr && w.seq->tract_line_on()) ? 1.0f : 0.0f;
     default:
       break;
   }
@@ -193,6 +198,8 @@ float app_default(unsigned id) noexcept {
       return 0.0f;
     case kAppModsOn:
       return 1.0f;
+    case kAppTractLine:  // a project without the entry has the line off, unless a line holds vowels (apply() decides that one)
+      return 0.0f;
     case kAppGrowlLastMix:
     case kAppTractLastMix:
       return 50.0f;
@@ -248,6 +255,11 @@ void set_app_value(Wiring& w, dsp::Engine& e, unsigned id, float v) noexcept {
     case kAppTractLastMix:
       w.tract_last_mix = clampf(v, 1.0f, 100.0f, 50.0f) * 0.01f;
       break;
+    case kAppTractLine:
+      if (w.seq != nullptr) {
+        w.seq->set_tract_line(v >= 0.5f);
+      }
+      break;
     default:
       break;  // a value a later build has
   }
@@ -288,7 +300,7 @@ bool write_sound(chunk::Writer& w, const ProjectState& s) noexcept {
 
 // ---- Reading -----------------------------------------------------------------------------------------------------------------------------------
 
-enum Seen : unsigned { kSeenHead = 1, kSeenGen = 2, kSeenPats = 4, kSeenSnd = 8, kSeenSnap = 16, kSeenPerf = 32, kSeenSong = 64 };
+enum Seen : unsigned { kSeenHead = 1, kSeenGen = 2, kSeenPats = 4, kSeenSnd = 8, kSeenSnap = 16, kSeenPerf = 32, kSeenSong = 64, kSeenTrct = 128 };
 
 // The payload of a chunk past its version: the version's major, 0 when there is none.
 unsigned major_of(chunk::Fields& f, std::uint16_t& version) noexcept {
@@ -346,11 +358,23 @@ bool read_gen(chunk::Fields& f, ProjectState& out) noexcept {
 bool read_pats(chunk::Fields& f, const chunk::Chunk& c, ProjectState& out) noexcept {
   const unsigned count = f.u8();
   const unsigned bytes = f.u16();
-  if (!f.ok() || bytes != sizeof(Pattern) || f.left() < std::size_t{count} * bytes) {
+  if (!f.ok() || bytes != kPatBytes || f.left() < std::size_t{count} * bytes) {
     return false;
   }
   out.pats = c.data + (c.size - f.left());
   out.pats_n = count < kPatternCount ? count : kPatternCount;
+  return true;
+}
+
+// TRCT: the TRACT lines of the patterns, one per pattern. false (every line empty): a line of another size, or fewer bytes than it says.
+bool read_trct(chunk::Fields& f, const chunk::Chunk& c, ProjectState& out) noexcept {
+  const unsigned count = f.u8();
+  const unsigned bytes = f.u16();
+  if (!f.ok() || bytes != sizeof(TractLine) || f.left() < std::size_t{count} * bytes) {
+    return false;
+  }
+  out.trct = c.data + (c.size - f.left());
+  out.trct_n = count < kPatternCount ? count : kPatternCount;
   return true;
 }
 
@@ -558,7 +582,16 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
 }
 
 bool write_pats_header(chunk::Writer& w) noexcept {
-  return w.begin("PATS") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(kPatternCount)) && w.u16(static_cast<std::uint16_t>(sizeof(Pattern)));
+  return w.begin("PATS") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(kPatternCount)) && w.u16(static_cast<std::uint16_t>(kPatBytes));
+}
+
+// TRCT, after PATS: the 48 TRACT lines (3.3 KB, one pass: a copy of that size is far below a slice of PATS).
+bool write_trct(chunk::Writer& w, const seq::Bank& bank) noexcept {
+  bool ok = w.begin("TRCT") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(kPatternCount)) && w.u16(static_cast<std::uint16_t>(sizeof(TractLine)));
+  for (unsigned i = 0; i < kPatternCount && ok; ++i) {
+    ok = w.bytes(&bank.pattern(i).tract, sizeof(TractLine));
+  }
+  return ok && w.end();
 }
 
 // The most the small chunks take (everything but PATS and the container's own bytes), with SG1's reserve.
@@ -582,9 +615,9 @@ std::size_t encode(const ProjectState& s, const seq::Bank& bank, std::uint8_t* o
 
   bool ok = write_head_gen(w, s, s.save_count) && write_pats_header(w);
   for (unsigned i = 0; i < kPatternCount && ok; ++i) {
-    ok = w.bytes(&bank.pattern(i), sizeof(Pattern));
+    ok = w.bytes(&bank.pattern(i), kPatBytes);
   }
-  ok = ok && w.end() && write_tail(w, s);
+  ok = ok && w.end() && write_trct(w, bank) && write_tail(w, s);
 
   const std::size_t n = w.finish();
   return ok ? n : 0u;
@@ -617,10 +650,10 @@ bool Encoder::step(unsigned patterns, std::size_t crc_bytes) noexcept {
     case Stage::Patterns: {
       bool ok = true;
       for (unsigned n = 0; n < patterns && next_ < kPatternCount && ok; ++n, ++next_) {
-        ok = w_.bytes(&bank_->pattern(next_), sizeof(Pattern));
+        ok = w_.bytes(&bank_->pattern(next_), kPatBytes);
       }
       if (ok && next_ >= kPatternCount) {
-        ok = w_.end() && write_tail(w_, *s_);
+        ok = w_.end() && write_trct(w_, *bank_) && write_tail(w_, *s_);
         if (ok) {
           body_ = w_.size();
           // What Writer::finish() does, in slices: the FORM length first (the CRC covers it), then the CRC over the body, then the CRC chunk.
@@ -688,6 +721,8 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
       bit = kSeenPerf;
     } else if (chunk::id_is(c, "SONG")) {
       bit = kSeenSong;
+    } else if (chunk::id_is(c, "TRCT")) {
+      bit = kSeenTrct;
     }
     chunk::Fields f(c);
     std::uint16_t version = 0;
@@ -733,6 +768,9 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
       case kSeenSong:
         good = read_song(f, out);
         break;
+      case kSeenTrct:
+        good = read_trct(f, c, out);
+        break;
       default:
         break;
     }
@@ -777,10 +815,15 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     alignas(4) Pattern p;
     for (unsigned i = 0; i < kPatternCount; ++i) {
       if (s.pats != nullptr && i < s.pats_n) {
-        std::memcpy(&p, s.pats + std::size_t{i} * sizeof(Pattern), sizeof(Pattern));
+        clear(p);  // the TRACT line stays empty unless TRCT has one
+        std::memcpy(&p, s.pats + std::size_t{i} * kPatBytes, kPatBytes);
         sanitize(p);
       } else {
         clear(p);
+      }
+      if (s.trct != nullptr && i < s.trct_n) {
+        std::memcpy(&p.tract, s.trct + std::size_t{i} * sizeof(TractLine), sizeof(TractLine));
+        (void)tract_sanitize(p.tract);
       }
       (void)rig.bank->restore(i, p);
     }
@@ -809,6 +852,17 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     float v = app_default(id);
     (void)find_entry(s, kSndApp, static_cast<std::uint16_t>(id), v);
     set_app_value(w, e, id, v);
+  }
+  // LINE (A1b): a project without the entry plays the line only if one holds vowels (a file from before the line has none, so it is off).
+  if (patterns && rig.bank != nullptr && w.seq != nullptr) {
+    float line = 0.0f;
+    if (!find_entry(s, kSndApp, static_cast<std::uint16_t>(kAppTractLine), line)) {
+      bool any = false;
+      for (unsigned i = 0; i < kPatternCount && !any; ++i) {
+        any = tract_has_vowels(rig.bank->pattern(i).tract);
+      }
+      w.seq->set_tract_line(any);
+    }
   }
   // MODS as saved (F13a; a project without the entry has the mods heard): the stored mod values are in, only the voice's view changes.
   float mods_on = app_default(kAppModsOn);

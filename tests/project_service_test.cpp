@@ -107,7 +107,7 @@ void check_image(const Bytes& image, bool bank_equal) {
   CHECK(r.skipped == 0u);
   if (bank_equal) {
     for (unsigned i = 0; i < kPatternCount; ++i) {
-      CHECK(std::memcmp(s.pats + i * sizeof(Pattern), &bank().pattern(i), sizeof(Pattern)) == 0);
+      CHECK(std::memcmp(s.pats + i * kPatBytes, &bank().pattern(i), kPatBytes) == 0);
     }
   }
 }
@@ -1029,7 +1029,7 @@ TEST_CASE("project service: NEW under the name a flush just gave the session is 
   project::ProjectState st;
   const Bytes saved = s.read("UNTITLED/live.o3a");
   REQUIRE(project::decode(saved.data(), saved.size(), st).status == project::Status::Ok);
-  CHECK(std::memcmp(st.pats, &edited, sizeof edited) == 0);  // and on the card
+  CHECK(std::memcmp(st.pats, &edited, kPatBytes) == 0);  // and on the card
 }
 
 TEST_CASE("project service: NEW under the name of a project deleted before is refused before the session is wiped; from an earlier session it says so after") {
@@ -1168,7 +1168,7 @@ void length_trial(Session& s, unsigned k, unsigned j, bool from_instrument, bool
     project::ProjectState st;
     REQUIRE(project::decode(image.data(), image.size(), st).status == project::Status::Ok);
     Pattern p0;
-    std::memcpy(&p0, st.pats, sizeof p0);
+    std::memcpy(&p0, st.pats, kPatBytes);
     INFO(file << " k=" << k << " j=" << j << " instrument=" << from_instrument << " playing=" << playing);
     CHECK(p0.length == 64);
   }

@@ -145,6 +145,16 @@ class Bank {
   bool set_swing(unsigned index, int percent) noexcept;
   bool set_gate(unsigned index, int percent) noexcept;
   bool set_transpose(unsigned index, int semitones) noexcept;
+  // The TRACT line of a pattern (tract_line.h; the page lane's accessor). Out-of-range arguments change nothing and return false. A step
+  // byte is vowel | GLD (kTractFollow .. kTractU, kTractGlide). The line rides in the Pattern: copy, paste, DUP>NEXT, undo and the song
+  // carry it, and each of these is one undo step (turning one step's vowel coalesces).
+  const TractLine& tract_line(unsigned index) const noexcept { return pattern(index).tract; }
+  std::uint8_t tract_step(unsigned index, unsigned step) const noexcept {
+    return step < kTractSteps ? pattern(index).tract.step[step] : kTractFollow;
+  }
+  bool set_tract_step(unsigned index, unsigned step, std::uint8_t vowel, bool glide) noexcept;
+  bool set_tract_length(unsigned index, unsigned length) noexcept;  // kTractSame, 4, 8, 16, 32 or 64
+  bool clear_tract(unsigned index) noexcept;                        // every step "-", GLD off, SAME
   bool random_fill(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;
   bool mutate(unsigned index, const GenParams& g, std::uint32_t seed, unsigned amount_pct) noexcept;
   bool set_motion_point(unsigned index, unsigned lane, unsigned step, unsigned point, std::uint8_t value) noexcept;

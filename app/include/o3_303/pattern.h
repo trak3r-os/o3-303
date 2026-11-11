@@ -19,6 +19,8 @@
 // The types are trivial on purpose: the project's patterns are an O3SDK_BIG array in the SDRAM, which must be zero-initialised
 // (no default member initialisers, no constructor). All-zero bits are not a usable pattern: clear() one before use.
 
+#include <o3_303/tract_line.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -253,15 +255,19 @@ struct alignas(4) Pattern {
   std::uint8_t gate;       // percent, 5..100
   std::uint8_t motion[kMotionLanes][kMaxSteps * kMotionPointsPerStep];
   LaneRef lanes[kMotionLanes];  // what each motion lane drives (kDefaultLanes in a fresh pattern)
+  TractLine tract;              // the TRACT vowel line (tract_line.h); last, so the PATS record is the bytes before it (kPatBytes)
 };
+
+// The bytes of a pattern a PATS record holds (project.h): everything before the TRACT line, which has a chunk of its own (TRCT).
+inline constexpr std::size_t kPatBytes = offsetof(Pattern, tract);
 
 static_assert(std::is_trivial<Pattern>::value, "Pattern lives in an O3SDK_BIG array: it must stay trivial");
 static_assert(std::is_standard_layout<Pattern>::value, "Pattern's layout is read with offsetof and copied in words");
 static_assert(alignof(Pattern) >= 4 && sizeof(Pattern) % 4 == 0, "the Bank moves patterns in words: 4-byte aligned, a multiple of 4 long");
 static_assert(offsetof(Pattern, motion) % 4 == 0 && sizeof(Pattern::motion[0]) % 4 == 0,
               "the Bank scans each motion lane in words");
-// 2,260 bytes; the 48 patterns of a project are about 108 KB of SDRAM (docs/M3-PLAN.md, "Memory").
-static_assert(sizeof(Pattern) <= 2260, "Pattern grew: check the project's SDRAM budget in docs/M3-PLAN.md");
+// 2,328 bytes (2,260 of the pattern, 68 of the TRACT line); the 48 patterns of a project are about 112 KB of SDRAM (docs/M3-PLAN.md, "Memory").
+static_assert(sizeof(Pattern) <= 2328, "Pattern grew: check the project's SDRAM budget in docs/M3-PLAN.md");
 
 constexpr bool valid_length(unsigned n) noexcept { return n == 8u || n == 16u || n == 32u || n == 64u; }
 
@@ -285,6 +291,7 @@ constexpr void clear(Pattern& p) noexcept {
   for (unsigned i = 0; i < kMotionLanes; ++i) {
     p.lanes[i] = kDefaultLanes[i];
   }
+  tract_clear(p.tract);
 }
 
 }  // namespace o3_303

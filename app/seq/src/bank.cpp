@@ -23,6 +23,8 @@ constexpr std::uint32_t kKeySongPattern = 0x0D000000u;  // | row: the song's cel
 constexpr std::uint32_t kKeySongRepeat = 0x0E000000u;
 constexpr std::uint32_t kKeySongTranspose = 0x0F000000u;
 constexpr std::uint32_t kKeySongAppend = 0x10000000u;  // a run of appends from the END line
+constexpr std::uint32_t kKeyTractStep = 0x12000000u;  // | step: one step of the TRACT line
+constexpr std::uint32_t kKeyTractLen = 0x13000000u;
 constexpr std::uint32_t kKeyHold = 0x11000000u;  // | hold id: a key held while recording, the note and its ties (HomeMap)
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
@@ -238,6 +240,43 @@ bool Bank::set_swing(unsigned index, int percent) noexcept {
 
 bool Bank::set_gate(unsigned index, int percent) noexcept {
   return edit(index, [&](Pattern& p) { seq::set_gate(p, percent); }, kKeyGate);
+}
+
+bool Bank::set_tract_step(unsigned index, unsigned step, std::uint8_t vowel, bool glide) noexcept {
+  if (step >= kTractSteps || vowel > kTractVowels) {
+    return false;
+  }
+  const std::uint8_t value = tract_make(vowel, glide);
+  return edit(
+      index,
+      [&](Pattern& p) {
+        if (p.tract.step[step] == value) {
+          return false;
+        }
+        p.tract.step[step] = value;
+        return true;
+      },
+      kKeyTractStep | step);
+}
+
+bool Bank::set_tract_length(unsigned index, unsigned length) noexcept {
+  if (!tract_valid_len_field(length)) {
+    return false;
+  }
+  return edit(
+      index,
+      [&](Pattern& p) {
+        if (p.tract.len == length) {
+          return false;
+        }
+        p.tract.len = static_cast<std::uint8_t>(length);
+        return true;
+      },
+      kKeyTractLen);
+}
+
+bool Bank::clear_tract(unsigned index) noexcept {
+  return edit(index, [](Pattern& p) { tract_clear(p.tract); });
 }
 
 bool Bank::set_transpose(unsigned index, int semitones) noexcept {

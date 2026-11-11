@@ -105,6 +105,16 @@
 //               the hook sets its Note parameter (kGrowlNoteParam, the MIDI note that starts, clamped as played) at every note start, ratchet
 //               hits included: one Param event a note.
 //   tract       given to set_unit(kLaneTract, id): its parameters are lane and slew targets like the growl's (no per-note event).
+//   tract line  (docs/TRACT-KNOBS-PLAN.md A1b) the pattern's TRACT line (tract_line.h; the Bank's tract_step() and friends edit it), played
+//               when set_tract_line(true) and the tract unit is given: at the frame a step starts, a vowel step writes the tract's VOWEL
+//               (kTractVowelParam) like a lock; a "-" step gives the knob (or a slew's value) back, so the line only holds the parameter
+//               while it has a vowel. A GLD step also glides: at its first quarter it sets GLIDE to a quarter of the step's length (5..500 ms)
+//               and VOWEL to the next step's vowel (the knob's value when that is "-"), so the mouth is at the next vowel by the step's end
+//               (three time constants, 95 %); a vowel step without GLD gives the knob's glide back before it writes. The line's length is its
+//               own (4, 8, 16, 32, 64) and it runs on the same clock as the notes, counted from the pattern's load (a jump, a chain entry, a
+//               song row, Play), so a line shorter or longer than the pattern is polymetric against it; SAME follows the pattern's step.
+//               A motion lane on the tract's VOWEL or GLIDE wins over the line while its lock holds, and a slew on them waits like it does for a
+//               lane. Cost: a few compares a step, a Param event or two on a vowel step, nothing between steps.
 //
 // SG1 (UX-303 5.7, the song), on top of those:
 //
@@ -168,6 +178,8 @@ inline constexpr unsigned kMaxSlews = 32;   // slews running at once (a snapshot
 inline constexpr unsigned kSlewEvents = 12; // the most Param events the slews put in one unit's list in one block (the list holds 32)
 inline constexpr unsigned kWobbleEvents = 8;  // the most Param events the wobble puts in its unit's list in one block (4 ticks and up to 4 note resets)
 inline constexpr std::uint8_t kGrowlNoteParam = 6;  // the growl's Note parameter id (units/growl: Growl::Note; tests/seq_wobble_test.cpp checks it)
+inline constexpr std::uint8_t kTractVowelParam = 0;  // the tract's VOWEL parameter id (units/tract: TractFx; app/seq/tests/seq_tract_line_test.cpp checks it)
+inline constexpr std::uint8_t kTractGlideParam = 4;  // its GLIDE parameter id (ms, the one-pole time of the vowel)
 inline constexpr std::uint32_t kDefaultSeed = 0x30330303u;  // the Rng of the probability draws and of the Mutate fill, until set_seed()
 
 // What the screens read: the playhead as of the end of the last block.
@@ -289,6 +301,13 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void set_perf(std::uint8_t flags) noexcept { perf_.store(flags, std::memory_order_relaxed); }
   void set_perf_flag(std::uint8_t flag, bool on) noexcept;
   std::uint8_t perf() const noexcept { return perf_.load(std::memory_order_relaxed); }
+
+  // ---- The TRACT line (main loop; atomics, effective at the next step; see "tract line" above) -----------------------------------
+  // LINE on / off, project-wide (saved in the SND chunk as kAppTractLine, project.cpp). Off: the line is not played and the VOWEL knob rules.
+  void set_tract_line(bool on) noexcept { tract_line_on_.store(on ? 1u : 0u, std::memory_order_relaxed); }
+  bool tract_line_on() const noexcept { return tract_line_on_.load(std::memory_order_relaxed) != 0u; }
+  // The line's step that started last (0..63), for the LEDs; -1 when stopped. It is published whether LINE is on or off.
+  int tract_playhead() const noexcept { return tract_head_.load(std::memory_order_relaxed); }
 
   // ---- FILL and the trig conditions (main loop; atomics, effective at the next step) -------------------------------------------
   // FILL held / released: the performance flag kPerfFill (a screen that rewrites the whole flag word with set_perf() owns it too).
@@ -454,6 +473,10 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   bool wobbleable(std::uint8_t target, std::uint8_t id) const noexcept;
   bool wob_owns(const Slew& s) const noexcept { return wob_active_ && s.target == wob_target_ && s.id == wob_id_; }
   bool lane_lock_value(std::uint8_t target, std::uint8_t id, float& value) const noexcept;
+  bool motion_holds(std::uint8_t target, std::uint8_t id) const noexcept;
+  void line_step(o3sdk::dsp::BlockContext& ctx, unsigned frame, unsigned step, unsigned pattern_length) noexcept;
+  void line_glide_q1(o3sdk::dsp::BlockContext& ctx, unsigned frame) noexcept;
+  void line_release(o3sdk::dsp::BlockContext& ctx, unsigned frame, bool vowel, bool glide) noexcept;
   float wobble_value(std::uint8_t target, std::uint8_t id, float base, float amplitude) const noexcept;
 
   Bank& bank_;
@@ -466,6 +489,8 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   o3sdk::core::SpscRing<SlewCommand, 64> slew_commands_;
   std::atomic<int> live_transpose_{0};
   std::atomic<std::uint8_t> perf_{0};
+  std::atomic<std::uint8_t> tract_line_on_{0};  // single writer (the main loop), read by the render at each step
+  std::atomic<int> tract_head_{-1};             // single writer (the render), read by the main loop: the line's playhead
   std::atomic<std::uint8_t> fill_variant_{0};
   std::atomic<std::uint32_t> seed_;          // single writer (the main loop), read by the render when seed_version_ moves
   std::atomic<std::uint32_t> seed_version_{0};
@@ -556,6 +581,16 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   // Conditions and FILL.
   Rng rng_{kDefaultSeed};
   std::uint32_t seed_seen_ = 0;     // the seed_version_ rng_ was last seeded at
+  // The TRACT line (render only). line_n_ counts the steps started since the pattern was loaded (not wrapped: the line wraps on its own
+  // length). line_vowel_ / line_glide_: the line holds the tract's VOWEL / GLIDE (a vowel step wrote it, the knob is not back yet); the
+  // values are what it wrote. line_gld_*: the glide the first quarter of the current GLD step applies.
+  std::uint32_t line_n_ = 0;
+  bool line_vowel_ = false;
+  bool line_glide_ = false;
+  float line_vowel_value_ = 0.0f;
+  float line_glide_value_ = 0.0f;
+  bool line_gld_pending_ = false;
+  float line_gld_target_ = 0.0f;
   std::uint32_t pass_ = 0;          // times the playing pattern has started over since it was loaded
   // The draw of a probability condition that the look-ahead made for the step after a note (it asks a tie step's condition to know whether
   // the note is held into it): the step's own start uses it instead of drawing again, so there is one draw per step.

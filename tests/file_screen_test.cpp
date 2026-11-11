@@ -319,7 +319,7 @@ TEST_CASE("file: NEW autosaves the current project first, then the factory line;
   project::ProjectState st;
   const Bytes jam = s.read("jam/live.o3a");
   REQUIRE(project::decode(jam.data(), jam.size(), st).status == project::Status::Ok);
-  CHECK(std::memcmp(st.pats, &edited0, sizeof(Pattern)) == 0);
+  CHECK(std::memcmp(st.pats, &edited0, kPatBytes) == 0);
   CHECK(st.tempo_mbpm == 99'000u);
   // The session is the factory line under the new name.
   CHECK(bank().pattern(0).steps[3].note != note3);
@@ -375,7 +375,7 @@ TEST_CASE("file: LOAD autosaves a session with no project on the card under a fr
   project::ProjectState st;
   const Bytes saved = s.read("UNTITLED/live.o3a");
   REQUIRE(project::decode(saved.data(), saved.size(), st).status == project::Status::Ok);
-  CHECK(std::memcmp(st.pats, &edited0, sizeof(Pattern)) == 0);
+  CHECK(std::memcmp(st.pats, &edited0, kPatBytes) == 0);
   CHECK(bank().pattern(0).steps[5].note != note);  // keep's own line is on the session now
 }
 

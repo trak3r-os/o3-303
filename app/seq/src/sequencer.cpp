@@ -716,6 +716,7 @@ void Sequencer::refresh_shadow() noexcept {
 void Sequencer::load_pattern(unsigned index) noexcept {
   playing_ = index < kPatternCount ? index : 0u;
   pass_ = 0;  // a pattern change: the first pass again
+  line_n_ = 0;  // ... and the TRACT line starts from its first step
   draw_valid_ = false;
   shadow_valid_ = false;
   variant_valid_ = false;
@@ -796,6 +797,9 @@ void Sequencer::restore_lanes(dsp::BlockContext& ctx, unsigned frame) noexcept {
 void Sequencer::end_run(dsp::BlockContext& ctx) noexcept {
   release_held(ctx, 0);
   restore_lanes(ctx, 0);
+  line_release(ctx, 0, true, true);
+  line_gld_pending_ = false;
+  tract_head_.store(-1, std::memory_order_relaxed);
   running_ = false;
   cur_step_ = -1;
   cur_point_ = 0;
@@ -1000,8 +1004,9 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   hit_n_ = 0;  // the hits of the step before all came before this tick
   hit_k_ = 0;
 
-  // The locks first: the note then starts with them.
+  // The locks first: the note then starts with them. The TRACT line's vowel goes out here too, before any rest or tie return.
   emit_points(ctx, frame, 0);
+  line_step(ctx, frame, j, n);
 
   const bool mute = (perf & kPerfMute) != 0u;
   const bool slide = (s.flags & kStepSlide) != 0u || (perf & kPerfSlideAll) != 0u;
@@ -1175,6 +1180,9 @@ void Sequencer::start_slew(dsp::BlockContext& ctx, const SlewCommand& c) noexcep
 
 // A lane's lock is on this target right now: the lock wins, the slew only counts the time.
 bool Sequencer::slew_locked(const Slew& s) const noexcept {
+  if (s.target == kLaneTract && ((line_vowel_ && s.id == kTractVowelParam) || (line_glide_ && s.id == kTractGlideParam))) {
+    return true;  // the TRACT line holds it
+  }
   for (unsigned lane = 0; lane < kMotionLanes && overridden_ != 0u; ++lane) {
     if ((overridden_ >> lane & 1u) != 0u && lane_target_[lane] == s.target && lane_id_[lane] == s.id) {
       return true;
@@ -1394,7 +1402,116 @@ bool Sequencer::lane_lock_value(std::uint8_t target, std::uint8_t id, float& val
       return true;
     }
   }
+  if (line_vowel_ && target == kLaneTract && id == kTractVowelParam) {  // the TRACT line holds it (a lane's lock, above, wins)
+    value = line_vowel_value_;
+    return true;
+  }
+  if (line_glide_ && target == kLaneTract && id == kTractGlideParam) {
+    value = line_glide_value_;
+    return true;
+  }
   return false;
+}
+
+// ---- The TRACT line (docs/TRACT-KNOBS-PLAN.md A1b) -------------------------------------------------------------------------------------
+
+// Does a motion lane's lock hold (target, id) now?
+bool Sequencer::motion_holds(std::uint8_t target, std::uint8_t id) const noexcept {
+  for (unsigned lane = 0; lane < kMotionLanes && overridden_ != 0u; ++lane) {
+    if ((overridden_ >> lane & 1u) != 0u && lane_target_[lane] == target && lane_id_[lane] == id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The line lets go of VOWEL and / or GLIDE: the knob's value (or the slew's) comes back. A parameter a motion lane holds is the lane's: only
+// the line's claim ends.
+void Sequencer::line_release(dsp::BlockContext& ctx, unsigned frame, bool vowel, bool glide) noexcept {
+  if (vowel && line_vowel_) {
+    line_vowel_ = false;
+    if (!motion_holds(kLaneTract, kTractVowelParam)) {
+      restore_target(ctx, kLaneTract, kTractVowelParam, frame);
+    }
+    mark_lock(kLaneTract, kTractVowelParam, frame, false);
+  }
+  if (glide && line_glide_) {
+    line_glide_ = false;
+    if (!motion_holds(kLaneTract, kTractGlideParam)) {
+      restore_target(ctx, kLaneTract, kTractGlideParam, frame);
+    }
+    mark_lock(kLaneTract, kTractGlideParam, frame, false);
+  }
+}
+
+// A step starts (start_step(), at its frame, before the note): `step` is the pattern's step j, `pattern_length` its length. The line's
+// own step is the pattern's when the line is SAME, else the count of steps since the pattern was loaded, wrapped on the line's length.
+void Sequencer::line_step(dsp::BlockContext& ctx, unsigned frame, unsigned step, unsigned pattern_length) noexcept {
+  const TractLine& line = shadow_[cur_].tract;
+  const unsigned len = tract_valid_length(line.len) ? line.len : 0u;
+  const unsigned idx = len != 0u ? tract_index(line_n_, len) : (step < kTractSteps ? step : 0u);
+  const unsigned next = len != 0u ? tract_index(line_n_ + 1u, len) : (step + 1u < pattern_length && step + 1u < kTractSteps ? step + 1u : 0u);
+  ++line_n_;
+  tract_head_.store(static_cast<int>(idx), std::memory_order_relaxed);
+  line_gld_pending_ = false;
+  if (tract_line_on_.load(std::memory_order_relaxed) == 0u || !resolvable(kLaneTract, kTractVowelParam)) {
+    line_release(ctx, frame, true, true);  // LINE off (or no tract unit): the knobs rule
+    return;
+  }
+  const std::uint8_t st = line.step[idx];
+  const std::uint8_t vowel = tract_vowel(st);
+  if (vowel == kTractFollow) {  // "-": follow the knob (GLD means nothing without a vowel)
+    line_release(ctx, frame, true, true);
+    return;
+  }
+  const bool gld = tract_glide(st);
+  if (!gld) {
+    line_release(ctx, frame, false, true);  // the knob's glide first, so the vowel jumps as the knob says
+  }
+  if (!motion_holds(kLaneTract, kTractVowelParam)) {
+    if (!line_vowel_) {
+      mark_lock(kLaneTract, kTractVowelParam, frame, true);
+      line_vowel_ = true;
+    }
+    line_vowel_value_ = tract_vowel_value(vowel);
+    (void)write_target(ctx, kLaneTract, kTractVowelParam, line_vowel_value_, frame);
+  }
+  if (gld) {
+    const std::uint8_t nv = tract_vowel(line.step[next]);
+    line_gld_target_ = nv != kTractFollow ? tract_vowel_value(nv) : knob_value(kLaneTract, kTractVowelParam);
+    line_gld_pending_ = true;
+  }
+}
+
+// The first quarter of a GLD step: the mouth starts for the next vowel. GLIDE is the one-pole time of the vowel, so a quarter of the step's
+// length has it three time constants (95 %) from there to the step's end.
+void Sequencer::line_glide_q1(dsp::BlockContext& ctx, unsigned frame) noexcept {
+  if (!line_gld_pending_) {
+    return;
+  }
+  line_gld_pending_ = false;
+  if (tract_line_on_.load(std::memory_order_relaxed) == 0u || !resolvable(kLaneTract, kTractGlideParam)) {
+    return;
+  }
+  const float bpm = ctx.transport().tempo_bpm();
+  float ms = bpm > 1.0f ? static_cast<float>(cur_len_) * (15.625f / bpm) : 500.0f;  // ticks * 62.5 / bpm ms, a quarter of it
+  ms = ms < 5.0f ? 5.0f : (ms > 500.0f ? 500.0f : ms);
+  if (!motion_holds(kLaneTract, kTractGlideParam)) {
+    if (!line_glide_) {
+      mark_lock(kLaneTract, kTractGlideParam, frame, true);
+      line_glide_ = true;
+    }
+    line_glide_value_ = ms;
+    (void)write_target(ctx, kLaneTract, kTractGlideParam, ms, frame);
+  }
+  if (!motion_holds(kLaneTract, kTractVowelParam)) {
+    if (!line_vowel_) {
+      mark_lock(kLaneTract, kTractVowelParam, frame, true);
+      line_vowel_ = true;
+    }
+    line_vowel_value_ = line_gld_target_;
+    (void)write_target(ctx, kLaneTract, kTractVowelParam, line_vowel_value_, frame);
+  }
 }
 
 // `base` moved by `delta` (a fraction of the target's range, signed) through the target's own curve, held inside the range.
@@ -1708,6 +1825,9 @@ void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {
       case Due::Point:
         cur_point_ = static_cast<int>(pt_q_);
         emit_points(ctx, frame, pt_q_);
+        if (pt_q_ == 1u) {
+          line_glide_q1(ctx, frame);
+        }
         ++pt_q_;
         pt_tick_ = cur_start_ + (static_cast<std::uint64_t>(pt_q_) * cur_len_) / kMotionPointsPerStep;
         break;

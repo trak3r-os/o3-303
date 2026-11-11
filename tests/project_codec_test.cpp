@@ -19,6 +19,7 @@
 #include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tract/tract.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -136,6 +137,11 @@ Pattern random_pattern(std::uint32_t seed) {
     ref.target = static_cast<std::uint8_t>(lcg(s) % kLaneTargetCount);
     ref.id = static_cast<std::uint8_t>(lcg(s) % 8);
   }
+  static const std::uint8_t kTractLens[6] = {kTractSame, 4, 8, 16, 32, 64};  // the TRACT line (A1b): every step, GLD and length away from empty
+  for (std::uint8_t& st : p.tract.step) {
+    st = tract_make(static_cast<std::uint8_t>(lcg(s) % (kTractVowels + 1u)), lcg(s) % 4 == 0);
+  }
+  p.tract.len = kTractLens[lcg(s) % 6];
   return p;
 }
 
@@ -183,6 +189,7 @@ void scramble(Session& t) {
   w.wobble.reset = true;  // away from the default (off since B5a)
   w.wobble.target = kWobbleVowel;
   w.wob_want = 1;         // the WOB latch is saved too (B5a)
+  t.sequencer->set_tract_line(true);  // LINE on (A1b), away from the default
   w.perf[0] = static_cast<std::uint8_t>(PerfAction::Reverse);
   w.perf[1] = static_cast<std::uint8_t>(PerfAction::Wobble);
   w.perf[2] = static_cast<std::uint8_t>(PerfAction::Throw);
@@ -304,6 +311,7 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(wb.wobble.reset);
   CHECK(wb.wobble.target == kWobbleVowel);
   CHECK(wb.wob_want == 1);  // the latch comes back as a request: LiveActions::update latches it
+  CHECK(b.sequencer->tract_line_on());  // LINE (A1b)
   for (unsigned k = 0; k < kPerfButtons; ++k) {
     CHECK(wb.perf[k] == wa.perf[k]);
   }
@@ -1148,8 +1156,9 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
     return true;
   });
   CHECK(project::kAppModsOn == project::kAppWobbleOn + 1u);
-  CHECK(project::kAppGrowlLastMix == project::kAppValueCount - 2u);  // A1 appended the tract's last mix after it
-  CHECK(project::kAppTractLastMix == project::kAppValueCount - 1u);
+  CHECK(project::kAppGrowlLastMix == project::kAppValueCount - 3u);  // A1 appended the tract's last mix after it (kAppGrowlLastMix is the one before that)
+  CHECK(project::kAppTractLastMix == project::kAppValueCount - 2u);
+  CHECK(project::kAppTractLine == project::kAppValueCount - 1u);  // A1b appended LINE after it
   Session c;
   c.rig.wiring.wob_want = 1;  // a session with the latch on: the old project has none, so it ends off
   REQUIRE(load(old, s).status == project::Status::Ok);
@@ -1296,6 +1305,286 @@ TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane roun
   CHECK(d.rig.wiring.tract_last_mix == doctest::Approx(0.5f));
 }
 
+// The image without the SND entries of the app value `app_id` (an older build never wrote it).
+bool drop_app_entry(const char (&id)[4], std::vector<std::uint8_t>& pl, unsigned app_id) {
+  if (!is(id, "SND ")) {
+    return true;
+  }
+  std::vector<std::uint8_t> out(pl.begin(), pl.begin() + 4);
+  unsigned kept = 0;
+  const unsigned n = (static_cast<unsigned>(pl[2]) << 8) | pl[3];
+  for (unsigned i = 0; i < n; ++i) {
+    const std::uint8_t* en = &pl[4 + i * 8];
+    const unsigned pid = (static_cast<unsigned>(en[2]) << 8) | en[3];
+    if (en[0] == project::kSndApp && pid == app_id) {
+      continue;
+    }
+    out.insert(out.end(), en, en + 8);
+    ++kept;
+  }
+  out[2] = static_cast<std::uint8_t>(kept >> 8);
+  out[3] = static_cast<std::uint8_t>(kept);
+  pl = out;
+  return true;
+}
+
+bool same_line(const TractLine& a, const TractLine& b) { return std::memcmp(&a, &b, sizeof(TractLine)) == 0; }
+
+TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, in a chunk of their own after PATS") {
+  Session a;
+  scramble(a);  // random lines (steps, GLD, lengths) in all 48 patterns, LINE on
+  bool any_vowel = false;
+  bool any_glide = false;
+  bool any_len = false;
+  for (unsigned i = 0; i < kPatternCount; ++i) {
+    const TractLine& t = a.bank->pattern(i).tract;
+    any_vowel = any_vowel || tract_has_vowels(t);
+    any_len = any_len || t.len != kTractSame;
+    for (const std::uint8_t st : t.step) {
+      any_glide = any_glide || tract_glide(st);
+    }
+  }
+  REQUIRE((any_vowel && any_glide && any_len));
+  const std::vector<std::uint8_t> img = encode_session(a);
+
+  // The layout: PATS keeps its 2,260 bytes a pattern, TRCT follows it with 48 lines of 68 bytes.
+  std::vector<std::string> order;
+  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+    order.emplace_back(id, 4);
+    if (is(id, "PATS")) {
+      CHECK(p.size() == 5 + kPatternCount * 2260u);
+      CHECK(p[2] == kPatternCount);
+      CHECK(((static_cast<unsigned>(p[3]) << 8) | p[4]) == 2260u);
+    }
+    if (is(id, "TRCT")) {
+      CHECK(p.size() == 5 + kPatternCount * 68u);
+      CHECK(p[0] == 1);  // major 1
+      CHECK(p[2] == kPatternCount);
+      CHECK(((static_cast<unsigned>(p[3]) << 8) | p[4]) == 68u);
+      CHECK(std::memcmp(&p[5], &a.bank->pattern(0).tract, 68) == 0);
+    }
+    return true;
+  });
+  const auto at = [&](const char* id) { return std::find(order.begin(), order.end(), std::string(id, 4)) - order.begin(); };
+  CHECK(at("TRCT") == at("PATS") + 1);
+
+  project::ProjectState s;
+  const project::Result res = load(img, s);
+  REQUIRE(res.status == project::Status::Ok);
+  CHECK(res.skipped == 0);
+  Session b;
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  for (unsigned i = 0; i < kPatternCount; ++i) {
+    CHECK(same_line(b.bank->pattern(i).tract, a.bank->pattern(i).tract));
+  }
+  CHECK(b.sequencer->tract_line_on());
+  CHECK(encode_session(b) == img);
+
+  // LINE off is saved as off, whatever the lines hold (the rule for a missing entry is only for older files).
+  a.sequencer->set_tract_line(false);
+  const std::vector<std::uint8_t> off = encode_session(a);
+  REQUIRE(load(off, s).status == project::Status::Ok);
+  Session c;
+  c.sequencer->set_tract_line(true);
+  REQUIRE(project::apply(c.rig, c.engine, s));
+  CHECK_FALSE(c.sequencer->tract_line_on());
+  CHECK(same_line(c.bank->pattern(5).tract, a.bank->pattern(5).tract));
+}
+
+TEST_CASE("project: A1b, a file from before the line loads with every line empty and LINE off (on only if a line holds vowels)") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+
+  // No TRCT, no LINE entry: the shape of v0.6.0 and of every project before A1b.
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    return !is(id, "TRCT") && drop_app_entry(id, p, project::kAppTractLine);
+  });
+  project::ProjectState s;
+  const project::Result res = load(old, s);
+  REQUIRE(res.status == project::Status::Ok);
+  CHECK(res.skipped == 0);
+  CHECK(s.trct == nullptr);
+  Session b;
+  b.sequencer->set_tract_line(true);  // what the session had: the load takes it back
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  TractLine empty;
+  tract_clear(empty);
+  for (unsigned i = 0; i < kPatternCount; ++i) {
+    CHECK(same_line(b.bank->pattern(i).tract, empty));
+    // the notes are the file's own: all but the line
+    CHECK(std::memcmp(&b.bank->pattern(i), &a.bank->pattern(i), kPatBytes) == 0);
+  }
+  CHECK_FALSE(b.sequencer->tract_line_on());
+
+  // No LINE entry but a TRCT with vowels in it (a file this build wrote with the entry lost): the rule turns LINE on.
+  const auto lost = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) { return drop_app_entry(id, p, project::kAppTractLine); });
+  REQUIRE(load(lost, s).status == project::Status::Ok);
+  Session c;
+  REQUIRE(project::apply(c.rig, c.engine, s));
+  CHECK(c.sequencer->tract_line_on());
+  CHECK(same_line(c.bank->pattern(7).tract, a.bank->pattern(7).tract));
+
+  // The entry says LINE on and the file has no TRCT: LINE on, the lines empty (the entry is what the file says).
+  const auto only_entry = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "TRCT"); });
+  REQUIRE(load(only_entry, s).status == project::Status::Ok);
+  Session d;
+  REQUIRE(project::apply(d.rig, d.engine, s));
+  CHECK(d.sequencer->tract_line_on());
+  CHECK(same_line(d.bank->pattern(7).tract, empty));
+
+  // A TRCT whose lines hold no vowel and no LINE entry: off.
+  Session e;
+  for (unsigned i = 0; i < kPatternCount; ++i) {
+    Pattern p = e.bank->pattern(i);
+    p.tract.step[2] = tract_make(kTractFollow, true);  // GLD on a "-" step is not a vowel
+    p.tract.len = 8;
+    (void)e.bank->restore(i, p);
+  }
+  const auto novowel = rebuild(encode_session(e), [](char (&id)[4], std::vector<std::uint8_t>& p) { return drop_app_entry(id, p, project::kAppTractLine); });
+  REQUIRE(load(novowel, s).status == project::Status::Ok);
+  Session f;
+  f.sequencer->set_tract_line(true);
+  REQUIRE(project::apply(f.rig, f.engine, s));
+  CHECK_FALSE(f.sequencer->tract_line_on());
+  CHECK(f.bank->pattern(4).tract.len == 8);
+}
+
+TEST_CASE("project: A1b, a damaged TRCT is skipped or brought into range and never takes the file down") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  TractLine empty;
+  tract_clear(empty);
+
+  // Lines of another size: the chunk is skipped, every line is empty.
+  const auto other = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "TRCT")) {
+      p[4] = 69;
+    }
+    return true;
+  });
+  const project::Result r1 = load(other, s);
+  REQUIRE(r1.status == project::Status::Ok);
+  CHECK(r1.skipped == 1);
+  Session b;
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  CHECK(same_line(b.bank->pattern(9).tract, empty));
+  CHECK(same_pattern(b.bank->pattern(9), [&] { Pattern p = a.bank->pattern(9); p.tract = empty; return p; }()));
+
+  // A major this build cannot read: skipped too.
+  const auto newer = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "TRCT")) {
+      p[0] = 2;
+    }
+    return true;
+  });
+  REQUIRE(load(newer, s).status == project::Status::Ok);
+  CHECK(s.trct == nullptr);
+
+  // Fewer lines than 48 (here 5): the others are empty.
+  const auto few = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "TRCT")) {
+      p[2] = 5;
+      p.resize(5 + 5 * sizeof(TractLine));
+    }
+    return true;
+  });
+  REQUIRE(load(few, s).status == project::Status::Ok);
+  Session c;
+  REQUIRE(project::apply(c.rig, c.engine, s));
+  CHECK(same_line(c.bank->pattern(4).tract, a.bank->pattern(4).tract));
+  CHECK(same_line(c.bank->pattern(5).tract, empty));
+
+  // A count the payload cannot hold: skipped.
+  const auto many = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "TRCT")) {
+      p[2] = 60;
+    }
+    return true;
+  });
+  CHECK(load(many, s).skipped == 1);
+
+  // Values out of range are brought into range: a vowel above U is "-", a length that is not SAME or 4..64 is SAME, the unused bits go.
+  const auto wild = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "TRCT")) {
+      p[5 + 0] = 0x07;         // vowel 7
+      p[5 + 1] = 0x4Au;        // unused bits and vowel 2 (E)
+      p[5 + 2] = 0x80u | 0x06; // GLD and vowel 6
+      p[5 + 64] = 12;          // length 12
+      p[5 + 65] = 0xFFu;       // reserved
+    }
+    return true;
+  });
+  REQUIRE(load(wild, s).status == project::Status::Ok);
+  Session d;
+  REQUIRE(project::apply(d.rig, d.engine, s));
+  const TractLine& w = d.bank->pattern(0).tract;
+  CHECK(w.step[0] == kTractFollow);
+  CHECK(w.step[1] == kTractE);
+  CHECK(w.step[2] == kTractGlide);
+  CHECK(w.len == kTractSame);
+  CHECK(w.reserved[0] == 0);
+
+  // TRCT twice: the first one counts.
+  std::vector<std::uint8_t> first;
+  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "TRCT")) {
+      first = p;
+    }
+    return true;
+  });
+  std::vector<std::uint8_t> zeros = first;
+  std::fill(zeros.begin() + 5, zeros.end(), std::uint8_t{0});
+  const auto twice = rebuild(img, [](char (&)[4], std::vector<std::uint8_t>&) { return true; }, {{"TRCT", zeros}});
+  const project::Result r2 = load(twice, s);
+  REQUIRE(r2.status == project::Status::Ok);
+  CHECK(r2.skipped == 1);
+  Session e;
+  REQUIRE(project::apply(e.rig, e.engine, s));
+  CHECK(same_line(e.bank->pattern(2).tract, a.bank->pattern(2).tract));
+}
+
+TEST_CASE("project: A1b, a reader of v0.6.0's shape (PATS of 2,260 bytes, every other chunk it does not know skipped) still reads a file with a TRCT chunk") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+
+  // What the v0.6.0 reader does with the image: the container (magic, length, CRC) opens, the chunks it knows are read by their own layout, the others are skipped.
+  chunk::Reader r;
+  REQUIRE(r.open(img.data(), img.size(), "303P") == chunk::Error::None);
+  chunk::Chunk c;
+  unsigned heads = 0;
+  unsigned pats = 0;
+  unsigned unknown = 0;
+  unsigned patterns_read = 0;
+  while (r.next(c)) {
+    const std::string id(c.id, 4);
+    if (id == "HEAD") {
+      ++heads;
+    } else if (id == "PATS") {
+      ++pats;
+      REQUIRE(c.size == 5 + kPatternCount * 2260u);
+      const unsigned count = c.data[2];
+      const unsigned bytes = (static_cast<unsigned>(c.data[3]) << 8) | c.data[4];
+      CHECK(count == 48);
+      CHECK(bytes == 2260);  // the v0.6.0 reader refuses any other size
+      for (unsigned i = 0; i < count; ++i) {
+        // v0.6.0's pattern is these 2,260 bytes: the notes, the motion, the lanes, and nothing of the line
+        CHECK(std::memcmp(c.data + 5 + i * bytes, &a.bank->pattern(i), 2260) == 0);
+        ++patterns_read;
+      }
+    } else if (id == "TRCT") {
+      ++unknown;  // not in v0.6.0's list: skipped by its length
+    }
+  }
+  CHECK(heads == 1);
+  CHECK(pats == 1);
+  CHECK(unknown == 1);
+  CHECK(patterns_read == 48);
+}
+
 TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {
   Session a;
   scramble(a);
@@ -1320,7 +1609,7 @@ TEST_CASE("project: patterns of another size or fewer of them; out of range fiel
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
 
-  // PATS with another pattern size: the part is skipped, every pattern is the fresh one.
+  // PATS with another pattern size: the part is skipped, every pattern is the fresh one (with its line, TRCT is a chunk of its own).
   const auto other = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PATS")) {
       p[4] = static_cast<std::uint8_t>(p[4] + 1);  // bytes a pattern 2,261
@@ -1335,15 +1624,21 @@ TEST_CASE("project: patterns of another size or fewer of them; out of range fiel
   project::apply(b.rig, b.engine, s);
   Pattern fresh;
   clear(fresh);
+  // The lines come from the TRCT chunk, which is read on its own: a skipped PATS leaves them in.
+  const auto with_line = [&](unsigned i) {
+    Pattern p = fresh;
+    p.tract = a.bank->pattern(i).tract;
+    return p;
+  };
   for (unsigned i = 0; i < kPatternCount; ++i) {
-    CHECK(same_pattern(b.bank->pattern(i), fresh));
+    CHECK(same_pattern(b.bank->pattern(i), with_line(i)));
   }
 
-  // Fewer patterns than 48 (here 5): the others are fresh.
+  // Fewer patterns than 48 (here 5): the others are fresh (with their lines).
   const auto few = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PATS")) {
       p[2] = 5;
-      p.resize(5 + 5 * sizeof(Pattern));
+      p.resize(5 + 5 * kPatBytes);
     }
     return true;
   });
@@ -1351,7 +1646,7 @@ TEST_CASE("project: patterns of another size or fewer of them; out of range fiel
   CHECK(s.pats_n == 5);
   project::apply(b.rig, b.engine, s);
   for (unsigned i = 0; i < kPatternCount; ++i) {
-    CHECK(same_pattern(b.bank->pattern(i), i < 5 ? a.bank->pattern(i) : fresh));
+    CHECK(same_pattern(b.bank->pattern(i), i < 5 ? a.bank->pattern(i) : with_line(i)));
   }
 
   // A pattern chunk shorter than it says is skipped.
@@ -1411,7 +1706,7 @@ TEST_CASE("project: the image fits its buffer, at the fullest too, and an apply 
   project::ProjectState s = a.gather();
   const std::size_t typical = project::encode(s, *a.bank, project::buffer(), project::kProjectBytes);
   CHECK(typical > 108'000);
-  CHECK(typical < 112'000);
+  CHECK(typical < 116'000);  // PATS 48 x 2,260 plus TRCT 3,269
 
   // SND full: still inside the buffer, with the song's reserve left over.
   s.sound_n = project::kMaxSound;
@@ -1663,7 +1958,7 @@ TEST_CASE("project: short and oversized payloads skip their part and nothing els
   const auto many = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PATS")) {
       p[2] = 52;
-      p.resize(p.size() + 4 * sizeof(Pattern), 0x55);
+      p.resize(p.size() + 4 * kPatBytes, 0x55);
     }
     return true;
   });

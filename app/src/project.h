@@ -8,7 +8,9 @@
 //   HEAD  selected pattern u8, tempo u32 (milli-BPM), flags u8 (bit 0: the scale lock is set), name char[16], then (HEAD 1.1) the save counter u32: it counts the
 //         writes of one project (the service's), so that boot and LOAD take the newest of live.o3a, its .bak and project.o3a; a 1.0 file has none and reads as 0
 //   GEN   the generator's settings, seven u8 (seq::GenParams in order)
-//   PATS  count u8 (48), bytes a pattern u16 (sizeof(Pattern) = 2,260), then the patterns byte for byte in struct order
+//   PATS  count u8 (48), bytes a pattern u16 (kPatBytes = 2,260: a Pattern without its TRACT line), then the patterns byte for byte in struct order
+//   TRCT  A1b (1.0), after PATS: count u8 (48), bytes a line u16 (sizeof(TractLine) = 68), then the TRACT lines byte for byte (tract_line.h). A file with no TRCT chunk
+//         (every project before A1b, whose readers skipped it all the same) reads with every line empty; LINE on/off is the app value kAppTractLine of SND
 //   SND   n u16; n entries of {target u8, 0 u8, id u16, value f32}: the units' parameters by id (targets 1 voice, 2 distortion, 3 delay, 5 growl, 7 tract,
 //         16 the freeze's four settings) and the app's values (target 32, ids AppValue)
 //   SNAP  slots u8 (8), values a slot u8 (the snapshot targets at write time), used mask u8, then slots x values f32
@@ -71,6 +73,7 @@ enum AppValue : std::uint16_t {
   kAppModsOn,    // F13a: MODS heard (1) or off, the STOCK view (0); an older file lacks it and loads with the mods heard
   kAppGrowlLastMix,  // F13a: GROWL F8's "last mix", percent (1..100); an older file lacks it and loads with 50
   kAppTractLastMix,  // A1: TRACT's "last mix", percent (1..100); an older file lacks it and loads with 50
+  kAppTractLine,     // A1b: LINE on (1) or off (0), the TRACT line plays; an older file lacks it and loads with it off (on if a line holds vowels)
   kAppValueCount,
 };
 
@@ -108,11 +111,14 @@ struct ProjectState {
     seq::clear_song(s);
     return s;
   }();
-  // PATS (decode only): `pats_n` patterns of sizeof(Pattern) bytes at `pats`, inside the image decode() was given. The image buffer is shared with
+  // PATS (decode only): `pats_n` patterns of kPatBytes bytes at `pats`, inside the image decode() was given. The image buffer is shared with
   // encode(), so encode() counts a generation and decode() records it in `pats_generation`: apply() refuses a state whose patterns may have been
   // overwritten by an encode in between (apply() before the next encode, or decode again).
   const std::uint8_t* pats = nullptr;
   unsigned pats_n = 0;
+  // TRCT (decode only): `trct_n` lines of sizeof(TractLine) bytes at `trct`, inside the same image and under the same generation rule as `pats`.
+  const std::uint8_t* trct = nullptr;
+  unsigned trct_n = 0;
   std::uint32_t pats_generation = 0;
 };
 
