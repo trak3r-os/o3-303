@@ -652,3 +652,10 @@ These replace the matching parts of sections 3 and 6 (A1 to A3) where they diffe
      while playing writes the tapped vowel into the current step, in both cases.
    - **NEW for the line** (Shift + F row, beside LEN and CLEAR): draws a line of vowels and GLD flags from the pattern's seed,
      with "-" on some steps, so a line can be generated as well as written. One undo.
+7. **X1 and X2 are built** (o3-sdk e54e90f, o3-voc03er 6abae43; 29 cases, ASAN and UBSAN clean, no doubles). Measured from the
+   cross build's disassembly: **about 390 cycles a frame at Full (9.5 % of a block) and 310 at Lite (7.6 %)**, 1.8 and 2.9 times
+   section 2.5's estimate (the wet path and the half-band pushes were not priced). On the 303's 49.5 % that is about 59 %, at the
+   governor's 60 %. So **a CPU slice X3 comes before A1**: sanitize every few control steps, the loop chunked between control steps
+   with its state in locals, then the count again; A1 starts only if Full or Lite fits under 56 % with the unit's read. Fit: F1 and F2
+   within 4.2 % (Full) of Peterson-Barney; F3 of E is +11 % and of U +32 % (structural, the test allows 40 % for that one). The
+   lattice is not passive under fast k motion: `Tube::sanitize()` and a +-8 clamp on the wet path are its safety nets.
