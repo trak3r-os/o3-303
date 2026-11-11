@@ -160,6 +160,12 @@ struct Wiring {
 // and one for an enum, a switch or a knob of fewer than 20 detents.
 int press_detents(const o3sdk::core::ParamDesc& d) noexcept;
 
+// A knob's live range (Controls::live_span): the values below `lo` and above `hi` sound as the end.
+struct KnobSpan {
+  float lo = 0.0f;
+  float hi = 0.0f;
+};
+
 class Controls {
  public:
   void init(Wiring& wiring) noexcept { w_ = &wiring; }
@@ -177,6 +183,13 @@ class Controls {
   void set(o3sdk::dsp::Engine& e, const Entry& entry, float value) noexcept;
   // `detents` encoder steps (`coarse`: a coarse step each); the new value is applied.
   void step(o3sdk::dsp::Engine& e, const Entry& entry, int detents, bool coarse) noexcept;
+  // F1 of the review: the part of a knob's range that does something now. CUTOFF with RANGE 303 or MODS off is the voice's 200 to 2,394 Hz, not the
+  // descriptor's 25 to 4,500. True and `out` set (in the entry's units) for such a knob; false for every other (the descriptor's range stands).
+  bool live_span(const o3sdk::dsp::Engine& e, const Entry& entry, KnobSpan& out) const noexcept;
+  // The value as it is read: get() held inside live_span (a stored 25 Hz plays and shows as 200 Hz).
+  float shown(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
+  // The position 0..1 of the value on the knob's travel: over live_span when there is one, over the descriptor's range else.
+  float shown_norm(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   // The value without its unit text ("1.20k", "SAW", "25/20") and the unit text ("Hz", "%").
   unsigned format(const o3sdk::dsp::Engine& e, const Entry& entry, char* out, unsigned cap) const noexcept;
   const char* unit_text(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;

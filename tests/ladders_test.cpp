@@ -12,6 +12,8 @@
 #include <o3_303/seq/ops.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
+#include "../app/src/ladder_rows.h"
+
 using namespace hands;
 using namespace o3_303;
 
@@ -25,6 +27,10 @@ unsigned ladder_pad(unsigned row, unsigned col) { return app::pad_at(row, col); 
 float expected(Hands& t, unsigned id, unsigned col) {
   const core::ParamDesc* d = t.h->engine().param_desc(kVoice, static_cast<std::uint16_t>(id));
   REQUIRE(d != nullptr);
+  if (id == AcidVoice::Cutoff) {  // F1 of the review: the ladder covers the live range (RANGE 303 or MODS off), not the whole knob
+    const KnobSpan span{AcidVoice::kCutoffLiveLoHz, AcidVoice::kCutoffLiveHiHz};
+    return ladder_value(*d, col, &span);
+  }
   return core::param_denorm(*d, ladder_norm(col));
 }
 
@@ -42,11 +48,11 @@ TEST_CASE("FILT on: row 3 is the Cutoff ladder and row 4 the Reso ladder; Shift 
     t.wait(100);
     CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, col)).epsilon(0.001));
   }
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(4500.0f));  // the last pad is the knob's maximum
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(AcidVoice::kCutoffLiveHiHz));  // the last pad is the top of the live range
   t.pad(ladder_pad(2, 0), 10);
   t.wait(100);
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 0)));  // and the first its minimum
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(t.h->engine().param_desc(kVoice, AcidVoice::Cutoff)->min));
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(expected(t, AcidVoice::Cutoff, 0)));  // and the first the bottom of the live range
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(AcidVoice::kCutoffLiveLoHz));
   // Reso on row 4.
   t.pad(ladder_pad(3, 8), 10);
   t.wait(100);

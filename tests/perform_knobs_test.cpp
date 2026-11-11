@@ -23,6 +23,10 @@ unsigned row_pad(unsigned row, unsigned col) { return app::pad_at(row, col); }
 float goal(Hands& t, unsigned id, unsigned col) {
   const core::ParamDesc* d = t.h->engine().param_desc(kVoice, static_cast<std::uint16_t>(id));
   REQUIRE(d != nullptr);
+  if (id == AcidVoice::Cutoff) {  // F1: the Cutoff ladder covers the live range
+    const KnobSpan span{AcidVoice::kCutoffLiveLoHz, AcidVoice::kCutoffLiveHiHz};
+    return ladder_value(*d, col, &span);
+  }
   return core::param_denorm(*d, ladder_norm(col));
 }
 

@@ -52,16 +52,26 @@ unsigned ladder_places(const o3::core::ParamDesc& d) noexcept {
   return ladder_is_list(d) ? list_count(d) : kLadderSteps;
 }
 
-float ladder_value(const o3::core::ParamDesc& d, unsigned col) noexcept {
+float ladder_value(const o3::core::ParamDesc& d, unsigned col, const KnobSpan* span) noexcept {
   if (!ladder_is_list(d)) {
+    if (span != nullptr) {
+      const float n0 = o3::core::param_norm(d, span->lo);
+      const float n1 = o3::core::param_norm(d, span->hi);
+      return o3::core::param_denorm(d, n0 + ladder_norm(col) * (n1 - n0));
+    }
     return o3::core::param_denorm(d, ladder_norm(col));
   }
   const unsigned n = list_count(d);
   return d.min + static_cast<float>(col < n ? col : n - 1u);
 }
 
-unsigned ladder_pos(const o3::core::ParamDesc& d, float value) noexcept {
+unsigned ladder_pos(const o3::core::ParamDesc& d, float value, const KnobSpan* span) noexcept {
   if (!ladder_is_list(d)) {
+    if (span != nullptr) {
+      const float n0 = o3::core::param_norm(d, span->lo);
+      const float n1 = o3::core::param_norm(d, span->hi);
+      return ladder_col((o3::core::param_norm(d, value) - n0) / (n1 - n0));
+    }
     return ladder_col(o3::core::param_norm(d, value));
   }
   const float at = value - d.min + 0.5f;
@@ -73,10 +83,10 @@ unsigned ladder_pos(const o3::core::ParamDesc& d, float value) noexcept {
   return i < n ? i : n - 1u;
 }
 
-void ladder_levels(const o3::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps]) noexcept {
+void ladder_levels(const o3::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps], const KnobSpan* span) noexcept {
   const unsigned places = d != nullptr ? ladder_places(*d) : 0u;
   const bool list = d != nullptr && ladder_is_list(*d);
-  const unsigned pos = d != nullptr ? ladder_pos(*d, value) : 0u;
+  const unsigned pos = d != nullptr ? ladder_pos(*d, value, span) : 0u;
   for (unsigned col = 0; col < kLadderSteps; ++col) {
     if (blink) {
       out[col] = o3::app::kLedOn;
@@ -239,7 +249,8 @@ LadderTap ladder_tap(o3::app::Context& ctx, Rig& rig, bool rec_motion, unsigned 
   if (col >= ladder_places(*d)) {  // a list's dark pads
     return r;
   }
-  const float value = ladder_value(*d, col);
+  KnobSpan span;
+  const float value = ladder_value(*d, col, rig.controls.live_span(e, entry, span) ? &span : nullptr);
   if (rig.wiring.stock && is_mod(entry)) {  // a hand on a mod hears it (the encoder's rule, MODS-PLAN 5.3); the motion it records, played later, does not
     toggle_stock(rig, ctx);
   }

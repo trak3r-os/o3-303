@@ -282,6 +282,50 @@ TEST_CASE("pages: the SOUND page goes through the engine to the voice") {
   CHECK(rig.text(wave) == "SQR");
 }
 
+TEST_CASE("pages, F1: CUTOFF's travel, read-out and position cover the live range (200 to 2394 Hz) on RANGE 303 and the whole range on FISH") {
+  Rig rig;
+  const Entry cutoff = rig.entry(page_at(kPageSound), 0);
+  const Entry decay = rig.entry(page_at(kPageSound), 2);
+  KnobSpan span;
+  REQUIRE(rig.engine.param(rig.wiring.voice, AcidVoice::Range) < 0.5f);
+  CHECK(rig.controls.live_span(rig.engine, cutoff, span));  // RANGE 303 is the default
+  CHECK(span.lo == doctest::Approx(200.0f));
+  CHECK(span.hi == doctest::Approx(2394.0f));
+  CHECK_FALSE(rig.controls.live_span(rig.engine, decay, span));  // only the cutoff
+  // The encoder stops at both ends.
+  rig.controls.set(rig.engine, cutoff, 2000.0f);
+  rig.controls.step(rig.engine, cutoff, 200, false);
+  CHECK(rig.controls.get(rig.engine, cutoff) == doctest::Approx(2394.0f));
+  CHECK(rig.controls.shown_norm(rig.engine, cutoff) == doctest::Approx(1.0f));
+  rig.controls.step(rig.engine, cutoff, -400, false);
+  CHECK(rig.controls.get(rig.engine, cutoff) == doctest::Approx(200.0f));
+  CHECK(rig.controls.shown_norm(rig.engine, cutoff) == doctest::Approx(0.0f));
+  CHECK(rig.text(cutoff) == "200Hz");
+  // A stored value outside the range plays as it did: untouched until the encoder moves it, read as the end it sounds like.
+  rig.controls.set(rig.engine, cutoff, 25.0f);
+  CHECK(rig.controls.get(rig.engine, cutoff) == doctest::Approx(25.0f));
+  CHECK(rig.controls.shown(rig.engine, cutoff) == doctest::Approx(200.0f));
+  CHECK(rig.text(cutoff) == "200Hz");
+  rig.controls.step(rig.engine, cutoff, -1, false);  // down from below the floor: stays where it is
+  CHECK(rig.controls.get(rig.engine, cutoff) == doctest::Approx(25.0f));
+  rig.controls.step(rig.engine, cutoff, 1, false);  // up: comes to the floor first
+  CHECK(rig.controls.get(rig.engine, cutoff) >= 200.0f);
+  rig.controls.set(rig.engine, cutoff, 4000.0f);
+  CHECK(rig.controls.shown_norm(rig.engine, cutoff) == doctest::Approx(1.0f));
+  rig.controls.step(rig.engine, cutoff, -1, false);  // down from above the top: it comes into the range
+  CHECK(rig.controls.get(rig.engine, cutoff) <= 2394.0f);
+  // FISH: the whole 25..4500 Hz.
+  rig.engine.set_param(rig.wiring.voice, AcidVoice::Range, 1.0f);
+  CHECK_FALSE(rig.controls.live_span(rig.engine, cutoff, span));
+  rig.controls.set(rig.engine, cutoff, 4500.0f);
+  CHECK(rig.controls.shown_norm(rig.engine, cutoff) == doctest::Approx(1.0f));
+  rig.controls.step(rig.engine, cutoff, -400, false);
+  CHECK(rig.controls.get(rig.engine, cutoff) == doctest::Approx(25.0f));
+  // MODS off (stock) reads RANGE as 303 whatever the knob says.
+  rig.wiring.stock = true;
+  CHECK(rig.controls.live_span(rig.engine, cutoff, span));
+}
+
 TEST_CASE("pages: VOLUME is slot 0's level in dB, silent at the bottom, capped at the engine's 1.5") {
   Rig rig;
   const Entry vol = rig.entry(page_at(kPageSound), 7);

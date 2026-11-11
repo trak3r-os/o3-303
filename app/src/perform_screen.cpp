@@ -554,15 +554,17 @@ void PerformScreen::fill_knobs_view(app::Context& ctx, PerformView& view) const 
   for (unsigned row = 0; row < kKnobsRows; ++row) {
     const Entry en = ladder_entry(*controls_, rig_->wiring, kKnobsRowId[row], rig_->sound_keys.focused());
     const core::ParamDesc* kd = controls_->desc(e, en);
-    const float value = kd != nullptr ? controls_->get(e, en) : 0.0f;
+    const float value = kd != nullptr ? controls_->shown(e, en) : 0.0f;
+    KnobSpan span;
+    const KnobSpan* sp = controls_->live_span(e, en, span) ? &span : nullptr;
     std::uint8_t levels[kLadderSteps];
-    ladder_levels(kd, value, assigning, levels);
+    ladder_levels(kd, value, assigning, levels, sp);
     for (unsigned col = 0; col < kLadderSteps; ++col) {
       PadLamp& lamp = view.lamp[app::pad_at(row, col)];
       lamp.level = levels[col];
       if (kd != nullptr && col < ladder_places(*kd)) {
         char text[core::kParamTextChars + 1];
-        (void)core::param_format(*kd, ladder_value(*kd, col), text, sizeof text);
+        (void)core::param_format(*kd, ladder_value(*kd, col, sp), text, sizeof text);
         cut(text, 5, lamp.label, sizeof lamp.label);
       }
     }
@@ -589,7 +591,9 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   const bool assigning = rig_->sound_keys.held() != 0u && app::PadLeds::blink(ctx.now(), 250);  // an F key is down: the row blinks, a tap assigns
   const core::ParamDesc* kd = controls_->desc(e, knob);
   std::uint8_t knob_level[kLadderSteps];  // the row's twelve lamps (a list has a pad a value)
-  ladder_levels(kd, kd != nullptr ? controls_->get(e, knob) : 0.0f, assigning, knob_level);
+  KnobSpan knob_span;
+  const KnobSpan* sp = controls_->live_span(e, knob, knob_span) ? &knob_span : nullptr;
+  ladder_levels(kd, kd != nullptr ? controls_->shown(e, knob) : 0.0f, assigning, knob_level, sp);
   const int wobble_now = rig_->seq->wobble_rate_now();
   const bool scale_locked = rig_->wiring.scale_set && rig_->wiring.gen.scale < core::kScaleCount && core::kScaleDef[rig_->wiring.gen.scale] != 0xFFFu;
 
@@ -643,7 +647,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
         } else {  // a bar from the first pad to the position, the position itself at full level; each lamp says the value it jumps to
           if (kd != nullptr && col < ladder_places(*kd)) {
             char text[core::kParamTextChars + 1];
-            (void)core::param_format(*kd, ladder_value(*kd, col), text, sizeof text);
+            (void)core::param_format(*kd, ladder_value(*kd, col, sp), text, sizeof text);
             cut(text, 5, lamp.label, sizeof lamp.label);
           }
           lamp.level = knob_level[col];

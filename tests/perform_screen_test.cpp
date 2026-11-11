@@ -6,6 +6,8 @@
 
 #include "hands.h"
 
+#include "../app/src/ladder_rows.h"
+
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
 #include <o3_303/app_access.h>
@@ -478,15 +480,17 @@ TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 mak
   t.to_perform();
   const core::ParamDesc* dc = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
   REQUIRE(dc != nullptr);
+  const KnobSpan span{AcidVoice::kCutoffLiveLoHz, AcidVoice::kCutoffLiveHiHz};
+  const auto live_cutoff = [&](unsigned col) { return ladder_value(*dc, col, &span); };
   t.pad(pp(kRow3, 11), 10);
   t.wait(100);
-  CHECK(cutoff(t) == doctest::Approx(dc->max).epsilon(0.001));
+  CHECK(cutoff(t) == doctest::Approx(AcidVoice::kCutoffLiveHiHz).epsilon(0.001));  // F1: the ladder covers the live range
   CHECK(lamp(t, pp(kRow3, 11)) == app::kLedOn);
   CHECK(lamp(t, pp(kRow3, 10)) == app::kLedMid);
   CHECK(lamp(t, pp(kRow3, 0)) == app::kLedMid);
   t.pad(pp(kRow3, 0), 10);
   t.wait(100);
-  CHECK(cutoff(t) == doctest::Approx(dc->min).epsilon(0.001));
+  CHECK(cutoff(t) == doctest::Approx(AcidVoice::kCutoffLiveLoHz).epsilon(0.001));
   CHECK(lamp(t, pp(kRow3, 0)) == app::kLedOn);
   CHECK(lamp(t, pp(kRow3, 1)) == app::kLedOff);
   // A tap of a ladder pad is a slew, not a jump, and the knob reads the goal at once.
@@ -495,7 +499,7 @@ TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 mak
   CHECK(seqr().slewing() >= 1);
   t.wait(80);
   CHECK(seqr().slewing() == 0);
-  CHECK(cutoff(t) == doctest::Approx(core::param_denorm(*dc, ladder_norm(7))).epsilon(0.001));
+  CHECK(cutoff(t) == doctest::Approx(live_cutoff(7)).epsilon(0.001));
   // F2: RESO.
   t.tap(Button::F2);
   const core::ParamDesc* dr = t.h->engine().param_desc(kVoice, AcidVoice::Reso);
@@ -503,7 +507,7 @@ TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 mak
   t.pad(pp(kRow3, 9), 10);
   t.wait(100);
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(core::param_denorm(*dr, ladder_norm(9))).epsilon(0.001));
-  CHECK(cutoff(t) == doctest::Approx(core::param_denorm(*dc, ladder_norm(7))).epsilon(0.001));  // the cutoff stayed
+  CHECK(cutoff(t) == doctest::Approx(live_cutoff(7)).epsilon(0.001));  // the cutoff stayed
   CHECK(lamp(t, pp(kRow3, 9)) == app::kLedOn);
   // A switch (F6, the wave) has a pad a value (SAW, SQR) and is set at once; the dark pads past them do nothing.
   t.tap(Button::F6);
@@ -572,7 +576,7 @@ TEST_CASE("WOBBLE on: row 3 is the wobble's rates (columns 1..11), the keys stay
   CHECK_FALSE(seqr().wobble().on);
   CHECK(seqr().wobble().override_rate == seq::kWobbleRateNone);
   t.wait(100);
-  CHECK(lamp(t, pp(kRow3, 2)) != app::kLedOn);  // the ladder again (the bar is at the cutoff's place)
+  CHECK(lamp(t, pp(kRow3, 0)) != app::kLedDim);  // the ladder again (the rates' dim first pad is gone; the bar is at the cutoff's place)
   t.tap(Button::Play);
 }
 

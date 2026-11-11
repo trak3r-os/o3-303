@@ -28,15 +28,16 @@ bool ladder_is_list(const o3sdk::core::ParamDesc& d) noexcept;
 // The pads after the last are dark and a tap on one does nothing.
 unsigned ladder_places(const o3sdk::core::ParamDesc& d) noexcept;
 
-// The value pad `col` (below ladder_places) stands for: the list's value, or the knob's value at ladder_norm(col).
-float ladder_value(const o3sdk::core::ParamDesc& d, unsigned col) noexcept;
+// The value pad `col` (below ladder_places) stands for: the list's value, or the knob's value at ladder_norm(col). `span` (Controls::live_span; null for none):
+// the twelve pads cover that part of the knob's travel instead of all of it (F1 of the review: CUTOFF's 200 to 2,394 Hz on RANGE 303).
+float ladder_value(const o3sdk::core::ParamDesc& d, unsigned col, const KnobSpan* span = nullptr) noexcept;
 
-// The pad nearest to `value`.
-unsigned ladder_pos(const o3sdk::core::ParamDesc& d, float value) noexcept;
+// The pad nearest to `value` (over `span` as above).
+unsigned ladder_pos(const o3sdk::core::ParamDesc& d, float value, const KnobSpan* span = nullptr) noexcept;
 
 // The twelve LED levels of a row: a bar up to the pad the value is at (kLedMid), that pad at kLedOn, dark after it; a list draws its pads dim, the chosen one at kLedOn, dark after
 // the last; `blink` (the lit half of the blink while an F key is held: a tap assigns) draws every pad kLedOn. `d` null (a row that holds nothing): all dark.
-void ladder_levels(const o3sdk::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps]) noexcept;
+void ladder_levels(const o3sdk::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps], const KnobSpan* span = nullptr) noexcept;
 
 // The entry a row drives now: the held knob, or `latched` for a row that follows. Blank when the held knob has no entry on any page.
 Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched) noexcept;

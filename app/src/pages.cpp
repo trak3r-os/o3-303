@@ -487,6 +487,42 @@ bool Controls::continuous(const dsp::Engine& e, const Entry& entry) const noexce
   return d != nullptr && d->names == nullptr && d->detents >= 20u;
 }
 
+bool Controls::live_span(const dsp::Engine& e, const Entry& entry, KnobSpan& out) const noexcept {
+  if (entry.item != Item::Voice || entry.id != AcidVoice::Cutoff) {
+    return false;
+  }
+  if (!w_->stock && e.param(w_->voice, AcidVoice::Range) >= 0.5f) {  // FISH: the knob's whole range sounds
+    return false;
+  }
+  out.lo = AcidVoice::kCutoffLiveLoHz;
+  out.hi = AcidVoice::kCutoffLiveHiHz;
+  return true;
+}
+
+float Controls::shown(const dsp::Engine& e, const Entry& entry) const noexcept {
+  const float v = get(e, entry);
+  KnobSpan s;
+  if (!live_span(e, entry, s)) {
+    return v;
+  }
+  return v < s.lo ? s.lo : (v > s.hi ? s.hi : v);
+}
+
+float Controls::shown_norm(const dsp::Engine& e, const Entry& entry) const noexcept {
+  const core::ParamDesc* d = desc(e, entry);
+  if (d == nullptr) {
+    return 0.0f;
+  }
+  KnobSpan s;
+  if (!live_span(e, entry, s)) {
+    return core::param_norm(*d, get(e, entry));
+  }
+  const float n0 = core::param_norm(*d, s.lo);
+  const float n1 = core::param_norm(*d, s.hi);
+  const float n = (core::param_norm(*d, shown(e, entry)) - n0) / (n1 - n0);
+  return n < 0.0f ? 0.0f : (n > 1.0f ? 1.0f : n);
+}
+
 void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse) noexcept {
   const core::ParamDesc* d = desc(e, entry);
   if (d == nullptr || detents == 0) {
@@ -497,7 +533,21 @@ void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse
                                  ? w_->voice
                                  : (entry.item == Item::Dist ? w_->dist
                                                              : (entry.item == Item::Delay ? w_->delay : (entry.item == Item::Freeze ? w_->freeze : w_->growl)));
+    KnobSpan span;
+    const bool bounded = live_span(e, entry, span);  // F1: the travel ends where the voice stops answering
+    const float before = bounded ? get(e, entry) : 0.0f;
     (void)e.step_param(unit, entry.id, detents, coarse);
+    if (bounded) {
+      float v = get(e, entry);
+      if (detents > 0) {  // up: not past the top (a stored value above it stays), and a value below the floor comes to it
+        const float cap = before > span.hi ? before : span.hi;
+        v = v > cap ? cap : (v < span.lo ? span.lo : v);
+      } else {
+        const float floor = before < span.lo ? before : span.lo;
+        v = v < floor ? floor : (v > span.hi ? span.hi : v);
+      }
+      set(e, entry, v);
+    }
     return;
   }
   const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;
@@ -521,7 +571,7 @@ unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, u
     out[n] = '\0';
     return n;
   }
-  return core::param_format(*d, get(e, entry), out, cap);
+  return core::param_format(*d, shown(e, entry), out, cap);
 }
 
 const char* Controls::unit_text(const dsp::Engine& e, const Entry& entry) const noexcept {

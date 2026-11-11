@@ -103,8 +103,8 @@ TEST_CASE("KNOBS: a pad tap and an encoder turn to the same value leave the same
     Hands t;
     d = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
     REQUIRE(d != nullptr);
-    CHECK(a.value == doctest::Approx(d->max).epsilon(0.0001));
-    CHECK(b.value == doctest::Approx(d->max).epsilon(0.0001));
+    CHECK(a.value == doctest::Approx(AcidVoice::kCutoffLiveHiHz).epsilon(0.0001));  // F1: the top of the live range
+    CHECK(b.value == doctest::Approx(AcidVoice::kCutoffLiveHiHz).epsilon(0.0001));
   }
   CHECK(a.value == b.value);
   CHECK(a.lane >= 0);
@@ -113,7 +113,7 @@ TEST_CASE("KNOBS: a pad tap and an encoder turn to the same value leave the same
   REQUIRE(a.points > 0u);
   REQUIRE(b.points > 0u);
   CHECK(a.point == b.point);
-  CHECK(a.point == seq::value_to_point(*d, d->max));
+  CHECK(a.point == seq::value_to_point(*d, AcidVoice::kCutoffLiveHiHz));
   // REC wrote one lane, and only that one.
   CHECK(a.lanes_with_motion == 1u);
   CHECK(b.lanes_with_motion == 1u);
@@ -214,7 +214,7 @@ TEST_CASE("KNOBS: with all eight lanes held by other parameters a tap still move
   t.wait(100);
   t.pad(row_pad(2, kTop), 10);  // the ninth knob: CUTOFF
   t.wait(300);
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) > 0.9f * t.h->engine().param_desc(kVoice, AcidVoice::Cutoff)->max);  // the knob moved
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) > 0.9f * AcidVoice::kCutoffLiveHiHz);  // the knob moved
   CHECK(seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Cutoff) < 0);                                              // no lane took it
   for (unsigned l = 0; l < kMotionLanes; ++l) {
     CHECK(t.pat().lanes[l].target == kLaneDist);
@@ -234,7 +234,7 @@ TEST_CASE("KNOBS: HOME's FILT rows keep their defaults, CUTOFF on row 3 and RESO
   const core::ParamDesc* res = t.h->engine().param_desc(kVoice, AcidVoice::Reso);
   REQUIRE(cut != nullptr);
   REQUIRE(res != nullptr);
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(cut->max).epsilon(0.0001));
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(AcidVoice::kCutoffLiveHiHz).epsilon(0.0001));
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(res->max).epsilon(0.0001));
   // The same two rows are KNOBS' rows 3 and 4.
   t.tap(Button::Pattern);
@@ -244,6 +244,6 @@ TEST_CASE("KNOBS: HOME's FILT rows keep their defaults, CUTOFF on row 3 and RESO
   t.pad(row_pad(2, 0), 10);
   t.pad(row_pad(3, 0), 10);
   t.wait(300);
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(cut->min).epsilon(0.001));
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(AcidVoice::kCutoffLiveLoHz).epsilon(0.001));
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(res->min).epsilon(0.001));
 }

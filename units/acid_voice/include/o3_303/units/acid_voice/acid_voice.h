@@ -71,6 +71,11 @@ class AcidVoice final : public o3sdk::dsp::Unit {
   static constexpr unsigned kFirstMod = AccDecay;                       // the mods that keep a raw value: ids 8.. (Stock is a switch and keeps none)
   static constexpr unsigned kModValues = kParamCount - AccDecay;
 
+  // Where RANGE 303 (and Stock) stops the Cutoff knob, in Hz: below the first and above the second the voice sounds the same as at the end. The app
+  // bounds its encoder, read-out and ladder to this (the voice's own clamp is in octaves: 200 Hz and 2^11.2255 = 2,394.49 Hz).
+  static constexpr float kCutoffLiveLoHz = 200.0f;
+  static constexpr float kCutoffLiveHiHz = 2394.0f;
+
   static constexpr unsigned kControlPeriod = 16;  // samples between two recomputations of the filter coefficient (a power of two)
   static constexpr unsigned kHeld = 8;           // notes the stack remembers (the oldest is dropped past that)
 

@@ -28,6 +28,10 @@ unsigned row_pad(unsigned row, unsigned col) { return app::pad_at(row, col); }  
 float goal(Hands& t, unsigned id, unsigned col) {
   const core::ParamDesc* d = t.h->engine().param_desc(kVoice, static_cast<std::uint16_t>(id));
   REQUIRE(d != nullptr);
+  if (id == AcidVoice::Cutoff) {  // F1: the Cutoff ladder covers the live range
+    const KnobSpan span{AcidVoice::kCutoffLiveLoHz, AcidVoice::kCutoffLiveHiHz};
+    return ladder_value(*d, col, &span);
+  }
   return core::param_denorm(*d, ladder_norm(col));
 }
 
@@ -334,6 +338,48 @@ TEST_CASE("ladder rows: a list or a short whole-number knob has a pad a value, a
     CHECK(ladder_value(cut, c) == doctest::Approx(core::param_denorm(cut, ladder_norm(c))));
     CHECK(ladder_pos(cut, ladder_value(cut, c)) == c);
   }
+}
+
+TEST_CASE("ladder rows, F1: with a span the twelve pads of a knob cover the live range, ends included") {
+  Hands t;
+  const core::ParamDesc* cut = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
+  REQUIRE(cut != nullptr);
+  const KnobSpan span{AcidVoice::kCutoffLiveLoHz, AcidVoice::kCutoffLiveHiHz};
+  CHECK(ladder_value(*cut, 0, &span) == doctest::Approx(200.0f).epsilon(0.001));
+  CHECK(ladder_value(*cut, kLadderSteps - 1u, &span) == doctest::Approx(2394.0f).epsilon(0.001));
+  float prev = 0.0f;
+  for (unsigned c = 0; c < kLadderSteps; ++c) {
+    const float v = ladder_value(*cut, c, &span);
+    CHECK(v > prev);
+    prev = v;
+    CHECK(ladder_pos(*cut, v, &span) == c);
+  }
+  // Without a span (FISH, every other knob) the descriptor's whole travel, as before.
+  CHECK(ladder_value(*cut, 0, nullptr) == doctest::Approx(core::param_denorm(*cut, ladder_norm(0))));
+  // The bar: a value at the top of the span fills the row.
+  std::uint8_t lv[kLadderSteps];
+  ladder_levels(cut, 2394.0f, false, lv, &span);
+  CHECK(lv[kLadderSteps - 1u] == app::kLedOn);
+  CHECK(lv[0] == app::kLedMid);
+}
+
+TEST_CASE("ladder rows, F1: a tap on the FILT row's first and last pad lands on 200 and 2394 Hz on RANGE 303, and on the descriptor's ends on FISH") {
+  Hands t;
+  home_filt(t);
+  t.pad(row_pad(2, 0), 10);
+  t.wait(100);
+  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(200.0f).epsilon(0.001));
+  t.pad(row_pad(2, 11), 10);
+  t.wait(100);
+  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(2394.0f).epsilon(0.001));
+  t.h->engine().set_param(kVoice, AcidVoice::Range, 1.0f);  // FISH
+  t.wait(40);
+  t.pad(row_pad(2, 11), 10);
+  t.wait(100);
+  const core::ParamDesc* dc = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
+  REQUIRE(dc != nullptr);
+  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(dc->max).epsilon(0.001));
+  CHECK(val(t, AcidVoice::Cutoff) > 2394.0f);
 }
 
 TEST_CASE("ladder rows: the LEDs of a list, of a bar, of a blink and of a row that holds nothing") {

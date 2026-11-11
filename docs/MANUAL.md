@@ -321,7 +321,8 @@ held, replaces it; one queued pattern plays and repeats.
 #### FILT: the filter ladders
 
 Tap **FILT** (row 2, column 12). Rows 3 and 4 become two ladders of 12 places: row 3 is CUTOFF, row 4 is RESO, the left pad the lowest and
-the right pad the highest. A tap glides there in 30 ms (Config's LADDER SLEW). With REC on while the line plays, the jumps are recorded as
+the right pad the highest (CUTOFF's pads run from 200 to 2394 Hz on RANGE 303, the range the voice answers to, and over the whole
+25 to 4500 Hz on RANGE FISH). A tap glides there in 30 ms (Config's LADDER SLEW). With REC on while the line plays, the jumps are recorded as
 motion. Tap FILT again for the keys.
 
 Each ladder row can hold another knob. Hold an F key (on any screen that shares the home map) and tap a pad of the row: the row now holds that

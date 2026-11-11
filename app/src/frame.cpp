@@ -252,7 +252,7 @@ void fill_knob(app::Context& ctx, Controls& controls, unsigned k, const Entry& e
   out.label = controls.label(e, entry);
   (void)controls.format(e, entry, out.value, sizeof out.value);
   out.unit = controls.unit_text(e, entry);
-  out.norm = core::param_norm(*d, controls.get(e, entry));
+  out.norm = controls.shown_norm(e, entry);
   if (d->names != nullptr && d->list_count == 2u) {  // a two-place list is a switch under the obsidian skin
     out.toggle = true;
     out.off_name = d->names[0];

@@ -25,6 +25,11 @@ hear says so in plain words.
   round (A, B, C, B, C ...: the pattern that was playing is not part of the round) until a single tap with Pattern held replaces the chain.
   Before, the chain played once and its last pattern then repeated for ever. One queued pattern behaves as before. Nothing in a saved
   project changes.
+- **CUTOFF covers only the range the voice uses.** On RANGE 303, or with MODS off, CUTOFF's encoder travel, its read-out and the twelve
+  pads of the FILT and KNOBS ladders span 200 to 2394 Hz (before, 25 to 4500 Hz, and everything under 200 or over 2394 Hz sounded the same, so
+  the first and last pads and the ends of the encoder did nothing new). RANGE FISH keeps the whole 25 to 4500 Hz. A saved project is not
+  changed: a stored value outside the range plays as before and reads as the end it sounds like until you move it. Motion lanes, p-locks
+  and MIDI CC keep their own scale.
 - **In a long pattern the step pads stay on the page you chose while it plays.** A tap on a step pad, or Left or Right across a page
   edge, holds the pads on that page ("PAGE 2 HELD" in the title); before, they jumped to the playhead's page under your fingers.
   Stop or a change of pattern gives the follow back (Shift + Left/Right is ROTATE and does not).
