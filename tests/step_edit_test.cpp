@@ -247,3 +247,91 @@ TEST_CASE("a layer rotation is one undoable edit") {
     CHECK(t.pat().steps[i].flags == before.steps[i].flags);
   }
 }
+
+TEST_CASE("U2: hold a step pad + Right makes the step after it its tie, again the one after that, Left takes the last back as a rest; one undo step") {
+  Hands t;
+  set_layers(t);
+  const Pattern before = t.pat();
+  t.down(step_pad_of(2));
+  t.tap(Button::Right);
+  CHECK(t.pat().steps[3].flags == kStepTie);
+  CHECK(t.pat().steps[3].note == before.steps[3].note);  // a tie keeps the note the step had
+  t.tap(Button::Right);
+  CHECK(t.pat().steps[4].flags == kStepTie);
+  t.tap(Button::Left);
+  CHECK(t.pat().steps[4].flags == kStepRest);
+  CHECK(t.pat().steps[3].flags == kStepTie);
+  CHECK(t.pat().steps[2].flags == before.steps[2].flags);  // the held step itself is not touched
+  t.up(step_pad_of(2));
+  // The hold was used: its release did not move the cursor (still on step 0: a key written now lands there).
+  CHECK(bank().can_undo());
+  CHECK(bank().undo() == static_cast<int>(t.selected()));
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].flags == before.steps[i].flags);
+  }
+}
+
+TEST_CASE("U2: with a step pad held, Left with no tie of its own to take back moves the cursor as before, and Right wraps at the pattern's end") {
+  Hands t;
+  set_layers(t);
+  t.down(step_pad_of(15));
+  t.tap(Button::Left);  // nothing to take back: the cursor, 0 -> 15; the held step is untouched
+  CHECK(t.pat().steps[15].flags == 0);
+  t.tap(Button::Right);  // the step after 15 is 0: its tie
+  CHECK(t.pat().steps[0].flags == kStepTie);
+  t.up(step_pad_of(15));
+}
+
+TEST_CASE("U2: REC + stopped, a key still held: Right adds a tie step and moves on, Left takes one back; the whole note is one undo step") {
+  Hands t;
+  set_layers(t);
+  const Pattern before = t.pat();
+  t.tap(Button::Rec);
+  const unsigned kp = key_pad(52);
+  t.down(kp);
+  CHECK(t.pat().steps[0].note == 52);
+  CHECK(t.pat().steps[0].flags == 0);
+  t.tap(Button::Right);
+  t.tap(Button::Right);
+  CHECK(t.pat().steps[1].flags == kStepTie);
+  CHECK(t.pat().steps[2].flags == kStepTie);
+  t.tap(Button::Left);
+  CHECK(t.pat().steps[2].flags == kStepRest);
+  CHECK(t.pat().steps[1].flags == kStepTie);
+  t.tap(Button::Right);  // the cursor was on step 2: a tie again
+  CHECK(t.pat().steps[2].flags == kStepTie);
+  t.tap(Button::Right);
+  CHECK(t.pat().steps[3].flags == kStepTie);
+  t.up(kp);
+  // Released: Right is the cursor again (on step 4), and the next key lands there.
+  t.tap(Button::Right);
+  t.pad(key_pad(55));
+  CHECK(t.pat().steps[5].note == 55);
+  CHECK(t.pat().steps[4].flags == before.steps[4].flags);
+  // The first note with its ties is one undo step; the second key is the next.
+  CHECK(bank().undo() == static_cast<int>(t.selected()));
+  CHECK(t.pat().steps[5].note == before.steps[5].note);
+  CHECK(t.pat().steps[3].flags == kStepTie);
+  CHECK(bank().undo() == static_cast<int>(t.selected()));
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].flags == before.steps[i].flags);
+    CHECK(t.pat().steps[i].note == before.steps[i].note);
+  }
+}
+
+TEST_CASE("U2: Right with no key and no step held is the cursor (REC or not), and Left right after a key moves back to the note") {
+  Hands t;
+  set_layers(t);
+  const Pattern before = t.pat();
+  t.tap(Button::Rec);
+  t.tap(Button::Right);
+  t.pad(key_pad(50));  // the cursor was on step 1
+  CHECK(t.pat().steps[1].note == 50);
+  CHECK(t.pat().steps[0].note == before.steps[0].note);
+  t.down(key_pad(52));  // step 2
+  t.tap(Button::Left);  // no tie of the key's to take back: the cursor, 3 -> 2
+  t.up(key_pad(52));
+  t.pad(key_pad(53));
+  CHECK(t.pat().steps[2].note == 53);
+  CHECK(t.pat().steps[3].flags == before.steps[3].flags);
+}

@@ -77,3 +77,24 @@ tap f8
 release shift
 wait 100
 snap 12_undo
+# U2, longer by hand, stopped (docs/TRACT-KNOBS-PLAN.md): hold step 9 (pad 12) and tap right twice: steps 10 and 11 become its ties; left takes the last back (a rest).
+paddown 12
+tap right
+tap right
+wait 100
+snap 13_step_held_two_ties
+tap left
+wait 100
+snap 14_left_takes_one_back
+padup 12
+# REC armed and stopped, a key still held: right adds a tie after the note and the cursor goes with it (the cursor is on step 2 after the tap of right).
+tap right
+tap rec
+paddown 28
+tap right
+tap right
+wait 100
+snap 15_key_held_two_ties
+padup 28
+wait 100
+snap 16_released

@@ -162,6 +162,7 @@ void HomeMap::init(Rig& rig) noexcept {
   for (unsigned k = 0; k < kPageSteps; ++k) {
     held_step_[k] = -1;
     step_used_[k] = false;
+    held_ties_[k] = 0u;
   }
   for (unsigned i = 0; i < kRoles; ++i) {
     mod_down_[i] = false;
@@ -173,6 +174,7 @@ void HomeMap::init(Rig& rig) noexcept {
   }
   audition_note_ = -1;
   rec_hold_ = RecHold{};
+  stop_hold_ = StopHold{};
   pattern_down_ = false;
   overlay_ = false;
   chain_started_ = false;
@@ -438,7 +440,9 @@ void HomeMap::key_press(app::Context& ctx, unsigned pad) noexcept {
       }
     }
   } else if (rec_ && !playing_) {
-    const unsigned next = rig_->bank->write_advance(sel(), static_cast<unsigned>(cursor_), un, flags);
+    rec_hold_id_ = rec_hold_id_ % 255u + 1u;  // the key held down can be made longer with Right (extend_by_arrow): one undo step
+    const unsigned next = rig_->bank->write_advance(sel(), static_cast<unsigned>(cursor_), un, flags, rec_hold_id_);
+    stop_hold_ = StopHold{true, pad, sel(), 0u, rec_hold_id_};
     move_cursor(ctx, static_cast<int>(next));
   } else if (rec_ && playing_) {
     // The nearest step: past half of the one the playhead is in, the next one (the note on the voice now is not touched). The key held down
@@ -505,6 +509,9 @@ void HomeMap::key_release(app::Context& ctx, unsigned pad) noexcept {
   if (rec_hold_.on && rec_hold_.pad == pad) {
     rec_hold_.on = false;
   }
+  if (stop_hold_.on && stop_hold_.pad == pad) {
+    stop_hold_.on = false;
+  }
   if (key_note_[pad] >= 0) {
     (void)ctx.engine().note_off(rig_->wiring.voice, static_cast<std::uint8_t>(key_note_[pad]));
     key_note_[pad] = -1;
@@ -558,6 +565,7 @@ void HomeMap::step_press(app::Context& ctx, unsigned k) noexcept {
   }
   held_step_[k] = s;
   step_used_[k] = false;
+  held_ties_[k] = 0u;
   if (playing_ && length() > 16u) {
     page_held_ = true;  // F4: a tap on a page pins it, the playhead no longer takes the pads away
   }
@@ -1013,6 +1021,65 @@ void HomeMap::rotate_layers(app::Context& ctx, int direction) noexcept {
   toast(ctx, text);
 }
 
+// U2, longer by hand. Hold a step pad + Right: the step after it becomes its tie (press again: the one after that too); Left takes the last one back (it
+// becomes a rest). With REC armed and the line stopped, a key still held does the same after the step it wrote, and the cursor goes with it. Without
+// either held, or Left with nothing to take back, it is the cursor as ever. Before U2 Right moved the cursor with a pad or a key held.
+bool HomeMap::extend_by_arrow(app::Context& ctx, int direction) noexcept {
+  const unsigned len = length();
+  if (len == 0u) {
+    return false;
+  }
+  seq::Bank& bank = *rig_->bank;
+  bool done = false;
+  if (any_step_held()) {
+    for (unsigned k = 0; k < kPageSteps; ++k) {
+      if (held_step_[k] < 0) {
+        continue;
+      }
+      const unsigned first = static_cast<unsigned>(held_step_[k]);
+      if (direction > 0) {
+        done = true;  // the press is the step's even when there is no room left (a whole lap)
+        if (held_ties_[k] + 1u < len) {
+          if (held_ties_[k] == 0u) {
+            held_id_[k] = rec_hold_id_ = rec_hold_id_ % 255u + 1u;  // a new run of ties is one undo step
+          }
+          ++held_ties_[k];
+          (void)bank.write_advance(sel(), (first + held_ties_[k]) % len, 0u, kStepTie, held_id_[k]);
+        }
+      } else if (held_ties_[k] > 0u) {
+        (void)bank.write_advance(sel(), (first + held_ties_[k]) % len, 0u, kStepRest, held_id_[k]);
+        --held_ties_[k];
+        done = true;
+      }
+    }
+    if (done) {
+      mark_held_used();
+      ctx.redraw();
+    }
+    return done;
+  }
+  StopHold& h = stop_hold_;
+  if (!h.on || !rec_ || playing_ || h.pattern != sel()) {
+    return false;
+  }
+  if (direction > 0) {
+    if (h.ties + 1u < len) {
+      const unsigned next = bank.write_advance(sel(), static_cast<unsigned>(cursor_), 0u, kStepTie, h.id);
+      ++h.ties;
+      move_cursor(ctx, static_cast<int>(next));
+    }
+    return true;
+  }
+  if (h.ties == 0u) {
+    return false;
+  }
+  const unsigned back = (static_cast<unsigned>(cursor_) + len - 1u) % len;
+  (void)bank.write_advance(sel(), back, 0u, kStepRest, h.id);
+  --h.ties;
+  move_cursor(ctx, static_cast<int>(back));
+  return true;
+}
+
 // Left / Right: the cursor (across the pages); ACC or SLIDE held: that layer one step; Shift: the whole pattern one step. Up / Down: the note of the
 // cursor step, or of every held step, a semitone; Shift: an octave; on a rest or a tie the first press makes a note of it (wake_note), without moving the pitch.
 void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
@@ -1023,6 +1090,7 @@ void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
     } else if (shift) {
       (void)rig_->bank->rotate(sel(), d);
       toast(ctx, d > 0 ? "ROTATED RIGHT" : "ROTATED LEFT");
+    } else if (extend_by_arrow(ctx, d)) {  // a step pad or a recorded key held (U2)
     } else {
       const int page_before = view_page_;
       move_cursor(ctx, wrap(cursor_ + d, static_cast<int>(length())));

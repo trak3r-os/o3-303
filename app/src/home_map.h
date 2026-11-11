@@ -182,6 +182,7 @@ class HomeMap {
   void rotate_layers(o3sdk::app::Context& ctx, int direction) noexcept;
   void copy_buttons(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
   void arrow(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
+  bool extend_by_arrow(o3sdk::app::Context& ctx, int direction) noexcept;  // U2: Right / Left with a step pad or a recorded key held; false: nothing to extend
   void choose_pattern(o3sdk::app::Context& ctx, unsigned index) noexcept;
   void audition_on(o3sdk::app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept;
   void audition_off(o3sdk::app::Context& ctx) noexcept;
@@ -240,6 +241,19 @@ class HomeMap {
   };
   RecHold rec_hold_;
   unsigned rec_hold_id_ = 0;
+  // U2, longer by hand: a key recorded while REC is armed and the line stopped, and still down: Right adds a tie step after it and moves on, Left
+  // takes the last tie back (the step becomes a rest). All of it one undo step. A step pad held does the same without REC (held_ties_: the ties
+  // added after that pad's step). Main loop only.
+  struct StopHold {
+    bool on = false;
+    unsigned pad = 0;
+    unsigned pattern = 0;
+    unsigned ties = 0;  // the ties added so far; the cursor is on the step after the last one
+    unsigned id = 0;    // the undo join id, 1..255
+  };
+  StopHold stop_hold_;
+  unsigned held_ties_[kPageSteps] = {};
+  unsigned held_id_[kPageSteps] = {};  // their undo join ids
 
   // Pattern held: the 48 pads are the patterns.
   bool pattern_down_ = false;

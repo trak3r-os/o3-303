@@ -196,7 +196,10 @@ step. Play sixteen notes or rests, then press **Rec** again to leave write mode.
 
 With REC on and the line playing, hold a key and the note lasts as long as you hold it: the steps it covers become ties. A key played just
 before a step lands on it (past half of a step, a key goes on the next one; the note that sounds now is the key's own). The whole held note
-is one UNDO step. Played with the line stopped, the keys write and move on as above.
+is one UNDO step. Played with the line stopped, the keys write and move on as above, and a note can be made longer by hand: with REC on and
+a key still held, **Right** adds a tie step after the note and moves on, and **Left** takes the last tie back (the step becomes a rest). The
+key and its ties are one UNDO step. Without REC, hold a step pad and press **Right**: the step after it becomes its tie (again: the one after
+that); **Left** takes the last one back, and with none to take back it moves the cursor as ever.
 
 ### Add accents and slides
 
@@ -259,7 +262,7 @@ With REC on, hold ACC or SLIDE while you play a key and the note is written with
 
 | Button | Alone | With Shift |
 |---|---|---|
-| Left, Right | Cursor left, right (across the pages of a long pattern) | Turn the whole line one step left or right |
+| Left, Right | Cursor left, right (across the pages of a long pattern). A step pad held (or, with REC on and the line stopped, a key just played and still down): Right makes the next step a tie of it, Left takes the last tie back | Turn the whole line one step left or right |
 | Up, Down | The cursor step's note a semitone up or down. On a rest or a tie the first press makes it a note without moving the pitch (a tie keeps the pitch it carried, a rest takes the last note before it, else the keyboard's C); later presses move it | An octave |
 | Copy | Copy the cursor step | Paste on the cursor step |
 | Insert | A note or a rest becomes a tie, a tie becomes a rest (every step pad you hold takes it) | Insert a rest at the cursor and push the rest right |

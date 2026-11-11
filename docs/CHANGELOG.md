@@ -60,6 +60,9 @@ hear says so in plain words.
 - **Hold a key with REC on and the note lasts as long as you hold it.** While the line plays, a key lands on the nearest step (past half of a
   step, on the next one) and every step that starts while you still hold it is written as a tie; one UNDO takes the whole note back. Played
   with the line stopped, the keys write and move on as before.
+- **Make a note longer by hand, with the line stopped.** With REC on, hold a key and press Right: a tie step is added after the note and
+  the cursor moves on (Left takes the last tie back, the step becomes a rest). Without REC, hold a step pad and press Right: the next step
+  becomes its tie. Before, Right moved the cursor with a key or a step held. The key and its ties are one UNDO step.
 
 ## v0.6.1 (2026-11-09), a pre-release
 
