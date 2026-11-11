@@ -3,6 +3,22 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## Unreleased
+
+### What you can do that you could not before
+
+- **PERFORM KNOBS, PERFORM's second page.** Press Performance twice: the four rows of pads are four knobs, one pad a value (a list or a
+  switch has a pad for each of its values). They start as ENV MOD, DECAY, CUTOFF and RESO; rows 3 and 4 are HOME's FILT rows, the same
+  knobs and the same saved rows. Hold an F key and tap a row to give it that key's knob; Shift + F1 to F4 points the encoder at a row so a
+  turn walks the list of every knob that can be recorded; Shift + F8 puts the four rows back. With REC on while the line plays, a tap is
+  written as motion on the knob's lane (the limit of eight lanes applies and says so). A tap on a mod while MODS is off switches MODS on,
+  as the encoder does. The colour buttons stay PERFORM's four actions.
+- **The Performance button now cycles three pages**: PERFORM, PERFORM KNOBS, PERFORM SETUP, and PERFORM again. SETUP is one press further
+  than before.
+- **Rows with a switch or a short list have a pad a value**, on HOME's FILT and PERFORM's row 3 too: a tap sets the value at once.
+- **A saved project holds two more rows** (PERFORM KNOBS' rows 1 and 2). A project saved by an older version loads with ENV MOD and DECAY on
+  them, and one saved by this version loads in the older ones with their own defaults for the rows they know. Nothing you hear changes.
+
 ## v0.6.1 (2026-11-09), a pre-release
 
 A fix for a voice that looks set up and plays nothing. It needs more testing: the host tests pass, the cause was found and cured on a

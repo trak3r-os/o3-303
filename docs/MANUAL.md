@@ -14,7 +14,7 @@ grid under the screen is the simulator's drawing of the pad lights.
 3. [The panel at a glance](#3-the-panel-at-a-glance)
 4. [The first five minutes](#4-the-first-five-minutes)
 5. [The screens, one by one](#5-the-screens-one-by-one): [HOME](#home), [PATTERN SETUP](#pattern-setup), [PERFORM](#perform),
-   [PERFORM SETUP](#perform-setup), [INSTRUMENT](#instrument), [MODDED](#modded), [GROWL](#growl), [WOBBLE](#wobble), [MASTER](#master),
+   [PERFORM KNOBS](#perform-knobs), [PERFORM SETUP](#perform-setup), [INSTRUMENT](#instrument), [MODDED](#modded), [GROWL](#growl), [WOBBLE](#wobble), [MASTER](#master),
    [SONG](#song), [FILE PROJECTS](#file-projects), [FILE LIBRARY](#file-library), [RECORD](#record)
 6. [The pads](#6-the-pads)
 7. [Experiment without fear](#7-experiment-without-fear)
@@ -116,7 +116,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 |---|---|
 | **Pattern** | HOME, the step screen, from any screen. On HOME a tap opens PATTERN SETUP, and held, the 48 pads are the 48 patterns |
 | **Params** | INSTRUMENT, on VOICE and FX. Again: the other page |
-| **Performance** | PERFORM. Again: PERFORM SETUP |
+| **Performance** | PERFORM. Again: PERFORM KNOBS, and once more PERFORM SETUP |
 | **Song** | SONG |
 | **Master** | MASTER (tempo and level). Hold it and turn: nudge the tempo. **Shift + Master**: tap tempo, from any screen |
 | **File** | FILE PROJECTS. Again: FILE LIBRARY. **Shift + File**: save the project, from any screen |
@@ -326,7 +326,7 @@ motion. Tap FILT again for the keys.
 Each ladder row can hold another knob. Hold an F key (on any screen that shares the home map) and tap a pad of the row: the row now holds that
 key's knob, and the tap only assigns, the value does not move. Do it again with the same knob held and the row goes back to its default.
 **Shift + FILT** puts both rows back to CUTOFF and RESO. The rows blink while an F key is held. The PADS line names both rows. The rows are
-saved in the project (an older project loads with the defaults); snapshots do not take them. On PERFORM's skinned look a row that follows the latched key is captioned "> DECAY": the ">" marks it. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it.
+saved in the project (an older project loads with the defaults); snapshots do not take them. On PERFORM's skinned look a row that follows the latched key is captioned "> DECAY": the ">" marks it. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it. PERFORM KNOBS has the same two rows as its rows 3 and 4.
 
 ![FILT on: rows 3 and 4 of the pads lit as two bars up to the place tapped; the PADS line says ROW 3 CUTOFF . ROW 4 RESO](manual/img/home-filt.png)
 
@@ -406,9 +406,30 @@ An empty slot says so and does nothing. Snapshots are saved with the project.
 
 **Rec** on PERFORM records the knob and ladder moves while the line plays. **Shift** shows F7 REDO and F8 UNDO.
 
+Press **Performance** again for PERFORM KNOBS.
+
+### PERFORM KNOBS
+
+PERFORM's second page turns the four rows of pads into four knobs. One pad is one value, left the lowest and right the highest, and a tap glides there as on HOME's FILT (Config's LADDER SLEW). The title says PERFORM KNOBS.
+
+| Row | Knob at first |
+|---|---|
+| 1 | ENV MOD |
+| 2 | DECAY |
+| 3 | CUTOFF (HOME's FILT row 3) |
+| 4 | RESO (HOME's FILT row 4) |
+
+A knob that is a list or a switch, the wave for one, has a pad for each value instead of twelve steps. A tap on a row that holds a MODDED mod while MODS is off (STOCK) switches MODS on, as the encoder does.
+
+**Give a row another knob.** Hold an F key and tap a pad of the row: the row now holds that key's knob, and the tap only assigns, the value does not move. Do it again with the same knob held and the row goes back to its own default. **Shift + F1 to F4** points the encoder at ROW 1 to ROW 4 (the ENC window says ROW 2 LIST): a turn walks the list of every knob that can be recorded (the sound page's, then the delay and distortion, MODDED's NOTES and TONE, and GROWL's), and the toast names it. Tap a pad to use it. **Shift + F8** puts the four rows back to ENV MOD, DECAY, CUTOFF and RESO. The rows are saved in the project (an older project loads with the defaults for rows 1 and 2); snapshots do not take them.
+
+**Rec** records the taps while the line plays. Each knob a row holds takes a lane of the pattern the first time it is tapped with REC on, so the limit of eight lanes applies: a ninth knob says "8 LANES USED: CLEAR LOCKS (SETUP)" and its tap still sounds. Rows 3 and 4 write the lanes HOME's FILT does.
+
+The colour buttons are PERFORM's four actions here too, and the F row is the sound page: it shows the knobs and an F key latches one for the encoder. HELP (Shift + Config) shows the page's pad map.
+
 ### PERFORM SETUP
 
-Press **Performance** again. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does.
+Press **Performance** again from PERFORM KNOBS. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does.
 
 ![PERFORM SETUP: row 1 of actions, a short text, the four colour buttons' actions, and the F row NOTE, INSTR, VOL, FX, FILL, FREEZE, ROLL and STOP](manual/img/perform-setup.png)
 
@@ -695,7 +716,9 @@ row 4     C2  C#2   D2  D#2   E2   F2  F#2   G2   G#2    A2     A#2    B2
 
 OCT- and OCT+ move rows 3 and 4 by octaves; the header's KEYBOARD says which (OCT 2-3 at first).
 
-### PERFORM and PERFORM SETUP
+### PERFORM, PERFORM KNOBS and PERFORM SETUP
+
+On PERFORM KNOBS each row of pads is one knob, as the tables above say; HELP's PADS page lists the four rows.
 
 ![HELP's PADS page for PERFORM: the eleven actions and OFF on row 1, snapshots 1 to 8 and NEW VARY UNDO REDO on row 2, the ladder MIN to MAX on row 3, the keys C to B on row 4](manual/img/help-perform-pads.png)
 
@@ -895,7 +918,7 @@ and tempo, lamps, real-looking knobs, dark glass. The buttons and the pads do th
 
 - **To switch**: Config, page 303, the SKIN row (the last one), turn the encoder. The choice is kept.
 - **OBSIDIAN is the default.** A unit that has already saved its settings keeps the look it had: switch it on the SKIN row.
-- **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, MODDED, GROWL,
+- **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, PATTERN SETUP, PERFORM, PERFORM KNOBS, PERFORM SETUP, INSTRUMENT, MODDED, GROWL,
   WOBBLE, SONG, MASTER, RECORD and FILE PROJECTS (with its name keyboard) have it. FILE LIBRARY keeps its CLASSIC layout, with the header and the key row of the
   system, in the OBSIDIAN colours: it is too full to be redrawn on the panel. The pictures of the screens in this manual show the OBSIDIAN
   look, except where they say CLASSIC. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.

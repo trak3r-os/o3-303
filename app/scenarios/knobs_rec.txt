@@ -1,0 +1,35 @@
+# PERFORM KNOBS with REC (docs/UX-303.md, the KNOBS pads mode): the pattern plays, REC is on, and a tap on a row of the page is written as motion on that knob's lane under the playhead, the way a
+# turn of the encoder is. Two taps (ROW 1 ENV MOD, ROW 3 CUTOFF) write two lanes and no other; the WAV is the pattern with the knobs moved. HOME then shows the two lanes as knobs with motion.
+# Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
+wait 300
+tap config
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn -4
+tap config
+wait 100
+tap performance
+tap performance
+wait 100
+tap play
+wait 700
+tap rec
+wait 200
+snap 01_rec_on
+pad 3
+wait 350
+pad 33
+wait 350
+pad 9
+wait 350
+snap 02_taps_written
+tap rec
+tap play
+wait 300
+tap pattern
+wait 200
+snap 03_home_after
