@@ -2,6 +2,7 @@
 #include <o3_303/seq/bank.h>
 
 #include <o3sdk/core/placement.h>
+#include <o3_303/seq/rng.h>
 
 #include <cstring>
 
@@ -310,6 +311,28 @@ bool Bank::set_tract_length(unsigned index, unsigned length) noexcept {
 
 bool Bank::clear_tract(unsigned index) noexcept {
   return edit(index, [](Pattern& p) { tract_clear(p.tract); });
+}
+
+bool Bank::random_tract(unsigned index, std::uint32_t seed) noexcept {
+  return edit(index, [&](Pattern& p) {
+    constexpr float kFollowChance = 0.35f;  // a step that leaves the VOWEL knob as it is
+    constexpr float kGlideChance = 0.25f;   // of the vowel steps: GLD
+    const unsigned len = tract_length(p.tract, p.length != 0u ? p.length : kDefaultLength);
+    Rng rng(seed);
+    bool changed = false;
+    for (unsigned n = 0; n < len && n < kTractSteps; ++n) {
+      // The three draws are taken for every step, whatever the first says, so a step's value never depends on the steps before it being "-".
+      const bool follow = rng.chance(kFollowChance) && n != 0u;
+      const int vowel = rng.next_int(static_cast<int>(kTractA), static_cast<int>(kTractVowels));
+      const bool glide = rng.chance(kGlideChance);
+      const std::uint8_t value = follow ? tract_make(kTractFollow, false) : tract_make(static_cast<std::uint8_t>(vowel), glide);
+      if (value != p.tract.step[n]) {
+        p.tract.step[n] = value;
+        changed = true;
+      }
+    }
+    return changed;
+  });
 }
 
 bool Bank::set_transpose(unsigned index, int semitones) noexcept {

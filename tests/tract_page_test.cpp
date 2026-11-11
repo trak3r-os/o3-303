@@ -234,7 +234,7 @@ TEST_CASE("tract page: Left and Right move the line's cursor, the LINE pad flips
   CHECK(t.pat().tract.len == o3_303::kTractSame);
 }
 
-TEST_CASE("tract page: the Shift row shows LEN and CLEAR on F4 and F5 and LEARN on the other unit knobs") {
+TEST_CASE("tract page: the Shift row shows LEN, CLEAR and NEW on F4 to F6 and LEARN on the other unit knobs") {
   Hands t;
   t.to_tract();
   app::Context& ctx = t.h->runtime().context();
@@ -248,7 +248,48 @@ TEST_CASE("tract page: the Shift row shows LEN and CLEAR on F4 and F5 and LEARN 
   CHECK(row(0) == "LEARN");
   CHECK(row(3) == "LEN");
   CHECK(row(4) == "CLEAR");
+  CHECK(row(5) == "NEW");
+  CHECK(row(6) == "LEARN");
   t.release(Button::Shift);
+}
+
+TEST_CASE("tract page: Shift + F6 NEW draws a line over the line's length, one undo step, the other steps stay") {
+  Hands t;
+  t.to_tract();
+  REQUIRE(line_len_of(t) == 16u);
+  for (unsigned n = 0; n < 64; ++n) {
+    REQUIRE(step_of(n) == 0u);
+  }
+  bank().clear_history();
+  CHECK(bank().set_tract_step(t.selected(), 30, 5, true));  // above the length: it stays
+  bank().clear_history();
+  t.shift_tap(Button::F6);
+  CHECK(std::strcmp(t.title(), "TRACT") == 0);
+  unsigned vowels = 0;
+  for (unsigned n = 0; n < 16; ++n) {
+    vowels += vowel_of(n) != 0u ? 1u : 0u;
+  }
+  CHECK(vowels > 0u);
+  CHECK(vowel_of(0) != 0u);
+  CHECK(step_of(30) == (5u | o3_303::kTractGlide));
+  CHECK(bank().can_undo());
+  CHECK(bank().undo() == t.selected());
+  for (unsigned n = 0; n < 16; ++n) {
+    CHECK(step_of(n) == 0u);
+  }
+  CHECK_FALSE(bank().can_undo());
+  t.shift_tap(Button::F6);  // a new seed each press
+  std::uint8_t first[16];
+  for (unsigned n = 0; n < 16; ++n) {
+    first[n] = step_of(n);
+  }
+  t.wait(7);
+  t.shift_tap(Button::F6);
+  bool differs = false;
+  for (unsigned n = 0; n < 16; ++n) {
+    differs = differs || first[n] != step_of(n);
+  }
+  CHECK(differs);
 }
 
 TEST_CASE("tract page: a live pad over a playing line overrides it while held and the knob comes back on release; Rec writes the sounding step") {

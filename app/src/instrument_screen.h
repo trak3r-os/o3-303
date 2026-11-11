@@ -10,7 +10,7 @@
 //   MODDED NOTES       SOFT ATK DECAY ACC DECAY AMP DECAY SLIDE ACC SWEEP SWP SPEED, and F8 STOCK (the 303 mods that move each note)
 //   MODDED TONE        TRACKING FILTER FM OVERDRIVE MUFFLER SUB OSC (what the filter is fed and gives), F8 STOCK
 //   TRACT              VOWEL TONGUE LIPS RES GLIDE SIZE TRC MIX, and F8 TRACT (on / off, an action key like GROWL's); the pads are the TRACT line (rows 1 and 2, 24 steps a page), the palette A E I O U - GLD LINE
-//                      (row 3) and the live vowels (row 4); Shift + F4 LEN, Shift + F5 CLEAR
+//                      (row 3) and the live vowels (row 4); Shift + F4 LEN, F5 CLEAR, F6 NEW
 //   GROWL              VOWEL FMT Q FMT MIX CMB TUNE CMB FB CMB MIX GRL MIX (the growl's seven; F8 GROWL)
 //   WOBBLE             RATE SHAPE DEPTH TARGET RESET (the wobble's five settings), and F8 WOB
 //

@@ -158,6 +158,9 @@ class Bank {
   bool paint_tract(unsigned index, std::uint64_t steps, int vowel, int glide) noexcept;
   bool set_tract_length(unsigned index, unsigned length) noexcept;  // kTractSame, 4, 8, 16, 32 or 64
   bool clear_tract(unsigned index) noexcept;                        // every step "-", GLD off, SAME
+  // NEW for the line (the TRACT page's Shift + F6, A2b): the steps the line runs through (its length, or the pattern's when SAME) get a vowel, "-" or a vowel with GLD drawn from `seed`
+  // (a Rng: the same seed and the same length give the same line, bit for bit); step 0 always has a vowel. The length field and the steps above it stay. One undo step. false when nothing changed.
+  bool random_tract(unsigned index, std::uint32_t seed) noexcept;
   bool random_fill(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;
   bool mutate(unsigned index, const GenParams& g, std::uint32_t seed, unsigned amount_pct) noexcept;
   bool set_motion_point(unsigned index, unsigned lane, unsigned step, unsigned point, std::uint8_t value) noexcept;

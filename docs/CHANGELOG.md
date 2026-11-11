@@ -10,8 +10,8 @@ hear says so in plain words.
 - **TRACT, a page to play the mouth.** Sample Play opens it: F1 VOWEL (A E I O U morphed: a letter on a vowel, "E 37%" between), F2 TONGUE, F3 LIPS,
   F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8 the tract on and off (off is Mix 0, the dry sound bit for bit; on gives the last mix back). The
   pads are the pattern's TRACT line: rows 1 and 2 its steps (24 a page), row 3 the palette A E I O U - with GLD and LINE, the bottom row the live
-  vowels (with LINE on, hold one to override the line; Rec writes the step that sounds); Shift + F4 is LEN and Shift + F5 CLEAR. The knobs F1 to F3, F6
-  and F7 can be MIDI-learned (RES, GLIDE and SIZE lose Shift + F on this page to LEN and CLEAR) and are part of the snapshots (an older project's snapshots
+  vowels (with LINE on, hold one to override the line; Rec writes the step that sounds); Shift + F4 is LEN, F5 CLEAR and F6 NEW (a drawn line). The knobs F1 to F3
+  and F7 can be MIDI-learned (RES, GLIDE and SIZE lose Shift + F on this page to the line's tools) and are part of the snapshots (an older project's snapshots
   load with the tract as it is). The WOBBLE's TARGET gets a third value, MOUTH: the wobble swings the vowel around the one that sounds. HELP has
   a page for it. It needs listening on the unit.
 - **The PERFORM KNOBS rows can hold the TRACT knobs.** Shift + F1 to F4 walks the list of recordable knobs and now ends with TRACT's (VOWEL, TONGUE,

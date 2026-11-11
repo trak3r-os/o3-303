@@ -700,7 +700,7 @@ bool InstrumentScreen::pad_up(app::Context& ctx, unsigned pad) noexcept {
   return false;
 }
 
-// Shift + F4 LEN: the line's length steps SAME, 4, 8, 16, 32, 64 and round; Shift + F5 CLEAR: every step "-", GLD off, SAME. One undo step each (HOME's, Shift + F8).
+// Shift + F4 LEN: the line's length steps SAME, 4, 8, 16, 32, 64 and round; Shift + F5 CLEAR: every step "-", GLD off, SAME. Shift + F6 NEW: a drawn line (Bank::random_tract). One undo step each (HOME's, Shift + F8).
 bool InstrumentScreen::line_tool(app::Context& ctx, unsigned k) noexcept {
   seq::Bank& bank = *rig_->bank;
   const unsigned sel = bank.selected();
@@ -722,6 +722,11 @@ bool InstrumentScreen::line_tool(app::Context& ctx, unsigned k) noexcept {
   }
   if (k == 4u) {
     home_->toast(ctx, bank.clear_tract(sel) ? "TRACT LINE CLEARED" : "TRACT LINE ALREADY EMPTY", false);
+    line_fix();
+    return true;
+  }
+  if (k == 5u) {  // NEW: vowels, "-" and GLD drawn from a fresh seed (the same seed gives the same line: Bank::random_tract)
+    home_->toast(ctx, bank.random_tract(sel, live_->next_seed(ctx)) ? "NEW TRACT LINE" : "NO CHANGE", false);
     line_fix();
     return true;
   }
@@ -864,7 +869,7 @@ void InstrumentScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept
   for (unsigned k = 0; k < kKeys; ++k) {
     const Learn l = learn_of(ctx, k);
     if (l == Learn::Tool) {  // the TRACT line's LEN (F4) and CLEAR (F5)
-      out.label[k] = k == 3u ? "LEN" : "CLEAR";
+      out.label[k] = k == 3u ? "LEN" : (k == 4u ? "CLEAR" : "NEW");
       continue;
     }
     if (l == Learn::No) {
@@ -896,7 +901,7 @@ Learn InstrumentScreen::learn_of(const app::Context& ctx, unsigned k) const noex
   if (!ctx.panel().shift() || !page_learnable()) {
     return Learn::None;
   }
-  if (tract_page() && (k == 3u || k == 4u)) {
+  if (tract_page() && (k == 3u || k == 4u || k == 5u)) {
     return Learn::Tool;
   }
   dsp::UnitId unit = dsp::kNoUnit;
@@ -1017,6 +1022,7 @@ void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcep
   if (tract_page()) {  // the TRACT page's pads are the line, the palette and the live vowels (a held Pattern, the overlay, is not shown in HELP)
     h.fkey_shift[3] = "LEN";
     h.fkey_shift[4] = "CLEAR";
+    h.fkey_shift[5] = "NEW";
     help_texts::fill_tract_pads(h);
     return;
   }
@@ -1097,7 +1103,7 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   for (unsigned k = 0; k < kKeys; ++k) {
     view.learn[k] = learn_of(ctx, k);
     if (view.learn[k] == Learn::Tool) {
-      view.knob[k].label = k == 3u ? "LEN" : "CLEAR";
+      view.knob[k].label = k == 3u ? "LEN" : (k == 4u ? "CLEAR" : "NEW");
     }
   }
   fill_sections(e, *controls_, live_->wobble_on(), *group_, page_, view);

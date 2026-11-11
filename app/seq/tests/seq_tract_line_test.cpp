@@ -383,6 +383,70 @@ TEST_CASE("the tract line: the Bank's accessors, undo coalescing and carry") {
   CHECK(fresh.tract.len == kTractSame);
 }
 
+TEST_CASE("the tract line: random_tract draws the same line from the same seed, over the line's length only, with one undo step") {
+  std::unique_ptr<Bank> bank = std::make_unique<Bank>();
+  std::unique_ptr<Bank> other = std::make_unique<Bank>();
+  bank->clear_history();
+  other->clear_history();
+  const unsigned pat = 2;
+  REQUIRE(bank->set_tract_length(pat, 8));
+  REQUIRE(other->set_tract_length(pat, 8));
+  bank->clear_history();
+  other->clear_history();
+  CHECK(bank->set_tract_step(pat, 40, kTractU, true));  // a step above the length: it must stay
+  CHECK(other->set_tract_step(pat, 40, kTractU, true));
+  bank->clear_history();
+  other->clear_history();
+  CHECK(bank->random_tract(pat, 0x1234u));
+  CHECK(other->random_tract(pat, 0x1234u));
+  for (unsigned n = 0; n < kTractSteps; ++n) {
+    CHECK(bank->tract_step(pat, n) == other->tract_step(pat, n));  // the same seed, the same line, bit for bit
+  }
+  CHECK(bank->tract_step(pat, 40) == (kTractU | kTractGlide));
+  CHECK(bank->tract_line(pat).len == 8u);
+  CHECK(tract_vowel(bank->tract_step(pat, 0)) != kTractFollow);  // step 0 always has a vowel
+  unsigned vowels = 0;
+  for (unsigned n = 0; n < 8; ++n) {
+    const std::uint8_t v = bank->tract_step(pat, n);
+    CHECK(tract_vowel(v) <= kTractVowels);
+    CHECK((v & ~(kTractGlide | 0x07u)) == 0u);
+    CHECK((tract_vowel(v) != kTractFollow || !tract_glide(v)));  // a "-" has no GLD
+    vowels += tract_vowel(v) != kTractFollow ? 1u : 0u;
+  }
+  CHECK(vowels >= 1u);
+  // Another seed draws another line (over the whole line of 64: 64 steps leave no doubt), and a seed over SAME follows the pattern's length.
+  CHECK(other->set_tract_length(pat, 64));
+  CHECK(bank->set_tract_length(pat, 64));
+  CHECK(bank->random_tract(pat, 1u));
+  CHECK(other->random_tract(pat, 2u));
+  bool differs = false;
+  unsigned seen[kTractVowels + 1] = {};
+  unsigned glides = 0;
+  for (unsigned n = 0; n < kTractSteps; ++n) {
+    differs = differs || bank->tract_step(pat, n) != other->tract_step(pat, n);
+    ++seen[tract_vowel(bank->tract_step(pat, n))];
+    glides += tract_glide(bank->tract_step(pat, n)) ? 1u : 0u;
+  }
+  CHECK(differs);
+  for (unsigned v = 0; v <= kTractVowels; ++v) {
+    CHECK(seen[v] > 0u);  // "-" and every vowel turn up in 64 steps
+  }
+  CHECK(glides > 0u);
+  // One undo step, back to what the line held.
+  bank->clear_history();
+  const TractLine before = bank->tract_line(pat);
+  CHECK(bank->random_tract(pat, 77u));
+  CHECK(bank->undo() == pat);
+  CHECK(std::memcmp(&bank->tract_line(pat), &before, sizeof(TractLine)) == 0);
+  CHECK_FALSE(bank->can_undo());
+  CHECK(bank->set_tract_length(pat, kTractSame));
+  CHECK(bank->random_tract(pat, 5u));
+  const unsigned plen = bank->pattern(pat).length != 0u ? bank->pattern(pat).length : kDefaultLength;
+  for (unsigned n = plen; n < kTractSteps; ++n) {
+    CHECK(bank->tract_step(pat, n) == before.step[n]);  // SAME is the pattern's length: 16 steps drawn, the rest untouched
+  }
+}
+
 TEST_CASE("the tract line: the Bank is in the SDRAM as a plain trivial object, and the line is inside the pattern") {
   // O3SDK_BIG puts project_bank() in the SDRAM (bank.cpp); the line is a member of the Pattern, so it lives there too. A trivially constructible
   // Bank is what a zero-initialised SDRAM object needs; the sizes keep the chunk and the records the project file has.
