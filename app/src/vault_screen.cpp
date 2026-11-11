@@ -26,8 +26,10 @@ using ui::Rect;
 
 constexpr int kInfoH = 34;
 constexpr int kTopY = frame::kStatusH + 40;  // the banks, the grid and the details start here (area-relative)
-constexpr int kRowH = 19;     // 8 rows
+constexpr int kRowH = 19;     // 8 rows (the banks)
 constexpr int kTopH = 8 * kRowH;
+constexpr unsigned kPadCols = 12;  // the pads are 12 wide, 4 high: the slot grid is drawn the same way
+constexpr int kSlotRowH = kTopH / 4;
 constexpr int kHeroH = 176;
 constexpr unsigned kToastMs = 2500;
 
@@ -238,10 +240,10 @@ void VaultScreen::input(app::Context& ctx, const Input& in) noexcept {
       move_slot(1);
       break;
     case Button::Up:
-      move_slot(-8);
+      move_slot(-static_cast<int>(kPadCols));
       break;
     case Button::Down:
-      move_slot(8);
+      move_slot(static_cast<int>(kPadCols));
       break;
     case Button::Insert:
       load_slot(ctx);
@@ -277,7 +279,7 @@ void VaultScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
 void VaultScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
   const bool shift = ctx.panel().shift();  // Shift held: the pads are slots 16..63
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
-    leds.set(pad, library_slot_of_pad(pad, shift) == slot_ ? app::kLedOn : (pad % 8u == 0u ? app::kLedLow : app::kLedDim));
+    leds.set(pad, library_slot_of_pad(pad, shift) == slot_ ? app::kLedOn : (pad % 4u == 0u ? app::kLedLow : app::kLedDim));
   }
 }
 
@@ -333,10 +335,12 @@ void VaultScreen::draw(app::Context& ctx, ui::Renderer& r, const Rect& area) noe
     r.text(cell.x + 26, ty, seq::gen::bank_name(b), cur ? Color::SelText : Color::TextDim, Face::Label);
   }
 
-  // ---- The slots: 8 x 8 ----
+  // ---- The slots as the pads are: 4 rows of 12, slots 0..47, or 16..63 while Shift is held ----
   const int gx = 216;
-  for (unsigned s = 0; s < seq::gen::kSlots; ++s) {
-    const Rect cell{gx + static_cast<int>(s % 8u) * 40, top + static_cast<int>(s / 8u) * kRowH, 38, kRowH - 2};
+  const unsigned base = ctx.panel().shift() ? kShiftPadBase : 0u;
+  for (unsigned i = 0; i < app::kPadCount; ++i) {
+    const unsigned s = base + i;
+    const Rect cell{gx + static_cast<int>(i % kPadCols) * 27, top + static_cast<int>(i / kPadCols) * kSlotRowH, 25, kSlotRowH - 2};
     const bool cur = s == slot_;
     r.panel(cell, cur ? Color::Sel : Color::Empty);
     char num[4] = {static_cast<char>('0' + s / 10u), static_cast<char>('0' + s % 10u), '\0', '\0'};

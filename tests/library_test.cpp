@@ -75,12 +75,18 @@ TEST_CASE("the library: INSERT loads the slot shown into the pattern and the sou
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
   }
-  // Arrows: LEFT / RIGHT one slot, UP / DOWN a row of eight.
+  // Arrows: LEFT / RIGHT one slot, UP / DOWN a row of the pads (twelve).
   t.tap(Button::Down);
   t.tap(Button::Left);
   t.tap(Button::Up);
   t.tap(Button::Right);
-  t.tap(Button::Insert);  // 52 + 8 - 1 - 8 + 1 = 52 again
+  t.tap(Button::Insert);  // 52 + 12 - 1 - 12 + 1 = 52 again
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
+  }
+  t.tap(Button::Up);  // 52 - 12 = 40: the row above on the pads
+  t.tap(Button::Insert);
+  seq::gen::factory(slot, 3, 40);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == slot.pattern.steps[i].note);
   }

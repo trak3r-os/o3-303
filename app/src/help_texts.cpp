@@ -127,8 +127,8 @@ constexpr Buttons make_library() noexcept {
   b.add(Button::Insert, "LOAD THE SLOT SHOWN");
   b.add(Button::Left, "SLOT - 1");
   b.add(Button::Right, "SLOT + 1");
-  b.add(Button::Up, "SLOT - 8");
-  b.add(Button::Down, "SLOT + 8");
+  b.add(Button::Up, "SLOT - 12");
+  b.add(Button::Down, "SLOT + 12");
   return b;
 }
 

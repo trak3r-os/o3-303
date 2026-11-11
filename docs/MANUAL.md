@@ -655,7 +655,7 @@ cancels. A name has at most 15 characters.
 Press **File** twice. The library holds 512 generated lines with their sounds, in eight banks of 64: AMBER, SUB, NEON, ACID, BLADE, ROOFTOP,
 OFF WORLD and LAST.
 
-![FILE LIBRARY: the bank list A to H, the 64 slots of AMBER, the details of slot 00 "Amber Line", and its pattern](manual/img/library.png)
+![FILE LIBRARY: the bank list A to H, the slots of AMBER laid out as the pads are, the details of slot 00 "Amber Line", and its pattern](manual/img/library.png)
 
 *Bank AMBER, slot 00. On the right, the slot's sound; at the bottom, its line.*
 
@@ -664,7 +664,7 @@ OFF WORLD and LAST.
   LEDs show slots 16 to 63, the slot shown lit; the PADS line says "PADS 0-47 . SHIFT 16-63"). Either loads into the pattern shown and the sound, at once. A load also sets the tempo, the voice and the
   distortion. UNDO takes back the line only, not the tempo or the sound: to try lines and leave your sound alone, set **Shift + F2** to
   LOAD LINE first.
-- The encoder and the arrows (Left and Right one slot, Up and Down eight) also pick a slot; **Insert** loads the slot shown. **Shift + turn** still
+- The encoder and the arrows (Left and Right one slot, Up and Down a row of twelve, as on the pads) also pick a slot; **Insert** loads the slot shown. **Shift + turn** still
   picks the seed.
 - **Shift + F2** chooses what a load takes: LOAD BOTH (the line and the sound), LOAD LINE or LOAD SOUND. A line comes with its
   tempo, so LOAD LINE still sets the tempo.

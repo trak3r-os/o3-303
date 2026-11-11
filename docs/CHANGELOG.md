@@ -21,6 +21,9 @@ hear says so in plain words.
 
 ### What works differently (a habit changes)
 
+- **FILE LIBRARY's slots are drawn as the pads are.** The grid is 4 rows of 12 (slots 0 to 47, or 16 to 63 while Shift is held), so the
+  first pad of row 2 is the first cell of row 2. Up and Down move a row of twelve (they moved eight), and the pad LEDs dim-mark every
+  fourth pad. Nothing saved changes.
 - **A chain of two or more patterns loops.** Hold Pattern while the line plays and tap two or more patterns: they now play round and
   round (A, B, C, B, C ...: the pattern that was playing is not part of the round) until a single tap with Pattern held replaces the chain.
   Before, the chain played once and its last pattern then repeated for ever. One queued pattern behaves as before. Nothing in a saved
