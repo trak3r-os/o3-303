@@ -38,7 +38,8 @@ release f3
 tap performance
 wait 100
 snap strip_03_perform
+press shift
 tap performance
-tap performance
+release shift
 wait 100
 snap strip_04_perform_setup

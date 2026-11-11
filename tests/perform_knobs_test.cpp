@@ -58,21 +58,36 @@ void point_at_row(Hands& t, unsigned row) {
 
 }  // namespace
 
-TEST_CASE("PERFORM KNOBS: the second page of three, Perform cycles PERFORM, KNOBS, SETUP") {
+TEST_CASE("PERFORM KNOBS: Perform flips PERFORM and KNOBS; Shift + Perform is PERFORM SETUP from anywhere and Perform leaves it (R8)") {
   Hands t;
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
   t.tap(Button::Performance);
   CHECK(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
   t.tap(Button::Performance);
+  CHECK(std::strcmp(t.title(), "PERFORM") == 0);  // two pages, no third press through a settings page
+  t.tap(Button::Performance);
+  REQUIRE(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
+  t.shift_tap(Button::Performance);
+  CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
+  t.shift_tap(Button::Performance);  // again: it stays on SETUP, and the way back is still KNOBS
+  CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
+  t.tap(Button::Performance);
+  CHECK(std::strcmp(t.title(), "PERFORM KNOBS") == 0);  // Performance leaves SETUP for the page it came from
+  t.tap(Button::Performance);
+  t.shift_tap(Button::Performance);
+  t.tap(Button::Performance);
+  CHECK(std::strcmp(t.title(), "PERFORM") == 0);
+  // From another screen Shift + Perform opens SETUP; Performance then leaves for PERFORM.
+  t.tap(Button::Pattern);
+  t.shift_tap(Button::Performance);
   CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
   t.tap(Button::Performance);
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
-  // From another screen Perform always opens page 1.
+  t.tap(Button::Performance);  // KNOBS
+  t.tap(Button::Pattern);
   t.tap(Button::Performance);
-  t.to_home();
-  t.to_perform();
-  CHECK(std::strcmp(t.title(), "PERFORM") == 0);
+  CHECK(std::strcmp(t.title(), "PERFORM") == 0);  // from another screen it opens page 1
 }
 
 TEST_CASE("PERFORM KNOBS: a pad of each row sets ENV MOD, DECAY, CUTOFF and RESO; the colour buttons stay PERFORM's actions") {

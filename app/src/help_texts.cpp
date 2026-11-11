@@ -47,7 +47,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Rec, home_map ? "WRITE / RECORD MODE ON / OFF" : (perform ? "RECORD KNOB + LADDER MOVES" : nullptr), "ARM / STOP AN AUDIO TAKE");
   b.add(Button::Pattern, w == Where::Home ? "TAP: SETUP. HOLD: PATTERNS" : (w == Where::Setup ? "TAP: HOME. HOLD: PATTERNS" : "BACK TO THE STEPS"));
   b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: VOICE, FX" : "OPEN INSTRUMENT");
-  b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM SETUP" : (w == Where::PerformSetup ? "BACK TO PERFORM" : "OPEN PERFORM")));
+  b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM" : (w == Where::PerformSetup ? "LEAVE SETUP" : "OPEN PERFORM")), w == Where::PerformSetup ? nullptr : "PERFORM SETUP");
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");

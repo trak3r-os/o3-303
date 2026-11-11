@@ -5,10 +5,10 @@
 # The WAV is the evidence; the freeze unit's own tests check the sound (units/freeze/tests).
 wait 300
 record on
-# PERFORM SETUP (Perform twice; once more comes PERFORM back, where the colour buttons are the live actions): F1 Note = ROLL, F2 Instr = STOP, F3 Vol = REV (the eleven actions: down to the first, then up eight, nine, ten).
+# PERFORM SETUP (Shift + Perform; Perform comes PERFORM back, where the colour buttons are the live actions): F1 Note = ROLL, F2 Instr = STOP, F3 Vol = REV (the eleven actions: down to the first, then up eight, nine, ten).
+press shift
 tap performance
-tap performance
-tap performance
+release shift
 tap f1
 turn -16
 turn 8

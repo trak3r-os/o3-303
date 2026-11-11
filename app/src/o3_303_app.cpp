@@ -256,9 +256,17 @@ class O3_303App final : public app::App {
       ctx.show(main_);  // back from the vault or PERFORM: the press is taken, the screen's own release does nothing
       return true;
     }
-    if (in.press(Button::Performance)) {  // PERFORM; on it, KNOBS, PERFORM SETUP and back; from any other screen always page 1
-      if (ctx.screen() == &perform_) {
-        perform_.toggle_page();
+    if (in.press(Button::Performance)) {  // PERFORM; on it, KNOBS and back; from any other screen always page 1. Shift: PERFORM SETUP from anywhere, and the button leaves it
+      if (in.shift) {
+        const bool here = ctx.screen() == &perform_;
+        perform_.open_setup(here);
+        if (here) {
+          ctx.redraw();
+        } else {
+          ctx.show(perform_);
+        }
+      } else if (ctx.screen() == &perform_) {
+        perform_.flip_page();
         ctx.redraw();
       } else {
         perform_.open_first_page();

@@ -13,14 +13,15 @@ hear says so in plain words.
   turn walks the list of every knob that can be recorded; Shift + F8 puts the four rows back. With REC on while the line plays, a tap is
   written as motion on the knob's lane (the limit of eight lanes applies and says so). A tap on a mod while MODS is off switches MODS on,
   as the encoder does. The colour buttons stay PERFORM's four actions.
-- **The Performance button now cycles three pages**: PERFORM, PERFORM KNOBS, PERFORM SETUP, and PERFORM again. SETUP is one press further
-  than before.
+- **Performance flips PERFORM and PERFORM KNOBS.** Shift + Performance opens PERFORM SETUP from any screen, and Performance leaves it.
 - **Rows with a switch or a short list have a pad a value**, on HOME's FILT and PERFORM's row 3 too: a tap sets the value at once.
 - **A saved project holds two more rows** (PERFORM KNOBS' rows 1 and 2). A project saved by an older version loads with ENV MOD and DECAY on
   them, and one saved by this version loads in the older ones with their own defaults for the rows they know. Nothing you hear changes.
 
 ### What works differently (a habit changes)
 
+- **PERFORM SETUP is Shift + Performance.** It used to be the third press of Performance; now Performance only flips PERFORM and PERFORM
+  KNOBS, so a press in play never lands on SETUP. Performance leaves SETUP for the page it was opened from.
 - **MODS on or off and the growl's last mix are saved with the project.** A project saved with MODS off opens with MODS off (the STOCK chip
   shows); a load, REVERT, NEW and RESET PROJECT no longer always turn MODS on, they bring back what the project holds (NEW and RESET: on). F8
   GROWL's "last value" is saved too. The file gets two more entries; a project from an older version loads with MODS on and a last mix of

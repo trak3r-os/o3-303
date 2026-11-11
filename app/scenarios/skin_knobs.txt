@@ -50,8 +50,12 @@ tap f8
 release shift
 wait 100
 snap 06_defaults_again
-# Perform again is PERFORM SETUP, and once more PERFORM: the page after a trip round the cycle.
+# Perform again is PERFORM; Shift + Perform opens PERFORM SETUP and Perform leaves it for PERFORM: the page after a trip round the pages.
 tap performance
+wait 62
+press shift
+tap performance
+release shift
 wait 62
 tap performance
 wait 62

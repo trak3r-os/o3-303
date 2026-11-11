@@ -48,6 +48,11 @@ struct Hands {
     h->run_ms(40);
     release(b);
   }
+  void shift_tap(Button b) {
+    press(Button::Shift);
+    tap(b);
+    release(Button::Shift);
+  }
 };
 
 // The M3b demo line: ratchets x2, x3, x4 (one accented), a slide into a ratcheted step and a ratcheted slide step, a condition of each kind
@@ -109,8 +114,7 @@ TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is P
   // The variant: PERFORM SETUP's F5; MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
   hands.tap(Button::Performance);
-  hands.tap(Button::Performance);  // PERFORM KNOBS
-  hands.tap(Button::Performance);  // PERFORM SETUP
+  hands.shift_tap(Button::Performance);  // PERFORM SETUP (R8: Shift + Perform from anywhere)
   hands.tap(Button::F5);
   hands.h->turn(1);
   hands.h->run_ms(2);

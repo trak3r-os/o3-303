@@ -4,11 +4,11 @@
 # Choices made here: CONFIG, then the encoder in DISPLAY, cycles the theme (amiga, black, white) (the kit's system screen); MUTE is the sequencer's (no new notes), DELAY THROW opens
 # send A to unity for as long as it is held or latched.
 # Since M3b (docs/M3B-PLAN.md C4) the four buttons are assignable and Vol and Fx default to FILL and FREEZE; this scenario shows SLIDE ALL and
-# DELAY THROW, so it first gives them to Vol and Fx on PERFORM SETUP (Perform twice; F3 and F4 are Vol and Fx; the
+# DELAY THROW, so it first gives them to Vol and Fx on PERFORM SETUP (Shift + Perform; F3 and F4 are Vol and Fx; the
 # encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE), turns TRNSP on (pad 22) on the 303 screen, and comes to PERFORM for the buttons.
+press shift
 tap performance 5
-tap performance 5
-tap performance 5
+release shift
 tap f3 5
 turn -8
 turn 2

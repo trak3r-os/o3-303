@@ -82,7 +82,7 @@ turn 16
 wait 100
 snap 03_conditions
 padup 19
-# Play: the line on its own for two passes, then FILL (the Vol button on PERFORM; PERFORM SETUP's F5 picks the variant, Perform twice) for one pass of each variant.
+# Play: the line on its own for two passes, then FILL (the Vol button on PERFORM; PERFORM SETUP's F5 picks the variant, Shift + Perform) for one pass of each variant.
 record on
 tap play
 tap performance
@@ -93,8 +93,9 @@ wait 1920
 snap 05_fill_mutate
 release vol
 wait 1920
+press shift
 tap performance 1
-tap performance 1
+release shift
 tap f5 1
 turn 1
 tap performance 1
@@ -103,8 +104,9 @@ press vol
 wait 1920
 release vol
 wait 1920
+press shift
 tap performance 1
-tap performance 1
+release shift
 turn 1
 tap performance 1
 wait 56
@@ -113,8 +115,9 @@ wait 1920
 snap 06_fill_ratchet
 release vol
 wait 1920
+press shift
 tap performance 1
-tap performance 1
+release shift
 turn 1
 tap performance 1
 wait 56

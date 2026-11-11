@@ -1,4 +1,4 @@
-# PERFORM KNOBS (docs/UX-303.md, the KNOBS pads mode): Perform twice is PERFORM's second page, drawn here in the CLASSIC look (skin_knobs.txt shows the obsidian one). Its four rows of pads are four
+# PERFORM KNOBS (docs/UX-303.md, the KNOBS pads mode): Perform again is PERFORM's second page, drawn here in the CLASSIC look (skin_knobs.txt shows the obsidian one). Its four rows of pads are four
 # knobs: ROW 1 ENV MOD, ROW 2 DECAY, ROW 3 CUTOFF and ROW 4 RESO, the last two being HOME's FILT rows. One pad is one value of the knob's range; a list (the wave) or a switch has a pad a value.
 # The colour buttons stay PERFORM's four actions and the F row stays the sound page's knobs. Hold an F key and tap a row to give it that knob; Shift + F1..F4 points the encoder at that row's list of
 # every knob (a turn walks it, a tap on a pad uses it), Shift + F8 puts the four rows back. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47. The WAV: the four taps and the knobs bound.
@@ -50,8 +50,12 @@ tap f8
 release shift
 wait 100
 snap 06_defaults_again
-# Perform again is PERFORM SETUP, and once more PERFORM: the page after a trip round the cycle.
+# Perform again is PERFORM; Shift + Perform opens PERFORM SETUP and Perform leaves it for PERFORM: the page after a trip round the pages.
 tap performance
+wait 62
+press shift
+tap performance
+release shift
 wait 62
 tap performance
 wait 62

@@ -1,12 +1,12 @@
-# PERFORM SETUP (docs/UX-303.md 5.4, slice P2): Perform twice opens it. Eight knobs over an empty panel with a reminder of row 1: F1..F4 what each colour
+# PERFORM SETUP (docs/UX-303.md 5.4, slice P2): Shift + Perform opens it. Eight knobs over an empty panel with a reminder of row 1: F1..F4 what each colour
 # button does, F5 what FILL plays, F6 the freeze's length, F7 ROLL (the rate and the accelerate in one list: 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR; BUILD
 # starts at 1/8) and F8 STOP's time. No Shift row (Shift held shows the same knobs), and the pads stay PERFORM's. The WAV is the evidence for ROLL:
 # the pattern plays, the Note button (made ROLL here) is held at 1/32, then at BLD BAR, which starts slow and speeds up every bar.
 wait 300
 record on
+press shift
 tap performance
-tap performance
-tap performance
+release shift
 wait 100
 snap 01_defaults
 # F5 FILL: MUTATE, OCT UP, RATCHET, ACC ROT.
@@ -63,8 +63,9 @@ wait 700
 snap 12_roll_thirty_second_held
 release note
 wait 700
+press shift
 tap performance
-tap performance
+release shift
 tap f7
 turn 3
 tap performance

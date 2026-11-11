@@ -223,8 +223,7 @@ TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in ever
   CHECK(o.s->last_view().lamp[app::pad_at(3, 7)].level == kLedOn);
 
   // PERFORM SETUP: the pads stay PERFORM's, and so do the LEDs; the glass shows row 1 of them as a reminder.
-  o.t.to_perform();  // KNOBS
-  o.t.to_perform();
+  o.t.to_setup();
   o.t.wait(60);
   CHECK(std::strcmp(o.t.title(), "PERFORM SETUP") == 0);
   o.mirrors(true);
@@ -263,8 +262,7 @@ TEST_CASE("skin perform: the Shift row is REDO and UNDO as action keys, and SETU
   o.t.wait(60);
   CHECK(skin::panel().dropped() == 0u);
   o.t.release(Button::Shift);
-  o.t.to_perform();  // KNOBS
-  o.t.to_perform();  // SETUP
+  o.t.to_setup();    // SETUP
   o.t.press(Button::Shift);
   o.t.wait(60);
   CHECK(skin::panel().dropped() == 0u);

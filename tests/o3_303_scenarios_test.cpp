@@ -304,7 +304,7 @@ TEST_CASE("scenarios: the longest strip notice over the skinned HOME, SETUP and 
   CHECK_MESSAGE(strip_px <= kSkinMaxLinePx, strip_px << " box px on a line with a 71 character notice over HOME (plain " << plain_px << ")");
   run_skin_scenario(*h,
                     "tap pattern\nwait 100\npress f3\nwait 100\nsnap strip_02_setup_f3_held_notice\nrelease f3\n"
-                    "tap performance\nwait 100\nsnap strip_03_perform_notice\ntap performance\nwait 100\nsnap strip_04_perform_setup_notice\n",
+                    "tap performance\nwait 100\nsnap strip_03_perform_notice\npress shift\ntap performance\nrelease shift\nwait 100\nsnap strip_04_perform_setup_notice\n",
                     dir.string(), total);
   CHECK_MESSAGE(total.ok, "line " << total.line << ": " << total.error);
   CHECK(h->runtime().frame_failures() == 0u);

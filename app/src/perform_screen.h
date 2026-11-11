@@ -36,7 +36,8 @@ class PerformScreen final : public o3sdk::app::Screen {
   // `home`: the 303 screen, whose keyboard (octave, scale lock, Rec) PERFORM's key row is.
   void init(Rig& rig, MainScreen& home) noexcept;
 
-  // The Perform button: from another screen it opens page 1 (PERFORM); on this one it goes to the next page (PERFORM, KNOBS, PERFORM SETUP, PERFORM).
+  // The Perform button: from another screen it opens page 1 (PERFORM); on this one it flips PERFORM and KNOBS, and on PERFORM SETUP it leaves for the page the setup was opened from.
+  // Shift + Perform opens PERFORM SETUP from anywhere (R8, the review's S1: SETUP configures the two pages, it is not a third one to pass through while playing).
   // (A key held across the change would stay held in the keys it was pressed on: both sets let go.)
   enum class PerformPage : std::uint8_t { Perform, Knobs, Setup };
   void open_first_page() noexcept {
@@ -44,9 +45,18 @@ class PerformScreen final : public o3sdk::app::Screen {
     page_ = PerformPage::Perform;
     walk_row_ = -1;
   }
-  void toggle_page() noexcept {
+  void flip_page() noexcept {
     release_keys();
-    page_ = page_ == PerformPage::Perform ? PerformPage::Knobs : (page_ == PerformPage::Knobs ? PerformPage::Setup : PerformPage::Perform);
+    page_ = page_ == PerformPage::Perform ? PerformPage::Knobs : (page_ == PerformPage::Knobs ? PerformPage::Perform : back_);
+    walk_row_ = -1;
+  }
+  // `on_screen`: this screen is the one showing (the page it was on is where the Perform button comes back to); from another screen the way back is PERFORM.
+  void open_setup(bool on_screen) noexcept {
+    release_keys();
+    if (page_ != PerformPage::Setup) {
+      back_ = on_screen ? page_ : PerformPage::Perform;
+    }
+    page_ = PerformPage::Setup;
     walk_row_ = -1;
   }
   bool setup() const noexcept { return page_ == PerformPage::Setup; }
@@ -117,6 +127,7 @@ class PerformScreen final : public o3sdk::app::Screen {
   MainScreen* home_ = nullptr;
   PageKeys setup_keys_;  // PERFORM SETUP's keys: the global table's PERF SETUP page (kPagePerfSetup), with a latch of their own
   PerformPage page_ = PerformPage::Perform;
+  PerformPage back_ = PerformPage::Perform;  // the page PERFORM SETUP was opened from (PERFORM or KNOBS): where the Perform button leaves it for
   int walk_row_ = -1;                // KNOBS: the row the encoder walks the knob list for (Shift + F1..F4), -1 when none; any other key ends it
   std::uint64_t perf_down_ = 0;      // the pads pressed under PERFORM's roles (a release ends what the press began, whatever page the release finds)
   bool morph_ = false;

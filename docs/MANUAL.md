@@ -116,7 +116,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 |---|---|
 | **Pattern** | HOME, the step screen, from any screen. On HOME a tap opens PATTERN SETUP, and held, the 48 pads are the 48 patterns |
 | **Params** | INSTRUMENT, on VOICE and FX. Again: the other page |
-| **Performance** | PERFORM. Again: PERFORM KNOBS, and once more PERFORM SETUP |
+| **Performance** | PERFORM. Again: PERFORM KNOBS, and back. **Shift + Performance**: PERFORM SETUP, from any screen; Performance leaves it |
 | **Song** | SONG |
 | **Master** | MASTER (tempo and level). Hold it and turn: nudge the tempo. **Shift + Master**: tap tempo, from any screen |
 | **File** | FILE PROJECTS. Again: FILE LIBRARY. **Shift + File**: save the project, from any screen |
@@ -409,7 +409,7 @@ An empty slot says so and does nothing. Snapshots are saved with the project.
 
 **Rec** on PERFORM records the knob and ladder moves while the line plays. **Shift** shows F7 REDO and F8 UNDO.
 
-Press **Performance** again for PERFORM KNOBS.
+Press **Performance** again for PERFORM KNOBS (and again to come back). **Shift + Performance** opens PERFORM SETUP.
 
 ### PERFORM KNOBS
 
@@ -432,7 +432,7 @@ The colour buttons are PERFORM's four actions here too, and the F row is the sou
 
 ### PERFORM SETUP
 
-Press **Performance** again from PERFORM KNOBS. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does.
+Press **Shift + Performance**, from PERFORM, PERFORM KNOBS or any other screen. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does.
 
 ![PERFORM SETUP: row 1 of actions, a short text, the four colour buttons' actions, and the F row NOTE, INSTR, VOL, FX, FILL, FREEZE, ROLL and STOP](manual/img/perform-setup.png)
 
@@ -446,7 +446,7 @@ Press **Performance** again from PERFORM KNOBS. Row 1 stays on screen as a remin
 | F7 ROLL | The roll's rate, or a build that starts at 1/8 and speeds up every beat or bar | 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR |
 | F8 STOP | How long the tape stop takes | 1/8, 1/4, 1/2, 1, 2 bars |
 
-Press **Performance** again to go back to PERFORM.
+Press **Performance** to leave: it goes back to the page SETUP was opened from (PERFORM when you came from another screen).
 
 ### INSTRUMENT
 

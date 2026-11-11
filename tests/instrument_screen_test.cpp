@@ -107,7 +107,7 @@ TEST_CASE("Sample Playback opens GROWL and Sample Editor WOBBLE from every scree
     }
   };
   from("PERFORM", [&] { t.tap(Button::Performance); });
-  from("PERFORM SETUP", [&] { t.tap(Button::Performance); t.tap(Button::Performance); t.tap(Button::Performance); });
+  from("PERFORM SETUP", [&] { t.shift_tap(Button::Performance); });
   from("MASTER", [&] { t.tap(Button::Master); });
   from("RECORD", [&] { t.tap(Button::SampleRec); });
   from("SONG", [&] { t.tap(Button::Song); });

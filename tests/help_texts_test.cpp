@@ -289,6 +289,14 @@ void tap(sim::Harness& h, app::Button b, unsigned hold = 40) {
   h.run_ms(2);
 }
 
+void shift_tap(sim::Harness& h, app::Button b) {
+  h.press(app::Button::Shift);
+  h.run_ms(2);
+  tap(h, b);
+  h.release(app::Button::Shift);
+  h.run_ms(2);
+}
+
 // Shift + Config, as the scenario does it, then the overlay's Help: what the screen told the kit.
 const Help& open_help(sim::Harness& h) {
   REQUIRE_FALSE(h.runtime().help_open());
@@ -365,7 +373,7 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   check_screen(h, Id::Perform, sound, kAllPads, "PERFORM");
   tap(h, app::Button::Performance);
   check_screen(h, Id::Knobs, sound, kAllPads, "PERFORM KNOBS");
-  tap(h, app::Button::Performance);
+  shift_tap(h, app::Button::Performance);  // R8 (the review's S1): Shift + Performance is PERFORM SETUP
   check_screen(h, Id::PerformSetup, page_mask(page_at(kPagePerfSetup)), kAllPads, "PERFORM SETUP");
   tap(h, app::Button::Params);
   check_screen(h, Id::Voice, sound, kAllPads, "INSTRUMENT VOICE");
@@ -544,7 +552,7 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     CHECK(std::strcmp(help.fkey_shift[7], "DEFAULTS") == 0);
     close_help(h);
   }
-  tap(h, app::Button::Performance);  // PERFORM SETUP has no Shift row
+  shift_tap(h, app::Button::Performance);  // PERFORM SETUP has no Shift row
   {
     const Help& help = open_help(h);
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {

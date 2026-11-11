@@ -137,6 +137,8 @@ struct Hands {
   void to_wobble() { tap(Button::SampleEdit); }
   // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.
   void to_perform() { tap(Button::Performance); }
+  // PERFORM SETUP from anywhere: Shift + Performance (R8); Performance then leaves it for the page it came from.
+  void to_setup() { shift_tap(Button::Performance); }
   void to_home() { tap(Button::Pattern); }
   // HOME's Shift row (UX-303 5.1), at once: F1 NEW, F2 VARY, F3 RHYTHM, F4 NOTES, F5 REVERSE, F6 CLEAR, F7 REDO, F8 UNDO.
   void new_line() { shift_tap(Button::F1); }
@@ -166,9 +168,7 @@ struct Hands {
     if (std::strncmp(title(), "PERFORM", 7) == 0) {
       to_home();
     }
-    to_perform();
-    tap(Button::Performance);  // PERFORM KNOBS
-    tap(Button::Performance);  // PERFORM SETUP
+    to_setup();  // Performance leaves it for PERFORM
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
     turn(-16);
     if (action != o3_303::PerfAction::Mute) {

@@ -121,9 +121,7 @@ struct Hands {
     if (std::strncmp(title(), "PERFORM", 7) == 0) {
       tap(Button::Pattern);
     }
-    tap(Button::Performance);
-    tap(Button::Performance);  // PERFORM KNOBS
-    tap(Button::Performance);  // PERFORM SETUP
+    shift_tap(Button::Performance);  // PERFORM SETUP (R8); Performance leaves it for PERFORM
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
     turn(-16);
     if (action != PerfAction::Mute) {
