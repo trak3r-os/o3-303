@@ -326,6 +326,10 @@ queues it: it starts when the pattern playing ends. More taps while you hold Pat
 plays in order. With two or more patterns queued the chain starts again after its last one and loops until a single tap, with Pattern
 held, replaces it; one queued pattern plays and repeats.
 
+With Pattern held, **hold Copy and tap a pad** to copy the pattern you are on onto that pattern (the toast says "A01 > B03"; the
+selection and the playing pattern do not move). **Hold Delete and tap a pad** to clear that pattern. Each tap is one undo step, and
+the pad is no chain entry. PATTERN SETUP's Shift row does the same for the pattern you are on.
+
 ![Pattern held: a grid of 48 patterns A01 to D12, A01 selected](manual/img/home-pattern-held.png)
 
 *Pattern held. The grid on the screen matches the pads: row 1 is A01 to A12.*

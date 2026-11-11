@@ -77,3 +77,27 @@ pad 47
 release pattern
 wait 300
 snap 11_empty_pattern_hint
+# F7: Pattern held + Copy held + a pad copies the current pattern onto that pad's (toast "A01 > A06", one undo); Delete held + a pad clears that pattern.
+press pattern
+wait 400
+pad 0
+release pattern
+wait 100
+press pattern
+wait 400
+press copy
+pad 5
+wait 100
+snap 12_pattern_copy_chord
+release copy
+release pattern
+wait 100
+press pattern
+wait 400
+press delete
+pad 5
+wait 100
+snap 13_pattern_delete_chord
+release delete
+release pattern
+wait 100

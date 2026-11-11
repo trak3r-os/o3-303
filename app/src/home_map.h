@@ -78,8 +78,8 @@ class HomeMap {
 
   // Pads, Note / Instr / Vol / Fx (a tap latches the NOTE, GATE, PLAYS or LOCK row; Shift is the same, D22), Left / Right / Up / Down, Copy / Insert /
   // Delete, Rec and Pattern. true when it took the event; a tap of
-  // Pattern (a release that did not open the grid) is the screen's (it flips HOME and PATTERN SETUP), so it answers false. Copy / Insert / Delete with
-  // Pattern held do nothing but say where those went (PATTERN SETUP's COPY PAT, DUP>NEXT, CLEAR LOCKS, UX-303 5.2).
+  // Pattern (a release that did not open the grid) is the screen's (it flips HOME and PATTERN SETUP), so it answers false. Insert with Pattern held says where it went
+  // (PATTERN SETUP's DUP>NEXT, UX-303 5.2); Copy or Delete held with Pattern, then a pad: the current pattern is copied onto that pad's, or that pattern is cleared (F7).
   bool input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   // The encoder moved by `detents` (`coarse`: Shift) with `knob` as its owner. true when it is a step's: a latched row takes the turn (on the held
   // steps, else the cursor's: NOTE the semitone, Shift the octave; GATE the list; PLAYS the list, Shift four places; LOCK the lock of the lock knob,
@@ -184,6 +184,7 @@ class HomeMap {
   void arrow(o3sdk::app::Context& ctx, o3sdk::app::Button which, bool shift) noexcept;
   bool extend_by_arrow(o3sdk::app::Context& ctx, int direction) noexcept;  // U2: Right / Left with a step pad or a recorded key held; false: nothing to extend
   void choose_pattern(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  void pattern_chord(o3sdk::app::Context& ctx, unsigned index) noexcept;  // Pattern + Copy / Delete held, a pad tapped
   void audition_on(o3sdk::app::Context& ctx, unsigned note, std::uint8_t step_flags) noexcept;
   void audition_off(o3sdk::app::Context& ctx) noexcept;
   void ladder_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;  // a tap on a ladder row: assigns while an F key is held, else jumps the row's knob
@@ -261,6 +262,10 @@ class HomeMap {
   bool chain_started_ = false;
   unsigned chain_taps_ = 0;  // patterns queued since the hold began (the chain loops from two)
   bool pattern_used_ = false;  // Copy, Insert or Delete went with it (SETUP's now): its release is no tap
+  // Pattern held, then Copy or Delete held: a pad is the target (pattern_chord). Main loop only; 3 bytes, in the padding before pattern_down_ms_.
+  bool pat_copy_held_ = false;
+  bool pat_delete_held_ = false;
+  bool pat_chord_used_ = false;  // a pad went with the held Copy / Delete: its release says nothing
   std::uint64_t pattern_down_ms_ = 0;
 
   // Feedback.

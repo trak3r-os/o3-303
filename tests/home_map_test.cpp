@@ -91,7 +91,7 @@ TEST_CASE("the PADS line says what the four rows are in each state of the table"
   grid.overlay = true;
   grid.attribute = PadRole::Acc;
   grid.rec = true;
-  CHECK(line_of(grid) == "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP");  // Pattern held outranks the rest; SETUP has the chords' jobs
+  CHECK(line_of(grid) == "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . COPY + PAD: COPY HERE . DELETE + PAD: CLEAR IT");  // Pattern held outranks the rest (F7)
 }
 
 TEST_CASE("the PADS line fits the strip in every state (it is cut at no state's length)") {
@@ -358,6 +358,69 @@ TEST_CASE("a chord with Pattern is no tap, so the page does not flip; a plain ta
   CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
   t.tap(Button::Pattern, 40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
+}
+
+TEST_CASE("Pattern held + Copy held + a pad copies this pattern onto that pad, Delete held + a pad clears it: one undo each, the selection stays (F7)") {
+  Hands t;
+  REQUIRE(bank().edit(0, [](Pattern& p) {
+    p.steps[3].note = 52;
+    p.steps[3].flags = kStepAccent;
+  }));
+  REQUIRE(pattern_is_empty(bank().pattern(18)));
+  bank().clear_history();
+
+  // Copy held, then a pad: A01 > B03 (pattern 18); the pad is no chain entry, nothing is queued, the page does not flip
+  t.press(Button::Pattern);
+  t.press(Button::Copy);
+  t.pad(18);
+  t.release(Button::Copy);
+  t.release(Button::Pattern);
+  t.wait(40);
+  CHECK(std::strcmp(t.title(), "STEPS") == 0);
+  CHECK(t.selected() == 0);
+  CHECK(bank().pattern(18).steps[3].note == 52);
+  CHECK(bank().pattern(18).steps[3].flags == kStepAccent);
+  CHECK(bank().pattern(0).steps[3].note == 52);  // the source is as it was
+
+  // a second pad with Copy still held is a second copy; an own pad is nothing
+  t.press(Button::Pattern);
+  t.press(Button::Copy);
+  t.pad(0);
+  CHECK(bank().can_undo());
+  t.pad(19);
+  t.release(Button::Copy);
+  t.release(Button::Pattern);
+  CHECK(bank().pattern(19).steps[3].note == 52);
+  CHECK(bank().undo() == 19);  // one undo step each
+  CHECK(pattern_is_empty(bank().pattern(19)));
+  CHECK(bank().undo() == 18);
+  CHECK(pattern_is_empty(bank().pattern(18)));
+  CHECK_FALSE(bank().can_undo());
+
+  // Delete held, then a pad: that pattern is cleared (not the selected one), one undo step brings it back
+  REQUIRE(bank().replace(18, bank().pattern(0)));
+  bank().clear_history();
+  t.press(Button::Pattern);
+  t.press(Button::Delete);
+  t.pad(18);
+  t.pad(30);  // an empty pattern: "WAS EMPTY", no edit
+  t.release(Button::Delete);
+  t.release(Button::Pattern);
+  t.wait(40);
+  CHECK(std::strcmp(t.title(), "STEPS") == 0);
+  CHECK(t.selected() == 0);
+  CHECK(pattern_is_empty(bank().pattern(18)));
+  CHECK(bank().pattern(0).steps[3].note == 52);
+  CHECK(bank().undo() == 18);
+  CHECK(bank().pattern(18).steps[3].note == 52);
+  CHECK_FALSE(bank().can_undo());
+
+  // Without Copy or Delete a pad still selects (stopped), and Copy alone is still the step's
+  t.select_pattern(18);
+  CHECK(t.selected() == 18);
+  t.select_pattern(0);
+  t.tap(Button::Copy);
+  CHECK(bank().has_step_clip());
 }
 
 TEST_CASE("Shift + Insert pushes the steps right from the cursor; Shift + Delete is backspace and clears nothing else") {

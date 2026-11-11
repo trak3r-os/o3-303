@@ -103,7 +103,7 @@ const char* attribute_name(PadRole role) noexcept {
 void pads_line_text(const PadsLineState& s, char* out, unsigned cap) noexcept {
   out[0] = '\0';
   if (s.overlay) {
-    append(out, cap, "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP");
+    append(out, cap, "48 PATTERNS . TAP = SELECT (PLAYING: QUEUE) . COPY + PAD: COPY HERE . DELETE + PAD: CLEAR IT");
     return;
   }
   if (s.attribute != PadRole::None) {
@@ -179,6 +179,9 @@ void HomeMap::init(Rig& rig) noexcept {
   overlay_ = false;
   chain_started_ = false;
   pattern_used_ = false;
+  pat_copy_held_ = false;
+  pat_delete_held_ = false;
+  pat_chord_used_ = false;
   pattern_down_ms_ = 0;
   toast_[0] = '\0';
   toast_until_ms_ = 0;
@@ -198,6 +201,8 @@ void HomeMap::enter(app::Context& ctx) noexcept {
   }
   pattern_down_ = false;
   overlay_ = false;
+  pat_copy_held_ = false;
+  pat_delete_held_ = false;
   row_ = DrawerRow::None;  // a screen shown again: the encoder is the knob's (the ENC text says so)
   refocus();
   ctx.redraw();
@@ -212,6 +217,8 @@ void HomeMap::leave(app::Context& ctx) noexcept {
   audition_off(ctx);
   pattern_down_ = false;
   overlay_ = false;
+  pat_copy_held_ = false;
+  pat_delete_held_ = false;
   row_ = DrawerRow::None;  // the row latch ends with the screen (the ENC window is the only display of who owns the encoder)
 }
 
@@ -651,6 +658,35 @@ void HomeMap::choose_pattern(app::Context& ctx, unsigned index) noexcept {
   ctx.redraw();
 }
 
+// Pattern held + Copy held + a pad: the current pattern is copied onto that pad's pattern (one undo step, Bank::replace). Pattern held + Delete held + a
+// pad: that pattern is cleared (one undo step). The playing pattern and the selection are not touched, the target is only written.
+void HomeMap::pattern_chord(app::Context& ctx, unsigned index) noexcept {
+  if (index >= kPatternCount) {
+    return;
+  }
+  seq::Bank& bank = *rig_->bank;
+  char to[4];
+  pattern_name(index, to, sizeof to);
+  char text[32] = "";
+  if (pat_copy_held_) {
+    const unsigned from = bank.selected();
+    if (from == index) {
+      toast(ctx, "THAT IS THE PATTERN ITSELF");
+      return;
+    }
+    char name[4];
+    pattern_name(from, name, sizeof name);
+    append(text, sizeof text, name);
+    append(text, sizeof text, " > ");
+    append(text, sizeof text, to);
+    (void)bank.replace(index, bank.pattern(from));
+  } else {
+    append(text, sizeof text, to);
+    append(text, sizeof text, bank.clear_pattern(index) ? " CLEARED" : " WAS EMPTY");
+  }
+  toast(ctx, text);
+}
+
 void HomeMap::pad_input(app::Context& ctx, const Input& in) noexcept {
   const unsigned pad = in.pad();
   const PadRole role = pad_role(pad);
@@ -701,7 +737,13 @@ void HomeMap::pad_input(app::Context& ctx, const Input& in) noexcept {
 
   if (overlay_ || pattern_down_) {  // Pattern held: the 48 pads are the patterns
     overlay_ = true;
-    choose_pattern(ctx, pad);
+    if (pat_copy_held_ || pat_delete_held_) {  // Copy / Delete held too: the pad is the target, not a chain entry
+      pat_chord_used_ = true;
+      pattern_used_ = true;
+      pattern_chord(ctx, pad);
+    } else {
+      choose_pattern(ctx, pad);
+    }
     ctx.redraw();
     return;
   }
@@ -1131,8 +1173,14 @@ void HomeMap::arrow(app::Context& ctx, Button which, bool shift) noexcept {
 
 void HomeMap::copy_buttons(app::Context& ctx, Button which, bool shift) noexcept {
   seq::Bank& bank = *rig_->bank;
-  if (pattern_down_) {  // Pattern held: the pads are the patterns, and Copy / Insert / Delete are PATTERN SETUP's (COPY PAT, DUP>NEXT, CLEAR LOCKS): nothing here
+  if (pattern_down_) {  // Pattern held: Copy / Delete held are the chord with a pad (copy onto it, clear it); Insert is PATTERN SETUP's (DUP>NEXT)
     pattern_used_ = true;
+    if (which == Button::Copy || which == Button::Delete) {
+      pat_copy_held_ = which == Button::Copy;
+      pat_delete_held_ = which == Button::Delete;
+      pat_chord_used_ = false;
+      return;  // (the hint comes at the release when no pad went with it)
+    }
     toast(ctx, "COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP", true);
     return;
   }
@@ -1212,9 +1260,22 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
       case Button::Vol:
       case Button::Fx:  // (a row is latched at the press; the live actions of these buttons are PERFORM's)
         break;
+      case Button::Copy:
+      case Button::Delete:
+        taken = (which == Button::Copy ? pat_copy_held_ : pat_delete_held_);
+        if (taken) {
+          pat_copy_held_ = false;
+          pat_delete_held_ = false;
+          if (!pat_chord_used_) {
+            toast(ctx, "HOLD COPY, TAP A PAD. COPY PAT: PATTERN SETUP", true);
+          }
+        }
+        break;
       case Button::Pattern:
         taken = pattern_down_;
         if (pattern_down_) {
+          pat_copy_held_ = false;
+          pat_delete_held_ = false;
           pattern_down_ = false;
           overlay_ = false;
           chain_started_ = false;
