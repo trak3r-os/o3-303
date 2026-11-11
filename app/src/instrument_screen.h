@@ -123,6 +123,8 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
   // What the Shift row says of key `k` (soft_keys() and the skin's knob labels): Learn::None while Shift is up.
   Learn learn_of(const o3sdk::app::Context& ctx, unsigned k) const noexcept;
+  // True when at least one key of the page is a unit parameter a controller can be learned on; WOBBLE's page has none (U8a): its Shift row shows nothing and the hint says so.
+  bool page_learnable() const noexcept;
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   void pads_line(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
 

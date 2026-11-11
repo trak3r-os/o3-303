@@ -795,11 +795,13 @@ void MainScreen::draw_body(app::Context& ctx, ui::Renderer& r, const Body& b) no
     view::draw_steps(r, hero, p, m);
     if (pattern_is_empty(p)) {
       const char* a = "EMPTY PATTERN";
-      const char* bl = "ARM REC AND PLAY THE KEYS, OR HOLD A STEP PAD AND PLAY A KEY";
+      const char* bl = "ARM REC, PLAY AND HOLD THE KEYS";  // U1: a held key is a long note
+      const char* b2 = "OR HOLD A STEP PAD AND PLAY A KEY";
       const int cx = view::kGridX + view::kGridW / 2;
       const int cy = hero.y + view::kNumbersH + 70;
       r.text(cx - r.text_width(a, Face::Data) / 2, cy, a, Color::TextDim, Face::Data);
       r.text(cx - r.text_width(bl, Face::Label) / 2, cy + 26, bl, Color::Empty, Face::Label);
+      r.text(cx - r.text_width(b2, Face::Label) / 2, cy + 44, b2, Color::Empty, Face::Label);
     }
 
     // The motion lane of the knob the encoder owns when a lane drives it (the pattern's lanes table, C2); else the last lane shown.

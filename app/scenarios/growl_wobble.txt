@@ -2,12 +2,12 @@
 # GROWL: seven knobs, the formant (F1 VOWEL, F2 FMT Q, F3 FMT MIX), the comb (F4 CMB TUNE, F5 CMB FB, F6 CMB MIX) and the growl's mix (F7 GRL MIX), F8 an empty well; the sections
 # VOICE and WOBBLE under the knobs. WOBBLE: F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET (the wobble's settings are app values), F6 to F8 empty wells; the sections VOICE and GROWL.
 # Both keep the home map on the pads and the drawer under the knobs, so the line keeps playing and editing while the sound is set. The Shift row is MIDI learn: LEARN on every
-# growl knob (they are unit parameters), "-" on every wobble key (app values). A held step + a turn locks the latched growl knob on that step.
+# growl knob (they are unit parameters); on WOBBLE (app values) there is no row and the hint says NOT LEARNABLE (U8a). A held step + a turn locks the latched growl knob on that step.
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/growl_wobble.txt --out <dir> --midi
 #
 # 01 GROWL (classic): the seven knobs, F1 latched; 02 a lock of F6 CMB MIX on a held step; 03 Shift: LEARN on each knob; 04 Shift + F6 arms it; 05 the controller binds it; 06 WOBBLE
-# (classic): the five keys and the three empty wells; 07 Shift: "-" on every key, and F1 cannot be armed; 08 Sample Playback again from WOBBLE; 09 Params from GROWL opens VOICE.
+# (classic): the five keys and the three empty wells; 07 Shift: no LEARN row, the hint NOT LEARNABLE, F1 cannot be armed; 08 Sample Playback again from WOBBLE; 09 Params from GROWL opens VOICE.
 # The skinned GROWL and WOBBLE are skin_instrument.txt's (03_growl, 03b_wobble, 11_growl_lock_and_learn): only the skin_* scenarios get the skin's budgets.
 wait 300
 tap sampleplay
@@ -35,10 +35,19 @@ wait 100
 snap 06_wobble
 press shift
 wait 800
-snap 07_shift_row_is_dash
+snap 07_shift_no_learn_row
 tap f1
 wait 100
 release shift
+# U8c: Shift changes nothing for the Sample buttons: Shift + Sample Playback and Shift + Sample Edit open GROWL and WOBBLE as they do alone (HELP says so).
+press shift
+tap sampleplay
+wait 100
+tap sampleedit
+wait 100
+snap 07b_shift_sample_edit_is_wobble
+release shift
+wait 100
 # Pressed again on the screen it opens, the button stays; from WOBBLE the other opens GROWL; Params goes to INSTRUMENT on VOICE.
 tap sampleedit
 tap sampleplay

@@ -70,3 +70,10 @@ snap home_heldleft_1
 release left
 release f1
 wav home
+# U8d: an empty pattern (a pattern pad nobody wrote) says how to fill it: ARM REC, PLAY AND HOLD THE KEYS (a held key is a long note), or hold a step pad and play a key.
+press pattern
+wait 200
+pad 47
+release pattern
+wait 300
+snap 11_empty_pattern_hint

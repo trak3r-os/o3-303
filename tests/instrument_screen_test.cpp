@@ -425,13 +425,25 @@ TEST_CASE("MIDI learn arms only unit parameters: VOLUME, DLY SEND, MODEL and the
   CHECK_FALSE(ctx.midi().learning());
   CHECK(ctx.midi().bindings() == 0u);
 
-  t.to_wobble();  // WOBBLE: the wobble's settings are app values, "-" on every key, and none can be armed
+  t.to_wobble();  // WOBBLE: the wobble's settings are app values: with Shift the row is empty (not eight "-", U8a), the hint says NOT LEARNABLE, and none can be armed
+  InstrumentView iv;
+  static_cast<InstrumentScreen*>(ctx.screen())->fill_view(ctx, iv);
+  CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") != 0);  // without Shift the page's own hint
   t.press(Button::Shift);
   for (unsigned k = 0; k < 8; ++k) {
     INFO("WOBBLE F" << (k + 1));
-    CHECK(row(k) == "-");
+    CHECK(row(k).empty());
   }
+  static_cast<InstrumentScreen*>(ctx.screen())->fill_view(ctx, iv);
+  CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") == 0);
   t.release(Button::Shift);
+  t.to_growl();  // a page with unit parameters keeps its LEARN row and its own hint
+  t.press(Button::Shift);
+  CHECK(row(0) == "LEARN");
+  static_cast<InstrumentScreen*>(ctx.screen())->fill_view(ctx, iv);
+  CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") != 0);
+  t.release(Button::Shift);
+  t.to_wobble();
   for (unsigned k = 0; k < 8; ++k) {
     t.shift_tap(app::fkey(k));
     CHECK_FALSE(ctx.midi().learning());

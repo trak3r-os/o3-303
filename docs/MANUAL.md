@@ -579,7 +579,7 @@ action is on. F8 latches that action here, the same as WOB on PERFORM, and ALL O
 | F5 RESET | Whether each note restarts the wave | OFF, ON | OFF |
 | F8 WOB | Runs the wobble, as PERFORM's WOB action does | OFF, ON | OFF |
 
-The wobble's settings are not learnable with MIDI: their Shift row says "-". F8 WOB is not a MIDI control either.
+The wobble's settings are not learnable with MIDI: with Shift held there is no LEARN row (the F row keeps showing the knobs, not a dash on every key) and, under the skin, the hint says NOT LEARNABLE. F8 WOB is not a MIDI control either.
 
 The wobble's five settings and its latch are saved in the project and in each snapshot (the shape and target switch at a recall, they do not glide); an older project or snapshot loads with the defaults. The VOWEL target needs GRL MIX above 0: while the growl is off the encoder says GROWL IS OFF. The strip says WOB OFF: F8 while the latch is off.
 
@@ -886,7 +886,7 @@ Config's MIDI section says which one is followed (FOLLOW PORT).
   when the step they play is accented); slides come from overlapping notes, as before.
 - **MIDI learn.** On INSTRUMENT, MODDED and GROWL, hold Shift: the F keys that say LEARN can follow a controller. Press Shift + the F key,
   then move the controller's knob. Shift + the same key again cancels. The mods and the growl's knobs can be learned; MODS and the
-  wobble's settings show "-". Config's MIDI section has CLEAR LEARN (F1 twice) to remove every binding.
+  wobble's settings are not learnable (the F row shows nothing with Shift held). Config's MIDI section has CLEAR LEARN (F1 twice) to remove every binding.
 - **Clock.** Config's MIDI section has FOLLOW CLOCK and FOLLOW PORT (follow another machine's tempo), TRANSPORT IN, and CLOCK OUT and
   TRANSPORT OUT for the other direction. MASTER's CLOCK line says whether the tempo is INTERNAL.
 

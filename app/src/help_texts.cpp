@@ -53,8 +53,9 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
   // Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
   b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "MODS: HEARD / PLAIN 303");
-  b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL");
-  b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE");
+  // With Shift they do the same (o3_303_app.cpp ignores Shift for both): the Shift text says so (U8).
+  b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
+  b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
   b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
 }
 

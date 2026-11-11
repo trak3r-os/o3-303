@@ -600,7 +600,7 @@ bool InstrumentScreen::action_on(const dsp::Engine& e, const Entry& entry) const
 // The Shift row (UX-303 5.5, D15): LEARN for each knob that is a unit parameter (lit while this key's learn is waiting for its controller), "-" for the others; nothing
 // while Shift is up (the knob row carries the names).
 void InstrumentScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
-  if (!ctx.panel().shift()) {
+  if (!ctx.panel().shift() || !page_learnable()) {  // a page with nothing to learn (WOBBLE) has no Shift row, not eight "-" (U8a)
     return;
   }
   for (unsigned k = 0; k < kKeys; ++k) {
@@ -617,9 +617,21 @@ void InstrumentScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept
   }
 }
 
+bool InstrumentScreen::page_learnable() const noexcept {
+  const Page& pg = keys().page();
+  for (unsigned k = 0; k < kKeys; ++k) {
+    dsp::UnitId unit = dsp::kNoUnit;
+    std::uint16_t param = 0;
+    if (learn_target(rig_->wiring, pg.entry[k], unit, param)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // What the Shift row says of key `k`: LEARN where the knob is a unit parameter (waiting for its controller while this key's learn is armed), "-" where it is not.
 Learn InstrumentScreen::learn_of(const app::Context& ctx, unsigned k) const noexcept {
-  if (!ctx.panel().shift()) {
+  if (!ctx.panel().shift() || !page_learnable()) {
     return Learn::None;
   }
   dsp::UnitId unit = dsp::kNoUnit;
@@ -735,7 +747,9 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   view.tab_count = group_->count;
   view.tabs = group_->tabs;
   view.hint = group_->hint;
-  if (group_ == &kGrowlGroup && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
+  if (ctx.panel().shift() && !page_learnable()) {  // WOBBLE's knobs are the screen's own settings, not unit parameters (U8a)
+    view.hint = "NOT LEARNABLE";
+  } else if (group_ == &kGrowlGroup && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
     view.hint = "GROWL OFF: F8";
   } else if (group_ == &kWobbleGroup && !live_->wobble_on()) {
     view.hint = "WOB OFF: F8";

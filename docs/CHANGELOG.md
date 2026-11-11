@@ -23,6 +23,8 @@ hear says so in plain words.
 
 ### What works differently (a habit changes)
 
+- **WOBBLE with Shift held has no LEARN row and the hint says NOT LEARNABLE** (under the skin), not a dash on every key. Shift + Sample Playback and Shift + Sample Editor
+  open GROWL and WOBBLE as they do without Shift (HELP says so), and HOME's empty-pattern hint now says to arm REC, play and hold the keys (a held key is a long note).
 - **PERFORM SETUP is Shift + Performance.** It used to be the third press of Performance; now Performance only flips PERFORM and PERFORM
   KNOBS, so a press in play never lands on SETUP. Performance leaves SETUP for the page it was opened from.
 - **The library loads a line and keeps your sound and, while the transport runs, your tempo.** FILE LIBRARY starts on LOAD LINE (Shift + F2

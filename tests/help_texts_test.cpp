@@ -446,12 +446,16 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
     } else {
       REQUIRE_MESSAGE(play != nullptr, t.name);
       CHECK_MESSAGE(std::strcmp(play->text, "OPEN GROWL") == 0, t.name);
+      REQUIRE_MESSAGE(play->shift != nullptr, t.name << ": Shift + Sample Playback does the same, and HELP says so (U8)");
+      CHECK_MESSAGE(std::strcmp(play->shift, "SAME: OPEN GROWL") == 0, t.name);
     }
     if (static_cast<Id>(i) == Id::Wobble) {
       CHECK_MESSAGE(edit == nullptr, t.name << ": Sample Editor does nothing on WOBBLE (it is drawn dimmed)");
     } else {
       REQUIRE_MESSAGE(edit != nullptr, t.name);
       CHECK_MESSAGE(std::strcmp(edit->text, "OPEN WOBBLE") == 0, t.name);
+      REQUIRE_MESSAGE(edit->shift != nullptr, t.name << ": Shift + Sample Editor does the same, and HELP says so (U8)");
+      CHECK_MESSAGE(std::strcmp(edit->shift, "SAME: OPEN WOBBLE") == 0, t.name);
     }
   }
 }
