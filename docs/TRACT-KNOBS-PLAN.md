@@ -615,3 +615,31 @@ U1: whether "nearest step" feels right under the fingers at 125 and at 160 BPM (
 NEW's ties sound like a 303 line or too legato (the ratio, half of SLD %, is one constant). U6: whether the three key drawings are
 told apart on the real display at arm's length. U7: whether moving SAVE and DISCARD is worth the habit change (it can be dropped
 without touching the other slices).
+
+---
+
+## 11. The maintainer's decisions after the plan (2026-11-11)
+
+These replace the matching parts of sections 3 and 6 (A1 to A3) where they differ.
+
+1. **TRACT is Sample Play's first page and GROWL its second.** Sample Play opens TRACT; Sample Play again flips to GROWL and back.
+   This changes a habit (Sample Play used to open GROWL), which the CHANGELOG says.
+2. **The note pattern stays as it is.** No vowel goes into the step word or the pattern's step data, and no TRACT lock is needed for
+   vowels. ACC, SLIDE, HOME's pads and the eight-lane limit are unchanged.
+3. **A TRACT pattern, one for each of the 48 patterns**, a parallel line of the mouth, edited on the TRACT page:
+   - A step is "-" (follow the VOWEL knob) or one of A, E, I, O, U, with its own GLD flag (the mouth glides to the next step's vowel
+     over the step), independent of the notes' SLIDE.
+   - Its own length: SAME (the default, the pattern's length) or 4, 8, 16, 32, 64. A different length runs polymetric against the
+     notes, on the same clock.
+   - It belongs to its pattern: a pattern change and SONG switch it; COPY PAT, PASTE, DUP>NEXT and UNDO carry it.
+   - Saved in a new project chunk beside the pattern's, not in the step data. An older project loads with every line empty. About
+     3 KB in the SDRAM (48 x 64 bytes plus the lengths).
+   - The sequencer's hook writes the tract unit's VOWEL (and GLIDE for a GLD step) at the step's frame; a "-" step leaves the knob's
+     value.
+4. **The TRACT page:** F1 VOWEL (the base vowel and the live morph), F2 TONGUE, F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX, F8
+   TRACT on / off. Pads: rows 1 and 2 the TRACT pattern's steps (lit = has a vowel, the playhead runs); row 3 the palette A E I O U -
+   and GLD (hold a step + tap = that step, as hold a step + ACC on HOME); row 4 live vowels (a tap moves the mouth now; with REC on
+   while playing it writes the current step). Shift + F: the line's LEN and CLEAR.
+5. **VOWEL stays** as a knob: the base for "-" steps, the live morph through every in-between value, MIDI learnable, recordable as
+   motion like any knob, and the wobble's MOUTH target swings around the vowel that sounds. TONGUE, LIPS and SIZE bend whatever
+   vowel sounds.
