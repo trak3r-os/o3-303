@@ -102,14 +102,16 @@ inline void fill_take_status(const Rig& rig, frame::StatusView& status) noexcept
 // What a vault load takes from a preset.
 enum class LoadWhat : std::uint8_t {
   Both,     // the pattern with its tempo, and the sound
-  Pattern,  // the pattern (swing is part of it) and the tempo
+  Pattern,  // the pattern (swing is part of it) and the tempo (both kept while the transport runs: see load_preset())
   Sound,    // the patch: the voice's parameters and the distortion's
 };
 
 // Loads `preset` (docs/M3-PLAN.md "Contracts": a 16-step pattern, a patch, tempo and swing): the pattern replaces the selected pattern
 // (one undoable edit), the patch goes to the voice and the distortion as parameter values, the tempo to the engine. Master and the
 // level are not part of a preset: loading never jumps the volume of a set.
-void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what) noexcept;
+// `keep_timing` (the library while the transport runs, REVIEW S7) keeps the tempo and the swing the pattern had: the line is loaded and
+// the engine's tempo and the selected pattern's swing stay as they are.
+void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what, bool keep_timing = false) noexcept;
 
 // LAST: the sound as it is now goes into LAST.
 void last_capture(const o3sdk::dsp::Engine& e, Rig& rig) noexcept;

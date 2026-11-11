@@ -22,6 +22,9 @@ hear says so in plain words.
 
 - **PERFORM SETUP is Shift + Performance.** It used to be the third press of Performance; now Performance only flips PERFORM and PERFORM
   KNOBS, so a press in play never lands on SETUP. Performance leaves SETUP for the page it was opened from.
+- **The library loads a line and keeps your sound and, while the transport runs, your tempo.** FILE LIBRARY starts on LOAD LINE (Shift + F2
+  chooses LOAD SOUND or LOAD BOTH). A load while the line plays keeps the tempo and the swing you have and the toast says "TEMPO KEPT"; stopped,
+  it sets them as before.
 - **MODS on or off and the growl's last mix are saved with the project.** A project saved with MODS off opens with MODS off (the STOCK chip
   shows); a load, REVERT, NEW and RESET PROJECT no longer always turn MODS on, they bring back what the project holds (NEW and RESET: on). F8
   GROWL's "last value" is saved too. The file gets two more entries; a project from an older version loads with MODS on and a last mix of

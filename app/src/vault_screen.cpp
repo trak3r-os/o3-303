@@ -110,7 +110,7 @@ void VaultScreen::init(Rig& rig) noexcept {
   bank_ = 0;
   slot_ = 0;
   seed_ = 0;
-  what_ = LoadWhat::Both;
+  what_ = LoadWhat::Pattern;  // LOAD LINE is the default (REVIEW S7): the sound is the player's, the line is what a browse is for
   refresh();
 }
 
@@ -166,16 +166,22 @@ void VaultScreen::load_slot(app::Context& ctx) noexcept {
   if (replaces_sound) {
     last_capture(ctx.engine(), *rig_);  // the sound this load takes away: Shift + F3 brings it back
   }
-  load_preset(ctx.engine(), *rig_, preview_, what_);  // one UNDO; the level and master are not part of a preset
-  // The hint always fits: the preset's name is what gets cut.
+  // While the transport runs a load keeps the tempo and the swing (REVIEW S7); stopped it sets them as it always did.
+  const bool keep = what_ != LoadWhat::Sound && ctx.engine().playing();
+  load_preset(ctx.engine(), *rig_, preview_, what_, keep);  // one UNDO; the level and master are not part of a preset
+  // The hints always fit: the preset's name is what gets cut.
   constexpr char kHint[] = " - LAST: SHIFT F3";
+  constexpr char kKept[] = " - TEMPO KEPT";
   char text[48] = "LOADED ";
-  const unsigned room = sizeof text - 1u - 7u - (replaces_sound ? sizeof kHint - 1u : 0u);
+  const unsigned room = static_cast<unsigned>(sizeof text - 1u - 7u - (replaces_sound ? sizeof kHint - 1u : 0u) - (keep ? sizeof kKept - 1u : 0u));
   unsigned n = 7;
   for (unsigned i = 0; preview_.name[i] != '\0' && i < room; ++i) {
     text[n++] = preview_.name[i];
   }
   text[n] = '\0';
+  if (keep) {
+    append(text, sizeof text, kKept);
+  }
   if (replaces_sound) {
     append(text, sizeof text, kHint);
   }

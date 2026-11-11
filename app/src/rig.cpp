@@ -27,11 +27,17 @@ void read_sound(const o3sdk::dsp::Engine& e, const Rig& rig, float* voice, float
 
 }  // namespace
 
-void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what) noexcept {
+void load_preset(o3sdk::dsp::Engine& e, Rig& rig, const seq::gen::Preset& preset, LoadWhat what, bool keep_timing) noexcept {
   const seq::gen::ParamValues v = seq::gen::to_values(preset.patch);
   if (what != LoadWhat::Sound) {
-    (void)rig.bank->replace(rig.bank->selected(), preset.pattern);
-    (void)e.set_tempo(v.tempo_mbpm);
+    if (keep_timing) {
+      Pattern p = preset.pattern;
+      p.swing = rig.bank->pattern(rig.bank->selected()).swing;
+      (void)rig.bank->replace(rig.bank->selected(), p);
+    } else {
+      (void)rig.bank->replace(rig.bank->selected(), preset.pattern);
+      (void)e.set_tempo(v.tempo_mbpm);
+    }
   }
   if (what != LoadWhat::Pattern) {
     write_sound(e, rig, v.voice, v.dist);

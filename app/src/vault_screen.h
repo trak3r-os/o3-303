@@ -8,7 +8,7 @@
 //   F1..F8           bank A..H                       encoder        slot (Shift: the seed by hand, said on the status line)
 //   pads 1..48       LOAD slots 0..47 of the bank    LEFT / RIGHT   slot -1 / +1
 //   UP / DOWN        slot -8 / +8                    INSERT         LOAD the slot shown (the only way to the slots 48..63, which have no pad)
-//   Shift + F1       NEW SEED (the same slot, another take)        Shift + F2     LOAD what: BOTH, LINE, SOUND
+//   Shift + F1       NEW SEED (the same slot, another take)        Shift + F2     LOAD what: LINE (the default), SOUND, BOTH
 //   Shift + F3       LAST SOUND: the sound the last load replaced (kept in RAM); the sound now goes into LAST, so a second press goes back
 //
 // The view logic (the texts) is apart from the drawing. Main loop only.

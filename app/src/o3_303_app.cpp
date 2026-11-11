@@ -193,6 +193,8 @@ class O3_303App final : public app::App {
     rig_.controls.apply_send(e);
     (void)e.set_tempo(kDefaultTempoMilli);
 
+    rig_.last_used = false;  // a run starts with an empty LAST (the simulator's tests reuse the object: a load of an earlier run must not leak into this one)
+
     // First boot: the vault's factory line (bank 0, slot 0), pattern and sound, in pattern 0, so Play sounds at once.
     o3_303::seq::gen::Preset first;
     o3_303::seq::gen::factory(first, 0, 0);

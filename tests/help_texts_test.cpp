@@ -569,11 +569,11 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     close_help(h);
   }
   tap(h, app::Button::File);
-  tap(h, app::Button::File);  // FILE LIBRARY: NEW SEED and LOAD BOTH (what_ cycles with the key)
+  tap(h, app::Button::File);  // FILE LIBRARY: NEW SEED and LOAD LINE, the default (what_ cycles with the key)
   {
     const Help& help = open_help(h);
     CHECK(std::strcmp(help.fkey_shift[0], "NEW SEED") == 0);
-    CHECK(std::strcmp(help.fkey_shift[1], "LOAD BOTH") == 0);
+    CHECK(std::strcmp(help.fkey_shift[1], "LOAD LINE") == 0);
     close_help(h);
   }
   h.press(app::Button::Shift);  // Shift + F2 cycles what a load takes: the Shift row's key and HELP's say the same
@@ -583,7 +583,7 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
   h.run_ms(50);
   {
     const Help& help = open_help(h);
-    CHECK(std::strcmp(help.fkey_shift[1], "LOAD LINE") == 0);
+    CHECK(std::strcmp(help.fkey_shift[1], "LOAD SOUND") == 0);
     close_help(h);
   }
 }

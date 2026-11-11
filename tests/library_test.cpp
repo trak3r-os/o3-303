@@ -18,6 +18,17 @@ void to_library(Hands& t) {
   t.tap(Button::File);
 }
 
+// The library loads the line only until told otherwise (REVIEW S7): Shift + F2 goes SOUND, then BOTH, then LINE again. What it takes
+// outlives the screen, so this cycles until BOTH, whatever an earlier call left.
+void to_library_both(Hands& t) {
+  to_library(t);
+  const VaultScreen& lib = *static_cast<const VaultScreen*>(t.h->runtime().context().screen());
+  for (unsigned i = 0; i < 3 && lib.target() != LoadWhat::Both; ++i) {
+    t.shift_tap(Button::F2);
+  }
+  REQUIRE(lib.target() == LoadWhat::Both);
+}
+
 TEST_CASE("File opens FILE PROJECTS, again FILE LIBRARY, again PROJECTS; Pattern goes home") {
   Hands t;
   t.tap(Button::File);
@@ -40,7 +51,7 @@ TEST_CASE("File opens FILE PROJECTS, again FILE LIBRARY, again PROJECTS; Pattern
 TEST_CASE("the library: INSERT loads the slot shown into the pattern and the sound and stays; a pad loads its slot") {
   Hands t;
   seq::gen::Preset slot;
-  to_library(t);
+  to_library_both(t);
   t.tap(Button::F4);  // bank D: ACID
   for (unsigned i = 0; i < 17; ++i) {
     t.turn(1);  // slot 17
@@ -92,16 +103,16 @@ TEST_CASE("the library: INSERT loads the slot shown into the pattern and the sou
   }
 }
 
-TEST_CASE("the library's Shift row: F1 NEW SEED, F2 LOAD what (BOTH, LINE, SOUND); Params and Rec are no longer its keys") {
+TEST_CASE("the library's Shift row: F1 NEW SEED, F2 LOAD what (LINE first, then SOUND, BOTH); Params and Rec are no longer its keys") {
   Hands t;
   to_library(t);
-  t.pad(2);  // a slot with a line of its own
   const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
+  t.pad(2);  // a slot with a line of its own: LINE is the default, the sound stays
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(cutoff));
   const Pattern loaded = t.pat();
 
   // Shift + F1: another take of the slot (a new seed), then a LINE-only load leaves the sound alone.
   t.shift_tap(Button::F1);
-  t.shift_tap(Button::F2);  // LINE
   t.tap(Button::Insert);
   bool pattern_changed = false;
   for (unsigned i = 0; i < 16; ++i) {
@@ -131,13 +142,55 @@ TEST_CASE("the library's Shift row: F1 NEW SEED, F2 LOAD what (BOTH, LINE, SOUND
   }
 }
 
+TEST_CASE("the library while the line plays keeps the tempo and the swing and says TEMPO KEPT; stopped it loads them") {
+  Hands t;
+  seq::gen::Preset slot;
+  seq::gen::factory(slot, 0, 3);
+  const seq::gen::ParamValues v = seq::gen::to_values(slot.patch);
+  const std::uint32_t mine = v.tempo_mbpm == 97000u ? 131000u : 97000u;
+  REQUIRE(t.h->engine().set_tempo(mine));
+  Pattern p = t.pat();
+  p.swing = slot.pattern.swing == 40 ? 20 : 40;
+  REQUIRE(bank().replace(bank().selected(), p));
+  to_library(t);
+  VaultScreen& lib = *static_cast<VaultScreen*>(t.h->runtime().context().screen());
+  t.tap(Button::Play);
+  t.wait(200);
+  REQUIRE(t.h->engine().playing());
+  t.pad(3);  // LINE, the default
+  CHECK(t.h->engine().tempo() == mine);
+  CHECK(t.pat().swing == p.swing);
+  CHECK(t.pat().steps[0].note == slot.pattern.steps[0].note);  // the line did load
+  CHECK(std::strstr(lib.toast(), "TEMPO KEPT") != nullptr);
+  t.shift_tap(Button::F2);
+  t.shift_tap(Button::F2);  // BOTH: the sound too, the hint still fits next to LAST
+  REQUIRE(lib.target() == LoadWhat::Both);
+  t.pad(3);
+  CHECK(t.h->engine().tempo() == mine);
+  CHECK(std::strstr(lib.toast(), "TEMPO KEPT") != nullptr);
+  CHECK(std::strstr(lib.toast(), "LAST") != nullptr);
+  t.shift_tap(Button::F2);  // LINE again
+  t.shift_tap(Button::F2);  // SOUND: no line, no tempo to keep, and no word about it
+  t.pad(3);
+  CHECK(std::strstr(lib.toast(), "TEMPO KEPT") == nullptr);
+
+  t.tap(Button::Play);  // stopped: a load sets the tempo and the swing as ever
+  t.wait(200);
+  REQUIRE_FALSE(t.h->engine().playing());
+  t.shift_tap(Button::F2);  // BOTH
+  t.pad(3);
+  CHECK(t.h->engine().tempo() == v.tempo_mbpm);
+  CHECK(t.pat().swing == slot.pattern.swing);
+  CHECK(std::strstr(lib.toast(), "TEMPO KEPT") == nullptr);
+}
+
 TEST_CASE("the library's LAST: exactly the sound a load writes goes into it; Shift + F3 swaps it back and forth, LOAD LINE leaves it alone") {
   Hands t;
   auto set = [&](dsp::UnitId u, unsigned id, float v) {
     REQUIRE(t.h->engine().set_param(u, static_cast<std::uint16_t>(id), v));
     REQUIRE(t.param(u, id) == doctest::Approx(v));
   };
-  to_library(t);
+  to_library_both(t);
   set(kVoice, AcidVoice::Volume, 0.3f);  // not part of a load: the level, the delay's and the growl's first knobs
   set(kDelay, 0, 0.35f);
   set(kGrowl, 0, 0.45f);
@@ -231,7 +284,7 @@ float vault_peak(Hands& t, unsigned bank_index, unsigned slot_index, unsigned& a
   seq::gen::Preset want;
   seq::gen::factory(want, bank_index, slot_index);
   const seq::gen::ParamValues v = seq::gen::to_values(want.patch);
-  to_library(t);
+  to_library_both(t);
   t.tap(banks[bank_index], 5);
   t.turn(static_cast<int>(slot_index) - static_cast<int>(at_slot));
   at_slot = slot_index;

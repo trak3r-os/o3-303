@@ -662,13 +662,14 @@ OFF WORLD and LAST.
 
 - **F1 to F8** pick the bank.
 - **A pad** loads that slot (0 to 47), and **Shift + a pad** loads slot pad + 16 (16 to 63), so every slot of the bank is on a pad (while Shift is held the
-  LEDs show slots 16 to 63, the slot shown lit; the PADS line says "PADS 0-47 . SHIFT 16-63"). Either loads into the pattern shown and the sound, at once. A load also sets the tempo, the voice and the
-  distortion. UNDO takes back the line only, not the tempo or the sound: to try lines and leave your sound alone, set **Shift + F2** to
-  LOAD LINE first.
+  LEDs show slots 16 to 63, the slot shown lit; the PADS line says "PADS 0-47 . SHIFT 16-63"). Either loads into the pattern shown, at once. The screen starts on LOAD LINE: the line and its tempo come in and
+  your sound stays; set **Shift + F2** to LOAD BOTH to take the library's sound too (the voice and the distortion). While the transport runs a
+  load keeps the tempo and the swing you have and the toast says "TEMPO KEPT"; stopped, the line sets them. UNDO takes back the line only, not
+  the tempo or the sound.
 - The encoder and the arrows (Left and Right one slot, Up and Down a row of twelve, as on the pads) also pick a slot; **Insert** loads the slot shown. **Shift + turn** still
   picks the seed.
-- **Shift + F2** chooses what a load takes: LOAD BOTH (the line and the sound), LOAD LINE or LOAD SOUND. A line comes with its
-  tempo, so LOAD LINE still sets the tempo.
+- **Shift + F2** chooses what a load takes: LOAD LINE (the default each time the screen opens), LOAD SOUND or LOAD BOTH (the line and the
+  sound). A line comes with its tempo, so a load of the line sets the tempo when the transport is stopped and keeps yours while it runs.
 - **Shift + F1** NEW SEED: another take of the slot, a different line from the same recipe. **Shift + turn** picks the seed by hand;
   seed VAULT is the library's own.
 - **Shift + F3** LAST: a load that replaces the sound (LOAD BOTH or LOAD SOUND) first keeps the sound you had, and its toast says "LAST: SHIFT F3".
@@ -756,8 +757,9 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
   to the patterns and the song. Turning the encoder on one step is one change, not forty.
 - **The pattern tools** (Shift on HOME): NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR. Each one is a single undo, so press NEW five times and
   UNDO back to the one you liked. PERFORM's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live.
-- **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo or the sound a
-  load also sets: Shift + F2 LOAD LINE leaves the sound alone, and Shift + F3 brings back the sound a load replaced (section 5, FILE LIBRARY).
+- **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo (a load while the
+  transport runs keeps it) or the sound a LOAD BOTH or LOAD SOUND sets: the screen starts on LOAD LINE, which leaves the sound alone, and Shift + F3
+  brings back the sound a load replaced (section 5, FILE LIBRARY).
 - **Snapshots** (PERFORM): store a sound before you twist the knobs, recall it when you get lost, and morph between two.
 - **MODS** (Shift + Sample Load, from any screen): turns the MODDED mods off to hear the plain 303, and on again, with your settings
   kept (section 5, MODDED).
