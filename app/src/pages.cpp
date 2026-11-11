@@ -507,6 +507,17 @@ int Controls::press_detents(const dsp::Engine& e, const Entry& entry) const noex
   return d != nullptr ? o3_303::press_detents(*d) : 1;
 }
 
+KeyKind Controls::kind(const dsp::Engine& e, const Entry& entry) const noexcept {
+  const core::ParamDesc* d = desc(e, entry);
+  if (d == nullptr) {
+    return KeyKind::Blank;
+  }
+  if (entry.item == Item::Mods || entry.item == Item::WobOn || entry.item == Item::GrowlOn) {
+    return KeyKind::Action;
+  }
+  return d->names != nullptr && d->list_count == 2u ? KeyKind::Switch : KeyKind::Knob;
+}
+
 bool Controls::continuous(const dsp::Engine& e, const Entry& entry) const noexcept {
   const core::ParamDesc* d = desc(e, entry);
   return d != nullptr && d->names == nullptr && d->detents >= 20u;

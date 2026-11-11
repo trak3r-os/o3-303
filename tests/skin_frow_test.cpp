@@ -83,6 +83,24 @@ TEST_CASE("frow: one slot kind for each key: blank is empty, a negative norm an 
   CHECK(slot_kind(view::Knob{}) == SlotKind::Action);  // a default Knob has norm -1: an action key with no name
 }
 
+TEST_CASE("frow, U6: the classic strip and the skin take their kind of key from one rule (view::key_kind)") {
+  const float norms[] = {-1.0f, 0.0f, 0.5f, 1.0f};
+  for (const bool blank : {false, true}) {
+    for (const bool toggle : {false, true}) {
+      for (const float norm : norms) {
+        view::Knob k;
+        k.blank = blank;
+        k.toggle = toggle;
+        k.norm = norm;
+        const KeyKind want = blank ? KeyKind::Blank : (norm < 0.0f ? KeyKind::Action : (toggle ? KeyKind::Switch : KeyKind::Knob));
+        CHECK(view::key_kind(k) == want);
+        const SlotKind slot = slot_kind(k);
+        CHECK(slot == (want == KeyKind::Blank ? SlotKind::Empty : (want == KeyKind::Action ? SlotKind::Action : (want == KeyKind::Switch ? SlotKind::Switch : SlotKind::Knob))));
+      }
+    }
+  }
+}
+
 TEST_CASE("frow: the readout's face is the biggest that fits the window, the hint's the quieter Label") {
   CHECK(readout_face(1) == ui::Face::Data);
   CHECK(readout_face(8) == ui::Face::Data);

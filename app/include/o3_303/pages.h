@@ -19,6 +19,7 @@
 #include <o3sdk/app/input.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
+#include <o3_303/key_kind.h>
 #include <o3_303/pattern.h>
 #include <o3_303/perform.h>
 #include <o3_303/seq/bank.h>
@@ -180,6 +181,9 @@ class Controls {
   const o3sdk::core::ParamDesc* desc(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   // press_detents() of the entry's descriptor (1 for a blank).
   int press_detents(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
+  // What the key is (U6): Blank for an unused key or an unknown id; Action for MODDED's STOCK, WOBBLE's WOB and GROWL's on key (they run at the press and the encoder stays
+  // where it was); Switch for a two-place list (an enum of 2); Knob for everything else.
+  KeyKind kind(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   // true for a knob that takes the encoder's speed (Context::enc_scale): a continuous value, not an enum or a switch (one value a detent) nor a blank.
   bool continuous(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   float get(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;

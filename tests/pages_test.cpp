@@ -823,3 +823,42 @@ TEST_CASE("a press of Left or Right moves a knob by 1/20 of its range; an enum, 
   d.names = names;
   CHECK(press_detents(d) == 1);  // an enum
 }
+
+TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule (Controls::kind)") {
+  Rig rig;
+  const auto kind = [&](const Page& page, unsigned key) { return rig.controls.kind(rig.engine, page.entry[key]); };
+  CHECK(rig.controls.kind(rig.engine, Entry{}) == KeyKind::Blank);
+  // Every entry of every table: a two-place list is a switch, MODS and the two WOB / GRL F8 keys are actions, a blank is blank, and nothing else is a switch or an action.
+  const Page* tables[] = {&page_at(kPageSound), &page_at(kPagePerfSetup), &kFxPage, &kNotesPage, &kTonePage, &kGrowlPage, &kWobblePage, &setup_page()};
+  unsigned switches = 0;
+  unsigned actions = 0;
+  for (const Page* p : tables) {
+    for (unsigned k = 0; k < kKeys; ++k) {
+      const Entry& e = p->entry[k];
+      const core::ParamDesc* d = rig.controls.desc(rig.engine, e);
+      const KeyKind got = rig.controls.kind(rig.engine, e);
+      if (e.item == Item::Blank) {
+        CHECK(got == KeyKind::Blank);
+      } else if (e.item == Item::Mods || e.item == Item::WobOn || e.item == Item::GrowlOn) {
+        CHECK(got == KeyKind::Action);
+        ++actions;
+      } else if (d != nullptr && d->names != nullptr && d->list_count == 2u) {
+        CHECK(got == KeyKind::Switch);
+        ++switches;
+      } else {
+        CHECK(got == KeyKind::Knob);
+      }
+    }
+  }
+  CHECK(actions >= 2);   // MODDED's F8 on NOTES and TONE
+  CHECK(switches >= 1);  // the voice's WAVE at least
+  CHECK(kind(kNotesPage, 7) == KeyKind::Action);
+  CHECK(kind(kTonePage, 7) == KeyKind::Action);
+  CHECK(kind(kWobblePage, 7) == KeyKind::Action);
+  CHECK(kind(kWobblePage, 5) == KeyKind::Blank);
+  // WAVE is a switch wherever it is; CUTOFF is a knob; a list of more than two places (the delay's or the shape's) is a knob.
+  const Entry wave{Item::Voice, AcidVoice::Wave, nullptr};
+  const Entry cutoff{Item::Voice, AcidVoice::Cutoff, nullptr};
+  CHECK(rig.controls.kind(rig.engine, wave) == KeyKind::Switch);
+  CHECK(rig.controls.kind(rig.engine, cutoff) == KeyKind::Knob);
+}

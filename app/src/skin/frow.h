@@ -30,9 +30,19 @@ inline constexpr int kSlots = view::kKnobs;
 
 enum class SlotKind : std::uint8_t { Empty, Action, Switch, Knob };
 
-// One rule, one place: a blank key is an empty box, a negative `norm` an action, `toggle` a switch, anything else a knob.
+// One rule, one place (view::key_kind, which the classic strip draws by too): a blank key is an empty box, a negative `norm` an action, `toggle` a switch, anything else a knob.
 constexpr SlotKind slot_kind(const view::Knob& k) noexcept {
-  return k.blank ? SlotKind::Empty : (k.norm < 0.0f ? SlotKind::Action : (k.toggle ? SlotKind::Switch : SlotKind::Knob));
+  switch (view::key_kind(k)) {
+    case KeyKind::Blank:
+      return SlotKind::Empty;
+    case KeyKind::Action:
+      return SlotKind::Action;
+    case KeyKind::Switch:
+      return SlotKind::Switch;
+    case KeyKind::Knob:
+      break;
+  }
+  return SlotKind::Knob;
 }
 
 inline constexpr unsigned kNameChars = 8;      // the label line's name: a tab and eight 8x16 characters fit a slot

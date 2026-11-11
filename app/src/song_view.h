@@ -40,6 +40,7 @@ struct SongKey {
   char value[10] = "";
   bool dim = false;  // nothing to do now
   bool hot = false;  // waits for its second press (CLEAR SONG)
+  signed char sw = -1;  // a two-place key (PLAYS, LOOP): 0 its first place, 1 its second; -1 an action key (U6)
 };
 
 struct SongView {

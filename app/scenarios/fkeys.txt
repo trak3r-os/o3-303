@@ -1,0 +1,38 @@
+# The three kinds of F key in the CLASSIC look (docs/TRACT-KNOBS-PLAN.md 10.4, U6): a knob shows its value in the box and fills it from the left; a switch shows its place in a chip (filled when it is
+# on, an outline when it is off); an action shows its name in a frame, large, with no value and a small note under it. The skin draws the same three kinds as a knob, a slide switch and a key
+# (skin_master.txt, skin_record.txt, skin_song.txt, skin_strip.txt). SKIN is turned to CLASSIC through Config as classic.txt does.
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/fkeys.txt --out <dir>
+# 01 HOME: F1 to F5, F7, F8 knobs, F6 WAVE a switch (the chip, SAW off); 02 WAVE turned to SQR: the chip filled; 03 MASTER: F1 TEMPO and F3 NUDGE knobs, F2 TAP an action, F5 DLY MODE a switch;
+# 04 RECORD: F2 BARS a knob (filled in proportion), F1 ARM, F3 SAVE and F4 DISCARD actions; 05 SONG: F1 PLAYS and F2 LOOP switches, F3 CHAIN and F4 CLEAR actions; 06 MODDED's NOTES: seven
+# knobs and F8 MODS an action; 07 GROWL (Sample Playback): the knobs and F8 an action.
+wait 300
+tap config
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn -4
+tap config
+wait 100
+snap 01_home
+tap f6
+turn 1
+wait 100
+snap 02_wave_sqr
+tap master
+wait 100
+snap 03_master
+tap samplerec
+wait 150
+snap 04_record
+tap song
+wait 100
+snap 05_song
+tap sampleload
+wait 100
+snap 06_modded_notes
+tap sampleplay
+wait 100
+snap 07_growl

@@ -238,7 +238,9 @@ void fill_song_view(SongView& out, const SongInputs& in) noexcept {
     return;
   }
   key(0, "PLAYS", out.plays, out.plays);
+  out.key[0].sw = in.plays_song ? 1 : 0;  // PATTERN / SONG and OFF / ON are switches (U6)
   key(1, "LOOP", out.loop, out.loop);
+  out.key[1].sw = in.loop ? 1 : 0;
   key(2, "CHAIN", "to song", "TO SONG", in.chain_length == 0u);
   key(3, "CLEAR", in.clear_armed ? "again?" : "tap twice", in.clear_armed ? "SURE?" : "TWICE", length == 0u, in.clear_armed);
 }
@@ -781,9 +783,15 @@ static void song_knobs(const SongView& v, view::Knob (&knobs)[view::kKnobs], boo
     }
     k.label = s.label;
     k.norm = -1.0f;  // an action key
+    if (s.sw >= 0) {  // PLAYS and LOOP: a switch (U6)
+      k.norm = s.sw != 0 ? 1.0f : 0.0f;
+      k.toggle = true;
+      k.off_name = i == 0u ? "PAT" : "OFF";
+      k.on_name = i == 0u ? "SONG" : "ON";
+    }
     k.dim = s.dim;
     k.held = s.hot;  // CLEAR waiting for its second press: the amber rim
-    std::strncpy(k.value, skin ? s.hint : s.value, sizeof k.value - 1u);
+    std::strncpy(k.value, skin && s.sw < 0 ? s.hint : s.value, sizeof k.value - 1u);
   }
 }
 

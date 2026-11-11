@@ -244,6 +244,11 @@ piano roll (the NOTE row is the roll itself), and under it three rows that hold 
 **The F row** is the voice: F1 CUTOFF, F2 RESO, F3 ENV MOD, F4 DECAY, F5 ACCENT, F6 WAVE (saw or square), F7 TUNE, F8 VOLUME. Tap an F key,
 then turn the encoder. Hold an F key and turn to change that knob without moving the encoder off the one you picked.
 
+Every F key is one of three kinds, and it looks like its kind on every screen: a **knob** shows its value (a number with its unit, and the box filled from the left in
+proportion); a **switch** (WAVE, a two-place list, PLAYS, LOOP) shows its place in a chip, filled when it is on and an outline when it is off, and the encoder flips it; an **action**
+(TAP, ARM, SAVE, a Shift tool) shows its name in a frame and no value, with a small note under it where it has something to say. Under the obsidian skin the same three kinds
+are a knob, a slide switch and a key.
+
 **The pads** (section 6 has the full map):
 
 | Pads | What they do |

@@ -170,7 +170,7 @@ void draw_big_knobs(ui::Renderer& r, const Rect& area, const view::Knob (&knobs)
       for (unsigned k = 0; k < view::kKnobs; ++k) {
         const Rect b = big_box(area, k);
         const int w = knobs[k].lit ? b.w : fill_w(knobs[k].norm, b.w);
-        if (!knobs[k].blank && knobs[k].focus == (pass == 1) && w > 0) {
+        if (!knobs[k].blank && view::key_kind(knobs[k]) != KeyKind::Switch && knobs[k].focus == (pass == 1) && w > 0) {
           r.panel(Rect{b.x, b.y + b.h - 12, w, 12}, Color::Sel);
         }
       }
@@ -187,6 +187,9 @@ void draw_big_knobs(ui::Renderer& r, const Rect& area, const view::Knob (&knobs)
       r.frame(b, Color::Instr);
     }
     r.text(b.x + 5, b.y + 4, knobs[k].fkey, Color::TextDim, Face::Micro);
+    if (view::key_kind(knobs[k]) == KeyKind::Action) {  // its name is in the key below
+      continue;
+    }
     char label[16];
     cut(knobs[k].label, 15, label, sizeof label);
     const int room = b.w - 28;
@@ -199,6 +202,12 @@ void draw_big_knobs(ui::Renderer& r, const Rect& area, const view::Knob (&knobs)
         continue;
       }
       const Rect b = big_box(area, k);
+      if (view::key_kind(knobs[k]) != KeyKind::Knob) {  // the chip of a switch and the key of an action (knob_strip.h): the same faces as the strip's
+        if (pass == 0) {
+          (view::key_kind(knobs[k]) == KeyKind::Switch ? view::draw_switch_face : view::draw_action_face)(r, b, b.y + 22, b.h - 38, knobs[k]);
+        }
+        continue;
+      }
       const int room = b.w - 10;
       char text[16];
       cut(knobs[k].value, 15, text, sizeof text);
@@ -303,8 +312,8 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
   }
 }
 
-// The two action keys (docs/MODS-PLAN.md 5.3, 5.5): a key that runs at its press and is lit while it is on, not a knob the encoder latches. F8 of MODDED is STOCK, F8 of WOBBLE the WOB action.
-constexpr bool is_action(const Entry& entry) noexcept { return entry.item == Item::Mods || entry.item == Item::WobOn || entry.item == Item::GrowlOn; }
+// The action keys (docs/MODS-PLAN.md 5.3, 5.5; Controls::kind says which entries are): a key that runs at its press and is lit while it is on, not a knob the encoder latches. F8 of MODDED is STOCK, F8 of WOBBLE the WOB action.
+bool is_action(const dsp::Engine& e, const Controls& controls, const Entry& entry) noexcept { return controls.kind(e, entry) == KeyKind::Action; }
 
 }  // namespace
 
@@ -540,7 +549,7 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
         ctx.redraw();
         return;
       }
-      if (is_action(keys().page().entry[k])) {  // F8 STOCK / WOB: it runs at the press, and the encoder and the latch stay where they were
+      if (is_action(ctx.engine(), *controls_, keys().page().entry[k])) {  // F8 STOCK / WOB: it runs at the press, and the encoder and the latch stay where they were
         run_action(ctx, keys().page().entry[k]);
         return;
       }
@@ -553,7 +562,7 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
         tool_mask_ &= ~(1u << k);
         return;
       }
-      if (is_action(keys().page().entry[k])) {  // its press did the work; the release has no latch to give back
+      if (is_action(ctx.engine(), *controls_, keys().page().entry[k])) {  // its press did the work; the release has no latch to give back
         return;
       }
       (void)keys().input(ctx, in, *controls_);
@@ -709,9 +718,7 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     if (kn.blank) {
       continue;
     }
-    if (is_action(pg.entry[k])) {  // a key and not a knob: no pointer (norm below 0 is the skin's Action slot), its state ON / OFF as the hint, lit while on
-      kn.norm = -1.0f;
-      kn.toggle = false;
+    if (is_action(e, *controls_, pg.entry[k])) {  // a key and not a knob (fill_knob gave it no travel: norm below 0 is the Action kind), its state ON / OFF as the hint, lit while on
       kn.lit = action_on(e, pg.entry[k]);
       cut(kn.lit ? "ON" : "OFF", sizeof kn.value - 1u, kn.value, sizeof kn.value);
       kn.unit = "";

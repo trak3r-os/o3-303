@@ -243,9 +243,10 @@ void fill_knob(app::Context& ctx, Controls& controls, unsigned k, const Entry& e
   static constexpr const char* kFKeys[kKeys] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
   dsp::Engine& e = ctx.engine();
   const core::ParamDesc* d = controls.desc(e, entry);
+  const KeyKind kind = controls.kind(e, entry);
   out = view::Knob{};
   out.fkey = kFKeys[k];
-  if (d == nullptr) {
+  if (kind == KeyKind::Blank) {
     out.blank = true;
     return;
   }
@@ -253,7 +254,9 @@ void fill_knob(app::Context& ctx, Controls& controls, unsigned k, const Entry& e
   (void)controls.format(e, entry, out.value, sizeof out.value);
   out.unit = controls.unit_text(e, entry);
   out.norm = controls.shown_norm(e, entry);
-  if (d->names != nullptr && d->list_count == 2u) {  // a two-place list is a switch under the obsidian skin
+  if (kind == KeyKind::Action) {  // a key that runs at the press: no travel (the screen gives it its state)
+    out.norm = -1.0f;
+  } else if (kind == KeyKind::Switch) {  // a two-place list: a chip in the classic row, a slide switch under the obsidian skin
     out.toggle = true;
     out.off_name = d->names[0];
     out.on_name = d->names[1];

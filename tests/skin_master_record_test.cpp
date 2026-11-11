@@ -388,14 +388,14 @@ TEST_CASE("skin master: the fullest frame (playing, nudged, taps, a toast) is qu
   t.release(Button::F3);
 }
 
-TEST_CASE("skin record: four action keys on F1 to F4, F5 to F8 empty boxes; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
+TEST_CASE("skin record: three action keys on F1, F3 and F4 and the BARS knob on F2, F5 to F8 empty boxes; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
   Hands t;
   t.skin_on();
   t.tap(Button::SampleRec, 30);
   t.wait(100);
   const Queue q;
-  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 4u);       // F1, F2, F3, F4
-  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 0u);   // no knobs on RECORD now
+  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 3u);       // F1, F3, F4 (U6: BARS shows a value and the encoder drives it, so it is a knob)
+  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 1u);   // F2 BARS
   CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 4u);                // F5, F6, F7, F8
   ui::Rgb tint{};
   // The F row's action key of F1 is at (8, 405), F3's at (208, 405), F4's at (308, 405).
@@ -567,7 +567,7 @@ TEST_CASE("skin screens: Shift on MASTER and RECORD leaves the F row's slots as 
     unsigned keys;
     unsigned boxes;
   };
-  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u}, Row{Button::SampleRec, 0u, 4u, 4u}}) {
+  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u}, Row{Button::SampleRec, 1u, 3u, 4u}}) {
     t.tap(row.button, 30);
     t.wait(100);
     CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == row.caps);

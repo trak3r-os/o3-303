@@ -866,7 +866,8 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
   box(kKeyArm, active ? "STOP" : "ARM", view.state, "", -1.0f);
   char bars_v[8];
   (void)bars_text(bars, bars_v, sizeof bars_v);
-  box(kKeyBars, "BARS", bars_v, !view.fits ? "TOO LONG" : (bars != 0u ? "BARS" : ""), -1.0f).focus = owner_ == kKeyBars;
+  box(kKeyBars, "BARS", bars_v, !view.fits ? "TOO LONG" : (bars != 0u ? "BARS" : ""),
+      static_cast<float>(bars_index_) / static_cast<float>(kBarChoices - 1u)).focus = owner_ == kKeyBars;
   box(kKeySave, "SAVE", saving_ ? "SAVING" : (st == State::Done ? "READY" : "--"), "", -1.0f);
   box(kKeyDiscard, "DISCARD", discard_until_ms_ != 0u && ctx.uptime_ms() < discard_until_ms_ ? "SURE?" : "--", "", -1.0f);
 
