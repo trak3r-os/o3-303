@@ -872,7 +872,7 @@ Config's MIDI section says which one is followed (FOLLOW PORT).
 
 Known:
 - When the master sends Start together with its first clock (most computer sequencers do), o3-303's first beat comes about 25 ms after
-  the master's at 128 BPM, and the gap closes within six clocks. A fix is being made.
+  the master's at 128 BPM, and the gap closes within six clocks. Known, not scheduled.
 - A long SysEx dump sent to the unit while it plays can cut notes and controllers that arrive at the same time. Send dumps while it is
   stopped.
 
@@ -881,7 +881,7 @@ Known:
 ## 11. Recording a take
 
 1. Press **Sample Rec**. RECORD opens.
-2. **F2** picks the source: MASTER is what o3-303 plays. **F3** picks the length: 1, 2, 4 or 8 bars, or FREE.
+2. **F3** picks the length: 1, 2, 4 or 8 bars, or FREE. (The take is always the master, what o3-303 plays.)
 3. Press **Play**, then **F1 ARM**. TAKE lights in the header; the take starts at the next bar and stops by itself after its bars. (A FREE
    take ends when you press F1.)
 4. **F6 SAVE** writes it to the card as `Samples/take_NNN.wav`, a new number each time. **F7** twice drops it.
