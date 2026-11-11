@@ -414,20 +414,23 @@ class O3_303App final : public app::App {
   o3_303::Growl growl_;
   o3_303::TractFx tract_;
   o3_303::seq::Sequencer sequencer_{o3_303::seq::project_bank()};
+  // SDRAM (sdram_instance): Rig, the screens and the project service, 7.9 KB that SRAM_U (32 KiB free below the stack, ADR 0013 D7) could not spare with the TRACT unit in.
+  // Each is the main loop's alone: Screen's calls are all main loop, and nothing hands a screen or the service to the render, a Clocked hook or an ISR (the take's buffer is
+  // the file-scope g_take). The units, the sequencer, LiveActions and ConfigPages (12 B) stay in SRAM.
   o3_303::Rig& rig_ = sdram_instance<o3_303::Rig, 0>();  // SDRAM (sdram_instance)
   o3_303::LiveActions live_;
-  o3_303::MainScreen main_;
-  o3_303::PerformScreen perform_;
+  o3_303::MainScreen& main_ = sdram_instance<o3_303::MainScreen, 0>();
+  o3_303::PerformScreen& perform_ = sdram_instance<o3_303::PerformScreen, 0>();
   o3_303::InstrumentScreen& instrument_ = sdram_instance<o3_303::InstrumentScreen, 0>();    // SDRAM (sdram_instance)
   o3_303::InstrumentScreen& growl_screen_ = sdram_instance<o3_303::InstrumentScreen, 1>();  // GROWL, WOBBLE and MODDED: INSTRUMENT's class with the groups of instrument_screen.cpp (growl_ is the unit)
   o3_303::InstrumentScreen& wobble_screen_ = sdram_instance<o3_303::InstrumentScreen, 2>();
   o3_303::InstrumentScreen& modded_ = sdram_instance<o3_303::InstrumentScreen, 3>();
-  o3_303::MasterScreen master_;
-  o3_303::RecordScreen record_;
-  o3_303::SongScreen song_;
-  o3_303::VaultScreen vault_;
-  o3_303::FileScreen file_;
-  o3_303::ProjectService project_;
+  o3_303::MasterScreen& master_ = sdram_instance<o3_303::MasterScreen, 0>();
+  o3_303::RecordScreen& record_ = sdram_instance<o3_303::RecordScreen, 0>();
+  o3_303::SongScreen& song_ = sdram_instance<o3_303::SongScreen, 0>();
+  o3_303::VaultScreen& vault_ = sdram_instance<o3_303::VaultScreen, 0>();
+  o3_303::FileScreen& file_ = sdram_instance<o3_303::FileScreen, 0>();
+  o3_303::ProjectService& project_ = sdram_instance<o3_303::ProjectService, 0>();
   o3_303::ConfigPages config_;
   bool saving_ = false;                // a SAVE was on at the last pass
   bool save_asked_ = false;            // Shift + File was pressed and its answer (the toast) is still due
