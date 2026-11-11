@@ -65,7 +65,7 @@ enum class Item : std::uint8_t {
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
 // it is on applies at once); the reset-on-note is applied at once whatever.
 enum WobbleField : std::uint16_t { kWobbleRate, kWobbleShape, kWobbleDepth, kWobbleReset, kWobbleTarget, kWobbleFieldCount };
-enum WobbleTarget : std::uint8_t { kWobbleCutoff, kWobbleVowel, kWobbleTargetCount };  // the voice's Cutoff, the growl's Vowel
+enum WobbleTarget : std::uint8_t { kWobbleCutoff, kWobbleVowel, kWobbleMouth, kWobbleTargetCount };  // the voice's Cutoff, the growl's Vowel, the tract's Vowel (appended in A2)
 
 struct WobbleSettings {
   std::uint8_t rate = seq::kWobble1_8;      // a seq::WobbleRate
@@ -100,11 +100,12 @@ const Page& page_at(unsigned index) noexcept;  // an index past the table gives 
 
 // The INSTRUMENT screen's key tables (docs/MODS-PLAN.md 5), one definition each, which the screen's groups point at and the tests read: FX (INSTRUMENT's
 // second page), NOTES and TONE (MODDED), GROWL (the growl's seven parameters, in signal order) and WOBBLE (rate, shape, depth, target and reset, then F8
-// WOB). Each PageKeys of the screen runs over one of them (set_table).
+// WOB), and TRACT (A2: VOWEL, TONGUE, LIPS, RES, GLIDE, SIZE, TRC MIX, then F8 TRACT). Each PageKeys of the screen runs over one of them (set_table).
 extern const Page kFxPage;
 extern const Page kNotesPage;
 extern const Page kTonePage;
 extern const Page kGrowlPage;
+extern const Page kTractPage;  // A2: the tract's seven knobs and F8 TRACT on / off (the first page of the Sample Play group, GROWL the second)
 extern const Page kWobblePage;
 
 // PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
@@ -114,9 +115,9 @@ const Page& setup_page() noexcept;
 
 // What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
 // SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (GROWL), then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven
-// mods (ids 8..18) and the growl's FMT MIX, CMB TUNE and CMB FB, then (B5a) the wobble's five settings and its latch, then the voice's RANGE and SUSTAIN; STOCK stays out. A project saved with fewer targets loads: the missing ones are filled
+// mods (ids 8..18) and the growl's FMT MIX, CMB TUNE and CMB FB, then (B5a) the wobble's five settings and its latch, then the voice's RANGE and SUSTAIN, then (A2) the tract's VOWEL, TONGUE, LIPS and TRC MIX; STOCK stays out. A project saved with fewer targets loads: the missing ones are filled
 // from the sound (project.cpp). Each is an entry, so a value is in the units the entry shows and steps in.
-inline constexpr unsigned kSnapTargetCount = 44;
+inline constexpr unsigned kSnapTargetCount = 48;  // = kSnapValues: a snapshot is full, and no format changes
 // The first of B5a's six targets (the wobble's RATE, SHAPE, DEPTH, TARGET, RESET and its latch): no lane drives them, so a recall writes them at once (LiveActions::snap_apply). RANGE and
 // SUSTAIN come after them and are the voice's, so they take the lane path as the other voice targets do.
 inline constexpr unsigned kSnapWobbleFirst = 36;
@@ -228,7 +229,7 @@ class Controls {
   bool snap_discrete(const o3sdk::dsp::Engine& e, unsigned index) const noexcept;
 
   // The wobble on or off with the settings of Wiring::wobble (set_wobble_reset always): the WOBBLE action calls it at its press and release, and a
-  // change of a setting while the wobble runs calls it again. The target is {kLaneVoice, Cutoff} or {kLaneGrowl, Vowel}.
+  // change of a setting while the wobble runs calls it again. The target is {kLaneVoice, Cutoff}, {kLaneGrowl, Vowel} or {kLaneTract, Vowel} (MOUTH).
   void apply_wobble(bool on) const noexcept;
   LaneRef wobble_target() const noexcept;
 

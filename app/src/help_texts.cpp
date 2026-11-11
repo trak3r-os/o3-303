@@ -36,11 +36,11 @@ struct Buttons {
   }
 };
 
-enum class Where : std::uint8_t { Home, Setup, Perform, Knobs, PerformSetup, Instrument, Modded, Growl, Wobble, Master, File, Naming, Library, Record, Song };
+enum class Where : std::uint8_t { Home, Setup, Perform, Knobs, PerformSetup, Instrument, Modded, Tract, Growl, Wobble, Master, File, Naming, Library, Record, Song };
 
 constexpr void add_globals(Buttons& b, Where w) noexcept {
   const bool perform = w == Where::Perform || w == Where::Knobs || w == Where::PerformSetup;
-  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
+  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
   b.add(Button::Play, "PLAY / STOP: SONG OR PATTERN", "RESTART FROM STEP 1");  // which one is SONG's F1 PLAYS; the status line says SONG while it is the song
   // Rec: the home map's step record (a press turns write / record mode on and off); PERFORM's Rec is the same switch (it records the ladder and the knob while the pattern plays);
   // elsewhere it does nothing alone. Shift + Rec is the audio take, from every screen.
@@ -51,10 +51,11 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
-  // Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback and Sample Editor open GROWL and WOBBLE (one page each: again does nothing).
+  // Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback opens TRACT (again: its next page, GROWL, and back) and Sample Editor WOBBLE (one page: again does nothing).
   b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "MODS: HEARD / PLAIN 303");
   // With Shift they do the same (o3_303_app.cpp ignores Shift for both): the Shift text says so (U8).
-  b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
+  const bool on_play = w == Where::Tract || w == Where::Growl;
+  b.add(Button::SamplePlay, on_play ? "NEXT PAGE: TRACT, GROWL" : "OPEN TRACT", on_play ? "SAME: NEXT PAGE" : "SAME: OPEN TRACT");
   b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
   b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
 }
@@ -157,6 +158,7 @@ constexpr Buttons kKnobsButtons = make_perform(Where::Knobs);
 constexpr Buttons kPerformSetupButtons = make_perform(Where::PerformSetup);
 constexpr Buttons kInstrumentButtons = make_home(Where::Instrument);
 constexpr Buttons kModdedButtons = make_home(Where::Modded);
+constexpr Buttons kTractButtons = make_home(Where::Tract);
 constexpr Buttons kGrowlButtons = make_home(Where::Growl);
 constexpr Buttons kWobbleButtons = make_home(Where::Wobble);
 constexpr Buttons kMasterButtons = make_home_map_only(Where::Master);
@@ -179,6 +181,12 @@ constexpr HelpPadGroup kHomeFiltGroups[] = {
     kHomeGroups[1],
     {"LADDERS", "12 PLACES. F + TAP ASSIGNS. SHIFT+FILT: RESET", Color::Instr},
 };
+
+// TRACT's pads (A2): the live vowels of the bottom row; the rest of the grid is dark.
+constexpr HelpPadGroup kTractGroups[] = {
+    {"VOWELS", "TAP: SET THE VOWEL KNOB (F1)", Color::Instr},
+};
+constexpr const char* kVowelPads[] = {"A", "E", "I", "O", "U"};
 
 constexpr HelpPadGroup kPerformGroups[] = {
     {"ACTIONS", "HOLD A PAD FOR ITS ACTION. SHIFT: LATCH", Color::Accent},
@@ -317,6 +325,17 @@ constexpr Text kTexts[kIdCount] = {
      kHomeGroups,
      count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
+    // Tract
+    {"TRACT",
+     "A MOUTH AFTER THE GROWL: THE VOICE TALKS. VOWEL MORPHS A E I O U, TONGUE AND LIPS SHAPE IT, RES, GLIDE, SIZE, F8 THE TRACT ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
+     {"VOWEL: A E I O U", "TONGUE: BACK TO FRONT", "LIPS: ROUND TO SPREAD", "RESONANCE OF THE MOUTH", "GLIDE TIME BETWEEN VOWELS", "SIZE OF THE MOUTH", "WET / DRY OF THE TRACT", "TRACT: MIX 0 / LAST VALUE"},
+     {},
+     "KNOB OR ROW; SHIFT = COARSE",
+     kTractButtons.row,
+     kTractButtons.n,
+     kTractGroups,
+     count_of(sizeof kTractGroups / sizeof kTractGroups[0]),
+     "BOTTOM ROW: LIVE VOWELS A E I O U. PATTERN HELD: PATTERNS."},
     // Growl
     {"GROWL",
      "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE GROWL ON / OFF. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
@@ -330,8 +349,8 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Wobble
     {"WOBBLE",
-     "THE WOBBLE: A SLOW LFO ON THE CUTOFF OR THE VOWEL (THE GROWL MUST BE ON). F8 LATCHES IT; THE PROJECT KEEPS IT. TAP AN F KEY, THEN TURN. NOT MIDI LEARNABLE.",
-     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF OR VOWEL", "RESTART ON EACH NOTE", NONE, NONE, "WOB ACTION ON / OFF"},
+     "THE WOBBLE: A SLOW LFO ON THE CUTOFF, THE GROWL VOWEL OR THE TRACT MOUTH (THE EFFECT MUST BE ON). F8 LATCHES IT. TAP AN F KEY, THEN TURN. NOT MIDI LEARNABLE.",
+     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF, VOWEL OR MOUTH", "RESTART ON EACH NOTE", NONE, NONE, "WOB ACTION ON / OFF"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kWobbleButtons.row,
@@ -546,6 +565,10 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
     h.groups = kHomeFiltGroups;
     h.group_count = count_of(sizeof kHomeFiltGroups / sizeof kHomeFiltGroups[0]);
   }
+}
+
+void fill_tract_pads(Help& h) noexcept {
+  app::help_pads(h, 3, 0, 3, 4, 1, kVowelPads);
 }
 
 void fill_perform_pads(Help& h, bool knobs) noexcept {

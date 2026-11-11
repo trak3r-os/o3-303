@@ -16,7 +16,9 @@
 #include <o3_303/step_model.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/tract_vowels.h>
 #include <o3_303/units/growl/growl.h>
+#include <o3_303/units/tract/tract.h>
 #include <o3sdk/units/delay/delay.h>
 
 #include <cstring>
@@ -41,6 +43,7 @@ constexpr Entry delay(units::Delay::Param id, const char* label = nullptr) noexc
   return Entry{Item::Delay, static_cast<std::uint16_t>(id), label};
 }
 constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entry{Item::Growl, static_cast<std::uint16_t>(id), label}; }
+constexpr Entry tract(TractFx::Param id, const char* label) noexcept { return Entry{Item::Tract, static_cast<std::uint16_t>(id), label}; }
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 
@@ -48,8 +51,8 @@ constexpr Entry voice(AcidVoice::Param id, const char* label = nullptr) noexcept
 
 // ---- The read-out sections ---------------------------------------------------------------------------------------------------------------------
 
-enum Section : unsigned { kSecVoice = 1, kSecDist = 2, kSecDelay = 4, kSecGrowl = 8, kSecWobble = 16, kSecModded = 32, kSecNotes = 64, kSecTone = 128 };
-constexpr unsigned kSectionCount = 8;
+enum Section : unsigned { kSecVoice = 1, kSecDist = 2, kSecDelay = 4, kSecGrowl = 8, kSecWobble = 16, kSecModded = 32, kSecNotes = 64, kSecTone = 128, kSecTract = 256 };
+constexpr unsigned kSectionCount = 9;
 
 struct ReadRow {
   const char* label;
@@ -72,9 +75,10 @@ constexpr SectionDef kSections[kSectionCount] = {
     {"MODDED", 4, {{"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SUB", voice(AcidVoice::SubOsc)}, {"MODS", app_item(Item::Mods)}}},
     {"NOTES", 4, {{"SOFT ATK", voice(AcidVoice::SoftAtk)}, {"ACC DEC", voice(AcidVoice::AccDecay)}, {"SLIDE", voice(AcidVoice::Slide)}, {"SWEEP", voice(AcidVoice::AccSweep)}}},
     {"TONE", 4, {{"TRACK", voice(AcidVoice::Tracking)}, {"FM", voice(AcidVoice::FilterFm)}, {"DRIVE", voice(AcidVoice::Overdrive)}, {"MUFFLER", voice(AcidVoice::Muffler)}}},
+    {"TRACT", 4, {{"VOWEL", tract(TractFx::Vowel, nullptr)}, {"RES", tract(TractFx::Res, nullptr)}, {"SIZE", tract(TractFx::Size, nullptr)}, {"TRC MIX", tract(TractFx::Mix, nullptr)}}},
 };
 static_assert(kSecVoice == 1u << 0 && kSecDist == 1u << 1 && kSecDelay == 1u << 2 && kSecGrowl == 1u << 3 && kSecWobble == 1u << 4 && kSecModded == 1u << 5 && kSecNotes == 1u << 6 &&
-                  kSecTone == 1u << 7,
+                  kSecTone == 1u << 7 && kSecTract == 1u << 8,
               "the sections are in the mask's order");
 static_assert(kSectionCount <= 8u * sizeof(unsigned), "the sections fit a mask");
 
@@ -93,10 +97,12 @@ constexpr const Page* kModdedPages[2] = {&kNotesPage, &kTonePage};
 constexpr unsigned kModdedShown[2] = {kSecVoice | kSecTone, kSecVoice | kSecNotes};
 constexpr help_texts::Id kModdedHelp[2] = {help_texts::Id::ModdedNotes, help_texts::Id::ModdedTone};
 
-constexpr const char* kGrowlTitles[1] = {"GROWL"};
-constexpr const Page* kGrowlPages[1] = {&kGrowlPage};
-constexpr unsigned kGrowlShown[1] = {kSecVoice | kSecWobble};
-constexpr help_texts::Id kGrowlHelp[1] = {help_texts::Id::Growl};
+// Sample Play's group (A2): TRACT first, GROWL on the second press, as Sample Load flips MODDED's two pages. Both show VOICE and the wobble (it swings either one's VOWEL).
+constexpr const char* kGrowlTitles[2] = {"TRACT", "GROWL"};
+constexpr const Page* kGrowlPages[2] = {&kTractPage, &kGrowlPage};
+constexpr unsigned kGrowlShown[2] = {kSecVoice | kSecWobble, kSecVoice | kSecWobble};
+constexpr help_texts::Id kGrowlHelp[2] = {help_texts::Id::Tract, help_texts::Id::Growl};
+constexpr unsigned kTractPageIndex = 0;  // the page of kGrowlGroup that is the TRACT (the pads are its vowels)
 
 constexpr const char* kWobbleTitles[1] = {"WOBBLE"};
 constexpr const Page* kWobblePages[1] = {&kWobblePage};
@@ -106,7 +112,7 @@ constexpr help_texts::Id kWobbleHelp[1] = {help_texts::Id::Wobble};
 constexpr InstrumentGroup kInstrumentGroup = {2, kInstrumentTitles, kInstrumentTabs, kInstrumentPages, kInstrumentShown, kInstrumentHelp,
                                               "PARAMS AGAIN = NEXT PAGE   SHIFT + F = MIDI LEARN"};
 constexpr InstrumentGroup kModdedGroup = {2, kModdedTitles, kModdedTabs, kModdedPages, kModdedShown, kModdedHelp, "SHIFT + SAMPLE LOAD = MODS  SHIFT + F = LEARN"};
-constexpr InstrumentGroup kGrowlGroup = {1, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SHIFT + F = MIDI LEARN"};
+constexpr InstrumentGroup kGrowlGroup = {2, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SAMPLE PLAY AGAIN = GROWL / TRACT   SHIFT + F = LEARN"};
 constexpr InstrumentGroup kWobbleGroup = {1, kWobbleTitles, kWobbleTitles, kWobblePages, kWobbleShown, kWobbleHelp, "RUNS WHILE THE WOB ACTION IS ON"};
 static_assert(kInstrumentGroup.count <= kMaxGroupPages && kModdedGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages,
               "a group has at most kMaxGroupPages pages");
@@ -491,12 +497,30 @@ void InstrumentScreen::update(app::Context& ctx) noexcept {
 
 void InstrumentScreen::input(app::Context& ctx, const Input& in) noexcept {
   if (in.kind == core::InputKind::Pad) {
-    (void)home_->input(ctx, in);
+    pad_input(ctx, in);
   } else if (in.kind == core::InputKind::Encoder) {
     turn_input(ctx, in);
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
+}
+
+// The pads. On the TRACT page they are its own (A2) unless Pattern is held (the pattern overlay stays the home map's): row 3's first five are the live vowels A E I O U, a tap writes
+// the VOWEL knob (F1's read-out follows, and Rec while the pattern plays records it as it does a turn). A release always goes to the home map (a step or a key that was held when the page
+// opened lets go). Everywhere else the home map has every pad.
+void InstrumentScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
+  if (!tract_page() || home_->overlay() || !in.pad_press()) {
+    (void)home_->input(ctx, in);
+    return;
+  }
+  const int vowel = tract_vowel_pad(in.pad());
+  if (vowel >= 0) {
+    const Entry entry = Entry{Item::Tract, static_cast<std::uint16_t>(TractFx::Vowel), nullptr};
+    controls_->set(ctx.engine(), entry, tract_vowel_point(static_cast<unsigned>(vowel)));
+    home_->turned(ctx, entry);
+    ctx.redraw();
+  }
+  // LINE SLICE (TRACT-KNOBS-PLAN 11.6): rows 0 to 2 of this page (pad_row 0..2) are the TRACT pattern's pads and do nothing until then; the rest of row 3 neither.
 }
 
 void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
@@ -515,11 +539,21 @@ void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
       toggle_stock(*rig_, ctx);
     }
   }
-  for (unsigned k = 0; k < kKeys; ++k) {  // a TARGET of VOWEL with the growl off would be silent: refused, with a toast (B5a). A project or a snapshot can still hold it
+  for (unsigned k = 0; k < kKeys; ++k) {  // a TARGET of VOWEL with the growl off, or of MOUTH with the tract off, would be silent: refused, with a toast (B5a, A2); with only the tract on, a turn up from CUTOFF lands on MOUTH. A project or a snapshot can still hold it
     const Entry& en = pg.entry[k];
-    if ((affected >> k & 1u) != 0u && en.item == Item::Wobble && en.id == kWobbleTarget && rig_->wiring.wobble.target == kWobbleCutoff && in.delta() > 0 &&
-        controls_->get(ctx.engine(), Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {
-      home_->toast(ctx, "GROWL IS OFF", true);
+    if ((affected >> k & 1u) == 0u || en.item != Item::Wobble || en.id != kWobbleTarget || in.delta() <= 0) {
+      continue;
+    }
+    const std::uint8_t target = rig_->wiring.wobble.target;  // the turn goes up to the next one: CUTOFF to VOWEL needs the growl, VOWEL to MOUTH the tract
+    const bool growl_off = target == kWobbleCutoff && controls_->get(ctx.engine(), Entry{Item::GrowlOn, 0, nullptr}) < 0.5f;
+    const bool tract_off = target == kWobbleVowel && controls_->get(ctx.engine(), Entry{Item::TractOn, 0, nullptr}) < 0.5f;
+    if (growl_off && controls_->get(ctx.engine(), Entry{Item::TractOn, 0, nullptr}) >= 0.5f) {  // VOWEL needs the growl but MOUTH has the tract: the turn goes past VOWEL to MOUTH
+      controls_->set(ctx.engine(), en, static_cast<float>(kWobbleMouth));
+      ctx.redraw();
+      return;
+    }
+    if (growl_off || tract_off) {
+      home_->toast(ctx, growl_off ? "GROWL IS OFF" : "TRACT IS OFF", true);
       return;
     }
   }
@@ -576,7 +610,7 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
 void InstrumentScreen::run_action(app::Context& ctx, const Entry& entry) noexcept {
   if (entry.item == Item::Mods) {
     toggle_stock(*rig_, ctx);
-  } else if (entry.item == Item::GrowlOn) {
+  } else if (entry.item == Item::GrowlOn || entry.item == Item::TractOn) {
     controls_->set(ctx.engine(), entry, controls_->get(ctx.engine(), entry) >= 0.5f ? 0.0f : 1.0f);
   } else {
     live_->toggle_latch(ctx, PerfAction::Wobble);
@@ -589,7 +623,7 @@ bool InstrumentScreen::action_on(const dsp::Engine& e, const Entry& entry) const
   if (entry.item == Item::Mods) {
     return !rig_->wiring.stock;  // lit while the mods are heard
   }
-  if (entry.item == Item::GrowlOn) {
+  if (entry.item == Item::GrowlOn || entry.item == Item::TractOn) {
     return controls_->get(e, entry) >= 0.5f;
   }
   return live_->latched(PerfAction::Wobble);
@@ -687,7 +721,20 @@ void InstrumentScreen::learn_drop(app::Context& ctx) noexcept {
   learn_armed_ = false;
 }
 
-void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_->leds(ctx, leds); }
+// On the TRACT page the pads are the live vowels (pad_input): the vowel that sounds is lit (the nearest one between two), the other four dim, the rest dark. Pattern held: the home map's overlay.
+void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
+  if (!tract_page() || home_->overlay()) {
+    home_->leds(ctx, leds);
+    return;
+  }
+  leds.clear();
+  const unsigned now = tract_nearest_vowel(controls_->get(ctx.engine(), Entry{Item::Tract, static_cast<std::uint16_t>(TractFx::Vowel), nullptr}));
+  for (unsigned i = 0; i < kTractVowelCount; ++i) {
+    leds.set(3u, i, i == now ? app::kLedOn : app::kLedDim);
+  }
+}
+
+bool InstrumentScreen::tract_page() const noexcept { return group_ == &kGrowlGroup && page_ == kTractPageIndex; }
 
 // HELP: the page's texts, LEARN on the keys of the Shift row that soft_keys() labels so (learn_target(): the unit's own parameters), and the home map's pads.
 void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
@@ -698,6 +745,10 @@ void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcep
     dsp::UnitId unit = dsp::kNoUnit;
     std::uint16_t param = 0;
     h.fkey_shift[k] = learn_target(rig_->wiring, pg.entry[k], unit, param) ? "LEARN" : nullptr;
+  }
+  if (tract_page()) {  // the TRACT page's pads are the live vowels (a held Pattern, the overlay, is not shown in HELP)
+    help_texts::fill_tract_pads(h);
+    return;
   }
   home_->help_pads(h);
 }
@@ -717,7 +768,13 @@ void InstrumentScreen::enc_text(app::Context& ctx, char* out, unsigned cap) cons
   append(out, cap, controls_->label(ctx.engine(), pk.focused()));
 }
 
-void InstrumentScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const noexcept { home_->pads_line(ctx, out, cap); }
+void InstrumentScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const noexcept {
+  if (tract_page() && !home_->overlay()) {
+    cut("LIVE VOWELS . BOTTOM ROW A E I O U . A TAP SETS THE VOWEL KNOB", cap - 1u, out, cap);
+    return;
+  }
+  home_->pads_line(ctx, out, cap);
+}
 
 void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexcept {
   const dsp::Engine& e = ctx.engine();
@@ -749,7 +806,9 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   view.hint = group_->hint;
   if (ctx.panel().shift() && !page_learnable()) {  // WOBBLE's knobs are the screen's own settings, not unit parameters (U8a)
     view.hint = "NOT LEARNABLE";
-  } else if (group_ == &kGrowlGroup && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
+  } else if (group_ == &kGrowlGroup && page_ == kTractPageIndex && controls_->get(e, Entry{Item::TractOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
+    view.hint = "TRACT OFF: F8";
+  } else if (group_ == &kGrowlGroup && page_ != kTractPageIndex && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {
     view.hint = "GROWL OFF: F8";
   } else if (group_ == &kWobbleGroup && !live_->wobble_on()) {
     view.hint = "WOB OFF: F8";

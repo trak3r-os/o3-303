@@ -1,0 +1,61 @@
+# TRACT on the obsidian skin (TRACT-KNOBS-PLAN A2, docs/SKIN-PLAN.md 2.4): the instrument screen with the page tabs TRACT and GROWL (Sample Play flips them), the eight knobs as knob58
+# with "Fn NAME" over each (F1 VOWEL's readout is a letter on a vowel and "E 37%" between, F8 the on / off key), the sections of the other pages as boxes, the PADS line naming the vowels.
+# The skin is off until SK8, so the scenario turns it on through Config as skin_instrument.txt does.
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_tract.txt --out <dir>
+#
+# 01 TRACT at the first press (F8 off: Mix 0); 02 F8 on, F7 TRC MIX at 100 %, vowel O by its pad; 03 the vowel in between (F1 turned: "E 37%"); 04 Shift held: LEARN on each label;
+# 05 WOBBLE with TARGET on MOUTH (the tract on, the growl off: the turn from CUTOFF lands on MOUTH); 06 Sample Play again from GROWL's side: the tabs; help_01 the kit's HELP over the
+# skinned TRACT (Shift + Config).
+wait 300
+tap config
+tap left
+wait 62
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap params
+wait 50
+tap sampleplay
+wait 100
+snap 01_tract
+tap f8
+tap f7
+turn 50
+paddown 39
+wait 60
+padup 39
+wait 100
+snap 02_tract_on_vowel_o
+tap f1
+turn -13
+wait 100
+snap 03_vowel_between
+press shift
+wait 100
+snap 04_shift_learn
+release shift
+tap sampleedit
+tap f3
+turn 50
+tap f4
+turn 1
+wait 100
+snap 05_wobble_mouth
+tap sampleplay
+wait 100
+snap 06_tract_back
+tap sampleplay
+wait 100
+snap 07_growl_tab
+tap sampleplay
+press shift
+tap config
+wait 100
+snap help_01_tract
+release shift

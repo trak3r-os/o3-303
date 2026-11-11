@@ -63,7 +63,7 @@ const char* where_name(Where w) {
   return "";
 }
 // The page of the group the screen shows (GROWL and WOBBLE have the one): the second tab for FX and TONE.
-unsigned where_page(Where w) { return w == Where::Fx || w == Where::Tone ? 1u : 0u; }
+unsigned where_page(Where w) { return w == Where::Fx || w == Where::Tone || w == Where::Growl ? 1u : 0u; }  // GROWL is the second page of the Sample Play pair, after TRACT
 // Opens the screen from the 303 screen the way a finger does.
 void go_to(Hands& t, Where w) {
   switch (w) {
@@ -306,10 +306,10 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   o.intact();
 }
 
-TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and MODDED, one on GROWL and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
+TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT, MODDED and the Sample Play pair TRACT / GROWL, one on WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
   for (const Where w : kAllScreens) {
     const unsigned page = where_page(w);
-    const unsigned tabs_expected = w == Where::Growl || w == Where::Wobble ? 1u : 2u;
+    const unsigned tabs_expected = w == Where::Wobble ? 1u : 2u;
     OnInstrument o(w);
     if (w == Where::Voice || w == Where::Fx) {
       REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);

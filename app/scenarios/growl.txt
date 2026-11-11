@@ -5,9 +5,10 @@
 # through the formants and the comb, dry for the first bar, wobbling for the next two, plain again at the end.
 wait 300
 record on
-# GROWL (Sample Playback, held 184 ms: the 186 ms the three Params taps of the old INSTRUMENT MODS took, so every later event keeps its time and the WAV its bytes): F1 VOWEL to 50 % (I),
+# GROWL (Sample Playback twice, TRACT then GROWL, 91 ms each: the 186 ms the one tap of 184 took, which were the three Params taps of the old INSTRUMENT MODS, so every later event keeps its time and the WAV its bytes): F1 VOWEL to 50 % (I),
 # F7 GRL MIX to 100 %; WOBBLE (Sample Editor): F3 DEPTH to 100 %, F4 TARGET the growl's Vowel. The wait is what is left of the old 100 ms and the one tap more.
-tap sampleplay 184
+tap sampleplay 91   # TRACT first, then GROWL: the two taps take the 186 ms the one did
+tap sampleplay 91
 tap f1
 turn 50
 tap f7

@@ -34,6 +34,7 @@ constexpr dsp::UnitId kVoice = 0;  // the units are attached in this order (o3_3
 constexpr dsp::UnitId kDist = 1;
 constexpr dsp::UnitId kDelay = 2;
 constexpr dsp::UnitId kGrowl = 4;  // attached after the freeze (3): the first four ids are the tests' contract
+constexpr dsp::UnitId kTract = 5;  // the tract (A1 phase 2): slot 0's insert 2, after the growl
 
 inline seq::Bank& bank() { return seq::project_bank(); }
 
@@ -101,7 +102,19 @@ struct Hands {
     }
   }
   // GROWL (Sample Playback) and WOBBLE (Sample Editor), from any screen; to_home() leaves them.
-  void to_growl() { tap(Button::SamplePlay); }
+  // Sample Playback opens TRACT and again flips to GROWL and back (A2, TRACT-KNOBS-PLAN 11.1): both helpers press until the title is theirs.
+  void to_tract() {
+    tap(Button::SamplePlay);
+    if (std::strcmp(title(), "TRACT") != 0) {
+      tap(Button::SamplePlay);
+    }
+  }
+  void to_growl() {
+    tap(Button::SamplePlay);
+    if (std::strcmp(title(), "GROWL") != 0) {
+      tap(Button::SamplePlay);
+    }
+  }
   void to_wobble() { tap(Button::SampleEdit); }
   // Back to the 303 screen (Pattern).
   void to_home() { tap(Button::Pattern); }

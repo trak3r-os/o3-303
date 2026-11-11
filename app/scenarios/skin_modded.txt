@@ -28,7 +28,8 @@ snap 01_notes
 tap sampleload
 wait 100
 snap 02_tone
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 100
 snap 03_growl
 tap sampleedit

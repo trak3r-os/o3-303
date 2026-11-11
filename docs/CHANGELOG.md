@@ -7,6 +7,11 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **TRACT, a page to play the mouth.** Sample Play opens it: F1 VOWEL (A E I O U morphed: a letter on a vowel, "E 37%" between), F2 TONGUE, F3 LIPS,
+  F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8 the tract on and off (off is Mix 0, the dry sound bit for bit; on gives the last mix back). The
+  bottom row of pads plays the vowels A E I O U live. The knobs can be MIDI-learned and are part of the snapshots (an older project's snapshots
+  load with the tract as it is). The WOBBLE's TARGET gets a third value, MOUTH: the wobble swings the vowel around the one that sounds. HELP has
+  a page for it. It needs listening on the unit.
 - **PERFORM KNOBS, PERFORM's second page.** Press Performance twice: the four rows of pads are four knobs, one pad a value (a list or a
   switch has a pad for each of its values). They start as ENV MOD, DECAY, CUTOFF and RESO; rows 3 and 4 are HOME's FILT rows, the same
   knobs and the same saved rows. Hold an F key and tap a row to give it that key's knob; Shift + F1 to F4 points the encoder at a row so a
@@ -25,6 +30,8 @@ hear says so in plain words.
 
 - **WOBBLE with Shift held has no LEARN row and the hint says NOT LEARNABLE** (under the skin), not a dash on every key. Shift + Sample Playback and Shift + Sample Editor
   open GROWL and WOBBLE as they do without Shift (HELP says so), and HOME's empty-pattern hint now says to arm REC, play and hold the keys (a held key is a long note).
+- **Sample Play opens TRACT, a second press GROWL.** It opened GROWL; now the press flips TRACT and GROWL (Sample Edit is WOBBLE and Sample Load
+  MODDED as before). Pressing it again from another screen opens the first page, TRACT.
 - **PERFORM SETUP is Shift + Performance.** It used to be the third press of Performance; now Performance only flips PERFORM and PERFORM
   KNOBS, so a press in play never lands on SETUP. Performance leaves SETUP for the page it was opened from.
 - **The library loads a line and keeps your sound and, while the transport runs, your tempo.** FILE LIBRARY starts on LOAD LINE (Shift + F2
@@ -37,7 +44,7 @@ hear says so in plain words.
   GROWL's "last value" is saved too. The file gets two more entries; a project from an older version loads with MODS on and a last mix of
   50 %, and an older version skips the two.
 - **A new effect, TRACT, sits after the growl, silent for now.** The vocal-tract filter is in the sound path at Mix 0 (a bit-exact bypass:
-  nothing you hear changes) and its settings are saved with the project; the page and keys to play it come later. A project saved by an older
+  nothing you hear changes) and its settings are saved with the project; the page to play it is Sample Play (see above). A project saved by an older
   version loads with TRACT at Mix 0, and an older version skips its entries.
 - **RESET PROJECT keeps the sound it takes away.** The voice and distortion go into the library's LAST first, and the notice says
   "PROJECT RESET - LAST: SHIFT F3": Shift + F3 on FILE LIBRARY brings them back.

@@ -65,6 +65,7 @@ void check_pads_grouped(const Help& h, std::uint64_t used, const std::string& wh
 }
 
 constexpr std::uint64_t kAllPads = (std::uint64_t{1} << app::kPadCount) - 1u;
+constexpr std::uint64_t kTractPads = std::uint64_t{0x1F} << 36;  // TRACT: the live vowels A E I O U, the bottom row's first five; the rest of the grid is dark and has no group
 constexpr std::uint64_t kRefusedKeyPads = (std::uint64_t{1} << 23) | (std::uint64_t{1} << 33);  // '+' and '@' on the name keyboard
 
 }  // namespace
@@ -102,6 +103,7 @@ TEST_CASE("help texts: the F keys' texts are where there is something to add") {
     }
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    CHECK_MESSAGE((text(Id::Tract).fkey[k] != nullptr) == (k < 8), "TRACT F" << k + 1);
     CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 8), "GROWL F" << k + 1);
     CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
     CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5 || k == 7), "MODDED TONE F" << k + 1);
@@ -401,6 +403,12 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
+    check_screen(h, Id::Tract, page_mask(inst->page_table()), kTractPads, "TRACT");  // Sample Playback opens TRACT (A2): F1 to F7 the knobs, F8 the on / off box
+  }
+  tap(h, app::Button::SamplePlay);  // again: GROWL
+  {
+    app::Context& ctx = h.runtime().context();
+    const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
     check_screen(h, Id::Growl, page_mask(inst->page_table()), kAllPads, "GROWL");
   }
   tap(h, app::Button::SampleEdit);
@@ -420,7 +428,7 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
 }
 
-TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift flips STOCK on every screen; Sample Playback and Sample Editor open GROWL and WOBBLE from every screen but their own") {
+TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift flips STOCK on every screen; Sample Playback opens TRACT (NEXT PAGE on TRACT and GROWL) and Sample Editor opens WOBBLE from every screen but its own") {
   for (unsigned i = 0; i < kIdCount; ++i) {
     const Text& t = text(static_cast<Id>(i));
     const HelpButton* play = nullptr;
@@ -441,14 +449,11 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
     const bool on_modded = static_cast<Id>(i) == Id::ModdedNotes || static_cast<Id>(i) == Id::ModdedTone;
     CHECK_MESSAGE(std::strcmp(load->text, on_modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED") == 0, t.name);
     CHECK_MESSAGE(std::strcmp(load->shift, "MODS: HEARD / PLAIN 303") == 0, t.name << ": Shift + Sample Loader");
-    if (static_cast<Id>(i) == Id::Growl) {
-      CHECK_MESSAGE(play == nullptr, t.name << ": Sample Playback does nothing on GROWL (it is drawn dimmed)");
-    } else {
-      REQUIRE_MESSAGE(play != nullptr, t.name);
-      CHECK_MESSAGE(std::strcmp(play->text, "OPEN GROWL") == 0, t.name);
-      REQUIRE_MESSAGE(play->shift != nullptr, t.name << ": Shift + Sample Playback does the same, and HELP says so (U8)");
-      CHECK_MESSAGE(std::strcmp(play->shift, "SAME: OPEN GROWL") == 0, t.name);
-    }
+    REQUIRE_MESSAGE(play != nullptr, t.name);
+    const bool on_play = static_cast<Id>(i) == Id::Tract || static_cast<Id>(i) == Id::Growl;
+    CHECK_MESSAGE(std::strcmp(play->text, on_play ? "NEXT PAGE: TRACT, GROWL" : "OPEN TRACT") == 0, t.name);
+    REQUIRE_MESSAGE(play->shift != nullptr, t.name << ": Shift + Sample Playback does the same, and HELP says so (U8)");
+    CHECK_MESSAGE(std::strcmp(play->shift, on_play ? "SAME: NEXT PAGE" : "SAME: OPEN TRACT") == 0, t.name);
     if (static_cast<Id>(i) == Id::Wobble) {
       CHECK_MESSAGE(edit == nullptr, t.name << ": Sample Editor does nothing on WOBBLE (it is drawn dimmed)");
     } else {

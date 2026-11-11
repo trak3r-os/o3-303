@@ -910,7 +910,7 @@ TEST_CASE("project: a SNAP saved before the mods (22 values a slot) loads, and t
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   constexpr unsigned kOld = 22;  // the targets of kSnapTargetCount before MODS S2 (docs/MODS-PLAN.md 5.9)
-  static_assert(kSnapTargetCount == kOld + 14 + 6 + 2, "MODS S2 appended eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's five settings and its latch, the voice rewrite RANGE and SUSTAIN");
+  static_assert(kSnapTargetCount == kOld + 14 + 6 + 2 + 4, "MODS S2 appended eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's five settings and its latch, the voice rewrite RANGE and SUSTAIN, A2 the tract's four");
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SNAP")) {
       return true;
@@ -986,7 +986,7 @@ TEST_CASE("project: a SNAP saved before RANGE and SUSTAIN (42 values a slot) loa
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   constexpr unsigned kOld = 42;
-  static_assert(kSnapTargetCount == kOld + 2, "the voice rewrite appended RANGE and SUSTAIN as targets 42 and 43");
+  static_assert(kSnapTargetCount == kOld + 2 + 4, "the voice rewrite appended RANGE and SUSTAIN as targets 42 and 43, A2 the tract's four as 44..47");
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SNAP")) {
       return true;
@@ -1023,6 +1023,51 @@ TEST_CASE("project: a SNAP saved before RANGE and SUSTAIN (42 values a slot) loa
   CHECK(live[43] == doctest::Approx(a.engine.param(a.rig.wiring.voice, AcidVoice::Sustain)));
 }
 
+TEST_CASE("project: a SNAP saved before the tract (44 values a slot) loads, and the tract's four targets, 44 to 47, are filled from the sound as loaded (the tract stays as it is)") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  constexpr unsigned kOld = 44;
+  static_assert(kSnapTargetCount == kOld + 4, "A2 appended the tract's VOWEL, TONGUE, LIPS and TRC MIX as targets 44 to 47");
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (!is(id, "SNAP")) {
+      return true;
+    }
+    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
+    for (unsigned s = 0; s < 8; ++s) {
+      for (unsigned i = 0; i < kOld; ++i) {
+        const float v = static_cast<float>(100 * s + i);
+        std::uint32_t bits;
+        std::memcpy(&bits, &v, 4);
+        for (int sh = 24; sh >= 0; sh -= 8) {
+          out.push_back(static_cast<std::uint8_t>(bits >> sh));
+        }
+      }
+    }
+    p = out;
+    return true;
+  });
+  project::ProjectState s;
+  REQUIRE(load(old, s).status == project::Status::Ok);
+  CHECK(s.snap_values == kOld);
+  Session b;
+  project::apply(b.rig, b.engine, s);
+  REQUIRE(b.rig.wiring.snaps.used(0));
+  float live[kSnapValues];
+  b.rig.controls.snap_capture(b.engine, live);
+  const project::ProjectState g = b.gather();
+  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
+    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
+    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
+  }
+  // The sound they are filled from is the project's: the tract's four as loaded (a recall of an old snapshot leaves the tract where it is).
+  for (unsigned i = 44; i < kSnapTargetCount; ++i) {
+    CHECK(live[i] == doctest::Approx(b.rig.controls.get(b.engine, snap_target(i))));
+    CHECK(g.snap[0][i] == doctest::Approx(live[i]));
+  }
+  CHECK(live[47] == doctest::Approx(a.engine.param(a.rig.wiring.tract, TractFx::Mix)));
+}
+
 TEST_CASE("project: a project saved without RANGE and SUSTAIN (no SND entry for them) loads them at their defaults") {
   Session a;
   scramble(a);
@@ -1052,7 +1097,7 @@ TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the gro
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   constexpr unsigned kOld = 18;  // the targets of kSnapTargetCount before P2: SOUND, distortion, delay, level, send
-  static_assert(kSnapTargetCount == kOld + 4 + 14 + 6 + 2, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX, MODS S2 the eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's six, the voice rewrite RANGE and SUSTAIN");
+  static_assert(kSnapTargetCount == kOld + 4 + 14 + 6 + 2 + 4, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX, MODS S2 the eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's six, the voice rewrite RANGE and SUSTAIN, A2 the tract's four");
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SNAP")) {
       return true;

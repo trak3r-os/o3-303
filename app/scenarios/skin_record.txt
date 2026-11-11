@@ -80,7 +80,8 @@ tap rec
 release shift
 wait 100
 snap 11_home_armed
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 1700
 snap 12_growl_recording
 # The 1 bar take finishes while GROWL is up; RECORD drops it (F4 twice, and the toast goes by) before 13.
@@ -89,7 +90,8 @@ tap samplerec
 tap f4
 tap f4
 wait 2600
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 100
 snap 13_growl
 tap samplerec

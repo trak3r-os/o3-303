@@ -28,7 +28,8 @@ enum class Id : std::uint8_t {
   Fx,            // INSTRUMENT, page FX
   ModdedNotes,   // MODDED, page NOTES (the Sample Loader button)
   ModdedTone,    // MODDED, page TONE
-  Growl,         // GROWL (the Sample Playback button)
+  Tract,         // TRACT (the Sample Playback button; again: GROWL and back)
+  Growl,         // GROWL (Sample Playback, again)
   Wobble,        // WOBBLE (the Sample Editor button)
   Master,        // MASTER
   File,          // FILE PROJECTS, the list
@@ -95,6 +96,8 @@ struct HomePads {
 // The home map (HOME, PATTERN SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
 // keys' note names (the labels point into it). `h` already has the screen's Text (fill()).
 void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noexcept;
+// TRACT: the pads are not the home map's: the bottom row's first five are the live vowels A E I O U, the rest dark. `h` already has the screen's Text (fill()).
+void fill_tract_pads(o3sdk::app::Help& h) noexcept;
 // PERFORM and PERFORM SETUP: row 1 the eleven live actions and ALL OFF, row 2 the snapshots and the variations, row 3 the ladder, row 4 the keys. `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
 void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false) noexcept;
 // FILE LIBRARY: the 48 pads are slots 00..47 of the bank.

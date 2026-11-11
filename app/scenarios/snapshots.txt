@@ -71,7 +71,8 @@ snap 11_encoder_is_the_knob_again
 # The growl is in the snapshots (P2, UX-303 D29): GROWL (Sample Playback, held 184 ms: the 186 ms the three Params taps of the old INSTRUMENT MODS took, so the later
 # events keep their times) F1 VOWEL, F2 FMT Q, F7 GRL MIX and F6 CMB MIX, stored on pad 3 (Shift + pad 14); a recall of pad 1 (stored with the growl at its defaults) takes the
 # growl away again, and pad 3 brings it back. The second WAV is plain, then the growl.
-tap sampleplay 184
+tap sampleplay 91   # TRACT first, then GROWL: the two taps take the 186 ms the one did
+tap sampleplay 91
 snap 12_growl_before
 tap f1
 turn 50
@@ -90,14 +91,16 @@ release shift
 wait 100
 pad 12 60
 wait 300
-tap sampleplay 184
+tap sampleplay 91   # TRACT first, then GROWL: the two taps take the 186 ms the one did
+tap sampleplay 91
 snap 14_recall_1_growl_off
 tap performance
 record on
 wait 300
 pad 14 60
 wait 300
-tap sampleplay 184
+tap sampleplay 91   # TRACT first, then GROWL: the two taps take the 186 ms the one did
+tap sampleplay 91
 snap 15_recall_3_growl_back
 tap performance
 wait 400

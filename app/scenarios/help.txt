@@ -71,7 +71,8 @@ tap f2
 snap 11_instrument_fx_pads
 tap config
 wait 50
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 100
 press shift
 tap config

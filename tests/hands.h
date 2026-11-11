@@ -34,6 +34,7 @@ inline constexpr dsp::UnitId kDist = 1;
 inline constexpr dsp::UnitId kDelay = 2;
 inline constexpr dsp::UnitId kFreeze = 3;
 inline constexpr dsp::UnitId kGrowl = 4;  // attached after the freeze (M3c G): slot 0's insert 1
+inline constexpr dsp::UnitId kTract = 5;  // the tract (A1 phase 2): slot 0's insert 2, after the growl
 
 inline o3_303::seq::Bank& bank() { return o3_303::seq::project_bank(); }
 
@@ -133,7 +134,19 @@ struct Hands {
       tap(Button::SampleLoad);
     }
   }
-  void to_growl() { tap(Button::SamplePlay); }
+  // Sample Playback opens TRACT and again flips to GROWL and back (A2, TRACT-KNOBS-PLAN 11.1): both helpers press until the title is theirs.
+  void to_tract() {
+    tap(Button::SamplePlay);
+    if (std::strcmp(title(), "TRACT") != 0) {
+      tap(Button::SamplePlay);
+    }
+  }
+  void to_growl() {
+    tap(Button::SamplePlay);
+    if (std::strcmp(title(), "GROWL") != 0) {
+      tap(Button::SamplePlay);
+    }
+  }
   void to_wobble() { tap(Button::SampleEdit); }
   // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.
   void to_perform() { tap(Button::Performance); }

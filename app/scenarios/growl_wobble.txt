@@ -10,7 +10,8 @@
 # (classic): the five keys and the three empty wells; 07 Shift: no LEARN row, the hint NOT LEARNABLE, F1 cannot be armed; 08 Sample Playback again from WOBBLE; 09 Params from GROWL opens VOICE.
 # The skinned GROWL and WOBBLE are skin_instrument.txt's (03_growl, 03b_wobble, 11_growl_lock_and_learn): only the skin_* scenarios get the skin's budgets.
 wait 300
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 100
 snap 01_growl
 # Step 6 held, the latched F6 (CMB MIX) turned: its lock on that step.
@@ -50,7 +51,8 @@ release shift
 wait 100
 # Pressed again on the screen it opens, the button stays; from WOBBLE the other opens GROWL; Params goes to INSTRUMENT on VOICE.
 tap sampleedit
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 100
 snap 08_growl_again
 tap params
@@ -65,7 +67,8 @@ snap 10_wobble_off_f8
 tap f8
 wait 100
 snap 11_wobble_latched
-tap sampleplay
+tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
+tap sampleplay 29
 wait 100
 snap 12_growl_off_f8
 tap f8

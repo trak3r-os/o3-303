@@ -5,6 +5,7 @@
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/pattern.h>
 #include <o3_303/perform.h>
+#include <o3_303/tract_vowels.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 #include <o3_303/units/growl/growl.h>
@@ -30,6 +31,8 @@ constexpr Entry voice(AcidVoice::Param id) noexcept { return Entry{Item::Voice, 
 bool overdrive_off(const core::ParamDesc& d, const Entry& entry, float value) noexcept {
   return entry.item == Item::Voice && entry.id == AcidVoice::Overdrive && value <= d.min;
 }
+// VOWEL reads a letter, "E", or "E 37" between two vowels, then "%" (tract_vowels.h); on a vowel's own point the letter stands alone.
+bool is_tract_vowel(const Entry& entry) noexcept { return entry.item == Item::Tract && entry.id == TractFx::Vowel; }
 constexpr Entry dist(Distortion::Param id, const char* label = nullptr) noexcept {
   return Entry{Item::Dist, static_cast<std::uint16_t>(id), label};
 }
@@ -38,6 +41,7 @@ constexpr Entry delay(units::Delay::Param id, const char* label) noexcept {
 }
 constexpr Entry freeze(Freeze::Param id, const char* label) noexcept { return Entry{Item::Freeze, static_cast<std::uint16_t>(id), label}; }
 constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entry{Item::Growl, static_cast<std::uint16_t>(id), label}; }
+constexpr Entry tract(TractFx::Param id, const char* label) noexcept { return Entry{Item::Tract, static_cast<std::uint16_t>(id), label}; }
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
 constexpr Entry perf(unsigned button, const char* label) noexcept { return Entry{Item::Perf, static_cast<std::uint16_t>(button), label}; }
@@ -74,7 +78,9 @@ constexpr Entry kSnapTargets[kSnapTargetCount] = {
     growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"), growl(Growl::CombFeedback, "CMB FB"),
     wobble(kWobbleRate, nullptr), wobble(kWobbleShape, nullptr), wobble(kWobbleDepth, nullptr), wobble(kWobbleTarget, nullptr), wobble(kWobbleReset, nullptr),
     app_item(Item::WobOn, "WOB"),
-    voice(AcidVoice::Range), voice(AcidVoice::Sustain)};
+    voice(AcidVoice::Range), voice(AcidVoice::Sustain),
+    // A2: the tract's knobs that a scene moves (the last four, appended); lane targets, so a recall moves them like the growl's.
+    tract(TractFx::Vowel, "VOWEL"), tract(TractFx::Tongue, "TONGUE"), tract(TractFx::Lips, "LIPS"), tract(TractFx::Mix, "TRC MIX")};
 static_assert(kSnapWobbleFirst == 36, "B5a's six targets follow the first 36");
 static_assert(AcidVoice::AmpDecay - AcidVoice::AccDecay == 10, "the snapshot holds the eleven mods, ids 8 to 18, in order");
 
@@ -127,7 +133,7 @@ constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr
 
 // The wobble's settings (M3c W); the order is WobbleField's. Rate and shape are the sequencer's own tables (seq/wobble.h).
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
-constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL"};
+constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL", "MOUTH"};
 // WOBBLE's F8 key (Item::WobOn): the action's name and its two places; the value is the screen's (the latch), not a setting.
 constexpr core::ParamDesc kGrowlOn = {"GROWL", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kTractOn = {"TRACT", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -180,6 +186,12 @@ constexpr Page kGrowlPage = {"GROWL",
 constexpr Page kWobblePage = {"WOBBLE",
                               {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
                                Entry{}, Entry{}, app_item(Item::WobOn, "WOB")}};
+
+// The tract in signal order: the mouth (VOWEL, TONGUE, LIPS), the resonance and glide, the room (SIZE), then the mix. F8 is the TRACT key: Mix to 0 and back to its last non-zero
+// value, like GROWL's (A2). F1 reads a letter (tract_vowels.h). The pads of the page are the live vowels (instrument_screen.cpp).
+constexpr Page kTractPage = {"TRACT",
+                             {tract(TractFx::Vowel, "VOWEL"), tract(TractFx::Tongue, "TONGUE"), tract(TractFx::Lips, "LIPS"), tract(TractFx::Res, "RES"),
+                              tract(TractFx::Glide, "GLIDE"), tract(TractFx::Size, "SIZE"), tract(TractFx::Mix, "TRC MIX"), app_item(Item::TractOn, "TRACT")}};
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
 const Page& setup_page() noexcept { return kSetupPage; }
@@ -512,7 +524,7 @@ KeyKind Controls::kind(const dsp::Engine& e, const Entry& entry) const noexcept 
   if (d == nullptr) {
     return KeyKind::Blank;
   }
-  if (entry.item == Item::Mods || entry.item == Item::WobOn || entry.item == Item::GrowlOn) {
+  if (entry.item == Item::Mods || entry.item == Item::WobOn || entry.item == Item::GrowlOn || entry.item == Item::TractOn) {
     return KeyKind::Action;
   }
   return d->names != nullptr && d->list_count == 2u ? KeyKind::Switch : KeyKind::Knob;
@@ -607,12 +619,15 @@ unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, u
     out[n] = '\0';
     return n;
   }
+  if (is_tract_vowel(entry)) {
+    return tract_vowel_text(get(e, entry), out, cap);
+  }
   return core::param_format(*d, shown(e, entry), out, cap);
 }
 
 const char* Controls::unit_text(const dsp::Engine& e, const Entry& entry) const noexcept {
   const core::ParamDesc* d = desc(e, entry);
-  if (d == nullptr || overdrive_off(*d, entry, get(e, entry))) {
+  if (d == nullptr || overdrive_off(*d, entry, get(e, entry)) || (is_tract_vowel(entry) && tract_on_vowel(get(e, entry)))) {
     return "";
   }
   return d->unit_text != nullptr ? d->unit_text : "";
@@ -755,8 +770,14 @@ bool Controls::snap_discrete(const dsp::Engine& e, unsigned index) const noexcep
 }
 
 LaneRef Controls::wobble_target() const noexcept {
-  return w_->wobble.target == kWobbleVowel ? LaneRef{kLaneGrowl, static_cast<std::uint8_t>(Growl::Vowel)}
-                                           : LaneRef{kLaneVoice, static_cast<std::uint8_t>(AcidVoice::Cutoff)};
+  switch (w_->wobble.target) {
+    case kWobbleVowel:
+      return LaneRef{kLaneGrowl, static_cast<std::uint8_t>(Growl::Vowel)};
+    case kWobbleMouth:
+      return LaneRef{kLaneTract, static_cast<std::uint8_t>(TractFx::Vowel)};  // A2: swings the tract's VOWEL around the vowel that sounds
+    default:
+      return LaneRef{kLaneVoice, static_cast<std::uint8_t>(AcidVoice::Cutoff)};
+  }
 }
 
 void Controls::apply_wobble(bool on) const noexcept {

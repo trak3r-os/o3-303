@@ -295,8 +295,8 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // MODDED, RECORD, GROWL and WOBBLE (UX-303 2.1, docs/MODS-PLAN.md 4.3): Sample Loader opens MODDED NOTES, and on it flips to TONE and back; Shift + Sample Loader flips STOCK from every screen with no
-    // change of screen. The Sample Recorder button opens RECORD, Sample Playback GROWL and Sample Editor WOBBLE, each with or without Shift and, on its own screen, nothing (one page each). The app takes
+    // MODDED, RECORD, TRACT / GROWL and WOBBLE (UX-303 2.1, docs/MODS-PLAN.md 4.3): Sample Loader opens MODDED NOTES, and on it flips to TONE and back; Shift + Sample Loader flips STOCK from every screen with no
+    // change of screen. The Sample Recorder button opens RECORD, Sample Playback TRACT (again: GROWL, and back) and Sample Editor WOBBLE, each with or without Shift and, on its own screen, nothing for WOBBLE (one page). The app takes
     // these presses, so that no screen sees them. Shift + Rec is RECORD's F1 from every screen, with no change of screen (the plain Rec stays the home map's step record).
     if (in.press(Button::SampleLoad)) {
       if (in.shift) {
@@ -317,7 +317,10 @@ class O3_303App final : public app::App {
       return true;
     }
     if (in.press(Button::SamplePlay)) {
-      if (ctx.screen() != &growl_screen_) {
+      if (ctx.screen() == &growl_screen_) {
+        growl_screen_.next_page();  // TRACT and GROWL: again flips (TRACT-KNOBS-PLAN 11.1)
+        ctx.redraw();
+      } else {
         growl_screen_.open_first_page();
         ctx.show(growl_screen_);
       }

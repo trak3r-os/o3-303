@@ -122,7 +122,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **File** | FILE PROJECTS. Again: FILE LIBRARY. **Shift + File**: save the project, from any screen |
 | **Sample Rec** | RECORD |
 | **Sample Load** | MODDED: NOTES, then TONE (again). **Shift + Sample Load**: MODS, the mods heard or off, from any screen |
-| **Sample Play** | GROWL |
+| **Sample Play** | TRACT, then GROWL (again), then TRACT |
 | **Sample Edit** | WOBBLE |
 | **Config** | The unit's settings. **Shift + Config**: HELP for the screen you are on |
 | **Play** | Play and stop. **Shift + Play**: restart from step 1 |
@@ -538,9 +538,15 @@ MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen 
 - **MODS is saved in the project**, with the mods' values: a load, NEW, REVERT or the load at start-up brings it back as it was saved. A project saved
   before this (no MODS state in it), NEW and RESET PROJECT have it on.
 
+### TRACT
+
+Press **Sample Play**. TRACT is a mouth after the growl: F1 VOWEL (A E I O U morphed; the read-out is a letter on a vowel and "E 37%" between), F2 TONGUE,
+F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8, which switches the tract on and off (off is Mix 0, the dry sound bit for bit; on brings back the last
+mix). The bottom row of pads plays the vowels A E I O U live. Shift + F1 to F7 is MIDI learn. Another press of Sample Play flips to GROWL and back.
+
 ### GROWL
 
-Press **Sample Play**. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
+Press **Sample Play**, then again. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
 comb, then the mix), and F8 switches the growl on and off.
 
 ![GROWL: F1 VOWEL, F2 FMT Q, F3 FMT MIX, F4 CMB TUNE, F5 CMB FB, F6 CMB MIX, F7 GRL MIX; the VOICE and WOBBLE read-outs](manual/img/growl.png)

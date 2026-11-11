@@ -6,6 +6,7 @@
 #include <o3sdk/dsp/engine.h>
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/pages.h>
+#include <o3_303/tract_vowels.h>
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/distortion/distortion.h>
@@ -81,6 +82,7 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
   CHECK(std::strcmp(kFxPage.name, "FX") == 0);
   CHECK(std::strcmp(kNotesPage.name, "NOTES") == 0);
   CHECK(std::strcmp(kTonePage.name, "TONE") == 0);
+  CHECK(std::strcmp(kTractPage.name, "TRACT") == 0);
   CHECK(std::strcmp(kGrowlPage.name, "GROWL") == 0);
   CHECK(std::strcmp(kWobblePage.name, "WOBBLE") == 0);
   CHECK(&page_at(kPageCount) == &page_at(0));  // an index past the pages gives the first
@@ -94,7 +96,7 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
   };
   const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0, 8}, {&kFxPage, 0, 9},
                          {&kNotesPage, 0, 9},           {&kTonePage, 0, 9},
-                         {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
+                         {&kTractPage, 0, 9},     {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
   for (const Shown& sh : shown) {
     for (unsigned k = 0; k < kKeys; ++k) {
       const Entry e = rig.entry(*sh.page, k);
@@ -505,7 +507,7 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
 
   // The targets: SOUND's seven, the distortion's five, the delay's four, the level and the send, then (P2, D29) the growl's VOWEL, FMT Q, GRL MIX and
   // CMB MIX, then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven mods in id order and the growl's FMT MIX, CMB TUNE and CMB FB, each a real entry the lanes know.
-  CHECK(kSnapTargetCount == 44);  // B5a: then the wobble's five settings and its latch (36..41), then the voice's RANGE and SUSTAIN (42, 43)
+  CHECK(kSnapTargetCount == 48);  // B5a: then the wobble's five settings and its latch (36..41), then the voice's RANGE and SUSTAIN (42, 43), then (A2) the tract's VOWEL, TONGUE, LIPS and TRC MIX (44..47)
   CHECK(snap_target(18).item == Item::Growl);
   CHECK(snap_target(18).id == Growl::Vowel);
   CHECK(snap_target(19).id == Growl::FormantQ);
@@ -537,11 +539,24 @@ TEST_CASE("pages: what a snapshot holds (R2); the SNAP page's keys went with H4,
   CHECK(now[19] == doctest::Approx(12.0f).epsilon(0.02));
   CHECK(now[20] == doctest::Approx(0.25f));
   CHECK(now[21] == doctest::Approx(0.75f));
-  CHECK(now[kSnapTargetCount] == 0.0f);
-  CHECK(now[kSnapValues - 1u] == 0.0f);  // room for four more targets stays zero
+  // The tract's four (A2): VOWEL 0..1, TONGUE and LIPS as the knob shows them (-100..+100), TRC MIX 0..1; a snapshot is now full.
+  CHECK(snap_target(44).item == Item::Tract);
+  CHECK(snap_target(44).id == TractFx::Vowel);
+  CHECK(snap_target(45).id == TractFx::Tongue);
+  CHECK(snap_target(46).id == TractFx::Lips);
+  CHECK(snap_target(47).id == TractFx::Mix);
+  rig.controls.set(rig.engine, snap_target(44), 0.5f);
+  rig.controls.set(rig.engine, snap_target(45), -40.0f);
+  rig.controls.set(rig.engine, snap_target(46), 60.0f);
+  rig.controls.set(rig.engine, snap_target(47), 0.25f);
+  rig.controls.snap_capture(rig.engine, now);
+  CHECK(now[44] == doctest::Approx(0.5f));
+  CHECK(now[45] == doctest::Approx(-40.0f));
+  CHECK(now[46] == doctest::Approx(60.0f));
+  CHECK(now[47] == doctest::Approx(0.25f));
 
   // The mods: targets 22..32 are the voice's ids 8..18 in id order (never STOCK, id 19), and 33..35 the growl's FMT MIX, CMB TUNE and CMB FB; each is read and written in its own units.
-  static_assert(kSnapValues - kSnapTargetCount == 4, "room for four more targets");
+  static_assert(kSnapValues == kSnapTargetCount, "a snapshot is full: the format has no room for another target");
   for (unsigned i = 0; i < 11; ++i) {
     CHECK(snap_target(22 + i).item == Item::Voice);
     CHECK(snap_target(22 + i).id == AcidVoice::AccDecay + i);
@@ -828,8 +843,8 @@ TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule
   Rig rig;
   const auto kind = [&](const Page& page, unsigned key) { return rig.controls.kind(rig.engine, page.entry[key]); };
   CHECK(rig.controls.kind(rig.engine, Entry{}) == KeyKind::Blank);
-  // Every entry of every table: a two-place list is a switch, MODS and the two WOB / GRL F8 keys are actions, a blank is blank, and nothing else is a switch or an action.
-  const Page* tables[] = {&page_at(kPageSound), &page_at(kPagePerfSetup), &kFxPage, &kNotesPage, &kTonePage, &kGrowlPage, &kWobblePage, &setup_page()};
+  // Every entry of every table: a two-place list is a switch, MODS and the WOB / GRL / TRACT F8 keys are actions, a blank is blank, and nothing else is a switch or an action.
+  const Page* tables[] = {&page_at(kPageSound), &page_at(kPagePerfSetup), &kFxPage, &kNotesPage, &kTonePage, &kGrowlPage, &kTractPage, &kWobblePage, &setup_page()};
   unsigned switches = 0;
   unsigned actions = 0;
   for (const Page* p : tables) {
@@ -839,7 +854,7 @@ TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule
       const KeyKind got = rig.controls.kind(rig.engine, e);
       if (e.item == Item::Blank) {
         CHECK(got == KeyKind::Blank);
-      } else if (e.item == Item::Mods || e.item == Item::WobOn || e.item == Item::GrowlOn) {
+      } else if (e.item == Item::Mods || e.item == Item::WobOn || e.item == Item::GrowlOn || e.item == Item::TractOn) {
         CHECK(got == KeyKind::Action);
         ++actions;
       } else if (d != nullptr && d->names != nullptr && d->list_count == 2u) {
@@ -861,4 +876,98 @@ TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule
   const Entry cutoff{Item::Voice, AcidVoice::Cutoff, nullptr};
   CHECK(rig.controls.kind(rig.engine, wave) == KeyKind::Switch);
   CHECK(rig.controls.kind(rig.engine, cutoff) == KeyKind::Knob);
+}
+
+TEST_CASE("pages: the TRACT page (A2): seven knobs and the on / off key, VOWEL's read-out, F8 with the last mix, the vowel table") {
+  Rig rig;
+  // F1 VOWEL, F2 TONGUE, F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX are the unit's parameters; F8 is the app's on / off key.
+  const unsigned ids[7] = {TractFx::Vowel, TractFx::Tongue, TractFx::Lips, TractFx::Res, TractFx::Glide, TractFx::Size, TractFx::Mix};
+  const char* const names[7] = {"VOWEL", "TONGUE", "LIPS", "RES", "GLIDE", "SIZE", "TRC MIX"};
+  for (unsigned k = 0; k < 7; ++k) {
+    CHECK(rig.entry(kTractPage, k).item == Item::Tract);
+    CHECK(rig.entry(kTractPage, k).id == ids[k]);
+    CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kTractPage, k)), names[k]) == 0);
+    LaneRef ref{kLaneNone, 0};
+    CHECK(rig.controls.lane_ref(rig.entry(kTractPage, k), ref));  // every knob of the page is a unit parameter: MIDI learn and the lanes reach it
+    CHECK(ref.target == kLaneTract);
+    CHECK(ref.id == ids[k]);
+  }
+  CHECK(rig.entry(kTractPage, 7).item == Item::TractOn);
+  CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kTractPage, 7)), "TRACT") == 0);
+
+  // VOWEL's read-out: a letter alone on a vowel's own point, else the nearest letter and the position in percent.
+  const Entry vowel = rig.entry(kTractPage, 0);
+  rig.controls.set(rig.engine, vowel, 0.0f);
+  CHECK(rig.text(vowel) == "A");
+  CHECK(std::strlen(rig.controls.unit_text(rig.engine, vowel)) == 0);
+  rig.controls.set(rig.engine, vowel, 0.25f);
+  CHECK(rig.text(vowel) == "E");
+  rig.controls.set(rig.engine, vowel, 0.37f);
+  CHECK(rig.text(vowel) == "E 37%");
+  rig.controls.set(rig.engine, vowel, 0.6f);
+  CHECK(rig.text(vowel) == "I 60%");
+  rig.controls.set(rig.engine, vowel, 1.0f);
+  CHECK(rig.text(vowel) == "U");
+
+  // The vowel table: points, the nearest, the pad row.
+  CHECK(kTractVowelCount == 5);
+  for (unsigned i = 0; i < kTractVowelCount; ++i) {
+    CHECK(tract_vowel_point(i) == doctest::Approx(static_cast<float>(i) * 0.25f));
+    CHECK(tract_nearest_vowel(tract_vowel_point(i)) == i);
+    CHECK(tract_on_vowel(tract_vowel_point(i)));
+    CHECK(tract_vowel_pad(app::pad_at(3, i)) == static_cast<int>(i));
+  }
+  CHECK(tract_nearest_vowel(0.12f) == 0);
+  CHECK(tract_nearest_vowel(0.13f) == 1);
+  CHECK(tract_nearest_vowel(-3.0f) == 0);
+  CHECK(tract_nearest_vowel(9.0f) == 4);
+  CHECK_FALSE(tract_on_vowel(0.37f));
+  CHECK(tract_vowel_pad(app::pad_at(3, 5)) == -1);  // the rest of the bottom row and rows 1 to 3 do nothing yet
+  CHECK(tract_vowel_pad(app::pad_at(2, 0)) == -1);
+  CHECK(tract_vowel_pad(app::pad_at(0, 0)) == -1);
+  char buf[8];
+  CHECK(tract_vowel_text(1.0f, buf, sizeof buf) == 1);
+  CHECK(std::strcmp(buf, "U") == 0);
+  CHECK(tract_vowel_text(0.995f, buf, sizeof buf) == 1);  // rounds to 100 %: on the point
+  CHECK(tract_vowel_text(0.05f, buf, sizeof buf) == 3);   // A 5
+  CHECK(std::strcmp(buf, "A 5") == 0);
+  CHECK(tract_vowel_text(0.5f, buf, 1) == 0);             // a buffer of one holds only the terminator
+  CHECK(buf[0] == '\0');
+
+  // F8: Mix 0 is the bypass. On gives Mix back its last value (50 % at a boot), off remembers it and goes to 0.
+  const Entry on = rig.entry(kTractPage, 7);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == 0.0f);  // silent at boot
+  CHECK(rig.controls.get(rig.engine, on) == 0.0f);
+  rig.controls.set(rig.engine, on, 1.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == doctest::Approx(0.5f));
+  CHECK(rig.controls.get(rig.engine, on) == 1.0f);
+  rig.controls.set(rig.engine, rig.entry(kTractPage, 6), 0.8f);
+  rig.controls.set(rig.engine, on, 0.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == 0.0f);
+  CHECK(rig.wiring.tract_last_mix == doctest::Approx(0.8f));
+  rig.controls.set(rig.engine, on, 1.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == doctest::Approx(0.8f));  // the last mix, not the default
+  rig.controls.set(rig.engine, on, 1.0f);  // on again: nothing moves
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == doctest::Approx(0.8f));
+}
+
+TEST_CASE("pages: the wobble's MOUTH target (A2) is appended after VOWEL and swings the tract's VOWEL") {
+  Rig rig;
+  static_assert(kWobbleTargetCount == 3, "CUTOFF, VOWEL, MOUTH: appended, the stored values of the first two stay");
+  CHECK(kWobbleCutoff == 0);
+  CHECK(kWobbleVowel == 1);
+  CHECK(kWobbleMouth == 2);
+  const Entry target = rig.entry(kWobblePage, 3);
+  CHECK(rig.text(target) == "CUTOFF");
+  CHECK(rig.controls.wobble_target().target == kLaneVoice);
+  rig.controls.step(rig.engine, target, 2, false);
+  CHECK(rig.wiring.wobble.target == kWobbleMouth);
+  CHECK(rig.text(target) == "MOUTH");
+  CHECK(rig.controls.wobble_target().target == kLaneTract);
+  CHECK(rig.controls.wobble_target().id == TractFx::Vowel);
+  rig.controls.step(rig.engine, target, 9, false);  // stops at the last one
+  CHECK(rig.wiring.wobble.target == kWobbleMouth);
+  rig.controls.step(rig.engine, target, -1, false);
+  CHECK(rig.wiring.wobble.target == kWobbleVowel);
+  CHECK(rig.controls.wobble_target().target == kLaneGrowl);
 }

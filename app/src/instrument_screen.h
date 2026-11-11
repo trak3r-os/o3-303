@@ -2,14 +2,15 @@
 #pragma once
 
 // INSTRUMENT (docs/UX-303.md 5.5) and its three siblings MODDED, GROWL and WOBBLE (docs/MODS-PLAN.md 5.1): one screen class, four instances (the app holds them), each with an InstrumentGroup that says
-// what it shows. Params opens INSTRUMENT on VOICE, Params again cycles the pages; Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens GROWL and Sample Editor
+// what it shows. Params opens INSTRUMENT on VOICE, Params again cycles the pages; Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens TRACT and again goes to GROWL and back (A2) and Sample Editor
 // WOBBLE (one page each):
 //
 //   INSTRUMENT VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   INSTRUMENT FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
 //   MODDED NOTES       SOFT ATK DECAY ACC DECAY AMP DECAY SLIDE ACC SWEEP SWP SPEED, and F8 STOCK (the 303 mods that move each note)
 //   MODDED TONE        TRACKING FILTER FM OVERDRIVE MUFFLER SUB OSC (what the filter is fed and gives), F8 STOCK
-//   GROWL              VOWEL FMT Q FMT MIX CMB TUNE CMB FB CMB MIX GRL MIX (the growl's seven; F8 empty)
+//   TRACT              VOWEL TONGUE LIPS RES GLIDE SIZE TRC MIX, and F8 TRACT (on / off, an action key like GROWL's); the pads' bottom row is the live vowels A E I O U
+//   GROWL              VOWEL FMT Q FMT MIX CMB TUNE CMB FB CMB MIX GRL MIX (the growl's seven; F8 GROWL)
 //   WOBBLE             RATE SHAPE DEPTH TARGET RESET (the wobble's five settings), and F8 WOB
 //
 // F8 of MODDED (STOCK) and of WOBBLE (WOB) is an action key and not a knob: it runs at its press, is lit while it is on and has no encoder latch. STOCK is the voice's switch over the mods and a
@@ -114,6 +115,8 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void release_keys() noexcept;
   void learn_key(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void learn_drop(o3sdk::app::Context& ctx) noexcept;
+  void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
+  bool tract_page() const noexcept;  // Sample Play's group on its TRACT page: the pads are the live vowels
   void run_action(o3sdk::app::Context& ctx, const Entry& entry) noexcept;
   bool action_on(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   PageKeys& keys() noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
