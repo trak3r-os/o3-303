@@ -300,6 +300,22 @@ TEST_CASE("pages: VOLUME is slot 0's level in dB, silent at the bottom, capped a
   CHECK(rig.engine.param(rig.wiring.voice, AcidVoice::Volume) == doctest::Approx(-3.0f));
 }
 
+TEST_CASE("pages: OVERDRIVE reads OFF at the bottom of its range, where the voice takes no oscillator (v0.6.1)") {
+  Rig rig;
+  const Entry od{Item::Voice, static_cast<std::uint16_t>(AcidVoice::Overdrive), nullptr};
+  CHECK(rig.text(od) == "0.0dB");  // the default: stock
+  rig.controls.set(rig.engine, od, -24.0f);
+  CHECK(rig.text(od) == "OFF");
+  CHECK(std::string(rig.controls.unit_text(rig.engine, od)).empty());
+  rig.controls.step(rig.engine, od, 1, false);  // one detent up: a level again
+  CHECK(rig.text(od) == "-23.5dB");
+  char small[3];
+  CHECK(rig.controls.format(rig.engine, od, small, sizeof small) > 0u);
+  rig.controls.set(rig.engine, od, -24.0f);
+  CHECK(rig.controls.format(rig.engine, od, small, sizeof small) == 2u);  // cut to the buffer, NUL kept
+  CHECK(std::string(small) == "OF");
+}
+
 TEST_CASE("pages: the FX page: the distortion, the delay, the send, and the master (MASTER's entry)") {
   Rig rig;
   const Entry drive = rig.entry(kFxPage, 0);

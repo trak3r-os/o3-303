@@ -478,7 +478,7 @@ speeds' time constants, the height of the accent's sweep); the ranges and the st
 | SWP SPEED | NOTES F7 | How a run of accents builds the sweep. FAST: the first accent is the strongest and the next ones smaller. NORMAL: the plain 303, where RESO decides: low, each accent is a quick pulse; high, the sweep rises late and each close accent climbs higher. SLOW: it rises later, up to twice as high, and takes longer to settle | FAST, NORMAL, SLOW | NORMAL |
 | TRACKING | TONE F1 | The filter follows the notes: 100 % is one octave of cutoff for each octave of note, over 100 % opens high notes more. C2 is unchanged at any setting | 0 to 150 % | 0 % |
 | FILTER FM | TONE F2 | The output's own sound frequency-modulates the filter: a gritty, unstable edge at higher amounts | 0 to 100 % | 0 % |
-| OVERDRIVE | TONE F3 | The level of the oscillator into the filter: more drive, more of the filter's own saturation. It is not the FX distortion, and the two stack. The bottom of the range is no oscillator at all, so HI RES can whistle alone | -24 to +36 dB | 0.0 dB |
+| OVERDRIVE | TONE F3 | The level of the oscillator into the filter: more drive, more of the filter's own saturation. It is not the FX distortion, and the two stack. The bottom of the range reads OFF: no oscillator at all, so the voice is nearly silent and HI RES can whistle alone | -24 to +36 dB | 0.0 dB |
 | MUFFLER | TONE F4 | A clipping stage after the amp. SOFT rounds the loudest peaks; HARD clips the top and lets the bass through | OFF, SOFT, HARD | OFF |
 | SUB OSC | TONE F5 | A square an octave below the note, under the main wave. LOW, MID and HIGH set its level. The one mod that is not the Devil Fish's: it comes from the TD-3-MO | OFF, LOW, MID, HIGH | OFF |
 | RANGE | TONE F6 | 303: the plain instrument. FISH: ENV MOD goes from no sweep at all to three times the 303's top, the bass is fuller (32 Hz down about 1 dB, not much more), and a note starts at once and ends at the gate | 303, FISH | 303 |
@@ -939,7 +939,7 @@ button.
 | BARS TOO LONG AT ... (for example 8 BARS TOO LONG AT 60.0) | On RECORD: that many bars at that tempo run over the 30 seconds a take holds. Pick fewer bars (F3) or a faster tempo |
 | MIDI CLOCK LEADS | TAP or NUDGE while the tempo follows a MIDI clock: the tempo is the other machine's (section 10) |
 
-**No sound.** Check F8 VOLUME on HOME, F4 MASTER on MASTER, and that MUTE is not latched on PERFORM (ALL OFF lets every action go). If the
+**No sound.** Check F8 VOLUME on HOME, F4 MASTER on MASTER, that MUTE is not latched on PERFORM (ALL OFF lets every action go), and that OVERDRIVE on MODDED TONE (F3) is not OFF, the bottom of its range, where no oscillator reaches the filter. If the
 header says STOCK, the mods are off on purpose: Shift + Sample Load turns them back on.
 
 **The keys do nothing, or some are dark.** A scale chosen on PATTERN SETUP keeps the keys to it. TRNSP on (row 2, column 11) makes the keys

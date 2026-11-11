@@ -94,3 +94,13 @@ wait 50
 tap f3
 wait 100
 snap 15c_accent_zero
+# OVERDRIVE (TONE F3) at the bottom of its range reads OFF, with no unit: no oscillator goes into the filter there, so the voice is nearly
+# silent (v0.6.1; "-24.0dB" before, which looked like a level that still sounds). One detent up it is a level again.
+tap sampleload
+tap f3
+turn -100
+wait 100
+snap 16_overdrive_off
+turn 1
+wait 100
+snap 17_overdrive_one_up

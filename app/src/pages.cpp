@@ -23,6 +23,12 @@ using core::ParamUnit;
 // ---- The pages --------------------------------------------------------------------------------------------------------------
 
 constexpr Entry voice(AcidVoice::Param id) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}; }
+
+// OVERDRIVE at the bottom of its range feeds no oscillator into the filter at all (acid_voice's od_gain, the Devil Fish's pot), so the
+// voice is nearly silent: the value reads OFF there, not "-24.0 dB", which looks like a level that still sounds.
+bool overdrive_off(const core::ParamDesc& d, const Entry& entry, float value) noexcept {
+  return entry.item == Item::Voice && entry.id == AcidVoice::Overdrive && value <= d.min;
+}
 constexpr Entry dist(Distortion::Param id, const char* label = nullptr) noexcept {
   return Entry{Item::Dist, static_cast<std::uint16_t>(id), label};
 }
@@ -506,12 +512,24 @@ unsigned Controls::format(const dsp::Engine& e, const Entry& entry, char* out, u
     }
     return 0;
   }
+  if (overdrive_off(*d, entry, get(e, entry))) {
+    static constexpr char kOff[] = "OFF";
+    unsigned n = 0;
+    for (; n + 1u < cap && kOff[n] != '\0'; ++n) {
+      out[n] = kOff[n];
+    }
+    out[n] = '\0';
+    return n;
+  }
   return core::param_format(*d, get(e, entry), out, cap);
 }
 
 const char* Controls::unit_text(const dsp::Engine& e, const Entry& entry) const noexcept {
   const core::ParamDesc* d = desc(e, entry);
-  return d != nullptr && d->unit_text != nullptr ? d->unit_text : "";
+  if (d == nullptr || overdrive_off(*d, entry, get(e, entry))) {
+    return "";
+  }
+  return d->unit_text != nullptr ? d->unit_text : "";
 }
 
 const char* Controls::label(const dsp::Engine& e, const Entry& entry) const noexcept {
