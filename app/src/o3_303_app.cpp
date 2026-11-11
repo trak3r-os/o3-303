@@ -86,6 +86,7 @@ T& sdram_instance() noexcept {
 }
 
 constexpr std::uint32_t kDefaultTempoMilli = 125'000;  // Replicant's default
+constexpr std::uint64_t kBootHoldMs = 3000;  // F10: how long Play, the pads and the encoder wait for the boot load to decide (an uptime, so a card swapped later never holds them)
 constexpr std::uint64_t kSavingToastMs = 1000;         // the SAVING toast is said again this often (a toast lasts a little longer)
 
 class O3_303App final : public app::App {
@@ -220,6 +221,12 @@ class O3_303App final : public app::App {
 
   bool input(app::Context& ctx, const app::Input& in) noexcept override {
     dsp::Engine& e = ctx.engine();
+    // F10: while the project loads at start-up, Play, the pads and the encoder wait: a press that played or edited first would make the load give way
+    // ("AUTOSAVE OFF: PLAYING BEFORE THE LOAD"). It is a second at most on a card; after kBootHoldMs (or with no card, where the boot decides at once)
+    // the input is the player's again and the old rule applies.
+    if (project_.booting() && ctx.uptime_ms() < kBootHoldMs && (in.turn() || in.pad_press() || in.press(Button::Play))) {
+      return true;
+    }
     // MASTER (UX-303 2.6, D5): the button and, while it is down, the encoder are the app's from every screen, so that none sees them. Another press
     // while it is down (a chord) makes its release no tap.
     if (master_.master_down() && in.type == app::Input::Type::Press && !in.is(Button::Master)) {

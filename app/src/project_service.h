@@ -155,6 +155,8 @@ class ProjectService {
   const char* name() const noexcept { return name_; }
   bool has_project() const noexcept { return home_; }  // the session has a project on the card: autosave is on
   Phase phase() const noexcept { return phase_; }
+  // The boot load has not decided yet (F10: Play, the pads and the encoder wait for it, for a few seconds at most).
+  bool booting() const noexcept { return phase_ == Phase::Start || phase_ == Phase::BootLast || phase_ == Phase::BootLoad; }
   bool idle() const noexcept { return phase_ == Phase::Idle && op_ == Op::None && req_ == Req::None && !del_req_ && !save_req_; }
   bool changes_waiting() const noexcept { return clock_.pending(); }
   // The number of saves of live.o3a that ended well since init() (tests: "an autosave happened").

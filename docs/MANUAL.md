@@ -779,9 +779,10 @@ A project is everything you make: the 48 patterns, the song, the sound, the snap
   name.
 - **Without a card** o3-303 still plays: it starts on the factory line and saves nothing.
 
-Give the unit a moment after switching on before you press Play: if you play or edit before the project has loaded, o3-303 keeps what you
-are doing, does not load, and turns autosave off ("AUTOSAVE OFF: PLAYING BEFORE THE LOAD", or "AUTOSAVE OFF: EDITED BEFORE THE LOAD"
-when you edited). LOAD the project from FILE PROJECTS, or SAVE AS to keep what you did.
+While the project loads after switching on (a moment, with a card), Play, the pads and the encoder wait: a press in that moment is not
+taken. If the load has not settled after three seconds they are yours again, and then, if you play or edit before the project has loaded,
+o3-303 keeps what you are doing, does not load, and turns autosave off ("AUTOSAVE OFF: PLAYING BEFORE THE LOAD", or "AUTOSAVE OFF:
+EDITED BEFORE THE LOAD" when you edited). LOAD the project from FILE PROJECTS, or SAVE AS to keep what you did.
 
 ### On the card
 

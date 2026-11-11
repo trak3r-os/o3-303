@@ -682,6 +682,32 @@ TEST_CASE("project service: a boot load that is dropped says why, and autosave i
   CHECK_FALSE(app_project().has_project());
 }
 
+TEST_CASE("project service, F10: Play, a pad and the encoder pressed while the boot load is pending wait; the load then applies and autosave stays on") {
+  Session s;
+  s.run(500);
+  edit_note(0, 3);
+  s.shift_file();
+  s.settle();
+  const unsigned saved = bank().pattern(0).steps[3].note;
+  REQUIRE(s.h->reboot());
+  REQUIRE(app_project().booting());
+  s.h->press(Button::Play);  // the first thing a player does after switching on
+  s.h->release(Button::Play);
+  s.h->pad_down(5);
+  s.h->pad_up(5);
+  s.h->turn(3);
+  CHECK_FALSE(s.h->engine().playing());
+  s.run(500);
+  CHECK_FALSE(app_project().booting());
+  CHECK(app_project().has_project());  // not "PLAYING BEFORE THE LOAD"
+  CHECK(bank().pattern(0).steps[3].note == saved);  // the project's own line, untouched by the pad or the turn
+  CHECK(std::string(app_project().info().notice).find("BEFORE THE LOAD") == std::string::npos);
+  s.h->press(Button::Play);  // once the load has settled, Play is Play
+  s.h->release(Button::Play);
+  s.run(20);
+  CHECK(s.h->engine().playing());
+}
+
 TEST_CASE("project service: a name the kit refuses (a deleted project's hidden folder) goes on to the next free one") {
   Session s;
   s.run(500);

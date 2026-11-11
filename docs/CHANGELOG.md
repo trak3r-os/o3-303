@@ -25,6 +25,9 @@ hear says so in plain words.
   round (A, B, C, B, C ...: the pattern that was playing is not part of the round) until a single tap with Pattern held replaces the chain.
   Before, the chain played once and its last pattern then repeated for ever. One queued pattern behaves as before. Nothing in a saved
   project changes.
+- **Play, the pads and the encoder wait while the project loads at start-up.** A press in the first moment after switching on (with a
+  card) is not taken, so the first Play no longer costs the load and turns autosave off ("PLAYING BEFORE THE LOAD"). After three seconds
+  they are yours again whatever the card is doing.
 - **CUTOFF covers only the range the voice uses.** On RANGE 303, or with MODS off, CUTOFF's encoder travel, its read-out and the twelve
   pads of the FILT and KNOBS ladders span 200 to 2394 Hz (before, 25 to 4500 Hz, and everything under 200 or over 2394 Hz sounded the same, so
   the first and last pads and the ends of the encoder did nothing new). RANGE FISH keeps the whole 25 to 4500 Hz. A saved project is not
