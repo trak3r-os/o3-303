@@ -12,6 +12,8 @@ hear says so in plain words.
   bottom row of pads plays the vowels A E I O U live. The knobs can be MIDI-learned and are part of the snapshots (an older project's snapshots
   load with the tract as it is). The WOBBLE's TARGET gets a third value, MOUTH: the wobble swings the vowel around the one that sounds. HELP has
   a page for it. It needs listening on the unit.
+- **The PERFORM KNOBS rows can hold the TRACT knobs.** Shift + F1 to F4 walks the list of recordable knobs and now ends with TRACT's (VOWEL, TONGUE,
+  LIPS, RES, GLIDE, SIZE, TRC MIX): a row on VOWEL plays the mouth from the pads, and with REC on it records. Nothing before them moved.
 - **PERFORM KNOBS, PERFORM's second page.** Press Performance twice: the four rows of pads are four knobs, one pad a value (a list or a
   switch has a pad for each of its values). They start as ENV MOD, DECAY, CUTOFF and RESO; rows 3 and 4 are HOME's FILT rows, the same
   knobs and the same saved rows. Hold an F key and tap a row to give it that key's knob; Shift + F1 to F4 points the encoder at a row so a

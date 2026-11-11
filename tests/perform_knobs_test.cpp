@@ -10,6 +10,7 @@
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/tract/tract.h>
 
 #include <cstring>
 
@@ -176,6 +177,27 @@ TEST_CASE("PERFORM KNOBS: Shift + F2 walks ROW 2's list of knobs, Shift + F8 put
   t.pad(row_pad(1, 5), 10);
   t.wait(200);
   CHECK(val(t, AcidVoice::Decay) == doctest::Approx(goal(t, AcidVoice::Decay, 5)).epsilon(0.001));
+}
+
+TEST_CASE("PERFORM KNOBS: the walk's list ends with the TRACT knobs (KN0): ROW 2 reaches VOWEL and its pads play it") {
+  Hands t;
+  to_knobs(t);
+  const float vowel0 = t.param(kTract, TractFx::Vowel);
+  REQUIRE(vowel0 < 0.5f);
+  const float mix0 = t.param(kTract, TractFx::Mix);
+  bool found = false;
+  for (unsigned i = 0; i < 100 && !found; ++i) {
+    point_at_row(t, 1);  // a tap on a pad lets the encoder go: point it at the row again
+    t.h->turn(1);
+    t.wait(20);
+    t.pad(row_pad(1, 11), 10);  // the walked knob, to the top of its range
+    t.wait(30);
+    found = t.param(kTract, TractFx::Vowel) == 1.0f;
+  }
+  REQUIRE(found);
+  t.wait(100);
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(1.0f));  // U: the pad set the unit's own parameter
+  CHECK(t.param(kTract, TractFx::Mix) == mix0);                      // and nothing else of the tract
 }
 
 TEST_CASE("PERFORM KNOBS: a tap on a row that holds a mod ends MODS OFF (STOCK), as the encoder does") {

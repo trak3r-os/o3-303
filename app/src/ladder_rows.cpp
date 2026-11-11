@@ -135,7 +135,7 @@ void ladder_reset_knobs(Wiring& wiring) noexcept {
 
 namespace {
 
-constexpr unsigned kWalkPageCount = 5;
+constexpr unsigned kWalkPageCount = 6;  // TRACT is the last: the walk's list only grows at its end (KN0)
 
 const Page& walk_page(unsigned i) noexcept {
   switch (i) {
@@ -143,7 +143,8 @@ const Page& walk_page(unsigned i) noexcept {
     case 1: return kFxPage;
     case 2: return kNotesPage;
     case 3: return kTonePage;
-    default: return kGrowlPage;
+    case 4: return kGrowlPage;
+    default: return kTractPage;
   }
 }
 
