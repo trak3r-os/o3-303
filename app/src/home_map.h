@@ -226,6 +226,7 @@ class HomeMap {
   bool pattern_down_ = false;
   bool overlay_ = false;
   bool chain_started_ = false;
+  unsigned chain_taps_ = 0;  // patterns queued since the hold began (the chain loops from two)
   bool pattern_used_ = false;  // Copy, Insert or Delete went with it (SETUP's now): its release is no tap
   std::uint64_t pattern_down_ms_ = 0;
 

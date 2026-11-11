@@ -571,7 +571,9 @@ void HomeMap::choose_pattern(app::Context& ctx, unsigned index) noexcept {
   }
   if (!chain_started_) {
     chain_started_ = true;
+    chain_taps_ = 0;
     (void)rig_->seq->clear_queue();
+    (void)rig_->seq->set_chain_loop(false);  // a single tap replaces a chain that loops
     if (!playing_) {
       rig_->bank->select(index);  // stopped: the first tap selects at once, further taps chain behind it
       refocus();
@@ -579,6 +581,9 @@ void HomeMap::choose_pattern(app::Context& ctx, unsigned index) noexcept {
     }
   }
   (void)rig_->seq->queue(index);  // the chain is the sequencer's: it shows in chain() within a block
+  if (++chain_taps_ >= 2u) {
+    (void)rig_->seq->set_chain_loop(true);  // two or more queued patterns play round and round; one queued pattern repeats as before
+  }
   ctx.redraw();
 }
 

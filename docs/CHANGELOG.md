@@ -19,6 +19,13 @@ hear says so in plain words.
 - **A saved project holds two more rows** (PERFORM KNOBS' rows 1 and 2). A project saved by an older version loads with ENV MOD and DECAY on
   them, and one saved by this version loads in the older ones with their own defaults for the rows they know. Nothing you hear changes.
 
+### What works differently (a habit changes)
+
+- **A chain of two or more patterns loops.** Hold Pattern while the line plays and tap two or more patterns: they now play round and
+  round (A, B, C, B, C ...: the pattern that was playing is not part of the round) until a single tap with Pattern held replaces the chain.
+  Before, the chain played once and its last pattern then repeated for ever. One queued pattern behaves as before. Nothing in a saved
+  project changes.
+
 ## v0.6.1 (2026-11-09), a pre-release
 
 A fix for a voice that looks set up and plays nothing. It needs more testing: the host tests pass, the cause was found and cured on a

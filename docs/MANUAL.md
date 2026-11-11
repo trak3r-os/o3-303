@@ -311,7 +311,8 @@ Hold **Shift** on HOME and the F keys become tools for the whole pattern. Each o
 
 Hold **Pattern** and the pads are the 48 patterns (the PAGE window says PATTERNS). Tap one to go to it. While the line plays, the tap
 queues it: it starts when the pattern playing ends. More taps while you hold Pattern chain patterns behind it (up to 16), and the chain
-plays in order.
+plays in order. With two or more patterns queued the chain starts again after its last one and loops until a single tap, with Pattern
+held, replaces it; one queued pattern plays and repeats.
 
 ![Pattern held: a grid of 48 patterns A01 to D12, A01 selected](manual/img/home-pattern-held.png)
 

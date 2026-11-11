@@ -49,7 +49,22 @@ TEST_CASE("playing, taps with Pattern held queue the next pattern and several ta
   t.wait(2100);
   CHECK(t.selected() == 1);
   t.wait(2100);
-  CHECK(t.selected() == 1);  // the chain is used up: the last pattern repeats
+  CHECK(t.selected() == 2);  // two patterns in the chain: it starts again (F3 of the review: a chain loops)
+  for (unsigned i = 0; i < 100 && t.selected() != 1; ++i) {
+    t.wait(50);  // up to A02's start: the phase of the waits above drifts against the pattern's 1.9 s
+  }
+  CHECK(t.selected() == 1);
+  // A single tap replaces the chain: that pattern then repeats, the loop is off.
+  t.press(Button::Pattern);
+  t.wait(350);
+  t.pad(2);
+  t.release(Button::Pattern);
+  t.wait(100);
+  CHECK(t.selected() == 1);  // still A02 until it ends
+  t.wait(1600);
+  CHECK(t.selected() == 2);
+  t.wait(2100);
+  CHECK(t.selected() == 2);  // one queued pattern repeats, as it always did
   t.tap(Button::Play);
   CHECK_FALSE(t.h->engine().playing());
 }
