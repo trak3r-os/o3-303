@@ -2,6 +2,7 @@
 
 #include "live_actions.h"
 #include <o3_303/perform.h>
+#include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
 
 namespace o3_303 {
@@ -28,6 +29,69 @@ void copy_cut(const char* s, char* out, unsigned cap, unsigned at) noexcept {
 
 }  // namespace
 
+bool ladder_is_list(const o3::core::ParamDesc& d) noexcept {
+  if (d.unit == o3::core::ParamUnit::Enum) {
+    return d.list_count >= 1u && d.list_count <= kLadderSteps;
+  }
+  if (d.unit != o3::core::ParamUnit::Int || d.curve != o3::core::ParamCurve::Linear) {
+    return false;
+  }
+  const float span = d.max - d.min;
+  return span >= 1.0f && span < static_cast<float>(kLadderSteps) && span == static_cast<float>(static_cast<unsigned>(span)) && d.min == static_cast<float>(static_cast<int>(d.min));
+}
+
+namespace {
+
+unsigned list_count(const o3::core::ParamDesc& d) noexcept {
+  return d.unit == o3::core::ParamUnit::Enum ? d.list_count : static_cast<unsigned>(d.max - d.min) + 1u;
+}
+
+}  // namespace
+
+unsigned ladder_places(const o3::core::ParamDesc& d) noexcept {
+  return ladder_is_list(d) ? list_count(d) : kLadderSteps;
+}
+
+float ladder_value(const o3::core::ParamDesc& d, unsigned col) noexcept {
+  if (!ladder_is_list(d)) {
+    return o3::core::param_denorm(d, ladder_norm(col));
+  }
+  const unsigned n = list_count(d);
+  return d.min + static_cast<float>(col < n ? col : n - 1u);
+}
+
+unsigned ladder_pos(const o3::core::ParamDesc& d, float value) noexcept {
+  if (!ladder_is_list(d)) {
+    return ladder_col(o3::core::param_norm(d, value));
+  }
+  const float at = value - d.min + 0.5f;
+  if (!(at > 0.0f)) {
+    return 0;
+  }
+  const unsigned n = list_count(d);
+  const unsigned i = at >= static_cast<float>(n) ? n : static_cast<unsigned>(at);
+  return i < n ? i : n - 1u;
+}
+
+void ladder_levels(const o3::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps]) noexcept {
+  const unsigned places = d != nullptr ? ladder_places(*d) : 0u;
+  const bool list = d != nullptr && ladder_is_list(*d);
+  const unsigned pos = d != nullptr ? ladder_pos(*d, value) : 0u;
+  for (unsigned col = 0; col < kLadderSteps; ++col) {
+    if (blink) {
+      out[col] = o3::app::kLedOn;
+    } else if (d == nullptr) {
+      out[col] = o3::app::kLedOff;
+    } else if (col == pos) {
+      out[col] = o3::app::kLedOn;
+    } else if (list) {
+      out[col] = col < places ? o3::app::kLedDim : o3::app::kLedOff;
+    } else {
+      out[col] = col < pos ? o3::app::kLedMid : o3::app::kLedOff;
+    }
+  }
+}
+
 Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched) noexcept {
   if (row >= kLadderRows || follows(wiring, row)) {
     return latched;
@@ -51,6 +115,91 @@ LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned ro
 void ladder_reset_home(Wiring& wiring) noexcept {
   wiring.ladder[kLadderHome3] = kDefaultLadder[kLadderHome3];
   wiring.ladder[kLadderHome4] = kDefaultLadder[kLadderHome4];
+}
+
+void ladder_reset_knobs(Wiring& wiring) noexcept {
+  for (const unsigned row : kKnobsRowId) {
+    wiring.ladder[row] = kDefaultLadder[row];
+  }
+}
+
+namespace {
+
+constexpr unsigned kWalkPageCount = 5;
+
+const Page& walk_page(unsigned i) noexcept {
+  switch (i) {
+    case 0: return page_at(kPageSound);
+    case 1: return kFxPage;
+    case 2: return kNotesPage;
+    case 3: return kTonePage;
+    default: return kGrowlPage;
+  }
+}
+
+// The knob a lane can drive at place `index` of the walk (the entry of a page's key), or a blank past the end; `count` (if not null) gets the length. A knob that two pages show is the first one's.
+Entry walk_at(const Controls& controls, unsigned index, unsigned* count) noexcept {
+  Entry found;
+  unsigned n = 0;
+  for (unsigned p = 0; p < kWalkPageCount; ++p) {
+    for (const Entry& en : walk_page(p).entry) {
+      LaneRef ref{kLaneNone, 0};
+      if (en.item == Item::Blank || !controls.lane_ref(en, ref)) {
+        continue;
+      }
+      bool seen = false;  // the same lane target on an earlier place
+      for (unsigned q = 0; q < p && !seen; ++q) {
+        for (const Entry& prev : walk_page(q).entry) {
+          LaneRef pr{kLaneNone, 0};
+          seen = seen || (prev.item != Item::Blank && controls.lane_ref(prev, pr) && same(pr, ref));
+        }
+      }
+      if (seen) {
+        continue;
+      }
+      if (n == index) {
+        found = en;
+      }
+      ++n;
+    }
+  }
+  if (count != nullptr) {
+    *count = n;
+  }
+  return found;
+}
+
+}  // namespace
+
+unsigned ladder_knob_count(const Controls& controls) noexcept {
+  unsigned n = 0;
+  (void)walk_at(controls, 0xFFFFu, &n);
+  return n;
+}
+
+Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept { return walk_at(controls, index, nullptr); }
+
+Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta) noexcept {
+  const unsigned n = ladder_knob_count(controls);
+  if (row >= kLadderRows || n == 0u) {
+    return Entry{};
+  }
+  int at = -1;  // where the row's knob is in the list
+  for (unsigned i = 0; i < n && at < 0; ++i) {
+    LaneRef ref{kLaneNone, 0};
+    if (controls.lane_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
+      at = static_cast<int>(i);
+    }
+  }
+  const int count = static_cast<int>(n);
+  int next = at < 0 ? (delta < 0 ? count - 1 : 0) : at + delta;
+  next = ((next % count) + count) % count;
+  const Entry en = ladder_knob_at(controls, static_cast<unsigned>(next));
+  LaneRef ref{kLaneNone, 0};
+  if (controls.lane_ref(en, ref)) {
+    wiring.ladder[row] = ref;
+  }
+  return en;
 }
 
 void ladder_caption(const o3::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched, char* out, unsigned cap) noexcept {
@@ -87,7 +236,13 @@ LadderTap ladder_tap(o3::app::Context& ctx, Rig& rig, bool rec_motion, unsigned 
   if (d == nullptr) {
     return r;
   }
-  const float value = o3::core::param_denorm(*d, ladder_norm(col));
+  if (col >= ladder_places(*d)) {  // a list's dark pads
+    return r;
+  }
+  const float value = ladder_value(*d, col);
+  if (rig.wiring.stock && is_mod(entry)) {  // a hand on a mod hears it (the encoder's rule, MODS-PLAN 5.3); the motion it records, played later, does not
+    toggle_stock(rig, ctx);
+  }
   LaneRef ref{kLaneNone, 0};
   const bool lane = rig.controls.lane_ref(entry, ref);
   if (!lane || d->unit == o3::core::ParamUnit::Enum) {

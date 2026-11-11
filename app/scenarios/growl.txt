@@ -23,6 +23,7 @@ snap 01_growl_and_wobble_set
 # PERFORM SETUP (Perform twice): Fx (F4) gets the WOBBLE action (the eleven actions: down to the first, then up seven); Perform once more comes PERFORM back, where the buttons are the live actions.
 tap performance
 tap performance
+tap performance
 tap f4
 turn -16
 turn 7

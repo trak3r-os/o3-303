@@ -8,6 +8,7 @@
 # encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE), turns TRNSP on (pad 22) on the 303 screen, and comes to PERFORM for the buttons.
 tap performance 5
 tap performance 5
+tap performance 5
 tap f3 5
 turn -8
 turn 2

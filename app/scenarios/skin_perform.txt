@@ -88,6 +88,7 @@ snap 07_keys_trnsp
 tap play
 # PERFORM SETUP is its own page; Perform from another screen always opens page 1.
 tap performance
+tap performance
 wait 100
 snap 08_setup
 tap performance

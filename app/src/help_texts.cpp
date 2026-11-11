@@ -36,10 +36,10 @@ struct Buttons {
   }
 };
 
-enum class Where : std::uint8_t { Home, Setup, Perform, PerformSetup, Instrument, Modded, Growl, Wobble, Master, File, Naming, Library, Record, Song };
+enum class Where : std::uint8_t { Home, Setup, Perform, Knobs, PerformSetup, Instrument, Modded, Growl, Wobble, Master, File, Naming, Library, Record, Song };
 
 constexpr void add_globals(Buttons& b, Where w) noexcept {
-  const bool perform = w == Where::Perform || w == Where::PerformSetup;
+  const bool perform = w == Where::Perform || w == Where::Knobs || w == Where::PerformSetup;
   const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
   b.add(Button::Play, "PLAY / STOP: SONG OR PATTERN", "RESTART FROM STEP 1");  // which one is SONG's F1 PLAYS; the status line says SONG while it is the song
   // Rec: the home map's step record (a press turns write / record mode on and off); PERFORM's Rec is the same switch (it records the ladder and the knob while the pattern plays);
@@ -47,7 +47,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Rec, home_map ? "WRITE / RECORD MODE ON / OFF" : (perform ? "RECORD KNOB + LADDER MOVES" : nullptr), "ARM / STOP AN AUDIO TAKE");
   b.add(Button::Pattern, w == Where::Home ? "TAP: SETUP. HOLD: PATTERNS" : (w == Where::Setup ? "TAP: HOME. HOLD: PATTERNS" : "BACK TO THE STEPS"));
   b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: VOICE, FX" : "OPEN INSTRUMENT");
-  b.add(Button::Performance, w == Where::Perform ? "PERFORM SETUP" : (w == Where::PerformSetup ? "BACK TO PERFORM" : "OPEN PERFORM"));
+  b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM SETUP" : (w == Where::PerformSetup ? "BACK TO PERFORM" : "OPEN PERFORM")));
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
   b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
@@ -152,6 +152,7 @@ constexpr Buttons make_song() noexcept {
 constexpr Buttons kHomeButtons = make_home(Where::Home);
 constexpr Buttons kSetupButtons = make_home(Where::Setup);
 constexpr Buttons kPerformButtons = make_perform(Where::Perform);
+constexpr Buttons kKnobsButtons = make_perform(Where::Knobs);
 constexpr Buttons kPerformSetupButtons = make_perform(Where::PerformSetup);
 constexpr Buttons kInstrumentButtons = make_home(Where::Instrument);
 constexpr Buttons kModdedButtons = make_home(Where::Modded);
@@ -185,6 +186,10 @@ constexpr HelpPadGroup kPerformGroups[] = {
     {"VARIATIONS", "NEW LINE, VARY, UNDO, REDO", Color::Vol},
     {"LADDER", "12 PLACES. F KEY + TAP: ASSIGN A KNOB", Color::Fx},
     {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
+};
+constexpr HelpPadGroup kKnobsGroups[] = {
+    {"ROWS 1-2", "F KEY + TAP: ASSIGN. SHIFT + F1-F4: LIST", Color::Accent},
+    {"ROWS 3-4", "HOME'S FILT ROWS. SHIFT + F8: ALL FOUR BACK", Color::Fx},
 };
 constexpr HelpPadGroup kLibraryGroups[] = {
     {"SLOTS", "TAP: SLOT 0-47. SHIFT + TAP: SLOT 16-63", Color::Sel},
@@ -245,6 +250,17 @@ constexpr Text kTexts[kIdCount] = {
      kPerformGroups,
      count_of(sizeof kPerformGroups / sizeof kPerformGroups[0]),
      "WOBBLE ON: ROW 3 PICKS ITS RATE. A LATCHED ACTION STAYS ON WHEN YOU LEAVE THE SCREEN."},
+    // Knobs
+    {"PERFORM KNOBS",
+     "EACH ROW OF PADS IS ONE KNOB, LOWEST AT THE LEFT. HOLD AN F KEY AND TAP A ROW TO GIVE IT THAT KNOB; SHIFT + F1-F4 PICKS FROM A LIST. REC RECORDS THE TAPS.",
+     SOUND_KEYS,
+     {},
+     "KNOB; MORPH AFTER A RECALL",
+     kKnobsButtons.row,
+     kKnobsButtons.n,
+     kKnobsGroups,
+     count_of(sizeof kKnobsGroups / sizeof kKnobsGroups[0]),
+     "ROWS 3 AND 4 ARE HOME'S FILT ROWS. THE FOUR COLOUR BUTTONS ARE PERFORM'S ACTIONS."},
     // PerformSetup
     {"PERFORM SETUP",
      "WHAT THE FOUR COLOUR BUTTONS DO (F1-F4), WHAT FILL PLAYS (F5), THE FREEZE LENGTH (F6), THE ROLL MODE (F7) AND THE STOP TIME (F8). THE PADS STAY PERFORM'S.",
@@ -531,7 +547,13 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
   }
 }
 
-void fill_perform_pads(Help& h) noexcept {
+void fill_perform_pads(Help& h, bool knobs) noexcept {
+  if (knobs) {
+    for (unsigned row = 0; row < 4; ++row) {
+      app::help_pads(h, row, 0, row, 11, row < 2 ? 1 : 2, kLadderPads);
+    }
+    return;
+  }
   app::help_pads(h, 0, 0, 0, 10, 1, kActionPads);
   app::help_pads(h, 0, 11, 0, 11, 2);
   h.pad_label[app::pad_at(0, 11)] = "OFF";

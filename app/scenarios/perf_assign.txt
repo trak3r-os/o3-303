@@ -4,6 +4,7 @@
 wait 300
 tap performance
 tap performance
+tap performance
 wait 100
 snap 01_perf_page_defaults
 # Note becomes OCT UP: the running pattern goes up an octave while it is held, on top of the keyboard's own transposition.

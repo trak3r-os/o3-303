@@ -67,15 +67,18 @@ bool same_pattern(const Pattern& a, const Pattern& b) { return std::memcmp(&a, &
 
 }  // namespace
 
-TEST_CASE("Perform opens PERFORM, again PERFORM SETUP, again PERFORM; from any other screen it is page 1") {
+TEST_CASE("Perform opens PERFORM, then PERFORM KNOBS, PERFORM SETUP and PERFORM again; from any other screen it is page 1") {
   Hands t;
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
   t.to_perform();
+  CHECK(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
+  t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP, then away and back: page 1
   t.to_home();
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
@@ -237,6 +240,7 @@ TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift la
 TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM's") {
   Hands t;
   t.to_perform();
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP
   CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
   t.tap(Button::F1);
@@ -253,6 +257,7 @@ TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM'
   const float before = cutoff(t);
   t.turn(1);
   CHECK(cutoff(t) != before);
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP again: it comes back as it was left, latch and all
   t.turn(1);
   t.press(Button::Note);
@@ -262,6 +267,7 @@ TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM'
 TEST_CASE("PERFORM SETUP's F5..F8 (5.4): FILL, the freeze's length, ROLL as one list (rate and accelerate), STOP's time; no Shift row") {
   Hands t;
   t.to_perform();
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP
   CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
   // F5 FILL: what FILL plays, through the sequencer (the default is MUTATE).
@@ -322,6 +328,7 @@ RollRun roll_run(int f7_turn, unsigned hold_ms) {
   Hands t;
   t.h->record(true);
   t.to_perform();
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP
   t.tap(Button::F7);
   t.turn(f7_turn);
@@ -498,11 +505,14 @@ TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 mak
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(core::param_denorm(*dr, ladder_norm(9))).epsilon(0.001));
   CHECK(cutoff(t) == doctest::Approx(core::param_denorm(*dc, ladder_norm(7))).epsilon(0.001));  // the cutoff stayed
   CHECK(lamp(t, pp(kRow3, 9)) == app::kLedOn);
-  // A switch (F6, the wave) is set at once to the pad's place.
+  // A switch (F6, the wave) has a pad a value (SAW, SQR) and is set at once; the dark pads past them do nothing.
   t.tap(Button::F6);
   const core::ParamDesc* dw = t.h->engine().param_desc(kVoice, AcidVoice::Wave);
   REQUIRE(dw != nullptr);
-  t.pad(pp(kRow3, 11), 10);
+  t.pad(pp(kRow3, 11), 10);  // dark
+  t.wait(20);
+  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->min));
+  t.pad(pp(kRow3, 1), 10);
   t.wait(20);
   CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->max));
   t.pad(pp(kRow3, 0), 10);
@@ -698,6 +708,7 @@ TEST_CASE("every frame of PERFORM, its setup page and the 303 screen fits well u
   t.release(Button::Shift);
   t.pad(pp(kRow2, 8), 10);
   t.wait(100);
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP
   t.wait(100);
   t.to_perform();
@@ -742,6 +753,7 @@ TEST_CASE("an F key held across the page change does not stay held: the next tur
   t.press(Button::F3);
   t.turn(1);  // ENV MOD moves while held
   CHECK(t.param(kVoice, AcidVoice::EnvMod) > e);
+  t.to_perform();  // KNOBS
   t.to_perform();  // SETUP, with F3 still down
   t.release(Button::F3);
   t.to_perform();

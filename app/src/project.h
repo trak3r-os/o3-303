@@ -48,6 +48,7 @@ inline constexpr unsigned kMaxSound = 128;                  // SND entries a Pro
 
 inline constexpr std::uint16_t kVersion = 0x0100;      // every chunk's version: major 1, minor 0
 inline constexpr std::uint16_t kHeadVersion = 0x0101;  // HEAD's: minor 1 added the save counter
+inline constexpr std::uint16_t kPerfVersion = 0x0101;  // PERF's: minor 1 added the two KNOBS rows (five ladder rows; minor 0 had three, and a reader of it stops after them)
 inline constexpr unsigned kMajor = 1;
 inline constexpr char kSongId[5] = "SONG";
 
@@ -97,7 +98,7 @@ struct ProjectState {
   // PERF
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
   // The ladder rows (PERF chunk, appended after the buttons: target u8 and id u8 for each of kLadderRows; a file without them gives the defaults)
-  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2]};
+  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3], kDefaultLadder[4]};
   // SONG (canonical: seq::song_normalize() has been applied; an empty song unless the file has the chunk)
   seq::Song song = [] {
     seq::Song s;

@@ -6,6 +6,7 @@ wait 300
 record on
 tap performance
 tap performance
+tap performance
 wait 100
 snap 01_defaults
 # F5 FILL: MUTATE, OCT UP, RATCHET, ACC ROT.
@@ -62,6 +63,7 @@ wait 700
 snap 12_roll_thirty_second_held
 release note
 wait 700
+tap performance
 tap performance
 tap f7
 turn 3

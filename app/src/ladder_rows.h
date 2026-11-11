@@ -5,6 +5,7 @@
 
 #include "rig.h"
 #include <o3_303/pages.h>
+#include <o3sdk/core/param.h>
 #include <cstdint>
 
 namespace o3_303 {
@@ -20,6 +21,23 @@ struct LadderTap {
   int lane = -1;            // the lane the row's knob has in the pattern shown (-1 when none)
 };
 
+// True for a knob whose pads are its values (see ladder_places).
+bool ladder_is_list(const o3sdk::core::ParamDesc& d) noexcept;
+
+// How many of the twelve pads a knob uses: one a value for a list (an Enum) or a whole-number knob of twelve values or fewer, 12 equal steps of its own curve for the rest.
+// The pads after the last are dark and a tap on one does nothing.
+unsigned ladder_places(const o3sdk::core::ParamDesc& d) noexcept;
+
+// The value pad `col` (below ladder_places) stands for: the list's value, or the knob's value at ladder_norm(col).
+float ladder_value(const o3sdk::core::ParamDesc& d, unsigned col) noexcept;
+
+// The pad nearest to `value`.
+unsigned ladder_pos(const o3sdk::core::ParamDesc& d, float value) noexcept;
+
+// The twelve LED levels of a row: a bar up to the pad the value is at (kLedMid), that pad at kLedOn, dark after it; a list draws its pads dim, the chosen one at kLedOn, dark after
+// the last; `blink` (the lit half of the blink while an F key is held: a tap assigns) draws every pad kLedOn. `d` null (a row that holds nothing): all dark.
+void ladder_levels(const o3sdk::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps]) noexcept;
+
 // The entry a row drives now: the held knob, or `latched` for a row that follows. Blank when the held knob has no entry on any page.
 Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched) noexcept;
 
@@ -28,6 +46,19 @@ LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned ro
 
 // Shift + FILT: both HOME rows back to CUTOFF and RESO.
 void ladder_reset_home(Wiring& wiring) noexcept;
+
+// KNOBS (PERFORM's second page): the four rows' ids, top to bottom. Rows 3 and 4 are HOME's FILT rows.
+inline constexpr unsigned kKnobsRows = 4;
+inline constexpr unsigned kKnobsRowId[kKnobsRows] = {kLadderKnobs1, kLadderKnobs2, kLadderHome3, kLadderHome4};
+
+// Shift + F8 on KNOBS: its four rows back to ENV MOD, DECAY, CUTOFF and RESO (HOME's two with them: they are the same rows).
+void ladder_reset_knobs(Wiring& wiring) noexcept;
+
+// The list the Shift + F1..F4 binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL), a knob once.
+unsigned ladder_knob_count(const Controls& controls) noexcept;
+Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept;
+// Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them, or follows) and returns the entry it holds now.
+Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta) noexcept;
 
 // "CUTOFF", or "LATCHED: DECAY" for a row that follows. At most cap-1 characters, cut at the end.
 void ladder_caption(const o3sdk::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched, char* out, unsigned cap) noexcept;

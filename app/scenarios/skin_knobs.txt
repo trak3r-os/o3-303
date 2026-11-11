@@ -1,0 +1,58 @@
+# PERFORM KNOBS on the obsidian skin (docs/SKIN-PLAN.md 2.4, docs/UX-303.md, the KNOBS pads mode): the four rows of caps with the row's number, the knob it is and its value on the caption (ROW 3 and ROW 4 are HOME's
+# FILT rows), the lit cap the knob's place, and the colour buttons' chips of PERFORM under them. The skin is on by default since SK8; the scenario still turns it on through Config as skin_perform.txt does
+# (Left once is "303", five Downs reach SKIN, the encoder clamps at OBSIDIAN). The frames are held to the skin's budgets by the scenarios test.
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_knobs.txt --out <dir>
+wait 300
+tap config
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn 4
+tap config
+wait 100
+tap performance
+tap performance
+wait 100
+snap 01_defaults
+# One pad of each row: ENV MOD, DECAY, CUTOFF and RESO each take the value of the pad (the slew settles in a few blocks).
+tap play
+wait 700
+pad 8
+pad 20
+pad 31
+pad 43
+wait 400
+snap 02_four_taps
+# F5 held and a tap on ROW 1 binds that row to F5's knob; the F row is unchanged.
+press f5
+pad 3
+release f5
+wait 100
+pad 9
+wait 300
+snap 03_row_bound_to_f5
+# Shift + F2 points the encoder at ROW 2's list of knobs: a turn walks it, a tap on a pad moves the knob that is shown.
+press shift
+tap f2
+release shift
+turn 3
+wait 100
+snap 04_walk_row_2
+pad 15
+wait 300
+snap 05_walked_knob_set
+# Shift + F8: the four rows go back to ENV MOD, DECAY, CUTOFF and RESO.
+press shift
+tap f8
+release shift
+wait 100
+snap 06_defaults_again
+# Perform again is PERFORM SETUP, and once more PERFORM: the page after a trip round the cycle.
+tap performance
+wait 62
+tap performance
+wait 62
+snap 07_back_on_perform

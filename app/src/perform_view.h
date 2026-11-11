@@ -31,6 +31,10 @@ struct PerformChip {
 
 struct PerformView {
   PadLamp lamp[o3sdk::app::kPadCount];
+  // KNOBS (PERFORM's second page): all four rows are ladders. `knobs` says so; each row is named "ROW n" and says its knob (`row_knob`) and where it stands (`row_value`, "62 %").
+  bool knobs = false;
+  char row_knob[4][16] = {};
+  char row_value[4][12] = {};
   char ladder_caption[24] = "";  // what row 3 is: the latched knob's name, or "WOBBLE RATE"
   char keys_caption[16] = "";    // what row 4 does: "PLAY VOICE" or "TRANSPOSE"
   PerformChip chip[kPerfButtons];  // filled by PerformScreen::fill_chips(), for the drawings that show them

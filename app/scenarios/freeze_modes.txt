@@ -8,6 +8,7 @@ record on
 # PERFORM SETUP (Perform twice; once more comes PERFORM back, where the colour buttons are the live actions): F1 Note = ROLL, F2 Instr = STOP, F3 Vol = REV (the eleven actions: down to the first, then up eight, nine, ten).
 tap performance
 tap performance
+tap performance
 tap f1
 turn -16
 turn 8

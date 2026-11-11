@@ -364,6 +364,8 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   tap(h, app::Button::Performance);
   check_screen(h, Id::Perform, sound, kAllPads, "PERFORM");
   tap(h, app::Button::Performance);
+  check_screen(h, Id::Knobs, sound, kAllPads, "PERFORM KNOBS");
+  tap(h, app::Button::Performance);
   check_screen(h, Id::PerformSetup, page_mask(page_at(kPagePerfSetup)), kAllPads, "PERFORM SETUP");
   tap(h, app::Button::Params);
   check_screen(h, Id::Voice, sound, kAllPads, "INSTRUMENT VOICE");
@@ -531,6 +533,15 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     CHECK(help.fkey_shift[0] == nullptr);
     CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
+    close_help(h);
+  }
+  tap(h, app::Button::Performance);  // PERFORM KNOBS: the four rows' lists on F1..F4 and DEFAULTS on F8
+  {
+    const Help& help = open_help(h);
+    CHECK(std::strcmp(help.fkey_shift[0], "ROW 1") == 0);
+    CHECK(std::strcmp(help.fkey_shift[3], "ROW 4") == 0);
+    CHECK(help.fkey_shift[4] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[7], "DEFAULTS") == 0);
     close_help(h);
   }
   tap(h, app::Button::Performance);  // PERFORM SETUP has no Shift row

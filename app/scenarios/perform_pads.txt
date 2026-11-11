@@ -135,6 +135,7 @@ pad 11
 tap rec
 # PERFORM SETUP is its own page; Perform from another screen always opens page 1.
 tap performance
+tap performance
 wait 100
 snap 20_setup
 tap pattern

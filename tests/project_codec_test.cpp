@@ -1723,9 +1723,15 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   a.rig.wiring.ladder[kLadderHome3] = LaneRef{kLaneDist, 2};
   a.rig.wiring.ladder[kLadderHome4] = LaneRef{kLaneVoice, 12};
   a.rig.wiring.ladder[kLadderPerform] = LaneRef{kLaneDelay, 1};
+  a.rig.wiring.ladder[kLadderKnobs1] = LaneRef{kLaneGrowl, 2};
+  a.rig.wiring.ladder[kLadderKnobs2] = LaneRef{kLaneMixer, kMixerSendA};
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
   REQUIRE(load(img, s).status == project::Status::Ok);
+  CHECK(s.ladder[kLadderKnobs1].target == kLaneGrowl);
+  CHECK(s.ladder[kLadderKnobs1].id == 2);
+  CHECK(s.ladder[kLadderKnobs2].target == kLaneMixer);
+  CHECK(s.ladder[kLadderKnobs2].id == kMixerSendA);
   CHECK(s.ladder[0].target == kLaneDist);
   CHECK(s.ladder[0].id == 2);
   CHECK(s.ladder[1].target == kLaneVoice);
@@ -1767,6 +1773,58 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   REQUIRE(project::apply(c.rig, c.engine, o));  // a project without rows puts the rows back to the defaults
   CHECK(c.rig.wiring.ladder[kLadderHome3].target == kLaneVoice);
   CHECK(c.rig.wiring.ladder[kLadderHome3].id == 0);
+
+  // The PERF chunk of v0.6.0: minor 0, the three rows and nothing after them. The two KNOBS rows hold their defaults (ENV MOD, DECAY); the three before them are read as they are.
+  const auto three = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      p[1] = 0;  // minor 0
+      p.resize(2 + kPerfButtons + 6);
+    }
+    return true;
+  });
+  project::ProjectState t3;
+  const project::Result r3 = load(three, t3);
+  REQUIRE(r3.status == project::Status::Ok);
+  CHECK(r3.skipped == 0);
+  CHECK(t3.ladder[kLadderHome3].target == kLaneDist);
+  CHECK(t3.ladder[kLadderHome4].id == 12);
+  CHECK(t3.ladder[kLadderPerform].target == kLaneDelay);
+  CHECK(t3.ladder[kLadderKnobs1].target == kLaneVoice);
+  CHECK(t3.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
+  CHECK(t3.ladder[kLadderKnobs2].target == kLaneVoice);
+  CHECK(t3.ladder[kLadderKnobs2].id == AcidVoice::Decay);
+  // The file of today writes PERF as minor 1, and the first three rows sit where a v0.6.0 reader (which takes three and stops) looks for them.
+  bool seen_perf = false;
+  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      seen_perf = true;
+      CHECK(p[0] == 1);
+      CHECK(p[1] == 1);
+      const std::size_t at = 2 + kPerfButtons;
+      CHECK(p[at + 0] == kLaneDist);
+      CHECK(p[at + 1] == 2);
+      CHECK(p[at + 4] == kLaneDelay);
+      CHECK(p[at + 6] == kLaneGrowl);
+      CHECK(p.size() == at + 10);
+    }
+    return true;
+  });
+  CHECK(seen_perf);
+  // A damaged row among the two new ones, and one that follows (only PERFORM's may): the defaults.
+  const auto bad2 = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      const std::size_t at = 2 + kPerfButtons + 6;
+      p[at + 0] = kLaneNone;
+      p[at + 1] = 0;
+      p[at + 2] = kLaneVoice;
+      p[at + 3] = kLaneVoiceStock;
+    }
+    return true;
+  });
+  project::ProjectState g2;
+  REQUIRE(load(bad2, g2).status == project::Status::Ok);
+  CHECK(g2.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
+  CHECK(g2.ladder[kLadderKnobs2].id == AcidVoice::Decay);
 
   // Rows that mean nothing: a HOME row that follows, a target past the table, the voice's Stock: the defaults. PERFORM's row may follow.
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {

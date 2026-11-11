@@ -62,10 +62,11 @@ struct Hands {
   }
   // PERFORM, where Note / Instr / Vol / Fx are the live actions (on the 303 screen they are the drawer's rows). From the 303 screen.
   void to_perform() { tap(Button::Performance); }
-  // The beat freeze's Length from PERFORM SETUP (F6, FREEZE): from the 303 screen Perform twice, and once more for PERFORM. The encoder walks 1/4, 1/8,
+  // The beat freeze's Length from PERFORM SETUP (F6, FREEZE): from the 303 screen Perform three times (PERFORM, KNOBS, SETUP), and once more for PERFORM. The encoder walks 1/4, 1/8,
   // 1/16 and stops at the ends.
   void choose_length(Freeze::LengthValue v) {
     tap(Button::Pattern);
+    tap(Button::Performance);
     tap(Button::Performance);
     tap(Button::Performance);
     tap(Button::F6);

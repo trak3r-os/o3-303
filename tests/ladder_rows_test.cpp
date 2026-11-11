@@ -178,13 +178,21 @@ TEST_CASE("HOME: a row can hold a switch (the wave): a tap sets it at once, with
   Hands t;
   home_filt(t);
   assign(t, Button::F6, row_pad(2, 0));
-  t.pad(row_pad(2, 11), 10);
+  t.pad(row_pad(2, 1), 10);  // a list has a pad a value: SAW, SQR, then dark pads
   t.wait(30);
-  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(goal(t, AcidVoice::Wave, 11)));
+  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(1.0f));
   CHECK(app_sequencer().slewing() == 0);
+  t.pad(row_pad(2, 11), 10);  // a dark pad does nothing
+  t.wait(30);
+  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(1.0f));
   t.pad(row_pad(2, 0), 10);
   t.wait(30);
-  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(goal(t, AcidVoice::Wave, 0)));
+  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(0.0f));
+  // The LEDs: the chosen value full, the other value dim, dark after the last.
+  CHECK(t.led(row_pad(2, 0)) == app::kLedOn);
+  CHECK(t.led(row_pad(2, 1)) == app::kLedDim);
+  CHECK(t.led(row_pad(2, 2)) == app::kLedOff);
+  CHECK(t.led(row_pad(2, 11)) == app::kLedOff);
 }
 
 TEST_CASE("HOME: REC while the pattern plays writes a tap of a held knob's row as motion on that knob's lane") {
@@ -251,9 +259,9 @@ TEST_CASE("PERFORM row 3: a held knob survives leaving PERFORM; a switch is set 
   t.to_perform();
   t.wait(60);
   t.tap(Button::F1);  // the latch is CUTOFF: the row ignores it
-  t.pad(row_pad(r3, 11), 10);
+  t.pad(row_pad(r3, 1), 10);
   t.wait(30);
-  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(goal(t, AcidVoice::Wave, 11)));
+  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(1.0f));
   CHECK(app_sequencer().slewing() == 0);
   t.press(Button::F2);
   bool lit = false;
@@ -294,4 +302,77 @@ TEST_CASE("PERFORM row 3: REC while the pattern plays writes the jump as motion,
   REQUIRE(decay >= 0);
   CHECK(seq::lane_has_motion(t.pat(), static_cast<unsigned>(decay)));
   t.tap(Button::Play);
+}
+
+TEST_CASE("ladder rows: a list or a short whole-number knob has a pad a value, a continuous knob twelve steps of its curve") {
+  Hands t;
+  const auto desc = [&](unsigned id) {
+    const core::ParamDesc* d = t.h->engine().param_desc(kVoice, static_cast<std::uint16_t>(id));
+    REQUIRE(d != nullptr);
+    return d;
+  };
+  // The wave: an Enum of two values.
+  const core::ParamDesc& wave = *desc(AcidVoice::Wave);
+  CHECK(ladder_is_list(wave));
+  CHECK(ladder_places(wave) == 2u);
+  CHECK(ladder_value(wave, 0) == doctest::Approx(0.0f));
+  CHECK(ladder_value(wave, 1) == doctest::Approx(1.0f));
+  CHECK(ladder_pos(wave, 0.0f) == 0u);
+  CHECK(ladder_pos(wave, 1.0f) == 1u);
+  // Sub Osc: OFF, LOW, MID, HIGH, a whole-number knob of four values.
+  const core::ParamDesc& sub = *desc(AcidVoice::SubOsc);
+  CHECK(ladder_places(sub) == 4u);
+  for (unsigned c = 0; c < 4; ++c) {
+    CHECK(ladder_value(sub, c) == doctest::Approx(static_cast<float>(c)));
+    CHECK(ladder_pos(sub, static_cast<float>(c)) == c);
+  }
+  // Cutoff: a continuous knob keeps the twelve steps of its curve, whatever the count.
+  const core::ParamDesc& cut = *desc(AcidVoice::Cutoff);
+  CHECK_FALSE(ladder_is_list(cut));
+  CHECK(ladder_places(cut) == kLadderSteps);
+  for (unsigned c = 0; c < kLadderSteps; ++c) {
+    CHECK(ladder_value(cut, c) == doctest::Approx(core::param_denorm(cut, ladder_norm(c))));
+    CHECK(ladder_pos(cut, ladder_value(cut, c)) == c);
+  }
+}
+
+TEST_CASE("ladder rows: the LEDs of a list, of a bar, of a blink and of a row that holds nothing") {
+  Hands t;
+  const core::ParamDesc* wave = t.h->engine().param_desc(kVoice, AcidVoice::Wave);
+  const core::ParamDesc* cut = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
+  REQUIRE(wave != nullptr);
+  REQUIRE(cut != nullptr);
+  std::uint8_t lv[kLadderSteps];
+  ladder_levels(wave, 1.0f, false, lv);  // SQR: the first pad dim, the second full, the rest dark
+  CHECK(lv[0] == app::kLedDim);
+  CHECK(lv[1] == app::kLedOn);
+  CHECK(lv[2] == app::kLedOff);
+  CHECK(lv[kLadderSteps - 1u] == app::kLedOff);
+  ladder_levels(cut, core::param_denorm(*cut, ladder_norm(5)), false, lv);  // a bar up to pad 5
+  CHECK(lv[0] == app::kLedMid);
+  CHECK(lv[4] == app::kLedMid);
+  CHECK(lv[5] == app::kLedOn);
+  CHECK(lv[6] == app::kLedOff);
+  ladder_levels(wave, 0.0f, true, lv);  // the lit half of the blink: every pad full, a list's dark ones too
+  for (unsigned c = 0; c < kLadderSteps; ++c) {
+    CHECK(lv[c] == app::kLedOn);
+  }
+  ladder_levels(nullptr, 0.0f, true, lv);  // a blink needs no knob
+  CHECK(lv[kLadderSteps - 1u] == app::kLedOn);
+  ladder_levels(nullptr, 0.0f, false, lv);  // a row that holds nothing is dark
+  for (unsigned c = 0; c < kLadderSteps; ++c) {
+    CHECK(lv[c] == app::kLedOff);
+  }
+}
+
+TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and DECAY") {
+  CHECK(kLadderRows == 5u);
+  Wiring w;
+  CHECK(w.ladder[kLadderKnobs1].target == kLaneVoice);
+  CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
+  CHECK(w.ladder[kLadderKnobs2].target == kLaneVoice);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Decay);
+  CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
+  CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
+  CHECK(w.ladder[kLadderPerform].target == kLaneNone);
 }

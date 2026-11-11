@@ -383,34 +383,35 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
     const std::uint8_t a = f.u8();
     out.perf[b] = a < kPerfActionCount ? a : kDefaultPerf[b];
   }
-  // The ladder rows follow the buttons when the file has all of them (a file from before has the buttons only: the defaults stay).
-  if (f.left() >= kLadderBytes) {
-    for (unsigned r = 0; r < kLadderRows; ++r) {
-      const std::uint8_t target = f.u8();
-      const std::uint8_t id = f.u8();
-      // A HOME row (0, 1) always holds a knob; PERFORM's row 3 may follow the latch (kLaneNone). The voice's Stock switch has no lane.
-      // Only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
-      bool ok = false;
-      switch (target) {
-        case kLaneNone:
-          ok = r == kLadderPerform;
-          break;
-        case kLaneVoice:
-          ok = id < seq::kKnobs && id != kLaneVoiceStock;
-          break;
-        case kLaneDist:
-        case kLaneDelay:
-        case kLaneGrowl:
-          ok = id < seq::kKnobs;
-          break;
-        case kLaneMixer:
-          ok = id == kMixerLevel || id == kMixerSendA;
-          break;
-        default:
-          break;
-      }
-      out.ladder[r] = ok ? LaneRef{target, target == kLaneNone ? std::uint8_t{0} : id} : kDefaultLadder[r];
+  // The ladder rows follow the buttons, as many as the file has (none before B4, three before the KNOBS page): a row it lacks holds its default.
+  for (unsigned r = 0; r < kLadderRows; ++r) {
+    out.ladder[r] = kDefaultLadder[r];
+  }
+  for (unsigned r = 0; r < kLadderRows && f.left() >= 2; ++r) {
+    const std::uint8_t target = f.u8();
+    const std::uint8_t id = f.u8();
+    // PERFORM's row 3 may follow the latch (kLaneNone); every other row always holds a knob. The voice's Stock switch has no lane.
+    // Only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
+    bool ok = false;
+    switch (target) {
+      case kLaneNone:
+        ok = r == kLadderPerform;
+        break;
+      case kLaneVoice:
+        ok = id < seq::kKnobs && id != kLaneVoiceStock;
+        break;
+      case kLaneDist:
+      case kLaneDelay:
+      case kLaneGrowl:
+        ok = id < seq::kKnobs;
+        break;
+      case kLaneMixer:
+        ok = id == kMixerLevel || id == kMixerSendA;
+        break;
+      default:
+        break;
     }
+    out.ladder[r] = ok ? LaneRef{target, target == kLaneNone ? std::uint8_t{0} : id} : kDefaultLadder[r];
   }
 }
 
@@ -515,7 +516,7 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   }
   ok = ok && w.end();
 
-  ok = ok && w.begin("PERF") && w.u16(kVersion);
+  ok = ok && w.begin("PERF") && w.u16(kPerfVersion);
   for (unsigned b = 0; b < kPerfButtons && ok; ++b) {
     ok = w.u8(s.perf[b]);
   }

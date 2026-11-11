@@ -8,7 +8,7 @@
 //   PLAY          play / stop at the press (Shift: restart from step 1)
 //   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
 //   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX); the pads are the home map's, HOME's own
-//   PERFORM       PERFORM, the 48 pads live (on it: PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
+//   PERFORM       PERFORM, the 48 pads live (on it: KNOBS, PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master to Samples/; Shift + REC arms and stops a take from every screen
@@ -249,7 +249,7 @@ class O3_303App final : public app::App {
       ctx.show(main_);  // back from the vault or PERFORM: the press is taken, the screen's own release does nothing
       return true;
     }
-    if (in.press(Button::Performance)) {  // PERFORM; on it, PERFORM SETUP and back; from any other screen always page 1
+    if (in.press(Button::Performance)) {  // PERFORM; on it, KNOBS, PERFORM SETUP and back; from any other screen always page 1
       if (ctx.screen() == &perform_) {
         perform_.toggle_page();
         ctx.redraw();

@@ -182,8 +182,19 @@ void draw_perform(ui::Renderer& r, const PerformView& v, bool setup, const frame
     cut_to(caption[2], sizeof caption[2], v.ladder_caption, kRowCaptionChars);
   }
   cut_to(caption[3], sizeof caption[3], v.keys_caption, kRowCaptionChars);
+  char knob_name[kRows][kRowCaptionChars + 1];  // the panel keeps the text's pointer until it draws: one buffer a row
+  char knob_value[kRows][kRowCaptionChars + 1];
   for (unsigned row = 0; row < rows; ++row) {
     const int y = kRowY0 + static_cast<int>(row) * kRowPitch;
+    if (v.knobs) {  // KNOBS: "ROW 1", then the row's knob and where it stands
+      static constexpr const char* kKnobRowNames[kRows] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
+      cut_to(knob_name[row], sizeof knob_name[row], v.row_knob[row], kRowCaptionChars);
+      panel.text(kLabelX, y + 5, kKnobRowNames[row], Color::ChromeDim, Face::Label);
+      panel.text(kLabelX, y + 22, knob_name[row], Color::TextDim, Face::Micro);
+      cut_to(knob_value[row], sizeof knob_value[row], v.row_value[row], kRowCaptionChars);
+      panel.text(kLabelX, y + 33, knob_value[row], Color::Text, Face::Micro);
+      continue;
+    }
     panel.text(kLabelX, y + 5, kRowNames[row], Color::ChromeDim, Face::Label);
     if (caption[row][0] != '\0') {
       panel.text(kLabelX, y + 25, caption[row], Color::TextDim, Face::Micro);

@@ -39,5 +39,6 @@ tap performance
 wait 100
 snap strip_03_perform
 tap performance
+tap performance
 wait 100
 snap strip_04_perform_setup

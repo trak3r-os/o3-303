@@ -1145,9 +1145,10 @@ void HomeMap::ladder_leds(app::Context& ctx, app::PadLeds& leds) const noexcept 
   for (unsigned row = 2; row < app::kPadRows; ++row) {
     const Entry entry = ladder_entry(*controls_, rig_->wiring, row == 2u ? kLadderHome3 : kLadderHome4, knob_);
     const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
-    const unsigned pos = d != nullptr ? ladder_col(core::param_norm(*d, controls_->get(ctx.engine(), entry))) : 0u;
+    std::uint8_t level[kLadderSteps];
+    ladder_levels(d, d != nullptr ? controls_->get(ctx.engine(), entry) : 0.0f, blink, level);
     for (unsigned col = 0; col < kLadderSteps; ++col) {
-      leds.set(app::pad_at(row, col), blink ? app::kLedOn : (col < pos ? app::kLedMid : (col == pos ? app::kLedOn : app::kLedOff)));
+      leds.set(app::pad_at(row, col), level[col]);
     }
   }
 }

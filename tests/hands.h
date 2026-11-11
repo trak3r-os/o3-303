@@ -167,6 +167,7 @@ struct Hands {
       to_home();
     }
     to_perform();
+    tap(Button::Performance);  // PERFORM KNOBS
     tap(Button::Performance);  // PERFORM SETUP
     tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
     turn(-16);

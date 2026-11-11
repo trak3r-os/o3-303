@@ -109,6 +109,7 @@ TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is P
   // The variant: PERFORM SETUP's F5; MUTATE, OCT UP, RATCHET, ACC ROT.
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
   hands.tap(Button::Performance);
+  hands.tap(Button::Performance);  // PERFORM KNOBS
   hands.tap(Button::Performance);  // PERFORM SETUP
   hands.tap(Button::F5);
   hands.h->turn(1);

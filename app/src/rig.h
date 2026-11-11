@@ -12,6 +12,7 @@
 #include <o3_303/seq/bank.h>
 #include <o3_303/seq/gen.h>
 #include <o3_303/seq/sequencer.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3_303/units/freeze/freeze.h>
 
 #include <cstdint>
@@ -72,6 +73,9 @@ inline void say_on_status(Rig& rig, o3sdk::app::Context& ctx, const char* text, 
   rig.take_msg_until_ms = ctx.uptime_ms() + kStatusMessageMs;
   ctx.redraw();
 }
+
+// The eleven mods (voice ids 8..18), RANGE and SUSTAIN: turning one (or tapping a ladder row that holds one) while STOCK is on ends STOCK. DECAY is the 303's own knob and STOCK itself is not one.
+constexpr bool is_mod(const Entry& entry) noexcept { return entry.item == Item::Voice && entry.id >= AcidVoice::kFirstMod && entry.id < AcidVoice::kParamCount && entry.id != AcidVoice::Stock; }
 
 // MODS (docs/MODS-PLAN.md 4.1, 5.11; B5a): the voice's Stock switch flips, and the status line says which way ("MODS OFF": the eleven mods are out and the voice is the plain 303; lit while heard). Shift + Sample Loader
 // (the app) and MODDED's F8 are this one gesture. If the engine's command ring refused the write the mirror did not move and the message says so.
