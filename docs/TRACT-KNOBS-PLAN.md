@@ -709,3 +709,26 @@ only after the maintainer hears it), U6 (key kinds drawn), U8 (the rest). **U5 (
    chunk; A1b proves it with a v0.6.0-shaped reader, as K1 did for PERF).
 4. **Sample Play's first press changes** (GROWL to TRACT): a player's habit; the CHANGELOG and HELP say it, the toast on the first
    press of a session is not planned.
+
+### 12.6 The review's fixes, folded in (the maintainer, 2026-11-11)
+
+From `docs/REVIEW-303.md`. The maintainer: "merge the fixes into the same subagent and go for them", leaving out patterns from any
+screen and editing the next pattern while one plays (F2, F5, I3, X1). Built by lane T's implementer after X3, before A1, one commit
+an item:
+
+| Order | Item | P | H |
+|---|---|---|---|
+| R1 | F3: a chain of two or more patterns loops until a single tap replaces it | no | yes |
+| R2 | F4: the step pads keep their page while a long pattern plays | no | mild |
+| R3 | F1: CUTOFF's travel, read-out and ladder pads span the live range on RANGE 303 or with MODS off | no | mild |
+| R4 | F10: Play and edits wait for the boot load (timeout, then today's rule) | no | no |
+| R5 | F12: FILE LIBRARY on the 12-wide pads | no | no |
+| R6 | F6, F13b: manual corrections | no | no |
+| R7 | F13a, F13c: MODS, GROWL's last mix and WOB's latch saved alike; RESET keeps the sound in LAST | yes (appended) | no |
+| R8 | S1: Performance flips PERFORM and KNOBS; Shift + Performance opens SETUP | no | yes |
+| R9 | S7: a library load keeps tempo and swing while playing; LOAD LINE is Shift + F2's default | no | yes |
+| R10 | I4: eight factory snapshots in a new project (the sounds need the ear) | no | no |
+
+R8 changes sentence 2 of 10.4 for Performance: its tabs read `PERFORM | KNOBS`, and SETUP is Shift + Performance (U5 draws that).
+F8 of the review joins 12.4: the hw-session gets a fixed, repeatable CPU scenario, and the `stock_only` jump (35.7 % then 46.4 %)
+is explained before the 56 % gate is read for TRACT.
