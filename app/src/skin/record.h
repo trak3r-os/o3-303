@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The obsidian skin's RECORD (docs/SKIN-PLAN.md 2.4 and section 8, SK6): the header, the glass, the F row (the view's knobs: F1 ARM / STOP, lit red while the take records, F2 SOURCE and F3 BARS
-// action keys with their value as the hint, F4 GAIN and F5 MONITOR knobs, F6 SAVE and F7 DISCARD action keys, dim while there is no finished take, F8 an empty box). In the glass: on the left
+// The obsidian skin's RECORD (docs/SKIN-PLAN.md 2.4 and section 8, SK6): the header, the glass, the F row (the view's knobs: F1 ARM / STOP, lit red while the take records, F2 BARS
+// an action key with its value as the hint, F3 SAVE and F4 DISCARD action keys, dim while there is no finished take, F5 to F8 empty boxes). In the glass: on the left
 // TAKE (the state and the clock in two windows, the bar of a BARS take as a chip, the sentence under them, SOURCE and BARS as readouts, the file name); on the right LEVELS (IN and OUT, left and
 // right, as LED-segment bars, the IN pair dark while the source is the master); under them the ENVELOPE of the take, in 48 columns (the take's 96 peaks two to a column: a line of the screen
 // has at most 100 primitives), red while it records and green once it is done, with a mark at each bar of a BARS take. The view says what is shown (record_screen.h); this file only places and draws

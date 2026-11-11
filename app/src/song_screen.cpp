@@ -223,7 +223,7 @@ void fill_song_view(SongView& out, const SongInputs& in) noexcept {
   }
   set(out.enc, sizeof out.enc, cursor < length ? kColumnName[out.column] : "NO CELL");
 
-  // The F row. The Shift row has the two undo keys of HOME's.
+  // The F row: PLAYS LOOP CHAIN CLEAR from F1, no hole. The Shift row has the two undo keys of HOME's (U4: the one scheme, F8 alone is not UNDO).
   const auto key = [&](unsigned k, const char* label, const char* hint, const char* value, bool dim = false, bool hot = false) {
     SongKey& s = out.key[k];
     s.label = label;
@@ -240,8 +240,7 @@ void fill_song_view(SongView& out, const SongInputs& in) noexcept {
   key(0, "PLAYS", out.plays, out.plays);
   key(1, "LOOP", out.loop, out.loop);
   key(2, "CHAIN", "to song", "TO SONG", in.chain_length == 0u);
-  key(6, "CLEAR", in.clear_armed ? "again?" : "tap twice", in.clear_armed ? "SURE?" : "TWICE", length == 0u, in.clear_armed);
-  key(7, "UNDO", "step back", "BACK", !in.can_undo);
+  key(3, "CLEAR", in.clear_armed ? "again?" : "tap twice", in.clear_armed ? "SURE?" : "TWICE", length == 0u, in.clear_armed);
 }
 
 // ---- The list, both drawings --------------------------------------------------------------------------------------------------
@@ -497,11 +496,11 @@ void SongScreen::fkey(app::Context& ctx, unsigned k, bool shift) noexcept {
     case 2:
       from_chain(ctx);
       break;
-    case 6:
+    case 3:
       clear_song(ctx);
       break;
-    case 7:
-      undo(ctx, false);
+    case 7:  // the old UNDO key: it answers for one release, and does nothing else
+      say(ctx, "UNDO IS SHIFT + F8", true);
       break;
     default:
       break;
@@ -649,7 +648,7 @@ void SongScreen::clear_song(app::Context& ctx) noexcept {
   const std::uint64_t now = ctx.uptime_ms();
   if (!clear_armed(ctx)) {  // the first press asks, the second within 5 s clears
     clear_until_ms_ = now + kClearAskMs;
-    say(ctx, "PRESS F7 AGAIN", true);
+    say(ctx, "PRESS F4 AGAIN", true);
     return;
   }
   clear_until_ms_ = 0;

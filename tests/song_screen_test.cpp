@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SONG (docs/UX-303.md 5.7, docs/UX-PLAN.md SG2): the pure view (fill_song_view and its text pieces: the lines, the page, the readouts, the F row), and the screen end to end in the simulator: the
-// cursor and the pages, the columns and the encoder's clamps, the pads (set a row, append on END), Insert, Delete, F1 PLAYS, F2 LOOP, F3 CHAIN, F7 CLEAR's second press, F8 UNDO and the Shift row,
+// cursor and the pages, the columns and the encoder's clamps, the pads (set a row, append on END), Insert, Delete, F1 PLAYS, F2 LOOP, F3 CHAIN, F4 CLEAR's second press, the Shift row (REDO and UNDO) and the toast a plain F8 gives,
 // the LEDs, a song that ends with its loop off (the transport stops from any screen), an edit of a song that plays (the position follows the rows), and UNDO from HOME and PERFORM reaching the
 // sequencer (SG1's owed item). The pictures are song.txt's and skin_song.txt's.
 #include <doctest/doctest.h>
@@ -272,12 +272,10 @@ TEST_CASE("song view: the F row") {
   CHECK(std::string(v.key[1].value) == "ON");
   CHECK(std::string(v.key[2].label) == "CHAIN");
   CHECK(v.key[2].dim);  // no chain to copy
-  CHECK(v.key[3].label[0] == '\0');
-  CHECK(v.key[5].label[0] == '\0');
-  CHECK(std::string(v.key[6].label) == "CLEAR");
-  CHECK_FALSE(v.key[6].dim);
-  CHECK_FALSE(v.key[6].hot);
-  CHECK(v.key[7].dim);  // nothing to undo
+  CHECK(std::string(v.key[3].label) == "CLEAR");
+  CHECK_FALSE(v.key[3].dim);
+  CHECK_FALSE(v.key[3].hot);
+  for (int i = 4; i < 8; ++i) CHECK(v.key[i].label[0] == '\0');  // no hole is a tool: F5..F8 are empty
 
   in.plays_song = true;
   in.loop = false;
@@ -288,15 +286,14 @@ TEST_CASE("song view: the F row") {
   CHECK(std::string(v.key[0].value) == "SONG");
   CHECK(std::string(v.key[1].value) == "OFF");
   CHECK_FALSE(v.key[2].dim);
-  CHECK(v.key[6].hot);
-  CHECK(std::string(v.key[6].value) == "SURE?");
-  CHECK_FALSE(v.key[7].dim);
+  CHECK(v.key[3].hot);
+  CHECK(std::string(v.key[3].value) == "SURE?");
 
   seq::Song empty;
   seq::clear_song(empty);
   in.song = &empty;
   fill_song_view(v, in);
-  CHECK(v.key[6].dim);  // nothing to clear
+  CHECK(v.key[3].dim);  // nothing to clear
 
   in.song = &s;
   in.shift = true;  // the Shift row: REDO and UNDO
@@ -459,12 +456,12 @@ TEST_CASE("song screen: a run of turns on one cell is one undo step") {
   o.turn(1);
   o.turn(1);
   CHECK(o.song().rows[0].repeat == 4u);
-  o.t.tap(Button::F8, 10);  // UNDO
+  o.t.shift_tap(Button::F8);  // UNDO
   CHECK(o.song().rows[0].repeat == 1u);
   CHECK(o.song().length == 1u);
-  o.t.tap(Button::F8, 10);  // the pad's append
+  o.t.shift_tap(Button::F8);  // the pad's append
   CHECK(o.song().length == 0u);
-  o.t.tap(Button::F8, 10);  // nothing more
+  o.t.shift_tap(Button::F8);  // nothing more
   CHECK(std::string(o.s->toast()) == "NOTHING TO UNDO");
 }
 
@@ -638,37 +635,49 @@ TEST_CASE("song screen: F3 copies the chain made with Pattern held") {
   CHECK(o.song().length == 3u);
   CHECK(std::string(o.s->toast()) == "SAME AS THE CHAIN");
 
-  o.t.tap(Button::F8, 10);  // one undo step brings the empty song back
+  o.t.shift_tap(Button::F8);  // one undo step brings the empty song back
   CHECK(o.song().length == 0u);
 }
 
-TEST_CASE("song screen: F7 CLEAR wants a second press within five seconds") {
+TEST_CASE("song screen: F4 CLEAR wants a second press within five seconds") {
   OnSong o;
-  o.t.tap(Button::F7, 10);  // nothing to clear
+  o.t.tap(Button::F4, 10);  // nothing to clear
   CHECK(std::string(o.s->toast()) == "THE SONG IS EMPTY");
   CHECK_FALSE(o.s->clear_armed(o.t.h->runtime().context()));
 
   o.pads({0, 1, 2});
-  o.t.tap(Button::F7, 10);
+  o.t.tap(Button::F4, 10);
   CHECK(o.song().length == 3u);  // the first press only asks
   CHECK(o.s->clear_armed(o.t.h->runtime().context()));
-  CHECK(std::string(o.s->toast()) == "PRESS F7 AGAIN");
+  CHECK(std::string(o.s->toast()) == "PRESS F4 AGAIN");
   o.t.wait(50);
-  CHECK(o.view().key[6].hot);
+  CHECK(o.view().key[3].hot);
 
   o.t.wait(5200);  // the ask lapses
   CHECK_FALSE(o.s->clear_armed(o.t.h->runtime().context()));
-  o.t.tap(Button::F7, 10);
+  o.t.tap(Button::F4, 10);
   CHECK(o.song().length == 3u);
-  o.t.tap(Button::F7, 10);  // the second press clears
+  o.t.tap(Button::F4, 10);  // the second press clears
   CHECK(o.song().length == 0u);
   CHECK(o.s->cursor() == 0u);
   CHECK(std::string(o.s->toast()) == "SONG CLEARED");
 
-  o.t.tap(Button::F8, 10);  // one UNDO brings it all back
+  o.t.shift_tap(Button::F8);  // one UNDO brings it all back
   CHECK(o.song().length == 3u);
-  o.t.tap(Button::F8, 10);
+  o.t.shift_tap(Button::F8);
   CHECK(o.song().length == 0u);  // the next step back is the run of three pads, one step
+}
+
+TEST_CASE("song screen: a plain F8 undoes nothing and says where UNDO is (U4, one release)") {
+  OnSong o;
+  o.pads({0});
+  o.t.tap(Button::Insert, 10);
+  REQUIRE(o.song().length == 2u);
+  o.t.tap(Button::F8, 10);
+  CHECK(o.song().length == 2u);
+  CHECK(std::string(o.s->toast()) == "UNDO IS SHIFT + F8");
+  o.t.shift_tap(Button::F8);
+  CHECK(o.song().length == 1u);
 }
 
 TEST_CASE("song screen: the Shift row redoes and undoes, as HOME's") {
@@ -754,14 +763,14 @@ TEST_CASE("song screen: the position follows the rows while the song plays") {
   CHECK(o.seq().playhead().pattern == 1);
 
   // The cell edits of the playing row are read at the next pass; the position stays.
-  o.t.tap(Button::F8, 10);  // undo the delete: three rows again
+  o.t.shift_tap(Button::F8);  // undo the delete: three rows again
   o.t.wait(100);
   CHECK(o.song().length == 3u);
   CHECK(o.seq().playhead().playing);
 
   // CLEAR under the position: the song is empty, the sequencer plays on (pattern mode) and nothing is out of range.
-  o.t.tap(Button::F7, 10);
-  o.t.tap(Button::F7, 10);
+  o.t.tap(Button::F4, 10);
+  o.t.tap(Button::F4, 10);
   o.t.wait(2500);
   CHECK(o.song().length == 0u);
   CHECK(o.t.h->engine().playing());
@@ -877,7 +886,7 @@ TEST_CASE("song screen: UNDO and REDO of an Insert or a Delete move the position
   o.t.wait(100);
   REQUIRE(o.song().length == 4u);
   CHECK(o.seq().song_position().row == 2);
-  o.t.tap(Button::F8, 10);  // UNDO the Insert: A01 A02 A03 again, the playing row is row 1 again
+  o.t.shift_tap(Button::F8);  // UNDO the Insert: A01 A02 A03 again, the playing row is row 1 again
   o.t.wait(100);
   REQUIRE(o.song().length == 3u);
   CHECK(o.seq().song_position().row == 1);
@@ -888,7 +897,7 @@ TEST_CASE("song screen: UNDO and REDO of an Insert or a Delete move the position
   o.t.wait(100);
   REQUIRE(o.song().length == 4u);
   CHECK(o.seq().song_position().row == 2);
-  o.t.tap(Button::F8, 10);
+  o.t.shift_tap(Button::F8);
   o.t.wait(100);
   REQUIRE(o.song().length == 3u);
   CHECK(o.seq().song_position().row == 1);
@@ -898,7 +907,7 @@ TEST_CASE("song screen: UNDO and REDO of an Insert or a Delete move the position
   o.t.wait(100);
   REQUIRE(o.song().length == 2u);
   CHECK(o.seq().song_position().row == 0);
-  o.t.tap(Button::F8, 10);  // UNDO the Delete: the row comes back above it
+  o.t.shift_tap(Button::F8);  // UNDO the Delete: the row comes back above it
   o.t.wait(100);
   REQUIRE(o.song().length == 3u);
   CHECK(o.seq().song_position().row == 1);
@@ -923,8 +932,8 @@ TEST_CASE("song screen: a song cleared or replaced under the position starts aga
   o.t.tap(Button::Play, 10);
   o.t.wait(500);
   REQUIRE(o.seq().song_position().row == 1);
-  o.t.tap(Button::F7, 10);
-  o.t.tap(Button::F7, 10);
+  o.t.tap(Button::F4, 10);
+  o.t.tap(Button::F4, 10);
   o.t.wait(100);
   REQUIRE(o.song().length == 0u);
   o.pads({10, 11, 12});
@@ -947,9 +956,9 @@ TEST_CASE("song screen: a run of pads on the END line is one undo step") {
     o.pads({i % 48});
   }
   REQUIRE(o.song().length == 40u);
-  o.t.tap(Button::F8, 10);
+  o.t.shift_tap(Button::F8);
   CHECK(o.song().length == 0u);  // the whole run in one step
-  o.t.tap(Button::F8, 10);       // and the pattern's edit is still there to undo
+  o.t.shift_tap(Button::F8);       // and the pattern's edit is still there to undo
   CHECK(bank().pattern(0).steps[0].note == note);
 
   // Anything in between makes a new step: two pads, a cell edit, another pad.
@@ -960,12 +969,12 @@ TEST_CASE("song screen: a run of pads on the END line is one undo step") {
   o.down(2);  // END
   o.pads({5});
   REQUIRE(o.song().length == 3u);
-  o.t.tap(Button::F8, 10);
+  o.t.shift_tap(Button::F8);
   CHECK(o.song().length == 2u);
   CHECK(o.song().rows[0].repeat == 3u);
-  o.t.tap(Button::F8, 10);
+  o.t.shift_tap(Button::F8);
   CHECK(o.song().rows[0].repeat == 1u);
-  o.t.tap(Button::F8, 10);
+  o.t.shift_tap(Button::F8);
   CHECK(o.song().length == 0u);
 }
 
@@ -979,7 +988,7 @@ TEST_CASE("song screen: the skinned frame queues everything it draws, with a ful
   REQUIRE(std::strcmp(o.t.title(), "SONG") == 0);
   CHECK(o.s->chrome(ctx) == app::Chrome::None);
   CHECK(o.s->theme(ctx) != nullptr);
-  o.t.tap(Button::F7, 10);  // the armed key, the toast in the header
+  o.t.tap(Button::F4, 10);  // the armed key, the toast in the header
   o.t.wait(60);
   CHECK(skin::panel().dropped() == 0u);
   CHECK(skin::panel().shapes() < skin::Panel::kShapes);

@@ -114,10 +114,10 @@ bool wait_state(Hands& t, hal_state want, unsigned max_ms) {
   return recorder(t).state() == want;
 }
 
-// F3 until BARS reads `bars` (1, 2, 4, 8 bars or 0 FREE), on RECORD.
+// F2 until BARS reads `bars` (1, 2, 4, 8 bars or 0 FREE), on RECORD.
 void set_bars(Hands& t, unsigned bars) {
   for (unsigned i = 0; i < kBarChoices && record(t).bars() != bars; ++i) {
-    t.tap(Button::F3);
+    t.tap(Button::F2);
   }
   REQUIRE(record(t).bars() == bars);
 }
@@ -388,22 +388,22 @@ TEST_CASE("skin master: the fullest frame (playing, nudged, taps, a toast) is qu
   t.release(Button::F3);
 }
 
-TEST_CASE("skin record: four action keys on the F row, F2, F4, F5 and F8 empty boxes; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
+TEST_CASE("skin record: four action keys on F1 to F4, F5 to F8 empty boxes; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
   Hands t;
   t.skin_on();
   t.tap(Button::SampleRec, 30);
   t.wait(100);
   const Queue q;
-  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 4u);       // F1, F3, F6, F7
-  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 0u);   // F4 and F5 are empty keys now
-  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 4u);                // F2, F4, F5, F8
+  CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 4u);       // F1, F2, F3, F4
+  CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == 0u);   // no knobs on RECORD now
+  CHECK(q.round_rects(skin::Layer::WindowFace, 80, 41) == 4u);                // F5, F6, F7, F8
   ui::Rgb tint{};
-  // The F row's action key of F1 is at (8, 405), F6's at (508, 405), F7's at (608, 405).
+  // The F row's action key of F1 is at (8, 405), F3's at (208, 405), F4's at (308, 405).
   REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 8, 405, tint));
   CHECK(same(tint, skin::pal::kKey));
-  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 508, 405, tint));
+  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 208, 405, tint));
   CHECK(same(tint, skin::pal::kKeyDim));
-  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 608, 405, tint));
+  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 308, 405, tint));
   CHECK(same(tint, skin::pal::kKeyDim));
   CHECK(q.rects(skin::Layer::MeterOff) + q.rects(skin::Layer::MeterOn) == 4u * skin::kRecordSegments);
   CHECK(q.rects(skin::Layer::Wave) == 0u);  // no take: the hint, no columns
@@ -418,7 +418,7 @@ TEST_CASE("skin record: four action keys on the F row, F2, F4, F5 and F8 empty b
   CHECK(same(tint, skin::pal::kFocusFill));
   CHECK(q.rects(skin::Layer::Wave) >= 1u);
   CHECK(q.rects(skin::Layer::Wave, skin::theme().rgb(ui::Color::Rec)) == q.rects(skin::Layer::Wave));
-  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 508, 405, tint));
+  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 208, 405, tint));
   CHECK(same(tint, skin::pal::kKeyDim));  // nothing to save yet
 
   // Done: ARM is a plain key again, SAVE and DISCARD are lit, the envelope is green.
@@ -426,9 +426,9 @@ TEST_CASE("skin record: four action keys on the F row, F2, F4, F5 and F8 empty b
   t.wait(100);
   REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 8, 405, tint));
   CHECK(same(tint, skin::pal::kKey));
-  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 508, 405, tint));
+  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 208, 405, tint));
   CHECK(same(tint, skin::pal::kKey));
-  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 608, 405, tint));
+  REQUIRE(q.tint_at(skin::Layer::ActKey, skin_assets::Id::ActKey, 308, 405, tint));
   CHECK(same(tint, skin::pal::kKey));
   CHECK(q.rects(skin::Layer::Wave, skin::theme().rgb(ui::Color::Play)) == q.rects(skin::Layer::Wave));
   CHECK(q.rects(skin::Layer::Wave) == skin::kEnvelopeCols);  // a finished take fills the box
@@ -522,10 +522,10 @@ TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red 
     REQUIRE_MESSAGE(recorder(t).state() == hal_state::Done, s.name << ": the take is done");
     CHECK_MESSAGE(same(q.take_led(), skin::pal::kLedAmber), s.name << ": the TAKE LED is amber when the take is ready");
   }
-  // The take dropped (F7 twice on RECORD), the LED is dark again everywhere.
+  // The take dropped (F4 twice on RECORD), the LED is dark again everywhere.
   t.tap(Button::SampleRec, 30);
-  t.tap(Button::F7);
-  t.tap(Button::F7);
+  t.tap(Button::F4);
+  t.tap(Button::F4);
   t.wait(100);
   t.tap(Button::Pattern, 30);
   t.wait(80);
@@ -541,7 +541,7 @@ TEST_CASE("skin record: the fullest frame (an 8 bar take done, a toast in the PA
   t.tap(Button::F1);
   REQUIRE(wait_state(t, hal_state::Recording, 4000));
   REQUIRE(wait_state(t, hal_state::Done, 20000));
-  t.tap(Button::F7);  // "DISCARD? PRESS F7 AGAIN" in the PAGE window; DISCARD asks, the rest of the frame is as full as it gets
+  t.tap(Button::F4);  // "DISCARD? PRESS F4 AGAIN" in the PAGE window; DISCARD asks, the rest of the frame is as full as it gets
   t.wait(60);
   const Queue q;
   CHECK(q.rects(skin::Layer::Wave) == skin::kEnvelopeCols);
@@ -550,7 +550,7 @@ TEST_CASE("skin record: the fullest frame (an 8 bar take done, a toast in the PA
   MESSAGE("RECORD worst frame: " << q.q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.q.texts() << " texts of " << skin::Panel::kTexts);
   CHECK(q.q.shapes() + 40u <= skin::Panel::kShapes);
   CHECK(q.q.texts() + 20u <= skin::Panel::kTexts);
-  t.tap(Button::F7);
+  t.tap(Button::F4);
   t.tap(Button::Play);
 }
 

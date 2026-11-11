@@ -53,6 +53,10 @@ hear says so in plain words.
 - **In a long pattern the step pads stay on the page you chose while it plays.** A tap on a step pad, or Left or Right across a page
   edge, holds the pads on that page ("PAGE 2 HELD" in the title); before, they jumped to the playhead's page under your fingers.
   Stop or a change of pattern gives the follow back (Shift + Left/Right is ROTATE and does not).
+- **UNDO and REDO are Shift + F8 and Shift + F7 wherever you edit.** PATTERN SETUP now has REDO on Shift + F7, and SONG's plain F8 UNDO is
+  gone: it answers "UNDO IS SHIFT + F8" for this release (SONG's Shift row had both already).
+- **No holes in the F row on RECORD and SONG.** RECORD is ARM, BARS, SAVE and DISCARD on F1 to F4 (BARS was F3, SAVE F6, DISCARD F7);
+  SONG is PLAYS, LOOP, CHAIN and CLEAR on F1 to F4 (CLEAR was F7). SAVE and DISCARD and CLEAR still ask twice. Nothing saved changes.
 
 ## v0.6.1 (2026-11-09), a pre-release
 

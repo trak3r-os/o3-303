@@ -362,7 +362,7 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5). With a scale on, the scale's value shows its root ("D MAJOR"), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark.
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
-pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F8 UNDO.
+pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F7 REDO, F8 UNDO.
 
 The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back.
 
@@ -616,8 +616,9 @@ Press **Song**. A song is a list of rows, each a pattern played a number of time
 | F1 PLAYS | What Play plays: SONG (from the cursor row) or PATTERN |
 | F2 LOOP | ON: the song starts again at the end. OFF: it plays once and stops |
 | F3 CHAIN | The chain made with Pattern held becomes the song |
-| F7 CLEAR | Empties the song (press twice) |
-| F8 UNDO | Steps back. Shift + F7 is REDO |
+| F4 CLEAR | Empties the song (press twice) |
+
+UNDO and REDO are on Shift here too: **Shift + F8** steps back and **Shift + F7** steps forward, as on HOME. A plain F8 does nothing but say so ("UNDO IS SHIFT + F8"; it was UNDO before, and the message stays for one release).
 
 The song shares the undo history with the patterns, and it is saved with the project.
 
@@ -694,13 +695,13 @@ Press **Sample Rec**. RECORD makes a WAV of what you play (section 11).
 | Key | What |
 |---|---|
 | F1 ARM | Arm a take of the master (what o3-303 plays; the inputs are not recorded): it starts at the next bar (a FREE take with the transport stopped starts at once; F1 ends a FREE take) |
-| F3 BARS | 1, 2, 4, 8 or FREE |
-| F6 SAVE | Write the take to the card as a WAV |
-| F7 DISCARD | Drop the take (press twice) |
+| F2 BARS | 1, 2, 4, 8 or FREE |
+| F3 SAVE | Write the take to the card as a WAV |
+| F4 DISCARD | Drop the take (press twice) |
 
-![RECORD with a finished take: DONE 0:07.6, the take's waveform in green, the TAKE light READY in amber at the top, F6 SAVE READY](manual/img/record-done.png)
+![RECORD with a finished take: DONE 0:07.6, the take's waveform in green, the TAKE light READY in amber at the top, F3 SAVE READY](manual/img/record-done.png)
 
-*A four-bar take, done. F6 saves it, F7 drops it.*
+*A four-bar take, done. F3 saves it, F4 drops it.*
 
 ---
 
@@ -757,7 +758,7 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 
 ## 7. Experiment without fear
 
-- **UNDO and REDO.** Shift + F8 is UNDO and Shift + F7 is REDO on HOME, and SONG has the same keys. The history holds the last 32 changes
+- **UNDO and REDO.** Shift + F8 is UNDO and Shift + F7 is REDO wherever you edit: HOME, PATTERN SETUP, PERFORM and SONG. The history holds the last 32 changes
   to the patterns and the song. Turning the encoder on one step is one change, not forty.
 - **The pattern tools** (Shift on HOME): NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR. Each one is a single undo, so press NEW five times and
   UNDO back to the one you liked. PERFORM's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live.
@@ -888,14 +889,14 @@ Known:
 ## 11. Recording a take
 
 1. Press **Sample Rec**. RECORD opens.
-2. **F3** picks the length: 1, 2, 4 or 8 bars, or FREE. (The take is always the master, what o3-303 plays.)
+2. **F2** picks the length: 1, 2, 4 or 8 bars, or FREE. (The take is always the master, what o3-303 plays.)
 3. Press **Play**, then **F1 ARM**. TAKE lights in the header; the take starts at the next bar and stops by itself after its bars. (A FREE
    take ends when you press F1.)
-4. **F6 SAVE** writes it to the card as `Samples/take_NNN.wav`, a new number each time. **F7** twice drops it.
+4. **F3 SAVE** writes it to the card as `Samples/take_NNN.wav`, a new number each time. **F4** twice drops it.
 
 **Shift + Rec** arms or stops a take from any screen, so you can record while you play on PERFORM. A take armed with Shift + Rec saves
 itself to `Samples/take_NNN.wav` when it ends, and Shift + Rec on a finished take saves it too. Only a take armed with F1 waits for
-**F6 SAVE**; until you save it, it is lost when the unit restarts, and a new take cannot be armed ("SAVE OR DISCARD THE TAKE (F6 F7)").
+**F3 SAVE**; until you save it, it is lost when the unit restarts, and a new take cannot be armed ("SAVE OR DISCARD THE TAKE (F3 F4)").
 
 A take holds up to 30 seconds. Bars that do not fit at the tempo are refused before the take starts ("8 BARS TOO LONG AT 60.0"; a take
 that waits for its bar is disarmed if the tempo slows that far): pick fewer bars or a faster tempo.
@@ -970,7 +971,7 @@ button.
 | NAME USED BEFORE: PICK ANOTHER | A project of that name was deleted before, and the card keeps the name. Pick another |
 | TOO MANY PROJECTS | The list is full. Delete one you do not need |
 | 8 LANES USED: CLEAR LOCKS (SETUP) | A pattern holds locks and motion for eight knobs at most. PATTERN SETUP's Shift + F4 clears them |
-| BARS TOO LONG AT ... (for example 8 BARS TOO LONG AT 60.0) | On RECORD: that many bars at that tempo run over the 30 seconds a take holds. Pick fewer bars (F3) or a faster tempo |
+| BARS TOO LONG AT ... (for example 8 BARS TOO LONG AT 60.0) | On RECORD: that many bars at that tempo run over the 30 seconds a take holds. Pick fewer bars (F2) or a faster tempo |
 | MIDI CLOCK LEADS | TAP or NUDGE while the tempo follows a MIDI clock: the tempo is the other machine's (section 10) |
 
 **No sound.** Check F8 VOLUME on HOME, F4 MASTER on MASTER, that MUTE is not latched on PERFORM (ALL OFF lets every action go), and that OVERDRIVE on MODDED TONE (F3) is not OFF, the bottom of its range, where no oscillator reaches the filter. If the

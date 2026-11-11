@@ -94,7 +94,7 @@ TEST_CASE("help texts: MODDED's summary says what ends STOCK and what does not (
 }
 
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
-  // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD seven,
+  // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD four (ARM BARS SAVE DISCARD),
   // GROWL seven, WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE six (F1..F5 and F8 STOCK); MODDED NOTES names all eight (the rest are empty wells).
   for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::ModdedNotes, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
@@ -109,8 +109,10 @@ TEST_CASE("help texts: the F keys' texts are where there is something to add") {
   CHECK(text(Id::Master).fkey[3] != nullptr);
   CHECK(text(Id::Master).fkey[4] != nullptr);  // DLY MODE (S0 of docs/MODS-PLAN.md)
   CHECK(text(Id::Master).fkey[5] == nullptr);
-  CHECK(text(Id::Record).fkey[6] != nullptr);
-  CHECK(text(Id::Record).fkey[7] == nullptr);
+  CHECK(text(Id::Record).fkey[3] != nullptr);
+  CHECK(text(Id::Record).fkey[4] == nullptr);
+  CHECK(text(Id::Song).fkey[3] != nullptr);  // CLEAR moved from F7 to F4 (U7)
+  CHECK(text(Id::Song).fkey[7] == nullptr);  // and plain F8 is no UNDO any more (U4)
   CHECK(text(Id::File).fkey[6] == nullptr);  // F7 is empty on FILE
 }
 
@@ -410,9 +412,9 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   tap(h, app::Button::Master);
   check_screen(h, Id::Master, 0x1Fu, kAllPads, "MASTER");  // the knob row of MASTER: F1 TEMPO, F2 TAP, F3 NUDGE, F4 MASTER, F5 DLY MODE (master_screen.cpp kPage and the two action boxes)
   tap(h, app::Button::SampleRec);
-  check_screen(h, Id::Record, 0x7Fu, kAllPads, "RECORD");  // F1 ARM / STOP .. F7 DISCARD; F8 has no box (record_screen.cpp)
+  check_screen(h, Id::Record, 0x0Fu, kAllPads, "RECORD");  // F1 ARM / STOP, F2 BARS, F3 SAVE, F4 DISCARD; F5 to F8 have no box (record_screen.cpp)
   tap(h, app::Button::Song);
-  check_screen(h, Id::Song, 0xC7u, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F7 CLEAR, F8 UNDO (song_screen.cpp song_knobs)
+  check_screen(h, Id::Song, 0x0Fu, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F4 CLEAR (song_screen.cpp song_knobs)
   tap(h, app::Button::File);
   tap(h, app::Button::File);
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
@@ -491,7 +493,9 @@ TEST_CASE("help texts: SONG says what its buttons, F keys and pads do") {
   CHECK(says(app::Button::Vol, "TRANSPOSE"));
   CHECK(says(app::Button::Fx, "MUTE"));
   CHECK(t.fkey[0] != nullptr);
-  CHECK(t.fkey[3] == nullptr);
+  CHECK(std::strcmp(t.fkey[3], "PRESS TWICE") == 0);  // CLEAR
+  CHECK(t.fkey[4] == nullptr);
+  CHECK(t.fkey[7] == nullptr);  // the plain F8 UNDO is gone
   CHECK(std::strcmp(t.fkey_shift[6], "REDO") == 0);
   CHECK(std::strcmp(t.fkey_shift[7], "UNDO") == 0);
   Help h;
@@ -523,6 +527,7 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     CHECK(std::strcmp(help.fkey_shift[2], "DUP>NEXT") == 0);
     CHECK(std::strcmp(help.fkey_shift[4], "ROOT") == 0);
     CHECK(help.fkey_shift[5] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);  // U4: REDO on Shift + F7 wherever you edit
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }

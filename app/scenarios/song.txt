@@ -5,7 +5,7 @@
 #
 # 01 empty (END line, how to begin); 02 three pads tapped: A01 A02 B01 (the cursor stays on END); 03 edited: A01 x4, A02 x2 -5, B01 muted (the cursor on its MUTE cell); 04 F1: Play plays the
 # SONG; 05 playing: row 2 on repeat 1 of 2 (the row's bar, the NOW readout, the pattern LED on); 06 a row inserted above the playing one (a copy of A01): the bar moves down with the row that plays; 07 undo
-# (F8); 08 stopped, the chain A06 > A07 > A08 made with Pattern held on HOME; 09 F3: the chain is the song; 10 F7 asks; 11 F7 again clears; 12 F8 brings the song back; 13 Shift row (REDO, UNDO);
+# (Shift + F8); 08 stopped, the chain A06 > A07 > A08 made with Pattern held on HOME; 09 F3: the chain is the song; 10 F4 asks; 11 F4 again clears; 12 Shift + F8 brings the song back; 13 Shift row (REDO, UNDO); 13b a plain F8: the toast UNDO IS SHIFT + F8;
 # 14 and 15 more than ten rows: the first page, and the second after Right; 16 and 17 HOME and MASTER while PLAYS is SONG (the status line's SONG chip). The WAV (song.wav) is the whole run: A01 from the song's first row, a few seconds, until Play stops it.
 wait 300
 record on
@@ -45,7 +45,9 @@ snap 06_inserted_while_playing
 wait 1200
 tap play
 wait 100
+press shift
 tap f8
+release shift
 wait 100
 snap 07_undo
 tap pattern
@@ -60,19 +62,26 @@ tap song
 tap f3
 wait 100
 snap 09_from_chain
-tap f7
+tap f4
 wait 100
 snap 10_clear_asks
-tap f7
+tap f4
 wait 100
 snap 11_cleared
+press shift
 tap f8
+release shift
 wait 100
 snap 12_undone
 press shift
 wait 100
 snap 13_shift_row
 release shift
+# A plain F8 does not undo any more (U4): the toast says where UNDO is, for one release.
+tap f8
+wait 100
+snap 13b_plain_f8_toast
+wait 5200
 tap fx
 tap down
 tap down

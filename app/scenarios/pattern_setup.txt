@@ -1,5 +1,5 @@
 # PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH up copies the line into the new half and down truncates,
-# each one UNDO; F5 SCALE locks the keyboard; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS and UNDO.
+# each one UNDO; F5 SCALE locks the keyboard; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, ROOT, REDO and UNDO.
 wait 300
 tap pattern
 wait 100

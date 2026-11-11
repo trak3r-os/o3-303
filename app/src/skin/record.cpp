@@ -163,8 +163,8 @@ void draw_record(ui::Renderer& r, const RecordView& v, const frame::StatusView& 
   fill_frow(frow, v.knob, false);
   frow.slot[0].lit = std::strcmp(v.state, "REC") == 0;  // ARM / STOP is lit red while the take records
   const bool done = std::strcmp(v.state, "DONE") == 0;   // SAVE and DISCARD have something to do only on a finished take (not while it saves: both do nothing then)
-  frow.slot[5].dim = frow.slot[5].kind == SlotKind::Action && !done;
-  frow.slot[6].dim = frow.slot[6].kind == SlotKind::Action && !done;
+  frow.slot[2].dim = frow.slot[2].kind == SlotKind::Action && !done;
+  frow.slot[3].dim = frow.slot[3].kind == SlotKind::Action && !done;
   draw_frow(panel, frow);
 
   queue_take(panel, v);

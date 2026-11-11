@@ -9,8 +9,8 @@
 //   encoder    the cell (Shift: pattern by 12, repeat by 4, transpose by an octave)
 //   a pad      sets the row's pattern (pad n is pattern n); on the END line it adds a row with that pattern, and the cursor stays on END, so a song is built by tapping pads
 //   Insert     a row above the cursor, a copy of it (on END: of the last row)           Delete  removes the row
-//   F1 PLAYS: PATTERN or SONG (Play starts at the cursor row)   F2 LOOP   F3 CHAIN (the chain made with Pattern held becomes the song)   F7 CLEAR (twice within 5 s)   F8 UNDO
-//   Shift row: F7 REDO, F8 UNDO.
+//   F1 PLAYS: PATTERN or SONG (Play starts at the cursor row)   F2 LOOP   F3 CHAIN (the chain made with Pattern held becomes the song)   F4 CLEAR (twice within 5 s)   F8: the toast "UNDO IS SHIFT + F8"
+//   Shift row: F7 REDO, F8 UNDO (as on every screen that edits).
 //
 // What is shown is a SongView (song_view.h), filled by the pure fill_song_view(); the classic drawing is in song_screen.cpp, the obsidian skin's in skin/song.cpp. Main loop only.
 
@@ -76,7 +76,7 @@ class SongScreen final : public o3sdk::app::Screen {
   unsigned cursor_ = 0;      // the row; the song's length is the END line
   unsigned column_ = 0;      // 0 PATTERN, 1 REPEAT, 2 TRANSP, 3 MUTE
   bool plays_song_ = false;  // F1: Play plays the song
-  std::uint64_t clear_until_ms_ = 0;  // F7 was pressed: a second press before this clears
+  std::uint64_t clear_until_ms_ = 0;  // F4 was pressed: a second press before this clears
   char toast_[40] = "";
   bool toast_off_ = false;
   std::uint64_t toast_until_ms_ = 0;

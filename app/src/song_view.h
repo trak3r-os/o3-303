@@ -81,7 +81,7 @@ struct SongInputs {
   unsigned chain_length = 0;       // entries in the chain made on the fly (Sequencer::chain().length): FROM CHAIN has something to copy
   bool can_undo = false;
   bool can_redo = false;
-  bool clear_armed = false;        // F7 waits for its second press
+  bool clear_armed = false;        // F4 waits for its second press
   bool shift = false;
 };
 

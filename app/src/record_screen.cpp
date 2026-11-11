@@ -82,7 +82,7 @@ unsigned put_uint(unsigned v, char* out, unsigned cap) noexcept {
 
 constexpr std::uint32_t engine_rate_hz() noexcept { return (hal::audio::sample_rate_mhz() + 500u) / 1000u; }
 
-const char* kKeyNames[] = {"F1 ARM", "", "F3 BARS"};  // F2, F4 and F5 are empty keys
+const char* kKeyNames[] = {"F1 ARM", "F2 BARS"};
 
 // The drawing's geometry (the area is the screen's, under the kit's header).
 constexpr int kCardY = frame::kStatusH + 8;
@@ -540,7 +540,7 @@ void RecordScreen::arm_or_stop(app::Context& ctx, bool auto_save) noexcept {
     if (auto_save && rec.frames() != 0u) {
       save(ctx);  // Shift + Rec on a finished take saves it: also the way to try again after a save that failed
     } else {
-      say(ctx, "SAVE OR DISCARD THE TAKE (F6 F7)", true);
+      say(ctx, "SAVE OR DISCARD THE TAKE (F3 F4)", true);
     }
   } else {
     (void)arm(ctx, auto_save);
@@ -577,7 +577,7 @@ void RecordScreen::issue_save(app::Context& ctx) noexcept {
   save_wanted_ = false;
   auto_save_ = false;
   const char* why = ctx.files().status().text;
-  say(ctx, why != nullptr && why[0] != '\0' ? why : "NOT SAVED", true);  // the take stays: F6 or Shift + Rec tries again
+  say(ctx, why != nullptr && why[0] != '\0' ? why : "NOT SAVED", true);  // the take stays: F3 or Shift + Rec tries again
 }
 
 void RecordScreen::finish_save(app::Context& ctx) noexcept {
@@ -590,7 +590,7 @@ void RecordScreen::finish_save(app::Context& ctx) noexcept {
     env_.reset(kTakeFrames);
     say(ctx, "SAVED");
   } else {
-    say(ctx, s.text != nullptr && s.text[0] != '\0' ? s.text : "SAVE FAILED", true);  // the take stays: F6 or Shift + Rec tries again
+    say(ctx, s.text != nullptr && s.text[0] != '\0' ? s.text : "SAVE FAILED", true);  // the take stays: F3 or Shift + Rec tries again
   }
 }
 
@@ -607,7 +607,7 @@ void RecordScreen::discard(app::Context& ctx) noexcept {
   const std::uint64_t now = ctx.uptime_ms();
   if (now >= discard_until_ms_ || discard_until_ms_ == 0u) {  // the first press asks, the second within 5 s drops the take
     discard_until_ms_ = now + kDiscardAskMs;
-    say(ctx, "DISCARD? PRESS F7 AGAIN", true);
+    say(ctx, "DISCARD? PRESS F4 AGAIN", true);
     return;
   }
   discard_until_ms_ = 0;
@@ -621,7 +621,7 @@ void RecordScreen::discard(app::Context& ctx) noexcept {
 
 // ---- The settings -----------------------------------------------------------------------------------------------------------------------
 
-// `wrap`: a tap of F3 goes round the list; the encoder stops at its ends.
+// `wrap`: a tap of F2 goes round the list; the encoder stops at its ends.
 void RecordScreen::pick_bars(app::Context& ctx, int delta, bool wrap) noexcept {
   if (take_on(ctx)) {
     say(ctx, "STOP THE TAKE FIRST", true);
@@ -650,7 +650,7 @@ void RecordScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   if (home_->turn(ctx, d, in.shift, Entry{})) {  // a held step takes the turn (nothing here can lock)
     return;
   }
-  // BARS (F3) takes the turn while held, and when latched.
+  // BARS (F2) takes the turn while held, and when latched.
   if ((down_ >> kKeyBars & 1u) != 0u || owner_ == kKeyBars) {
     pick_bars(ctx, d, false);
   }
@@ -800,7 +800,7 @@ void RecordScreen::fill_view(app::Context& ctx, RecordView& view) noexcept {
     append(view.line, sizeof view.line, take_bars_ != 0u ? "F1 STOPS IT EARLY" : "F1 STOPS . THE BUFFER FILLS AT 0:30");
   } else if (st == State::Done) {
     view.state = "DONE";
-    append(view.line, sizeof view.line, rec.full() ? "BUFFER FULL . F6 SAVE . F7 DISCARD" : "F6 SAVE . F7 DISCARD");
+    append(view.line, sizeof view.line, rec.full() ? "BUFFER FULL . F3 SAVE . F4 DISCARD" : "F3 SAVE . F4 DISCARD");
   } else {
     view.state = "IDLE";
     if (!view.fits) {

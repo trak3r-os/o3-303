@@ -109,10 +109,10 @@ struct Session {
     tap(Button::SampleRec);
     REQUIRE(std::strcmp(title(), "RECORD") == 0);
   }
-  // F3 until the list shows `bars` (0: FREE).
+  // F2 until the list shows `bars` (0: FREE).
   void choose_bars(unsigned bars) {
     for (unsigned i = 0; i < kBarChoices && record().bars() != bars; ++i) {
-      tap(Button::F3);
+      tap(Button::F2);
     }
     REQUIRE(record().bars() == bars);
   }
@@ -348,8 +348,8 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
     CHECK(std::memcmp(out.data() + offset * 2, take, static_cast<std::size_t>(frames) * 4u) == 0);
   }
 
-  // F6 SAVE: Samples/take_001.wav, 44 bytes of header and the take's frames.
-  s.tap(Button::F6);
+  // F3 SAVE: Samples/take_001.wav, 44 bytes of header and the take's frames.
+  s.tap(Button::F3);
   REQUIRE(s.until([&] { return !s.record().saving() && s.rec().state() == State::Idle; }, 4000));
   const std::vector<fs::path> files = s.takes();
   REQUIRE(files.size() == 1);
@@ -364,7 +364,7 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
   s.tap(Button::F1);
   CHECK(s.rec().state() == State::Waiting);  // (the transport plays: the next bar)
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 4000));
-  s.tap(Button::F6);
+  s.tap(Button::F3);
   REQUIRE(s.until([&] { return !s.record().saving() && s.rec().state() == State::Idle; }, 4000));
   CHECK(s.takes().size() == 2u);
   CHECK(fs::exists(s.samples() / "take_002.wav"));
@@ -464,9 +464,9 @@ TEST_CASE("FREE: F1 stops it, DISCARD asks twice, and the second press must come
   s.tap(Button::F1);
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 200));
   CHECK(s.rec().frames() > 20'000u);
-  s.tap(Button::F7);  // asks
+  s.tap(Button::F4);  // asks
   CHECK(s.rec().state() == State::Done);
-  s.tap(Button::F7);  // sure
+  s.tap(Button::F4);  // sure
   CHECK(s.rec().state() == State::Idle);
   // Arming over a take that was not dealt with is refused: SAVE or DISCARD first.
   s.tap(Button::F1);
@@ -475,11 +475,11 @@ TEST_CASE("FREE: F1 stops it, DISCARD asks twice, and the second press must come
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 200));
   s.tap(Button::F1);
   CHECK(s.rec().state() == State::Done);
-  s.tap(Button::F7);
+  s.tap(Button::F4);
   s.wait(5200);  // the question went stale
-  s.tap(Button::F7);
+  s.tap(Button::F4);
   CHECK(s.rec().state() == State::Done);  // asks again
-  s.tap(Button::F7);
+  s.tap(Button::F4);
   CHECK(s.rec().state() == State::Idle);
   CHECK(s.takes().empty());
 }
@@ -491,7 +491,7 @@ TEST_CASE("Settings are refused while a take waits or records") {
   s.tap(Button::F1);
   REQUIRE(s.rec().state() == State::Recording);
   const unsigned bars = s.record().bars();
-  s.tap(Button::F3);  // BARS: refused
+  s.tap(Button::F2);  // BARS: refused
   CHECK(s.record().bars() == bars);
   s.tap(Button::F1);
   s.wait(20);
@@ -546,7 +546,7 @@ TEST_CASE("a take armed with Shift + Rec saves itself when it ends by itself") {
   CHECK(s.takes().size() == 1u);
 }
 
-TEST_CASE("a take armed on RECORD waits for F6; F1 over it says so instead of overwriting, and Shift + Rec over it saves it") {
+TEST_CASE("a take armed on RECORD waits for F3; F1 over it says so instead of overwriting, and Shift + Rec over it saves it") {
   Session s;
   s.open_record();
   s.choose_bars(0);
@@ -559,7 +559,7 @@ TEST_CASE("a take armed on RECORD waits for F6; F1 over it says so instead of ov
   CHECK(s.takes().empty());
   s.tap(Button::F1);
   CHECK(s.rec().state() == State::Done);  // the take is kept, and the status line says why
-  CHECK(std::string(s.record().message()) == "SAVE OR DISCARD THE TAKE (F6 F7)");
+  CHECK(std::string(s.record().message()) == "SAVE OR DISCARD THE TAKE (F3 F4)");
   s.tap(Button::Pattern);
   s.shift_tap(Button::Rec);  // from another screen: SAVE
   REQUIRE(s.saved());
@@ -584,8 +584,8 @@ TEST_CASE("the update is blocked while a take waits or records, and while one is
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 200));
   REQUIRE(a.update_blocker(s.ctx()) != nullptr);  // an update restarts the unit: the take would be lost
   CHECK(std::strcmp(a.update_blocker(s.ctx()), "SAVE OR DISCARD TAKE") == 0);
-  s.press(Button::F6);
-  s.release(Button::F6);
+  s.press(Button::F3);
+  s.release(Button::F3);
   CHECK(s.ctx().files().busy());  // the write: the kit's own check says SAVING, which is true
   REQUIRE(s.saved());
   CHECK(a.update_blocker(s.ctx()) == nullptr);
@@ -622,8 +622,8 @@ TEST_CASE("the kit's FIRMWARE list refuses with the take's words, at the list an
   s.tap(Button::Config);
 
   // Discarded: the list opens, and INSTALL is refused when a take starts while the question waits.
-  s.tap(Button::F7);
-  s.tap(Button::F7);
+  s.tap(Button::F4);
+  s.tap(Button::F4);
   REQUIRE(s.rec().state() == State::Idle);
   s.tap(Button::Config);
   CHECK(has("section=firmware fw=list"));
@@ -653,14 +653,14 @@ TEST_CASE("a transport that stops under a BARS take ends it where it stopped") {
   CHECK(s.rec().frames() < 4u * bar_frames(125'000));
 }
 
-TEST_CASE("the recorder always takes the master: F2, F4 and F5 are empty keys, even with a codec input") {
+TEST_CASE("the recorder always takes the master: F5, F6 and F7 are empty keys, even with a codec input") {
   Session s(true, true);
   s.capture.input_tone(440.0f, -12.0f);
   s.open_record();
-  s.tap(Button::F2);
-  s.tap(Button::F4);
-  s.turn(10);
   s.tap(Button::F5);
+  s.tap(Button::F6);
+  s.turn(10);
+  s.tap(Button::F7);
   CHECK_FALSE(s.ctx().audio_in().selected());
   CHECK(s.ctx().audio_in().monitor() == 0u);
   s.choose_bars(0);
@@ -685,8 +685,8 @@ TEST_CASE("a take that fills the buffer ends by itself with everything before it
   s.wait(100);  // a frame is drawn
   CHECK(std::string(s.record().last_view().line).rfind("BUFFER FULL", 0) == 0u);
   CHECK(s.record().envelope().peak(Envelope::kCols - 1) == 0u);  // the master is silent: the envelope is flat but the scan got to the end without leaving the buffer
-  s.tap(Button::F7);
-  s.tap(Button::F7);
+  s.tap(Button::F4);
+  s.tap(Button::F4);
   CHECK(s.rec().state() == State::Idle);
 }
 
@@ -698,7 +698,7 @@ TEST_CASE("no card: the take stays and SAVE says so") {
   s.wait(300);
   s.tap(Button::F1);
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 200));
-  s.tap(Button::F6);
+  s.tap(Button::F3);
   s.wait(200);
   CHECK_FALSE(s.record().saving());
   CHECK(s.rec().state() == State::Done);
@@ -777,7 +777,7 @@ TEST_CASE("a take that cannot be saved keeps its words on the status line and th
   RecordScreen& rs = s.record();
   s.h->card_protect(true);
   s.wait(300);
-  s.tap(Button::F6);
+  s.tap(Button::F3);
   s.wait(300);
   CHECK(s.rec().state() == State::Done);
   CHECK_FALSE(rs.saving());
@@ -796,8 +796,8 @@ TEST_CASE("a card pulled while the WAV is written fails the save with the kit's 
   Session s;
   s.finished_take(2000);  // a big file: the job spans passes
   RecordScreen& rs = s.record();
-  s.press(Button::F6);
-  s.release(Button::F6);
+  s.press(Button::F3);
+  s.release(Button::F3);
   REQUIRE(rs.saving());
   s.h->card_out();
   s.wait(300);
@@ -872,7 +872,7 @@ struct MemRig {
     tap(Button::SampleRec);
     rs = static_cast<RecordScreen*>(ctx.screen());
     for (unsigned i = 0; i < kBarChoices && rs->bars() != 0u; ++i) {
-      tap(Button::F3);
+      tap(Button::F2);
     }
     tap(Button::F1);
     h.run_ms(take_ms);
@@ -912,7 +912,7 @@ TEST_CASE("a full card, and a write that fails: the take stays, the status line 
   MemRig r(400);
   const RecordScreen& rs = *r.rs;
   r.mem.space_left = 4096;  // a card with no room for the take
-  r.tap(Button::F6);
+  r.tap(Button::F3);
   r.h.run_ms(400);
   CHECK(r.ctx.recorder().state() == State::Done);
   CHECK_FALSE(rs.saving());
@@ -924,14 +924,14 @@ TEST_CASE("a full card, and a write that fails: the take stays, the status line 
   r.mem.ops = 0;
   r.mem.fail_at = 4;  // a write that fails once, a few calls into the job
   r.mem.fail_with = hal::storage::WriteStatus::Io;
-  r.tap(Button::F6);
+  r.tap(Button::F3);
   r.h.run_ms(400);
   CHECK(r.ctx.recorder().state() == State::Done);
   CHECK_FALSE(std::string(rs.message()).empty());
   CHECK_FALSE(r.mem.has("Samples/take_001.wav"));  // never half a file under the name
 
   r.mem.fail_at = ~std::size_t{0};
-  r.tap(Button::F6);
+  r.tap(Button::F3);
   REQUIRE(r.idle_again(4000));
   CHECK(r.mem.has("Samples/take_001.wav"));
   CHECK(r.mem.violations == 0u);
@@ -948,7 +948,7 @@ TEST_CASE("a take save that fails while the project is being saved is the take's
     r.tap(Button::File);  // SAVE: no project yet, so it goes under the first free UNTITLED
     r.h.release(Button::Shift);
     r.h.run_ms(gap);
-    r.tap(Button::F6);
+    r.tap(Button::F3);
     REQUIRE(r.project_idle(6000));
     r.h.run_ms(300);
     CHECK(r.ctx.recorder().state() == State::Done);  // the take: not saved, and still there
@@ -971,8 +971,8 @@ TEST_CASE("a SAVE asked while the WAV is written, on a card that fails the WAV a
     r.mem.ops = 0;
     r.mem.fail_at = fail_at;  // the take's job fails at its fail_at-th call, once; later calls (the project's) work
     r.mem.fail_with = hal::storage::WriteStatus::Io;
-    r.h.press(Button::F6);
-    r.h.release(Button::F6);
+    r.h.press(Button::F3);
+    r.h.release(Button::F3);
     r.h.press(Button::Shift);  // SAVE the project at once: asked while the WAV is written, its steps wait on the card
     r.h.press(Button::File);
     r.h.release(Button::File);
@@ -1025,7 +1025,7 @@ TEST_CASE("a take saved while the project is being saved: both finish with their
     // SAVE (live.o3a, project.o3a, last.txt: three jobs one after the other) and the take's SAVE `gap` ms apart.
     s.shift_tap(Button::File);
     s.wait(gap);
-    s.tap(Button::F6);
+    s.tap(Button::F3);
     REQUIRE(s.project_settled(6000));
     REQUIRE(s.saved(6000));
     CHECK(app_project().info().failed == false);
@@ -1122,7 +1122,7 @@ TEST_CASE("NEW, REVERT and a LOAD under a FREE take that records: it goes on, an
   REQUIRE(s.until([&] { return s.rec().state() == State::Done; }, 200));
   const std::uint32_t frames = s.rec().frames();
   CHECK(frames > 30'000u);
-  s.tap(Button::F6);
+  s.tap(Button::F3);
   REQUIRE(s.saved(6000));
   REQUIRE(s.takes().size() == 1u);
   CHECK(read_wav(s.takes()[0]).pcm.size() / 2u == frames);
@@ -1143,7 +1143,7 @@ TEST_CASE("a NEW under a BARS take that records stops the transport, and the tak
   const std::uint32_t frames = s.rec().frames();
   CHECK(frames > 20'000u);
   CHECK(frames < 4u * bar_frames(125'000));
-  s.tap(Button::F6);
+  s.tap(Button::F3);
   REQUIRE(s.saved(6000));
   REQUIRE(s.takes().size() == 1u);
   CHECK(read_wav(s.takes()[0]).pcm.size() / 2u == frames);

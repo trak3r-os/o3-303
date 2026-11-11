@@ -4,18 +4,18 @@
 // RECORD (docs/UX-303.md 5.10, D14): record the jam. A take of the master (Tap::Master, the 303 as the main output plays it; always: the inputs are not offered), stereo, into a 30 s O3SDK_BIG buffer, starting at the next bar of the transport (Align::Bar) and ending by itself after its bars (the
 // recorder's auto_steps: 16 sixteenths a bar, to the sample), or, FREE, at F1 or a full buffer. Saved as Samples/take_NNN.wav through the kit's Files service.
 //
-//   F1 ARM / STOP   F3 BARS   F6 SAVE   F7 DISCARD (twice within 5 s)   (F2, F4 and F5 are empty: the take is always the master)
+//   F1 ARM / STOP   F2 BARS   F3 SAVE   F4 DISCARD (twice within 5 s)   (F5 to F8 are empty: the take is always the master; the four keys sit together from F1, U7)
 //
-// A tap of F3 takes the next bars and gives it the encoder; a turn then moves that value (hold the
+// A tap of F2 takes the next bars and gives it the encoder; a turn then moves that value (hold the
 // key and turn moves it without latching). The pads, the arrows, Copy / Insert / Delete and the plain Rec are the home map's (home_map.h), HOME's very own.
 //
 // The take is the app's, not the screen's: service() runs every pass of the main loop whatever screen is up, and Shift + Rec (shift_rec(), routed by o3_303_app.cpp from every screen)
-// arms and stops it without changing screen. A take armed that way is saved by itself when it ends. A take armed on this screen waits for F6 or F7. The status line of every screen
+// arms and stops it without changing screen. A take armed that way is saved by itself when it ends. A take armed on this screen waits for F3 or F4. The status line of every screen
 // carries the take's chip (Rig::take). A firmware update is refused while a take waits for its bar or records, and while one is finished and not saved (blocker(); the kit says SAVING itself while the WAV is written).
 // Everything the take says (ARMED, STOPPED, NO CARD, 8 BARS TOO LONG AT 55.0 ...) goes to the status line of every screen (Rig::take_msg), not to RECORD's alone.
 //
 // The obsidian skin (skin/record.cpp, docs/SKIN-PLAN.md 2.4 and SK6) draws the same RecordView with no kit chrome: the take's state and clock, SOURCE and BARS as readouts, IN and OUT as LED-segment bars,
-// the envelope, the file name; the F row is the view's knobs (F1 ARM / STOP lit red while it records, F2 and F3 action keys with their value, F4 GAIN and F5 MONITOR knobs, F6 SAVE, F7 DISCARD).
+// the envelope, the file name; the F row is the view's knobs (F1 ARM / STOP lit red while it records, F2 BARS with its value, F3 SAVE, F4 DISCARD).
 // The classic drawing is draw_classic().
 //
 // The view logic (the bar arithmetic, the source list, the time text, the envelope) is apart from the drawing, as the free functions below (pure, host-tested). Main loop only.
@@ -137,7 +137,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   // The settings and the take, for the tests and the console.
   unsigned bars() const noexcept { return kBars[bars_index_]; }
   bool saving() const noexcept { return saving_; }
-  // The key the encoder drives (BARS, F3, the only setting).
+  // The key the encoder drives (BARS, F2, the only setting).
   unsigned focus() const noexcept { return owner_; }
   const RecordView& last_view() const noexcept { return view_; }
   const Envelope& envelope() const noexcept { return env_; }
@@ -147,7 +147,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   const char* message() const noexcept { return rig_->take_msg; }
 
  private:
-  enum Key : unsigned { kKeyArm = 0, kKeyF2, kKeyBars, kKeyF4, kKeyF5, kKeySave, kKeyDiscard };  // F2, F4 and F5 are empty (the master is the only source)
+  enum Key : unsigned { kKeyArm = 0, kKeyBars, kKeySave, kKeyDiscard };  // F5 to F8 are empty (the master is the only source)
 
   void button_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void key_press(o3sdk::app::Context& ctx, unsigned k) noexcept;
@@ -155,7 +155,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   // F1: arms a take or stops the one under way. `auto_save`: the take saves itself when it ends (Shift + Rec).
   void arm_or_stop(o3sdk::app::Context& ctx, bool auto_save) noexcept;
   bool arm(o3sdk::app::Context& ctx, bool auto_save) noexcept;
-  // F6 and Shift + Rec on a finished take: asks for the save. The job itself starts in service() (issue_save()), after the project service has had its pass of the card.
+  // F3 and Shift + Rec on a finished take: asks for the save. The job itself starts in service() (issue_save()), after the project service has had its pass of the card.
   void save(o3sdk::app::Context& ctx) noexcept;
   void issue_save(o3sdk::app::Context& ctx) noexcept;
   // A word on every screen's status line (Rig::take_msg) for a moment; `off`: something did not happen.
@@ -190,7 +190,7 @@ class RecordScreen final : public o3sdk::app::Screen {
   unsigned take_bars_ = 0;                 // the armed take's bars (0 FREE)
   std::uint32_t take_per_bar_ = 0;         // the bar's frames at the tempo it was armed at, for the bar counter
   std::uint32_t scanned_ = 0;              // frames of the take the envelope has seen
-  std::uint64_t discard_until_ms_ = 0;     // F7 was pressed: a second press before this discards
+  std::uint64_t discard_until_ms_ = 0;     // F4 was pressed: a second press before this discards
   Envelope env_;
 
   // Meters.

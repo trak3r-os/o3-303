@@ -4,7 +4,7 @@
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_song.txt --out <dir>
 #
 # 01 empty (how to begin); 02 a song of six rows with repeats, a transpose and a mute, the cursor on row 2 (the PATTERN chip filled); 03 Play plays the SONG (F1), playing: the green bar and
-# 2/4 on the row, NOW green; 04 the MUTE column picked on a muted row; 05 F7 asks (the amber rim, SURE?); 06 Shift held: the Shift row (REDO, UNDO); 07 the first page and 08 the second (eleven rows, the ask and the toast gone after 5 s); 09 and 10 HOME and MASTER with PLAYS: SONG (the TRANSPORT legend says SONG).
+# 2/4 on the row, NOW green; 04 the MUTE column picked on a muted row; 05 F4 asks (the amber rim, SURE?); 06 Shift held: the Shift row (REDO, UNDO); 07 the first page and 08 the second (eleven rows, the ask and the toast gone after 5 s); 09 and 10 HOME and MASTER with PLAYS: SONG (the TRANSPORT legend says SONG).
 wait 300
 tap config
 tap left
@@ -69,7 +69,7 @@ tap fx
 turn 1
 wait 100
 snap 04_mute
-tap f7
+tap f4
 wait 100
 snap 05_clear_asks
 tap f1

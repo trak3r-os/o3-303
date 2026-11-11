@@ -118,9 +118,9 @@ TEST_CASE("F1 LENGTH: a step up copies the line into the new part, a step down t
     CHECK(t.pat().steps[i].flags == before.steps[i].flags);
   }
   CHECK(t.selected() == sel);
-  // The redo walks forward again: HOME's Shift + F7 (SETUP's row has no REDO).
-  t.tap(Button::Pattern);
+  // The redo walks forward again: Shift + F7 on SETUP itself (U4), and SETUP stays up.
   t.shift_tap(Button::F7);
+  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
   CHECK(t.pat().length == 32);
 }
 

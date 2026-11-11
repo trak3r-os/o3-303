@@ -47,11 +47,11 @@ constexpr int kSkinHeroH = 208;
 
 // The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters).
 constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
-// PATTERN SETUP's: F5 is ROOT (the generator's root, on the encoder until an F key is pressed), F6 and F7 are free.
-constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "ROOT", "-", "-", "UNDO"};
+// PATTERN SETUP's: F5 is ROOT (the generator's root, on the encoder until an F key is pressed), F6 is free, F7 and F8 are REDO and UNDO as on HOME.
+constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "ROOT", "-", "REDO", "UNDO"};
 // What each Shift key does, in a few words under it on the obsidian skin's F row (the classic strip has no room). "" none.
 constexpr const char* kHomeKeyHints[app::kFKeyCount] = {"new line", "25 %", "same notes", "same beat", "backwards", "empty line", "step fwd", "step back"};
-constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "key of scale", "", "", "step back"};
+constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "key of scale", "", "step fwd", "step back"};
 constexpr unsigned kToolNew = 0;
 constexpr unsigned kToolVary = 1;
 constexpr unsigned kToolRhythm = 2;
@@ -208,9 +208,9 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   }
 }
 
-// The Shift row, at the press of Shift + F: PATTERN SETUP's own on SETUP (UNDO is the same on both), HOME's otherwise.
+// The Shift row, at the press of Shift + F: PATTERN SETUP's own on SETUP (REDO and UNDO are the same on both), HOME's otherwise.
 void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
-  if (setup_ && index != kToolUndo) {
+  if (setup_ && index != kToolUndo && index != kToolRedo) {
     setup_tool(ctx, index);
     return;
   }
@@ -285,7 +285,7 @@ void MainScreen::duplicate_to_next(app::Context& ctx) noexcept {
   toast(ctx, text);
 }
 
-// Shift + F1..F4 on PATTERN SETUP (F5..F7 are free, F8 UNDO is HOME's).
+// Shift + F1..F5 on PATTERN SETUP (F6 is free; F7 REDO and F8 UNDO are HOME's).
 void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   switch (index) {
@@ -378,7 +378,7 @@ void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
 bool MainScreen::tool_dim(unsigned k) const noexcept {
   const seq::Bank& bank = *rig_->bank;
   if (setup_) {
-    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k > kToolRoot && k < kToolUndo));
+    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k == kToolRedo ? !bank.can_redo() : k > kToolRoot));
   }
   return (k == kToolRedo && !bank.can_redo()) || (k == kToolUndo && !bank.can_undo());
 }
