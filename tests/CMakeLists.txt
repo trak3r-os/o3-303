@@ -6,7 +6,7 @@ file(GLOB test_sources CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp)
 # hal::cycles() (the skin's draw time), which platform_host defines, and a static library is searched once, for what is undefined by then.
 o3sdk_test_suite(o3_303_tests
   SOURCES ${test_sources}
-  DEPENDS "$<LINK_LIBRARY:WHOLE_ARCHIVE,app_o3_303>" app sim platform_host)
+  DEPENDS "$<LINK_LIBRARY:WHOLE_ARCHIVE,app_o3_303>" app sim platform_host unit_tract)
 # The scenarios of app/scenarios are run as they are.
 target_compile_definitions(o3_303_tests PRIVATE O3_303_SCENARIO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../app/scenarios")
 # The longest ctests are cut into shares, so that a parallel run's floor is the longest share and not the longest file.
