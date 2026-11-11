@@ -490,9 +490,14 @@ TEST_CASE("random_fill is deterministic, in the scale and in the range") {
       CHECK(a.steps[i].note <= g.high);
       CHECK(in_scale(g, a.steps[i].note));
     }
-    CHECK_FALSE(has_flag(a, i, kStepTie));
+    if (has_flag(a, i, kStepTie)) {  // a tie (NEW's SLD % draws them) follows a step that plays, and is nothing else
+      CHECK(i > 0);
+      CHECK(a.steps[i].flags == kStepTie);
+      CHECK((a.steps[i - 1].flags & (kStepRest | kStepTie)) == 0);
+    }
   }
   CHECK_FALSE(has_flag(a, 0, kStepRest));  // step 0 always sounds
+  CHECK_FALSE(has_flag(a, 0, kStepTie));
   // The steps above the length and the motion are untouched.
   Pattern d = make({});
   d.length = 8;
@@ -521,8 +526,8 @@ TEST_CASE("random_fill: density, accent and slide percentages") {
   g.accent_pct = 100;
   g.slide_pct = 100;
   random_fill(p, g, 5);
-  for (unsigned i = 0; i < 64; ++i) {
-    CHECK(p.steps[i].flags == (kStepAccent | kStepSlide));
+  for (unsigned i = 0; i < 64; ++i) {  // every step slides and accents, except the ties (half of SLD %) that take its place
+    CHECK((p.steps[i].flags == (kStepAccent | kStepSlide) || (i > 0 && p.steps[i].flags == kStepTie)));
   }
 
   g.density = 0;

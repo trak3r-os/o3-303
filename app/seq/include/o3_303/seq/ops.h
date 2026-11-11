@@ -151,11 +151,12 @@ struct GenParams {
   std::uint8_t high = 48;
   std::uint8_t density = 75;      // percent of steps that sound
   std::uint8_t accent_pct = 25;   // percent of sounding steps with accent
-  std::uint8_t slide_pct = 20;    // percent of sounding steps that slide
+  std::uint8_t slide_pct = 20;    // percent of sounding steps that slide; half of it is the chance of a tie after a playing step (NEW, RHYTHM)
 };
 
-// A new line over the length: it replaces the flags and notes of those steps (ties, ratchets and conditions go; step 0 always
-// sounds); motion, the lanes and the steps above the length are untouched. Deterministic from the seed.
+// A new line over the length: it replaces the flags and notes of those steps (ratchets and conditions go; step 0 always sounds; a step
+// right after a playing one is a tie with the chance of half of `slide_pct`, from a stream of its own, so at 0 the line is the one
+// drawn before ties existed); motion, the lanes and the steps above the length are untouched. Deterministic from the seed.
 void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // Changes about `amount_pct` percent of the steps of the length: a new note from the scale, a rest toggled by the density, a
 // re-rolled accent or slide.
@@ -165,8 +166,8 @@ void mutate(Pattern& p, const GenParams& g, std::uint32_t seed, unsigned amount_
 
 // RHYTHM: keeps every pitch (a rest and a tie keep the one under them), the ratchets and the conditions, and redraws, over the length,
 // whether each step is a rest, a tie, an accent or a slide, from `g.density`, `g.accent_pct` and `g.slide_pct`: step 0 always sounds, the
-// others sound with the density, a sounding step is accented and slides with the percentages (as random_fill does; no ties are drawn, so
-// the old ones go). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
+// others sound with the density, a sounding step is accented and slides with the percentages and a step after a playing one ties with half
+// the slide percentage (as random_fill does; the old ties go). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
 bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // NOTES: keeps the rhythm, every flag, ratchet and condition, and redraws the pitch of every sounding step (not a rest, not a tie: those
 // keep theirs) over the length from the scale and the range of `g` (`scale`, `root`, `low`, `high`), with random_fill's draw (a repeated

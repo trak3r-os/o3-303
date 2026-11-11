@@ -100,9 +100,9 @@ TEST_CASE("regen_rhythm redraws the flags from the density and the percentages")
   g.accent_pct = 100;
   g.slide_pct = 100;
   regen_rhythm(p, g, 5);
-  for (unsigned i = 0; i < 64; ++i) {
-    CHECK((p.steps[i].flags & (kStepAccent | kStepSlide)) == (kStepAccent | kStepSlide));
-    CHECK((p.steps[i].flags & kStepTie) == 0);
+  for (unsigned i = 0; i < 64; ++i) {  // every step but the ties (half of SLD %, never step 0) slides and accents
+    const bool tie = (p.steps[i].flags & kStepTie) != 0;
+    CHECK((tie ? i > 0 : (p.steps[i].flags & (kStepAccent | kStepSlide)) == (kStepAccent | kStepSlide)));
   }
   // At 50 % over 64 steps both outcomes occur.
   g.density = 50;
@@ -705,4 +705,167 @@ TEST_CASE("the regen and resize wrappers leave the motion alone except resize") 
   bank->resize(0, 32);
   CHECK_FALSE(same_motion(bank->pattern(0), start));
   CHECK(bank->pattern(0).motion[1][20 * kMotionPointsPerStep] == 4 * 5);
+}
+
+// ---- Ties in NEW and RHYTHM (TRACT-KNOBS-PLAN U3): chance = half of SLD %, after a playing step, never onto step 1 ------------------------------
+
+namespace {
+
+std::uint32_t digest(const Pattern& p) {  // FNV-1a over the note and the flags of the steps of the length
+  std::uint32_t h = 2166136261u;
+  for (unsigned i = 0; i < p.length; ++i) {
+    h = (h ^ p.steps[i].note) * 16777619u;
+    h = (h ^ p.steps[i].flags) * 16777619u;
+  }
+  return h;
+}
+
+Pattern fresh(unsigned length) {
+  Pattern p;
+  clear(p);
+  p.length = static_cast<std::uint8_t>(length);
+  for (unsigned i = 0; i < kMaxSteps; ++i) {
+    p.steps[i].flags = 0;
+    p.steps[i].note = static_cast<std::uint8_t>(30 + (i * 7u) % 40u);
+  }
+  return p;
+}
+
+// A tie is a tie and nothing else, never on step 1 and always after a step that plays (not a rest, not another tie).
+void check_ties_legal(const Pattern& p) {
+  CHECK((p.steps[0].flags & kStepTie) == 0);
+  for (unsigned i = 1; i < p.length; ++i) {
+    if ((p.steps[i].flags & kStepTie) != 0) {
+      CHECK((p.steps[i].flags & ~kStepRatchetMask) == kStepTie);
+      CHECK((p.steps[i - 1].flags & (kStepRest | kStepTie)) == 0);
+    }
+  }
+}
+
+}  // namespace
+
+TEST_CASE("NEW and RHYTHM draw ties: about half of SLD % of the steps after a playing one, none onto step 1, none after a rest or a tie") {
+  GenParams g;
+  g.density = 100;
+  g.accent_pct = 0;
+  for (const unsigned sld : {20u, 60u}) {
+    g.slide_pct = static_cast<std::uint8_t>(sld);
+    unsigned candidates_fill = 0, ties_fill = 0, candidates_rhythm = 0, ties_rhythm = 0;
+    for (std::uint32_t seed = 1; seed <= 300; ++seed) {
+      Pattern a = fresh(64);
+      random_fill(a, g, seed);
+      check_ties_legal(a);
+      Pattern b = fresh(64);
+      regen_rhythm(b, g, seed);
+      check_ties_legal(b);
+      for (unsigned i = 1; i < 64; ++i) {
+        // At density 100 every step plays; a step after a tie is no candidate, so count those after a plain step.
+        if ((a.steps[i - 1].flags & kStepTie) == 0) {
+          ++candidates_fill;
+          ties_fill += (a.steps[i].flags & kStepTie) != 0 ? 1u : 0u;
+        }
+        if ((b.steps[i - 1].flags & kStepTie) == 0) {
+          ++candidates_rhythm;
+          ties_rhythm += (b.steps[i].flags & kStepTie) != 0 ? 1u : 0u;
+        }
+      }
+    }
+    const float want = static_cast<float>(sld) * 0.005f;
+    CHECK(static_cast<float>(ties_fill) / static_cast<float>(candidates_fill) == doctest::Approx(want).epsilon(0.10));
+    CHECK(static_cast<float>(ties_rhythm) / static_cast<float>(candidates_rhythm) == doctest::Approx(want).epsilon(0.10));
+  }
+}
+
+TEST_CASE("ties follow rests as never: a sparse line has no tie after a rest, and step 1 is never a tie at any seed, length or SLD %") {
+  GenParams g;
+  for (const unsigned density : {30u, 75u}) {
+    g.density = static_cast<std::uint8_t>(density);
+    g.slide_pct = 100;
+    for (const unsigned length : {8u, 16u, 32u}) {
+      for (std::uint32_t seed = 1; seed <= 120; ++seed) {
+        Pattern a = fresh(length);
+        random_fill(a, g, seed);
+        check_ties_legal(a);
+        Pattern b = fresh(length);
+        regen_rhythm(b, g, seed);
+        check_ties_legal(b);
+        for (unsigned i = length; i < kMaxSteps; ++i) {  // the hidden steps are not touched
+          CHECK(a.steps[i].flags == 0);
+          CHECK(b.steps[i].flags == 0);
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("a tie carries the pitch that goes on sounding, and RHYTHM keeps every pitch") {
+  GenParams g;
+  g.density = 100;
+  g.slide_pct = 100;
+  Pattern a = fresh(32);
+  random_fill(a, g, 3);
+  unsigned ties = 0;
+  for (unsigned i = 1; i < 32; ++i) {
+    if ((a.steps[i].flags & kStepTie) != 0) {
+      ++ties;
+      CHECK(a.steps[i].note == a.steps[i - 1].note);
+    }
+  }
+  CHECK(ties > 3);
+  Pattern b = fresh(32);
+  const Pattern before = b;
+  regen_rhythm(b, g, 3);
+  for (unsigned i = 0; i < 64; ++i) {
+    CHECK(b.steps[i].note == before.steps[i].note);
+  }
+}
+
+TEST_CASE("SLD 0 keeps NEW, VARY, RHYTHM and NOTES exactly as they were before ties: the same line for a seed") {
+  // Digests of the lines the generators drew before ties existed (taken from the code at 7ec471d, SLD 0). The tie draws come from a
+  // stream of their own, so at 0 nothing else moved.
+  struct Gold {
+    std::uint32_t seed;
+    std::uint32_t fill, rhythm, vary, notes;
+  };
+  const Gold gold[] = {
+      {1u, 0xdda2caceu, 0x4add72f9u, 0x4e827d2bu, 0x6d3aa7c5u},
+      {77u, 0xd3743efbu, 0x701edf89u, 0x4b58591bu, 0x9aff44c5u},
+      {1234u, 0xaf01fb55u, 0xb6f7b305u, 0x04d6fd28u, 0xf5a47255u},
+      {987654u, 0x1f37f702u, 0xcd363a35u, 0x368758c6u, 0x685f1742u},
+  };
+  GenParams g;
+  g.slide_pct = 0;
+  for (const Gold& e : gold) {
+    Pattern p = fresh(32);
+    random_fill(p, g, e.seed);
+    CHECK(digest(p) == e.fill);
+    p = fresh(32);
+    regen_rhythm(p, g, e.seed);
+    CHECK(digest(p) == e.rhythm);
+    p = fresh(32);
+    random_fill(p, g, 5u);
+    mutate(p, g, e.seed, 40);
+    CHECK(digest(p) == e.vary);
+    p = fresh(32);
+    random_fill(p, g, 5u);
+    regen_notes(p, g, e.seed);
+    CHECK(digest(p) == e.notes);
+  }
+}
+
+TEST_CASE("with SLD above 0 NEW is the SLD 0 line with some steps tied: every other draw is the same") {
+  GenParams zero;
+  zero.slide_pct = 0;
+  GenParams some = zero;
+  some.slide_pct = 20;  // slides change with it, so compare what slides do not touch: the rests and the pitches
+  Pattern a = fresh(32);
+  Pattern b = fresh(32);
+  random_fill(a, zero, 55);
+  random_fill(b, some, 55);
+  for (unsigned i = 0; i < 32; ++i) {
+    CHECK(((a.steps[i].flags ^ b.steps[i].flags) & kStepRest) == 0);
+    if ((b.steps[i].flags & kStepTie) == 0 && (a.steps[i].flags & kStepRest) == 0) {
+      CHECK(a.steps[i].note == b.steps[i].note);
+    }
+  }
 }

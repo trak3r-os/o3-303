@@ -84,6 +84,13 @@ unsigned scale_notes(const GenParams& g, std::uint8_t* out) noexcept {
 
 float percent(unsigned v) noexcept { return static_cast<float>(v > 100u ? 100u : v) * 0.01f; }
 
+// NEW and RHYTHM tie a note into the next step now and then: a step right after a playing one (never step 1, never after a rest or
+// a tie) becomes a tie with the chance of half the slide percentage. The ties come from a stream of their own, so every other draw of
+// the generator is the one it always made: at SLD 0 the line is the old line for the seed, and above 0 it is the old line with some
+// steps tied.
+float tie_chance(const GenParams& g) noexcept { return percent(g.slide_pct) * 0.5f; }
+Rng tie_stream(std::uint32_t seed) noexcept { return Rng(seed ^ 0x7e1d5eedu); }
+
 // The condition list of step_cond(): 0 always, 1..9 the probabilities 10..90, 10..44 the ratios A:B (B = 2..8, A = 1..B), 45..48 FILL, NOT
 // FILL, FIRST, NOT FIRST.
 constexpr unsigned kCondProbFirst = 1;
@@ -613,12 +620,16 @@ void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
   const float accent = percent(g.accent_pct);
   const float slide = percent(g.slide_pct);
   const unsigned n = length_of(p);
+  Rng ties = tie_stream(seed);
+  const float tie = tie_chance(g);
+  bool after_playing = false;  // the step before sounds with a note of its own
   int previous = notes[0];
   for (unsigned i = 0; i < n; ++i) {
     Step& s = p.steps[i];
     s.cond = kCondAlways;  // a new line: no ratchets (the flags below are assigned whole) and no conditions
     if (i != 0u && !rng.chance(density)) {
       s.flags = kStepRest;
+      after_playing = false;
       continue;
     }
     int note = notes[rng.next_int(0, static_cast<int>(count) - 1)];
@@ -635,6 +646,13 @@ void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
       flags |= kStepSlide;
     }
     s.flags = flags;
+    if (after_playing && tie > 0.0f && ties.chance(tie)) {
+      s.flags = kStepTie;  // the note before goes on: no accent, no slide, no pitch of its own
+      s.note = p.steps[i - 1u].note;  // under a tie sits the pitch that goes on sounding
+      after_playing = false;
+    } else {
+      after_playing = true;
+    }
   }
 }
 
@@ -676,6 +694,9 @@ bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
   const float accent = percent(g.accent_pct);
   const float slide = percent(g.slide_pct);
   const unsigned n = length_of(p);
+  Rng ties = tie_stream(seed);
+  const float tie = tie_chance(g);
+  bool after_playing = false;
   bool changed = false;
   for (unsigned i = 0; i < n; ++i) {
     Step& s = p.steps[i];
@@ -687,8 +708,15 @@ bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
       if (rng.chance(slide)) {
         flags |= kStepSlide;
       }
+      if (after_playing && tie > 0.0f && ties.chance(tie)) {
+        flags = kStepTie;  // the note before goes on (the pitch under it stays)
+        after_playing = false;
+      } else {
+        after_playing = true;
+      }
     } else {
       flags = kStepRest;
+      after_playing = false;
     }
     const auto next = static_cast<std::uint8_t>(flags | (s.flags & kStepRatchetMask));  // the ratchet is not part of the rhythm
     changed = changed || next != s.flags;

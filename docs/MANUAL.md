@@ -369,7 +369,7 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F5 SCALE | The scale. Once you choose one, the keys keep to it: the other keys go dark | No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more (Penta Min at first) |
 | F6 DENSITY | How many steps NEW fills | 0 to 100 % (75 %) |
 | F7 ACC % | How many accents NEW draws | 0 to 100 % (25 %) |
-| F8 SLD % | How many slides NEW draws | 0 to 100 % (20 %) |
+| F8 SLD % | How many slides NEW draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
 
 The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5). With a scale on, the scale's value shows its root ("D MAJOR"), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark.
 
