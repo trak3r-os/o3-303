@@ -29,10 +29,8 @@ namespace {
 
 // ---- The layout (the contract: a change of one of these bumps its chunk's major) ----------------------------------------------------------------
 
-static_assert(kPatBytes == 2260 && alignof(Pattern) == 4, "PATS stores a pattern's first 2,260 bytes as they are: a change of them bumps the chunk's major");
-static_assert(offsetof(Pattern, lanes) + sizeof(Pattern::lanes) == kPatBytes, "PATS' record has no padding: every field is one byte");
-static_assert(sizeof(TractLine) == 68 && offsetof(Pattern, tract) + sizeof(TractLine) == sizeof(Pattern),
-              "TRCT stores a line as it is, the last 68 bytes of a Pattern: a change of TractLine bumps the chunk's major");
+// PATS stores a Pattern whole, as it is in memory (every field one byte, the TRACT line last): a record with padding would write indeterminate bytes.
+static_assert(alignof(Pattern) == 4 && offsetof(Pattern, tract) + sizeof(TractLine) == sizeof(Pattern), "PATS' record has no padding, and the TRACT line is its last field");
 static_assert(std::is_trivially_copyable<Pattern>::value, "a pattern is copied as bytes");
 static_assert(kPatternCount == 48, "PATS holds 48 patterns");
 static_assert(kSnapSlots == 8, "SNAP holds 8 slots");
@@ -41,10 +39,8 @@ constexpr unsigned kHeadPayload = 2 + 1 + 4 + 1 + kNameChars + 4;  // version, s
 constexpr unsigned kGenPayload = 2 + 7;
 constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
-constexpr unsigned kLadderBytes = kLadderRows * 2;  // the ladder rows after the buttons (PERF, appended): target u8, id u8 each
-constexpr unsigned kKnobSetBytes = 1 + (kKnobSets - 1) * kKnobsPerSet * 2;  // PERF 1.2: the set in use, then sets 2..4 (target u8, id u8 a row)
-constexpr unsigned kPerfPayload = 2 + kPerfButtons + kLadderBytes + kKnobSetBytes;
-constexpr unsigned kTrctPayload = 2 + 1 + 2 + kPatternCount * sizeof(TractLine);  // TRCT (appended): version, count, bytes a line, the lines
+constexpr unsigned kKnobSetBytes = 1 + kKnobSets * kKnobsPerSet * 2;  // PERF: the set in use, then every set (target u8, id u8 a row)
+constexpr unsigned kPerfPayload = 2 + kPerfButtons + kKnobSetBytes;
 constexpr unsigned kSongPayload = 2 + 1 + seq::kSongRows * sizeof(seq::SongRow);  // version, length, the rows (at most)
 constexpr unsigned kSongReserve = 4096;  // room kept for the SONG chunk (kSongPayload and its header, 267 bytes, fit it many times over)
 static_assert(8 + kSongPayload + (kSongPayload & 1u) <= kSongReserve, "the SONG chunk must fit its reserve");
@@ -55,7 +51,7 @@ constexpr std::size_t chunk_bytes(std::size_t payload) noexcept { return 8 + pay
 
 // The largest image encode() can make (SND full, the song reserve included): it must fit the buffer, so that a save cannot fail for want of room.
 constexpr std::size_t kMaxImageBytes =
-    chunk::kHeaderBytes + chunk_bytes(kHeadPayload) + chunk_bytes(kGenPayload) + chunk_bytes(2 + 1 + 2 + std::size_t{kPatternCount} * kPatBytes) + chunk_bytes(kTrctPayload) +
+    chunk::kHeaderBytes + chunk_bytes(kHeadPayload) + chunk_bytes(kGenPayload) + chunk_bytes(2 + 1 + 2 + std::size_t{kPatternCount} * sizeof(Pattern)) +
     chunk_bytes(2 + 2 + std::size_t{kMaxSound} * kSoundEntryBytes) + chunk_bytes(kSnapHeader + std::size_t{kSnapSlots} * kSnapTargetCount * 4) +
     chunk_bytes(kPerfPayload) + kSongReserve + chunk::kCrcChunkBytes;
 static_assert(kMaxImageBytes <= kProjectBytes, "the project image must fit its 128 KiB buffer");
@@ -286,6 +282,7 @@ void sanitize(Pattern& p) noexcept {
       l = LaneRef{kLaneNone, 0};
     }
   }
+  (void)tract_sanitize(p.tract);
 }
 
 // ---- Writing -----------------------------------------------------------------------------------------------------------------------------------
@@ -301,7 +298,7 @@ bool write_sound(chunk::Writer& w, const ProjectState& s) noexcept {
 
 // ---- Reading -----------------------------------------------------------------------------------------------------------------------------------
 
-enum Seen : unsigned { kSeenHead = 1, kSeenGen = 2, kSeenPats = 4, kSeenSnd = 8, kSeenSnap = 16, kSeenPerf = 32, kSeenSong = 64, kSeenTrct = 128 };
+enum Seen : unsigned { kSeenHead = 1, kSeenGen = 2, kSeenPats = 4, kSeenSnd = 8, kSeenSnap = 16, kSeenPerf = 32, kSeenSong = 64, kSeenAll = 127 };
 
 // The payload of a chunk past its version: the version's major, 0 when there is none.
 unsigned major_of(chunk::Fields& f, std::uint16_t& version) noexcept {
@@ -309,7 +306,8 @@ unsigned major_of(chunk::Fields& f, std::uint16_t& version) noexcept {
   return f.ok() ? (static_cast<unsigned>(version) >> 8) : 0u;
 }
 
-void read_head(chunk::Fields& f, ProjectState& out) noexcept {
+// false: HEAD is short; `out` is then not to be used.
+bool read_head(chunk::Fields& f, ProjectState& out) noexcept {
   const unsigned sel = f.u8();
   out.selected = static_cast<std::uint8_t>(sel < kPatternCount ? sel : 0u);  // a pattern this build has not: the first
   const std::uint32_t tempo = f.u32();
@@ -325,7 +323,8 @@ void read_head(chunk::Fields& f, ProjectState& out) noexcept {
     const bool printable = name[i] >= 0x20 && name[i] <= 0x7E;
     out.name[i] = end ? '\0' : (printable ? name[i] : '_');
   }
-  out.save_count = f.left() >= 4u ? f.u32() : 0u;  // HEAD 1.1 and later; a 1.0 file ends at the name
+  out.save_count = f.u32();
+  return f.ok();
 }
 
 // false: the chunk is short; `out` is as it was.
@@ -355,27 +354,14 @@ bool read_gen(chunk::Fields& f, ProjectState& out) noexcept {
   return true;
 }
 
-// false: the chunk is not usable as a whole (a pattern of another size, or fewer bytes than it says).
+// false: the chunk is not usable as a whole (not 48 patterns of this build's size, or fewer bytes than it says).
 bool read_pats(chunk::Fields& f, const chunk::Chunk& c, ProjectState& out) noexcept {
   const unsigned count = f.u8();
   const unsigned bytes = f.u16();
-  if (!f.ok() || bytes != kPatBytes || f.left() < std::size_t{count} * bytes) {
+  if (!f.ok() || count != kPatternCount || bytes != sizeof(Pattern) || f.left() < std::size_t{count} * bytes) {
     return false;
   }
   out.pats = c.data + (c.size - f.left());
-  out.pats_n = count < kPatternCount ? count : kPatternCount;
-  return true;
-}
-
-// TRCT: the TRACT lines of the patterns, one per pattern. false (every line empty): a line of another size, or fewer bytes than it says.
-bool read_trct(chunk::Fields& f, const chunk::Chunk& c, ProjectState& out) noexcept {
-  const unsigned count = f.u8();
-  const unsigned bytes = f.u16();
-  if (!f.ok() || bytes != sizeof(TractLine) || f.left() < std::size_t{count} * bytes) {
-    return false;
-  }
-  out.trct = c.data + (c.size - f.left());
-  out.trct_n = count < kPatternCount ? count : kPatternCount;
   return true;
 }
 
@@ -408,19 +394,16 @@ bool read_snap(chunk::Fields& f, ProjectState& out) noexcept {
   const unsigned slots = f.u8();
   const unsigned values = f.u8();
   const unsigned used = f.u8();
-  if (!f.ok() || f.left() < std::size_t{slots} * values * 4u) {
+  if (!f.ok() || slots != kSnapSlots || values != kSnapTargetCount || f.left() < std::size_t{slots} * values * 4u) {
     return false;
   }
-  for (unsigned s = 0; s < slots; ++s) {
-    for (unsigned v = 0; v < values; ++v) {
+  for (unsigned s = 0; s < kSnapSlots; ++s) {
+    for (unsigned v = 0; v < kSnapTargetCount; ++v) {
       const float x = f.f32();
-      if (s < kSnapSlots && v < kSnapValues) {
-        out.snap[s][v] = std::isfinite(x) ? x : std::numeric_limits<float>::quiet_NaN();  // NaN: filled from the sound by apply()
-      }
+      out.snap[s][v] = std::isfinite(x) ? x : std::numeric_limits<float>::quiet_NaN();  // NaN: filled from the sound by apply()
     }
   }
-  out.snap_values = static_cast<std::uint8_t>(values < kSnapValues ? values : kSnapValues);
-  out.snap_used = static_cast<std::uint8_t>(slots < kSnapSlots ? (used & ((1u << slots) - 1u)) : used);
+  out.snap_used = static_cast<std::uint8_t>(used);
   return true;
 }
 
@@ -441,42 +424,25 @@ bool lane_ref_ok(std::uint8_t target, std::uint8_t id) noexcept {
   }
 }
 
-void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
-  for (unsigned b = 0; b < kPerfButtons && f.left() > 0; ++b) {
+// false: the chunk is short; `out` is as it was. A row that holds no knob this build knows falls back to its factory one, the set in use to set 1.
+bool read_perf(chunk::Fields& f, ProjectState& out) noexcept {
+  if (f.left() < kPerfPayload - 2u) {
+    return false;
+  }
+  for (unsigned b = 0; b < kPerfButtons; ++b) {
     const std::uint8_t a = f.u8();
     out.perf[b] = a < kPerfActionCount ? a : kDefaultPerf[b];
   }
-  // The ladder rows follow the buttons, as many as the file has (none before B4, three before the KNOBS page): a row it lacks holds its default.
-  for (unsigned r = 0; r < kLadderRows; ++r) {
-    out.ladder[r] = kDefaultLadder[r];
-  }
-  for (unsigned r = 0; r < kLadderRows && f.left() >= 2; ++r) {
-    const std::uint8_t target = f.u8();
-    const std::uint8_t id = f.u8();
-    // Every row holds a knob; the retired slot (kLadderRetired: PERFORM's row 3 followed the latch before KN1) is read and ignored: it keeps its default, so a project saved in follow mode
-    // loads with CUTOFF on PERFORM (HOME's row 3). The voice's Stock switch has no lane.
-    out.ladder[r] = lane_ref_ok(target, id) && r != kLadderRetired ? LaneRef{target, id} : kDefaultLadder[r];
-  }
-  // KN3: the set in use and sets 2..4 follow the five rows; a file without them has the factory sets and set 1.
-  for (unsigned s = 0; s + 1u < kKnobSets; ++s) {
+  const std::uint8_t use = f.u8();
+  out.knob_set = use < kKnobSets ? use : 0u;
+  for (unsigned s = 0; s < kKnobSets; ++s) {
     for (unsigned i = 0; i < kKnobsPerSet; ++i) {
-      out.sets[s][i] = kKnobFactory.row[s + 1u][i];
+      const std::uint8_t target = f.u8();
+      const std::uint8_t id = f.u8();
+      out.sets.row[s][i] = lane_ref_ok(target, id) ? LaneRef{target, id} : kKnobFactory.row[s][i];
     }
   }
-  out.knob_set = 0;
-  if (f.left() >= kKnobSetBytes) {
-    const std::uint8_t use = f.u8();
-    out.knob_set = use < kKnobSets ? use : 0u;
-    for (unsigned s = 0; s + 1u < kKnobSets; ++s) {
-      for (unsigned i = 0; i < kKnobsPerSet; ++i) {
-        const std::uint8_t target = f.u8();
-        const std::uint8_t id = f.u8();
-        if (lane_ref_ok(target, id)) {
-          out.sets[s][i] = LaneRef{target, id};
-        }
-      }
-    }
-  }
+  return f.ok();
 }
 
 // SONG: the length and that many rows; false (the song keeps its default, empty) when the chunk has fewer bytes than its length says. Values out of range are brought in
@@ -527,7 +493,6 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   }
 
   // The snapshots' values, read from the bank's slots as they are (the live morph state is not touched); an empty slot is zeros.
-  out.snap_values = static_cast<std::uint8_t>(kSnapTargetCount);
   out.snap_used = 0;
   for (unsigned s = 0; s < kSnapSlots; ++s) {
     if (w.snaps.used(s)) {
@@ -541,22 +506,12 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     out.perf[b] = w.perf[b];
   }
-  // KNOBS' set 1 in the file's slot order, sets 2..4 and the set in use (KN3): w.knob_sets is the store, w.ladder its live copy of the set in use
-  for (unsigned r = 0; r < kLadderRows; ++r) {
-    const unsigned pos = knob_row_pos(r);
-    out.ladder[r] = pos < kKnobsRows ? w.knob_sets.row[0][pos] : kDefaultLadder[r];
-  }
-  for (unsigned s = 0; s + 1u < kKnobSets; ++s) {
-    for (unsigned i = 0; i < kKnobsPerSet; ++i) {
-      out.sets[s][i] = w.knob_sets.row[s + 1u][i];
-    }
-  }
+  out.sets = w.knob_sets;  // the store of every set; w.ladder is the live copy of the set in use
   out.knob_set = w.knob_set;
   if (rig.bank != nullptr) {
     out.song = rig.bank->song();
   }
   out.pats = nullptr;
-  out.pats_n = 0;
 }
 
 namespace {
@@ -567,7 +522,7 @@ bool write_head_gen(chunk::Writer& w, const ProjectState& s, std::uint32_t save_
   for (unsigned i = 0; i + 1u < kNameChars && s.name[i] != '\0'; ++i) {
     name[i] = s.name[i];
   }
-  bool ok = w.begin("HEAD") && w.u16(kHeadVersion) && w.u8(s.selected) && w.u32(s.tempo_mbpm) && w.u8(0u) &&
+  bool ok = w.begin("HEAD") && w.u16(kVersion) && w.u8(s.selected) && w.u32(s.tempo_mbpm) && w.u8(0u) &&
             w.bytes(name, kNameChars) && w.u32(save_count) && w.end();
 
   return ok && w.begin("GEN ") && w.u16(kVersion) && w.u8(s.gen.scale) && w.u8(s.gen.root) && w.u8(s.gen.low) && w.u8(s.gen.high) && w.u8(s.gen.density) &&
@@ -587,17 +542,14 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   }
   ok = ok && w.end();
 
-  ok = ok && w.begin("PERF") && w.u16(kPerfVersion);
+  ok = ok && w.begin("PERF") && w.u16(kVersion);
   for (unsigned b = 0; b < kPerfButtons && ok; ++b) {
     ok = w.u8(s.perf[b]);
   }
-  for (unsigned r = 0; r < kLadderRows && ok; ++r) {
-    ok = w.u8(s.ladder[r].target) && w.u8(s.ladder[r].id);
-  }
   ok = ok && w.u8(s.knob_set);
-  for (unsigned t = 0; t + 1u < kKnobSets; ++t) {
+  for (unsigned t = 0; t < kKnobSets; ++t) {
     for (unsigned i = 0; i < kKnobsPerSet && ok; ++i) {
-      ok = w.u8(s.sets[t][i].target) && w.u8(s.sets[t][i].id);
+      ok = w.u8(s.sets.row[t][i].target) && w.u8(s.sets.row[t][i].id);
     }
   }
   ok = ok && w.end();
@@ -613,19 +565,10 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
 }
 
 bool write_pats_header(chunk::Writer& w) noexcept {
-  return w.begin("PATS") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(kPatternCount)) && w.u16(static_cast<std::uint16_t>(kPatBytes));
+  return w.begin("PATS") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(kPatternCount)) && w.u16(static_cast<std::uint16_t>(sizeof(Pattern)));
 }
 
-// TRCT, after PATS: the 48 TRACT lines (3.3 KB, one pass: a copy of that size is far below a slice of PATS).
-bool write_trct(chunk::Writer& w, const seq::Bank& bank) noexcept {
-  bool ok = w.begin("TRCT") && w.u16(kVersion) && w.u8(static_cast<std::uint8_t>(kPatternCount)) && w.u16(static_cast<std::uint16_t>(sizeof(TractLine)));
-  for (unsigned i = 0; i < kPatternCount && ok; ++i) {
-    ok = w.bytes(&bank.pattern(i).tract, sizeof(TractLine));
-  }
-  return ok && w.end();
-}
-
-// The most the small chunks take (everything but PATS and the container's own bytes), with SG1's reserve.
+// The most the small chunks take (everything but PATS and the container's own bytes), with the song's reserve.
 constexpr std::size_t kSmallMax = chunk::kHeaderBytes + chunk_bytes(kHeadPayload) + chunk_bytes(kGenPayload) + chunk_bytes(2 + 2 + std::size_t{kMaxSound} * kSoundEntryBytes) +
                                   chunk_bytes(kSnapHeader + std::size_t{kSnapSlots} * kSnapTargetCount * 4) + chunk_bytes(kPerfPayload) + kSongReserve +
                                   chunk::kCrcChunkBytes;
@@ -646,9 +589,9 @@ std::size_t encode(const ProjectState& s, const seq::Bank& bank, std::uint8_t* o
 
   bool ok = write_head_gen(w, s, s.save_count) && write_pats_header(w);
   for (unsigned i = 0; i < kPatternCount && ok; ++i) {
-    ok = w.bytes(&bank.pattern(i), kPatBytes);
+    ok = w.bytes(&bank.pattern(i), sizeof(Pattern));
   }
-  ok = ok && w.end() && write_trct(w, bank) && write_tail(w, s);
+  ok = ok && w.end() && write_tail(w, s);
 
   const std::size_t n = w.finish();
   return ok ? n : 0u;
@@ -681,10 +624,10 @@ bool Encoder::step(unsigned patterns, std::size_t crc_bytes) noexcept {
     case Stage::Patterns: {
       bool ok = true;
       for (unsigned n = 0; n < patterns && next_ < kPatternCount && ok; ++n, ++next_) {
-        ok = w_.bytes(&bank_->pattern(next_), kPatBytes);
+        ok = w_.bytes(&bank_->pattern(next_), sizeof(Pattern));
       }
       if (ok && next_ >= kPatternCount) {
-        ok = w_.end() && write_trct(w_, *bank_) && write_tail(w_, *s_);
+        ok = w_.end() && write_tail(w_, *s_);
         if (ok) {
           body_ = w_.size();
           // What Writer::finish() does, in slices: the FORM length first (the CRC covers it), then the CRC over the body, then the CRC chunk.
@@ -752,8 +695,6 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
       bit = kSeenPerf;
     } else if (chunk::id_is(c, "SONG")) {
       bit = kSeenSong;
-    } else if (chunk::id_is(c, "TRCT")) {
-      bit = kSeenTrct;
     }
     chunk::Fields f(c);
     std::uint16_t version = 0;
@@ -764,18 +705,21 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
         res.status = Status::FromNewer;
         return res;
       }
-      if (major != kMajor) {
-        return res;  // Damaged: HEAD with no version, or a major this build never wrote
+      if (major == 0u) {
+        return res;  // Damaged: HEAD with no version
       }
-      read_head(f, out);
-      if (!f.ok()) {
+      if (major < kMajor) {
+        res.status = Status::FromOlder;  // a file of an earlier format: refused, never half-read
+        return res;
+      }
+      if (!read_head(f, out)) {
         return res;  // Damaged: HEAD is short
       }
       seen |= kSeenHead;
       continue;
     }
     if (bit == 0u || (seen & bit) != 0u || major != kMajor) {
-      ++res.skipped;  // unknown, twice, or of a major this build cannot read: its part keeps its defaults
+      ++res.skipped;  // unknown, twice, or of a major this build cannot read: ignored (a required chunk missing then makes the file Damaged)
       continue;
     }
     bool good = false;
@@ -793,28 +737,22 @@ Result decode(const std::uint8_t* data, std::size_t n, ProjectState& out) noexce
         good = read_snap(f, out);
         break;
       case kSeenPerf:
-        read_perf(f, out);
-        good = true;
+        good = read_perf(f, out);
         break;
       case kSeenSong:
         good = read_song(f, out);
         break;
-      case kSeenTrct:
-        good = read_trct(f, c, out);
-        break;
       default:
         break;
     }
-    if (good) {
-      seen |= bit;
-    } else {
-      ++res.skipped;
+    if (!good) {
+      return res;  // Damaged: a chunk of this format that does not read (the service then tries the .bak)
     }
+    seen |= bit;
   }
-  if ((seen & kSeenHead) == 0u) {
-    return res;  // Damaged: no HEAD
+  if (seen != kSeenAll) {
+    return res;  // Damaged: a chunk missing (no HEAD, or a file cut short at a chunk boundary)
   }
-  res.patterns_ok = (seen & kSeenPats) != 0u;
   res.status = Status::Ok;
   return res;
 }
@@ -845,16 +783,11 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
   if (patterns && rig.bank != nullptr) {
     alignas(4) Pattern p;
     for (unsigned i = 0; i < kPatternCount; ++i) {
-      if (s.pats != nullptr && i < s.pats_n) {
-        clear(p);  // the TRACT line stays empty unless TRCT has one
-        std::memcpy(&p, s.pats + std::size_t{i} * kPatBytes, kPatBytes);
-        sanitize(p);
+      if (s.pats != nullptr) {
+        std::memcpy(&p, s.pats + std::size_t{i} * sizeof(Pattern), sizeof(Pattern));
+        sanitize(p);  // includes the TRACT line
       } else {
         clear(p);
-      }
-      if (s.trct != nullptr && i < s.trct_n) {
-        std::memcpy(&p.tract, s.trct + std::size_t{i} * sizeof(TractLine), sizeof(TractLine));
-        (void)tract_sanitize(p.tract);
       }
       (void)rig.bank->restore(i, p);
     }
@@ -884,17 +817,6 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     (void)find_entry(s, kSndApp, static_cast<std::uint16_t>(id), v);
     set_app_value(w, e, id, v);
   }
-  // LINE (A1b): a project without the entry plays the line only if one holds vowels (a file from before the line has none, so it is off).
-  if (patterns && rig.bank != nullptr && w.seq != nullptr) {
-    float line = 0.0f;
-    if (!find_entry(s, kSndApp, static_cast<std::uint16_t>(kAppTractLine), line)) {
-      bool any = false;
-      for (unsigned i = 0; i < kPatternCount && !any; ++i) {
-        any = tract_has_vowels(rig.bank->pattern(i).tract);
-      }
-      w.seq->set_tract_line(any);
-    }
-  }
   // MODS as saved (F13a; a project without the entry has the mods heard): the stored mod values are in, only the voice's view changes.
   float mods_on = app_default(kAppModsOn);
   (void)find_entry(s, kSndApp, static_cast<std::uint16_t>(kAppModsOn), mods_on);
@@ -910,17 +832,10 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     w.perf[b] = s.perf[b] < kPerfActionCount ? s.perf[b] : kDefaultPerf[b];
   }
-  for (unsigned i = 0; i < kKnobsRows; ++i) {
-    w.knob_sets.row[0][i] = s.ladder[kKnobsRowId[i]];
-  }
-  for (unsigned t = 0; t + 1u < kKnobSets; ++t) {
-    for (unsigned i = 0; i < kKnobsPerSet; ++i) {
-      w.knob_sets.row[t + 1u][i] = s.sets[t][i];
-    }
-  }
+  w.knob_sets = s.sets;
   knob_set_use(w, s.knob_set);
 
-  // The snapshots, after the sound: a slot with fewer values than the targets of today is filled from the sound as it is now.
+  // The snapshots, after the sound: a value that is not finite is filled from the sound as it is now.
   w.snaps.clear();
   float live[kSnapValues];
   rig.controls.snap_capture(e, live);
@@ -931,7 +846,7 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
     float v[kSnapValues];
     for (unsigned i = 0; i < kSnapValues; ++i) {
       const float x = s.snap[slot][i];
-      v[i] = (i < s.snap_values && i < kSnapTargetCount && std::isfinite(x)) ? x : live[i];
+      v[i] = (i < kSnapTargetCount && std::isfinite(x)) ? x : live[i];
     }
     w.snaps.store(slot, v);
   }

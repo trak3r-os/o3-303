@@ -408,9 +408,9 @@ void ProjectService::boot_settle(Context& ctx, Op ended, bool done, const char* 
         pick_best_ = static_cast<int>(cand);
         pick_count_ = big_->state.save_count;
       }
-    } else if (r.status == project::Status::FromNewer) {
-      blocked_ = true;
-      notice("PROJECT FROM A NEWER O3-303");
+    } else if (r.status == project::Status::FromNewer || r.status == project::Status::FromOlder) {
+      blocked_ = true;  // never written over, never half-loaded: the file stays as it is until SAVE
+      notice(r.status == project::Status::FromNewer ? "PROJECT FROM A NEWER O3-303" : "PROJECT FROM AN OLDER O3-303");
       boot_end(ctx, false);
       return;
     } else {
@@ -467,7 +467,7 @@ void ProjectService::boot_apply(Context& ctx, const project::Result& r) noexcept
   copy_name(name_, names_[step_ / kCands]);
   seq_ = big_->state.save_count;
   last_dirty_ = !same_ci(name_, last_name_);
-  if (r.skipped != 0u || !r.patterns_ok) {
+  if (r.skipped != 0u) {
     notice("PART OF THE PROJECT SKIPPED");
   }
   boot_end(ctx, true);
@@ -1111,8 +1111,8 @@ void ProjectService::load_settle(Context& ctx, bool done, const char* text) noex
         pick_best_ = static_cast<int>(step_);
         pick_count_ = big_->state.save_count;
       }
-    } else if (r.status == project::Status::FromNewer) {
-      abort_request(ctx, "PROJECT FROM A NEWER O3-303");
+    } else if (r.status == project::Status::FromNewer || r.status == project::Status::FromOlder) {
+      abort_request(ctx, r.status == project::Status::FromNewer ? "PROJECT FROM A NEWER O3-303" : "PROJECT FROM AN OLDER O3-303");
       return;
     } else {
       load_damaged_ = true;  // the container or its CRC is bad: the others are still tried
@@ -1197,14 +1197,13 @@ void ProjectService::apply_request(Context& ctx) noexcept {
     begin_encode(ctx, name_, false);
     return;
   }
-  const bool whole = load_result_.patterns_ok;
   seq_ = what == Req::Load ? big_->state.save_count : (seq_ > big_->state.save_count ? seq_ : big_->state.save_count);  // monotone: a REVERT goes on counting
   if (what == Req::Load) {
     copy_name(name_, req_name_);
     copy_name(prev_name_, req_name_);
     home_ = true;
     last_dirty_ = !same_ci(name_, last_name_);
-    done_notice_ = load_damaged_ ? "LOADED THE SAVED COPY" : (load_result_.skipped != 0u || !whole ? "PART OF THE PROJECT SKIPPED" : "LOADED");
+    done_notice_ = load_damaged_ ? "LOADED THE SAVED COPY" : (load_result_.skipped != 0u ? "PART OF THE PROJECT SKIPPED" : "LOADED");
     rebaseline(e, ctx.uptime_ms());
     load_damaged_ = false;
     if (last_dirty_) {  // last.txt names this project from now on
@@ -1217,11 +1216,11 @@ void ProjectService::apply_request(Context& ctx) noexcept {
     }
     return;
   }
-  // REVERT: the session is project.o3a. live.o3a must say so too, or a reboot brings the discarded work back; a project whose patterns were skipped is not
+  // REVERT: the session is project.o3a. live.o3a must say so too, or a reboot brings the discarded work back; a project with a part skipped is not
   // written over (the player acts first, as at boot).
   rebaseline(e, ctx.uptime_ms());
   load_damaged_ = false;
-  if (whole && load_result_.skipped == 0u) {
+  if (load_result_.skipped == 0u) {
     done_notice_ = "REVERTED";
     begin_encode(ctx, name_, false);
   } else {

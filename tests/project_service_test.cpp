@@ -103,11 +103,10 @@ void check_image(const Bytes& image, bool bank_equal) {
   if (r.status != project::Status::Ok) {
     return;
   }
-  CHECK(r.patterns_ok);
   CHECK(r.skipped == 0u);
   if (bank_equal) {
     for (unsigned i = 0; i < kPatternCount; ++i) {
-      CHECK(std::memcmp(s.pats + i * kPatBytes, &bank().pattern(i), kPatBytes) == 0);
+      CHECK(std::memcmp(s.pats + i * sizeof(Pattern), &bank().pattern(i), sizeof(Pattern)) == 0);
     }
   }
 }
@@ -132,6 +131,21 @@ void fix_crc(Bytes& b) {
   for (unsigned i = 0; i < 4; ++i) {
     b[b.size() - 4 + i] = static_cast<std::uint8_t>(crc >> (24 - 8 * i));
   }
+}
+
+// The image with a chunk nobody knows before the CRC chunk, the container made good again: the decoder skips it and counts it.
+Bytes with_stray_chunk(const Bytes& b) {
+  const std::size_t body = b.size() - chunk::kCrcChunkBytes;
+  Bytes out(b.begin(), b.begin() + static_cast<std::ptrdiff_t>(body));
+  const std::uint8_t stray[] = {'Z', 'Z', 'Z', 'Z', 0, 0, 0, 4, 1, 0, 9, 9};
+  out.insert(out.end(), std::begin(stray), std::end(stray));
+  out.insert(out.end(), b.begin() + static_cast<std::ptrdiff_t>(body), b.end());
+  const std::uint32_t length = static_cast<std::uint32_t>(out.size() - 8u);
+  for (unsigned i = 0; i < 4; ++i) {
+    out[4 + i] = static_cast<std::uint8_t>(length >> (24 - 8 * i));
+  }
+  fix_crc(out);
+  return out;
 }
 
 }  // namespace
@@ -354,7 +368,7 @@ TEST_CASE("project service: a project from a newer o3-303 is never written over"
   s.shift_file();
   s.settle();
   Bytes live = s.read("UNTITLED/live.o3a");
-  live[20] = 2;  // HEAD's version: major 2
+  live[20] = 3;  // HEAD's version: major 3
   fix_crc(live);
   s.write("UNTITLED/live.o3a", live);
 
@@ -369,7 +383,31 @@ TEST_CASE("project service: a project from a newer o3-303 is never written over"
   CHECK(s.read("UNTITLED/live.o3a") == live);
 }
 
-TEST_CASE("project service: a project whose patterns were skipped loads and is saved over only once the player has changed something") {
+TEST_CASE("project service: a project from an older o3-303 is refused and never written over") {
+  Session s;
+  s.run(500);
+  edit_note(0, 3);
+  s.shift_file();
+  s.settle();
+  Bytes live = s.read("UNTITLED/live.o3a");
+  live[20] = 1;  // HEAD's version: major 1, a format this build does not read
+  fix_crc(live);
+  s.write("UNTITLED/live.o3a", live);
+  const Bytes proj = s.read("UNTITLED/project.o3a");
+
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(std::string(app_project().info().notice) == "PROJECT FROM AN OLDER O3-303");
+  CHECK_FALSE(app_project().has_project());
+  edit_note(0, 3);
+  s.run(4'000);
+  CHECK(app_project().saves() == 0u);
+  CHECK(s.read("UNTITLED/live.o3a") == live);
+  CHECK(s.read("UNTITLED/project.o3a") == proj);
+}
+
+TEST_CASE("project service: a project with a chunk skipped loads and is saved over only once the player has changed something") {
   Session s;
   s.run(500);
   (void)s.h->engine().set_param(kVoice, 1, 0.8f);  // a sound that is not the default
@@ -378,11 +416,7 @@ TEST_CASE("project service: a project whose patterns were skipped loads and is s
   edit_note(0, 3);
   s.shift_file();
   s.settle();
-  Bytes live = s.read("UNTITLED/live.o3a");
-  const std::size_t pats = find_chunk(live, "PATS");
-  REQUIRE(pats != 0);
-  live[pats + 8] = 2;  // PATS's version: major 2, this build skips it
-  fix_crc(live);
+  Bytes live = with_stray_chunk(s.read("UNTITLED/live.o3a"));  // a chunk this build does not know: skipped
   s.write("UNTITLED/live.o3a", live);
 
   REQUIRE(s.h->reboot());
@@ -392,13 +426,33 @@ TEST_CASE("project service: a project whose patterns were skipped loads and is s
   CHECK(app_project().has_project());
   CHECK(s.h->engine().param(kVoice, 1) == doctest::Approx(reso));  // the rest of the project came
   s.run(4'000);
-  CHECK(app_project().saves() == 0u);  // nothing the player did: the file keeps its patterns
+  CHECK(app_project().saves() == 0u);  // nothing the player did: the file keeps what it has
   CHECK(s.read("UNTITLED/live.o3a") == live);
 
   edit_note(0, 4);  // the player acts
   s.run(2'500);
   s.settle();
   CHECK(app_project().saves() == 1u);
+}
+
+TEST_CASE("project service: a project whose PATS is of another major is damaged: nothing loads and the file stays") {
+  Session s;
+  s.run(500);
+  edit_note(0, 3);
+  s.shift_file();
+  s.settle();
+  Bytes live = s.read("UNTITLED/live.o3a");
+  const std::size_t pats = find_chunk(live, "PATS");
+  REQUIRE(pats != 0);
+  live[pats + 8] = 3;  // PATS's version: major 3, this build does not read it
+  fix_crc(live);
+  s.write("UNTITLED/live.o3a", live);
+
+  REQUIRE(s.h->reboot());
+  s.run(500);
+  s.settle();
+  CHECK(std::string(app_project().info().notice) != "PROJECT FROM AN OLDER O3-303");
+  CHECK(s.read("UNTITLED/live.o3a") == live);  // never written over by the boot
 }
 
 TEST_CASE("project service: a card out and back is a card that may be another: autosave off, no file call, until SAVE") {
@@ -1029,7 +1083,7 @@ TEST_CASE("project service: NEW under the name a flush just gave the session is 
   project::ProjectState st;
   const Bytes saved = s.read("UNTITLED/live.o3a");
   REQUIRE(project::decode(saved.data(), saved.size(), st).status == project::Status::Ok);
-  CHECK(std::memcmp(st.pats, &edited, kPatBytes) == 0);  // and on the card
+  CHECK(std::memcmp(st.pats, &edited, sizeof(Pattern)) == 0);  // and on the card
 }
 
 TEST_CASE("project service: NEW under the name of a project deleted before is refused before the session is wiped; from an earlier session it says so after") {
@@ -1168,7 +1222,7 @@ void length_trial(Session& s, unsigned k, unsigned j, bool from_instrument, bool
     project::ProjectState st;
     REQUIRE(project::decode(image.data(), image.size(), st).status == project::Status::Ok);
     Pattern p0;
-    std::memcpy(&p0, st.pats, kPatBytes);
+    std::memcpy(&p0, st.pats, sizeof(Pattern));
     INFO(file << " k=" << k << " j=" << j << " instrument=" << from_instrument << " playing=" << playing);
     CHECK(p0.length == 64);
   }

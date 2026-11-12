@@ -7,6 +7,11 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **Project format 2.0: projects saved by an earlier version are refused (P1).** The project file now has one strict layout (HEAD, GEN, PATS, SND, SNAP, PERF and SONG, each once)
+  and the format is 2.0. A project saved by any earlier o3-303 (v0.8.0 and before) does not load: the unit says PROJECT FROM AN OLDER O3-303, loads nothing of it and leaves the file on
+  the card untouched (autosave stays off until you SAVE). **There is no converter**: start those projects again. A project of a newer o3-303 is refused the same way. A file with a
+  chunk missing, cut or of another major is damaged (the unit then tries the saved copy). The settings of the unit (`system.o3s`) and the MIDI bindings are not affected.
+
 - **KNOB SPEED, a factor on the encoder.** Config's page 303 has a new row, KNOB SPEED (X1, X2, X3, X4, X6, X8; X1 at first): one click of the encoder moves a continuous
   knob that many of its steps, so a whole knob takes fewer turns. It multiplies after DISPLAY's ENCODER acceleration. A list, a switch, Shift's coarse step and the arrows move as
   before. It is a setting of the unit, kept on the card.

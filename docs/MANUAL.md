@@ -344,7 +344,7 @@ motion. Tap FILT again for the keys.
 Each ladder row can hold another knob. Hold an F key (on any screen that shares the home map) and tap a pad of the row: the row now holds that
 key's knob, and the tap only assigns, the value does not move. Do it again with the same knob held and the row goes back to its default.
 **Shift + FILT** puts both rows back to the knobs of the set in use (CUTOFF and RESO in set 1; PERFORM KNOBS has four sets, and these rows are its rows 3 and 4). The rows blink while an F key is held. The PADS line names both rows. The rows are
-saved in the project (an older project loads with the defaults); snapshots do not take them. PERFORM's row 3 and PERFORM KNOBS' rows 3 and 4 (of the set in use) are these same rows: a knob assigned on one screen is on all of them. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it.
+saved in the project; snapshots do not take them. PERFORM's row 3 and PERFORM KNOBS' rows 3 and 4 (of the set in use) are these same rows: a knob assigned on one screen is on all of them. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it.
 
 ![FILT on: rows 3 and 4 of the pads lit as two bars up to the place tapped; the PADS line says ROW 3 CUTOFF . ROW 4 RESO](manual/img/home-filt.png)
 
@@ -396,7 +396,7 @@ Press **Performance**. There is no menu here: the 48 pads are live, and the line
 |---|---|
 | 1, actions | MUTE, ACC (every note accented), SLD (every step slides), OCT+ (an octave up), FILL (the fill variant), THRW (the delay send opens all the way), FRZ (freeze the beat), ROLL, STOP (tape stop), REV (reverse), WOB (wobble). Column 12 is ALL OFF |
 | 2, snapshots and variations | Snapshots 1 to 8, then NEW, VARY, UNDO, REDO (the pattern tools of HOME) |
-| 3, ladder | 12 places of CUTOFF (HOME's FILT row 3, the same row). It does not follow the F key you tapped last: to give it another knob hold that key and tap a pad, again to go back to CUTOFF. Saved in the project (a project saved by an older version, when this row followed the F key, loads with CUTOFF) |
+| 3, ladder | 12 places of CUTOFF (HOME's FILT row 3, the same row). It does not follow the F key you tapped last: to give it another knob hold that key and tap a pad, again to go back to CUTOFF. Saved in the project |
 | 4, keys | One octave, C to B. They play the voice, or transpose the line while it plays if TRNSP is on (set on HOME) |
 
 **Actions** are on while you hold the pad. **Shift + pad** latches an action: it stays on (a ring around its lamp) until you tap it again
@@ -450,9 +450,9 @@ PERFORM's second page turns the four rows of pads into four knobs. One pad is on
 
 Set 4 was FX before: DRIVE and DLY SEND stay, and the wobble's own settings come first, so the wobble can be played without leaving this page (turn the wobble on with the WOBBLE action). A knob that is a list or a switch, the wave for one, has a pad for each value instead of twelve steps. A tap on a row that holds a MODDED mod while MODS is off (STOCK) switches MODS on, as the encoder does.
 
-**F5 to F8 are the four rows' knobs.** A tap on one gives the encoder that knob, and a tap on a pad of a row moves the encoder to that row's knob too, so you can tap a value and then fine-tune it with the encoder or Up and Down. **Give a row another knob:** hold its F key (F5 to F8) and press **Up** or **Down**: the row takes the next or previous knob of the list of every knob that can be recorded (the sound page's, then the delay and distortion, MODDED's NOTES and TONE, GROWL's, and TRACT's, then the wobble's four settings WOB RATE, WOB SHAPE, WOB DEPTH and WOB TARGET and the four switches MODS, GROWL, TRACT and WOB last), and the toast names it (ROW 2: GROWL / FORMANT Q). With **Shift** it jumps to the first knob of the next or previous family. The set keeps what you chose (its key then says OWN 1 instead of SET 1). **Shift + F1 to F4 is FACTORY 1 to 4**: that set goes back to the knobs in the table. Shift + F7 and Shift + F8 are REDO and UNDO of the line, as on PERFORM. The sets are saved in the project (a project saved by an older version loads with the factory sets 2 to 4, and its own set 1); snapshots do not take them. Rows 3 and 4 of the set in use are HOME's FILT rows.
+**F5 to F8 are the four rows' knobs.** A tap on one gives the encoder that knob, and a tap on a pad of a row moves the encoder to that row's knob too, so you can tap a value and then fine-tune it with the encoder or Up and Down. **Give a row another knob:** hold its F key (F5 to F8) and press **Up** or **Down**: the row takes the next or previous knob of the list of every knob that can be recorded (the sound page's, then the delay and distortion, MODDED's NOTES and TONE, GROWL's, and TRACT's, then the wobble's four settings WOB RATE, WOB SHAPE, WOB DEPTH and WOB TARGET and the four switches MODS, GROWL, TRACT and WOB last), and the toast names it (ROW 2: GROWL / FORMANT Q). With **Shift** it jumps to the first knob of the next or previous family. The set keeps what you chose (its key then says OWN 1 instead of SET 1). **Shift + F1 to F4 is FACTORY 1 to 4**: that set goes back to the knobs in the table. Shift + F7 and Shift + F8 are REDO and UNDO of the line, as on PERFORM. The sets are saved in the project; snapshots do not take them. Rows 3 and 4 of the set in use are HOME's FILT rows.
 
-**Rec** records the taps while the line plays. Each knob a row holds takes a lane of the pattern the first time it is tapped with REC on, so the limit of eight lanes applies: a ninth knob says "8 LANES USED: CLEAR LOCKS (SETUP)" and its tap still sounds. Rows 3 and 4 write the lanes HOME's FILT does. **The wobble's settings and the four switches have no lane**: a tap sets them at once, but REC does not record them, and the toast says REC DOES NOT RECORD IT (record a wobble with the WOBBLE action, or the knob it moves, instead). A project saved with one of them on a row, opened by an older version, shows that row's factory knob.
+**Rec** records the taps while the line plays. Each knob a row holds takes a lane of the pattern the first time it is tapped with REC on, so the limit of eight lanes applies: a ninth knob says "8 LANES USED: CLEAR LOCKS (SETUP)" and its tap still sounds. Rows 3 and 4 write the lanes HOME's FILT does. **The wobble's settings and the four switches have no lane**: a tap sets them at once, but REC does not record them, and the toast says REC DOES NOT RECORD IT (record a wobble with the WOBBLE action, or the knob it moves, instead).
 
 The colour buttons are PERFORM's four actions here too. HELP (Shift + Config) shows the page's pad map.
 
@@ -615,7 +615,7 @@ action is on. F8 latches that action here, the same as WOB on PERFORM, and ALL O
 
 The wobble's settings are learnable: with Shift held, F1 to F5 (RATE, SHAPE, DEPTH, TARGET, RESET) and F8 WOB arm like any knob, and the next controller you move binds. A learned controller steps the lists (RATE, SHAPE, TARGET), switches RESET and WOB (on from 64 up), and sets DEPTH. The usual MIDI Pickup applies: an absolute controller does nothing until it has reached the value shown (or passed it), so it never makes a jump. A move of the panel's knob is followed, so the controller catches the new value again. The bindings are kept with the unit's other MIDI bindings.
 
-The wobble's five settings and its latch are saved in the project and in each snapshot (the shape and target switch at a recall, they do not glide); an older project or snapshot loads with the defaults. The VOWEL target needs GRL MIX above 0: while the growl is off the encoder says GROWL IS OFF. The strip says WOB OFF: F8 while the latch is off.
+The wobble's five settings and its latch are saved in the project and in each snapshot (the shape and target switch at a recall, they do not glide). The VOWEL target needs GRL MIX above 0: while the growl is off the encoder says GROWL IS OFF. The strip says WOB OFF: F8 while the latch is off.
 
 ### MASTER
 
@@ -1010,6 +1010,7 @@ button.
 | LOADED THE SAVED COPY | One copy was broken; the other one loaded |
 | PART OF THE PROJECT SKIPPED | The project loaded, but some of it could not be read |
 | PROJECT FROM A NEWER O3-303 | Made by a newer o3-303. Install that version to open it; nothing is written over it |
+| PROJECT FROM AN OLDER O3-303 | Saved by a version before this project format (2.0), which cannot read it and has no converter; nothing is written over the file. SAVE or LOAD another project to go on |
 | NOTHING SAVED YET | REVERT has no save to go back to |
 | LOAD ANOTHER FIRST | DELETE never deletes the project that is open |
 | NAME TAKEN | A project of that name is on the card. Pick another |

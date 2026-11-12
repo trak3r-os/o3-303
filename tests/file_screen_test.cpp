@@ -546,13 +546,13 @@ TEST_CASE("file: a project from a newer o3-303 is refused and the session stays"
   Session s;
   s.save_as("jam");
   Bytes live = s.read("jam/live.o3a");
-  // HEAD's version (the u16 after its 8 byte chunk header): major 2.
+  // HEAD's version (the u16 after its 8 byte chunk header): major 3.
   std::size_t pos = formats::chunk::kHeaderBytes;
   while (pos + 8 <= live.size() && std::memcmp(&live[pos], "HEAD", 4) != 0) {
     pos += 8 + ((std::size_t{live[pos + 4]} << 24) | (std::size_t{live[pos + 5]} << 16) | (std::size_t{live[pos + 6]} << 8) | live[pos + 7]);
   }
   REQUIRE(pos + 10 <= live.size());
-  live[pos + 8] = 2;
+  live[pos + 8] = 3;
   const std::size_t body = live.size() - formats::chunk::kCrcChunkBytes;
   const std::uint32_t crc = formats::crc32(live.data(), body);
   for (unsigned i = 0; i < 4; ++i) {
@@ -568,6 +568,37 @@ TEST_CASE("file: a project from a newer o3-303 is refused and the session stays"
   s.tap(Button::F1);
   s.settle();
   CHECK(std::string(s.notice()) == "PROJECT FROM A NEWER O3-303");
+  CHECK(std::string(app_project().name()) == "other");
+  CHECK(s.cutoff() == doctest::Approx(700.0f).epsilon(0.001));
+  CHECK(s.read("jam/live.o3a") == live);
+}
+
+TEST_CASE("file: a project from an older o3-303 is refused and the session stays") {
+  Session s;
+  s.save_as("jam");
+  Bytes live = s.read("jam/live.o3a");
+  // HEAD's version (the u16 after its 8 byte chunk header): major 1.
+  std::size_t pos = formats::chunk::kHeaderBytes;
+  while (pos + 8 <= live.size() && std::memcmp(&live[pos], "HEAD", 4) != 0) {
+    pos += 8 + ((std::size_t{live[pos + 4]} << 24) | (std::size_t{live[pos + 5]} << 16) | (std::size_t{live[pos + 6]} << 8) | live[pos + 7]);
+  }
+  REQUIRE(pos + 10 <= live.size());
+  live[pos + 8] = 1;
+  const std::size_t body = live.size() - formats::chunk::kCrcChunkBytes;
+  const std::uint32_t crc = formats::crc32(live.data(), body);
+  for (unsigned i = 0; i < 4; ++i) {
+    live[live.size() - 4 + i] = static_cast<std::uint8_t>(crc >> (24 - 8 * i));
+  }
+  s.write("jam/live.o3a", live);
+  fs::remove(s.path("jam/project.o3a"));
+  fs::remove(s.path("jam/project.o3a.bak"));
+  s.save_as("other");
+  s.set_cutoff(700.0f);
+  s.to_file();
+  s.select("jam");
+  s.tap(Button::F1);
+  s.settle();
+  CHECK(std::string(s.notice()) == "PROJECT FROM AN OLDER O3-303");
   CHECK(std::string(app_project().name()) == "other");
   CHECK(s.cutoff() == doctest::Approx(700.0f).epsilon(0.001));
   CHECK(s.read("jam/live.o3a") == live);

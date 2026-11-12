@@ -22,13 +22,13 @@
 //   - No card at boot (or none that the files service can use): the factory line, the project UNTITLED, no file call at all, autosave off. A card put
 //     in later changes nothing by itself: the session gets a project on it by SAVE (here, SAVE AS under the first free name UNTITLED, UNTITLED 2, ...,
 //     so an existing project is never overwritten by surprise), or by F3's SAVE AS / LOAD / NEW.
-//   - A card at boot: `last.txt` names the project; the newest valid of its live.o3a and project.o3a (the higher save counter of HEAD 1.1, live.o3a on a tie) is loaded and applied, but only if the player has not edited anything
+//   - A card at boot: `last.txt` names the project; the newest valid of its live.o3a and project.o3a (the higher save counter of HEAD, live.o3a on a tie) is loaded and applied, but only if the player has not edited anything
 //     and the sequencer is not running when it arrives; otherwise it is dropped and the session goes on as with no card. No last.txt: UNTITLED if it is
 //     there, else the session is a new project called UNTITLED that autosaves there (and writes last.txt with its first save).
-//   - A file that is damaged, from a newer o3-303 or too big is never written over: the session has no project on the card (autosave off, a notice)
+//   - A file that is damaged, from a newer or an older o3-303 (format 2.0 reads nothing earlier) or too big is never written over: the session has no project on the card (autosave off, a notice)
 //     until SAVE. So is a boot where any read fails for another reason than NOT FOUND (an I/O error says nothing about what the card holds), and a
-//     boot load dropped because the player had already edited or played. A project whose patterns were skipped (Result::patterns_ok false) is loaded
-//     and autosaves once the player has changed anything.
+//     boot load dropped because the player had already edited or played. A project with a part skipped (Result::skipped) is loaded and autosaves once
+//     the player has changed anything.
 //   - A card that goes out, comes in or goes to a computer (Files::generation() moves) may not be the card the project is on, and a swapped one can hold
 //     a project of the same name: autosave goes off ("CARD CHANGED: SAVE TO KEEP THE PROJECT") until SAVE (under a free name) or a load gives the session
 //     a project on this card. The same card back after a pull also needs a SAVE: the service cannot tell the cards apart.

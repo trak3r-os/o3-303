@@ -271,7 +271,7 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(s.perf[0] == static_cast<std::uint8_t>(PerfAction::Reverse));
   CHECK(s.perf[3] == static_cast<std::uint8_t>(PerfAction::Stop));
   CHECK(s.snap_used == ((1u << 0) | (1u << 3) | (1u << 7)));
-  CHECK(s.pats_n == kPatternCount);
+  CHECK(s.pats != nullptr);
   CHECK(s.song.length == 9);
   CHECK(std::memcmp(&s.song, &a.bank->song(), sizeof(seq::Song)) == 0);
 
@@ -372,19 +372,31 @@ TEST_CASE("project: a flipped byte is refused, wherever it is") {
   CHECK(project::decode(other.data(), other.size(), s).status == project::Status::Damaged);
 }
 
-TEST_CASE("project: HEAD of a newer major refuses the project; HEAD missing or short is damaged") {
+TEST_CASE("project: HEAD of a newer major or an older one refuses the project; HEAD missing, short or of major 0 is damaged") {
   Session a;
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
 
-  const auto newer = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "HEAD")) {
-      p[0] = 2;  // major 2
-    }
-    return true;
-  });
-  CHECK(load(newer, s).status == project::Status::FromNewer);
+  const auto with_major = [&](std::uint8_t major) {
+    return rebuild(img, [major](char (&id)[4], std::vector<std::uint8_t>& p) {
+      if (is(id, "HEAD")) {
+        p[0] = major;
+      }
+      return true;
+    });
+  };
+  CHECK(load(with_major(3), s).status == project::Status::FromNewer);
+  CHECK(load(with_major(2), s).status == project::Status::Ok);
+  // An earlier format (1.x, the one before 2.0) is refused whole: the state stays as it was, and there is no converter.
+  const project::ProjectState untouched;
+  s = untouched;
+  const project::Result older = load(with_major(1), s);
+  CHECK(older.status == project::Status::FromOlder);
+  CHECK(s.pats == nullptr);
+  CHECK(s.sound_n == 0);
+  CHECK(std::strcmp(s.name, untouched.name) == 0);
+  CHECK(load(with_major(0), s).status == project::Status::Damaged);
 
   const auto nohead = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "HEAD"); });
   CHECK(load(nohead, s).status == project::Status::Damaged);
@@ -398,39 +410,31 @@ TEST_CASE("project: HEAD of a newer major refuses the project; HEAD missing or s
   CHECK(load(shorthead, s).status == project::Status::Damaged);
 }
 
-TEST_CASE("project: another chunk of a newer major, an unknown one, a short SONG and a doubled one are skipped, their parts keep their defaults") {
+TEST_CASE("project: a chunk of the format missing, or of another major, makes the file damaged; unknown and doubled chunks are skipped") {
   Session a;
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
 
-  // GEN of major 2 (its layout is unknown), a chunk nobody knows, and a SONG that says 4 rows and holds two bytes of them (the real SONG of the image is read first: the
-  // doubled one is the fourth skip).
-  const auto skipped = rebuild(
-      img,
-      [](char (&id)[4], std::vector<std::uint8_t>& p) {
-        if (is(id, "GEN ") || is(id, "PERF")) {
-          p[0] = 2;
-        }
-        return true;
-      },
-      {{"ZZZZ", {1, 0, 9, 9, 9}}, {std::string(project::kSongId), {1, 0, 4, 5, 6}}});
-  const project::Result res = load(skipped, s);
-  REQUIRE(res.status == project::Status::Ok);
-  CHECK(res.skipped == 4);
-  const seq::GenParams def;
-  CHECK(s.gen.scale == def.scale);
-  CHECK(s.gen.density == def.density);
-  CHECK(s.perf[0] == kDefaultPerf[0]);
-  CHECK(s.perf[3] == kDefaultPerf[3]);
-  // The rest is read as it was.
-  CHECK(s.selected == 17);
-  CHECK(s.tempo_mbpm == 133'500);
-  CHECK(s.pats_n == kPatternCount);
-  CHECK(s.snap_used == ((1u << 0) | (1u << 3) | (1u << 7)));
-  CHECK(s.sound_n > 30);
+  // Format 2.0 has seven chunks, each once: HEAD, GEN, PATS, SND, SNAP, PERF, SONG. Each one is needed.
+  for (const char* gone : {"HEAD", "GEN ", "PATS", "SND ", "SNAP", "PERF", "SONG"}) {
+    const auto cut = rebuild(img, [gone](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, gone); });
+    INFO("chunk " << gone);
+    CHECK(load(cut, s).status == project::Status::Damaged);
+  }
+  // A chunk of another major is not read, so it is a chunk that is missing.
+  for (const char* other : {"GEN ", "PATS", "SND ", "SNAP", "PERF", "SONG"}) {
+    const auto bad = rebuild(img, [other](char (&id)[4], std::vector<std::uint8_t>& p) {
+      if (is(id, other)) {
+        p[0] = 3;
+      }
+      return true;
+    });
+    INFO("chunk " << other);
+    CHECK(load(bad, s).status == project::Status::Damaged);
+  }
 
-  // A chunk that is there twice: the first counts.
+  // A chunk nobody knows and a second GEN: skipped and counted, the first GEN counts.
   std::vector<std::uint8_t> gen_payload;
   (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "GEN ")) {
@@ -440,11 +444,61 @@ TEST_CASE("project: another chunk of a newer major, an unknown one, a short SONG
   });
   REQUIRE_FALSE(gen_payload.empty());
   gen_payload[3] = 1;  // another root
-  const auto twice = rebuild(img, [](char (&)[4], std::vector<std::uint8_t>&) { return true; }, {{"GEN ", gen_payload}});
-  const project::Result r2 = load(twice, s);
-  REQUIRE(r2.status == project::Status::Ok);
-  CHECK(r2.skipped == 1);
+  const auto extra = rebuild(img, [](char (&)[4], std::vector<std::uint8_t>&) { return true; }, {{"ZZZZ", {1, 0, 9, 9, 9}}, {"GEN ", gen_payload}});
+  const project::Result res = load(extra, s);
+  REQUIRE(res.status == project::Status::Ok);
+  CHECK(res.skipped == 2);
   CHECK(s.gen.root == 5);
+  CHECK(s.selected == 17);
+  CHECK(s.tempo_mbpm == 133'500);
+  CHECK(s.snap_used == ((1u << 0) | (1u << 3) | (1u << 7)));
+  CHECK(s.sound_n > 30);
+}
+
+TEST_CASE("project: a record size this build does not have makes the chunk, and so the file, damaged") {
+  Session a;
+  scramble(a);
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+
+  // PATS: 5 + 48 x sizeof(Pattern) (the record size is in bytes 3 and 4); PERF: the buttons, the set in use and 4 sets of 4 (target, id).
+  bool pats_seen = false;
+  bool perf_seen = false;
+  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PATS")) {
+      pats_seen = true;
+      CHECK(p.size() == 5 + kPatternCount * sizeof(Pattern));
+      CHECK(p[2] == kPatternCount);
+      CHECK(((static_cast<unsigned>(p[3]) << 8) | p[4]) == sizeof(Pattern));
+    }
+    if (is(id, "PERF")) {
+      perf_seen = true;
+      CHECK(p.size() == 2 + kPerfButtons + 1 + kKnobSets * kKnobsPerSet * 2);
+    }
+    return true;
+  });
+  CHECK((pats_seen && perf_seen));
+
+  const auto pats_with = [&](const std::function<void(std::vector<std::uint8_t>&)>& fn) {
+    return rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+      if (is(id, "PATS")) {
+        fn(p);
+      }
+      return true;
+    });
+  };
+  CHECK(load(pats_with([](std::vector<std::uint8_t>& p) { p[4] = static_cast<std::uint8_t>(p[4] - 4); }), s).status == project::Status::Damaged);  // another record size
+  CHECK(load(pats_with([](std::vector<std::uint8_t>& p) { p[2] = kPatternCount - 1; }), s).status == project::Status::Damaged);                    // fewer patterns
+  CHECK(load(pats_with([](std::vector<std::uint8_t>& p) { p.resize(p.size() - 100); }), s).status == project::Status::Damaged);                     // cut short
+  CHECK(load(pats_with([](std::vector<std::uint8_t>& p) { p.resize(5); }), s).status == project::Status::Damaged);
+
+  const auto perf_cut = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      p.resize(p.size() - 2);
+    }
+    return true;
+  });
+  CHECK(load(perf_cut, s).status == project::Status::Damaged);
 }
 
 TEST_CASE("project: a song of 64 rows round-trips, and the project's song replaces the session's, with no undo step left") {
@@ -474,44 +528,10 @@ TEST_CASE("project: a song of 64 rows round-trips, and the project's song replac
   CHECK(b.sequencer->play_song());
 }
 
-TEST_CASE("project: a project from before SONG loads with an empty song, and an apply empties the session's") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> with_song = encode_session(a);
-  // The image as an SG1 build wrote it: the same chunks without SONG.
-  const auto older = rebuild(with_song, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "SONG"); });
-  REQUIRE(older.size() < with_song.size());
-  project::ProjectState s;
-  const project::Result res = load(older, s);
-  REQUIRE(res.status == project::Status::Ok);
-  CHECK(res.skipped == 0);  // nothing is missing from the reader's point of view: SONG is optional
-  CHECK(s.song.length == 0);
-  seq::Song empty;
-  seq::clear_song(empty);
-  CHECK(std::memcmp(&s.song, &empty, sizeof empty) == 0);
-  CHECK(s.pats_n == kPatternCount);
-
-  Session b;
-  REQUIRE(b.bank->song_append(seq::SongRow{3, 2, 1, 0}));
-  REQUIRE(project::apply(b.rig, b.engine, s));
-  CHECK(b.bank->song().length == 0);
-  CHECK(std::memcmp(&b.bank->song(), &empty, sizeof empty) == 0);
-  CHECK_FALSE(b.bank->can_undo());
-
-  // And a song that is empty is an empty chunk: written, read back, the same.
-  Session c;
-  const std::vector<std::uint8_t> blank = encode_session(c);
-  project::ProjectState t;
-  REQUIRE(load(blank, t).status == project::Status::Ok);
-  CHECK(t.song.length == 0);
-}
-
-TEST_CASE("project: a damaged SONG gives nothing it must not: short is skipped, a newer major is skipped, values out of range come in") {
+TEST_CASE("project: an empty song is a SONG chunk of its own; a damaged SONG is refused or brought into range") {
   Session a;
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
-  seq::Song empty;
-  seq::clear_song(empty);
 
   const auto payload_of = [&](std::vector<std::uint8_t> payload) {
     return rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
@@ -522,31 +542,36 @@ TEST_CASE("project: a damaged SONG gives nothing it must not: short is skipped, 
     });
   };
   project::ProjectState s;
-  {  // 5 rows said, 3 present
-    std::vector<std::uint8_t> p = {1, 0, 5};
+  {  // an empty song is written, read back, and empties the session's
+    Session e;
+    const std::vector<std::uint8_t> empty = encode_session(e);
+    bool seen = false;
+    (void)rebuild(empty, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+      if (is(id, "SONG")) {
+        seen = true;
+        CHECK(p.size() == 3);  // major, minor, length 0
+      }
+      return true;
+    });
+    CHECK(seen);
+    REQUIRE(load(empty, s).status == project::Status::Ok);
+    CHECK(s.song.length == 0);
+    Session b;
+    scramble(b);
+    REQUIRE(b.bank->song().length > 0);
+    REQUIRE(project::apply(b.rig, b.engine, s));
+    CHECK(b.bank->song().length == 0);
+  }
+  {  // 5 rows said, 3 present: the file is damaged
+    std::vector<std::uint8_t> p = {2, 0, 5};
     for (unsigned i = 0; i < 12; ++i) {
       p.push_back(1);
     }
-    const project::Result res = load(payload_of(p), s);
-    REQUIRE(res.status == project::Status::Ok);
-    CHECK(res.skipped == 1);
-    CHECK(s.song.length == 0);
+    CHECK(load(payload_of(p), s).status == project::Status::Damaged);
   }
-  {  // no length byte at all
-    const project::Result res = load(payload_of({1, 0}), s);
-    REQUIRE(res.status == project::Status::Ok);
-    CHECK(res.skipped == 1);
-    CHECK(s.song.length == 0);
-  }
-  {  // a newer major
-    std::vector<std::uint8_t> p = {2, 0, 1, 0, 1, 0, 0};
-    const project::Result res = load(payload_of(p), s);
-    REQUIRE(res.status == project::Status::Ok);
-    CHECK(res.skipped == 1);
-    CHECK(s.song.length == 0);
-  }
+  CHECK(load(payload_of({2, 0}), s).status == project::Status::Damaged);  // no length byte at all
   {  // two rows, every value out of range: the pattern past the last, repeat 0 and 200, transpose -100 and +100, flags that are not only the mute
-    const std::vector<std::uint8_t> p = {1, 0, 2, 99, 0, 0x9C, 0xFF, 7, 200, 100, 0x02};
+    const std::vector<std::uint8_t> p = {2, 0, 2, 99, 0, 0x9C, 0xFF, 7, 200, 100, 0x02};
     const project::Result res = load(payload_of(p), s);
     REQUIRE(res.status == project::Status::Ok);
     CHECK(res.skipped == 0);
@@ -563,7 +588,7 @@ TEST_CASE("project: a damaged SONG gives nothing it must not: short is skipped, 
     CHECK(std::memcmp(&canon, &s.song, sizeof canon) == 0);  // canonical: the rows past the length are the default row
   }
   {  // more rows than a song holds: 65 present, 65 said: the first 64 are kept
-    std::vector<std::uint8_t> p = {1, 0, 65};
+    std::vector<std::uint8_t> p = {2, 0, 65};
     for (unsigned i = 0; i < 65; ++i) {
       p.insert(p.end(), {static_cast<std::uint8_t>(i % 48u), 1, 0, 0});
     }
@@ -594,7 +619,7 @@ TEST_CASE("project: a newer minor is read as far as this build knows it") {
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   const auto minor = rebuild(img, [](char (&)[4], std::vector<std::uint8_t>& p) {
-    p[1] = 7;  // 1.7
+    p[1] = 7;  // 2.7
     for (int i = 0; i < 13; ++i) {
       p.push_back(0xA5);  // fields this build does not know, an odd count to pad
     }
@@ -608,7 +633,7 @@ TEST_CASE("project: a newer minor is read as far as this build knows it") {
   CHECK(s.tempo_mbpm == 133'500);
   CHECK(s.gen.density == 61);
   CHECK(s.perf[1] == static_cast<std::uint8_t>(PerfAction::Wobble));
-  CHECK(s.pats_n == kPatternCount);
+  CHECK(s.pats != nullptr);
   CHECK(std::strcmp(s.name, "JAM ONE") == 0);
 
   // The patterns are where they were: the extra bytes are after them.
@@ -678,8 +703,13 @@ TEST_CASE("project: a parameter the file lacks keeps its default; one this build
   CHECK(b.engine.param(b.rig.wiring.dist, Distortion::Drive) == a.engine.param(wa.dist, Distortion::Drive));
   CHECK(b.rig.wiring.level_db == wa.level_db);
 
-  // An empty project (no SND at all) is the default sound.
-  const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "SND "); });
+  // A project whose SND holds no entry is the default sound.
+  const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "SND ")) {
+      p = {2, 0, 0, 0};  // an SND chunk with no entries
+    }
+    return true;
+  });
   REQUIRE(load(nosnd, s).status == project::Status::Ok);
   project::apply(a.rig, a.engine, s);
   CHECK(a.engine.param(wa.voice, AcidVoice::Cutoff) == cutoff.def);
@@ -730,7 +760,7 @@ unsigned voice_entries(const std::vector<SndEntry>& v, unsigned lo, unsigned hi)
 
 }  // namespace
 
-TEST_CASE("project: the voice's mods (ids 8..18) are carried and round-trip; a project from before them loads with every mod at its stock value") {
+TEST_CASE("project: the voice's mods (ids 8..18) are carried and round-trip; an entry the file lacks gives the stock value") {
   Session a;
   scramble(a);
   const Wiring& wa = a.rig.wiring;
@@ -761,7 +791,7 @@ TEST_CASE("project: the voice's mods (ids 8..18) are carried and round-trip; a p
   }
   CHECK(encode_session(b) == img);
 
-  // An image from before the mods: no entries for ids 8..18 (and the 303's own are all there).
+  // An image with no entries for ids 8..18 (and the 303's own all there): the mods come in at their stock value.
   const auto before = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (!is(id, "SND ")) {
       return true;
@@ -856,294 +886,7 @@ TEST_CASE("project: a pattern with a hand-built lane on the voice's Stock loads 
   CHECK(b.engine.param(b.rig.wiring.voice, AcidVoice::Stock) == 0.0f);  // and nothing moved it
 }
 
-TEST_CASE("project: a SNAP with fewer values is filled from the sound as loaded") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  constexpr unsigned kFew = 12;
-  const auto few = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (!is(id, "SNAP")) {
-      return true;
-    }
-    // slots 8, values 12, used = slots 1 and 3, then 8 x 12 floats: slot s value i = 100 s + i
-    std::vector<std::uint8_t> out = {p[0], p[1], 8, kFew, 0x0A};
-    for (unsigned s = 0; s < 8; ++s) {
-      for (unsigned i = 0; i < kFew; ++i) {
-        const float v = static_cast<float>(100 * s + i);
-        std::uint32_t bits;
-        std::memcpy(&bits, &v, 4);
-        for (int sh = 24; sh >= 0; sh -= 8) {
-          out.push_back(static_cast<std::uint8_t>(bits >> sh));
-        }
-      }
-    }
-    p = out;
-    return true;
-  });
-  project::ProjectState s;
-  REQUIRE(load(few, s).status == project::Status::Ok);
-  CHECK(s.snap_values == kFew);
-  CHECK(s.snap_used == 0x0A);
-
-  Session b;
-  project::apply(b.rig, b.engine, s);
-  CHECK_FALSE(b.rig.wiring.snaps.used(0));
-  REQUIRE(b.rig.wiring.snaps.used(1));
-  REQUIRE(b.rig.wiring.snaps.used(3));
-  float live[kSnapValues];
-  b.rig.controls.snap_capture(b.engine, live);
-  // The values of the slot, then the sound as loaded: read back through the gather.
-  const project::ProjectState g = b.gather();
-  CHECK(g.snap_used == 0x0A);
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    CHECK(g.snap[1][i] == (i < kFew ? static_cast<float>(100 + i) : live[i]));
-    CHECK(g.snap[3][i] == (i < kFew ? static_cast<float>(300 + i) : live[i]));
-  }
-  // And the sound it is filled from is the project's: the loaded voice's cutoff is in the slot's tail only through the targets above kFew.
-  CHECK(live[16] == a.rig.wiring.level_db);  // target 16 is the level
-}
-
-TEST_CASE("project: a SNAP saved before the mods (22 values a slot) loads, and the mods' and the growl's new targets 22..35 are filled from the sound as loaded") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  constexpr unsigned kOld = 22;  // the targets of kSnapTargetCount before MODS S2 (docs/MODS-PLAN.md 5.9)
-  static_assert(kSnapTargetCount == kOld + 14 + 6 + 2 + 4, "MODS S2 appended eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's five settings and its latch, the voice rewrite RANGE and SUSTAIN, A2 the tract's four");
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (!is(id, "SNAP")) {
-      return true;
-    }
-    // slots 8, values 22, used = slots 0 and 6, then 8 x 22 floats: slot s value i = 100 s + i
-    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
-    for (unsigned s = 0; s < 8; ++s) {
-      for (unsigned i = 0; i < kOld; ++i) {
-        const float v = static_cast<float>(100 * s + i);
-        std::uint32_t bits;
-        std::memcpy(&bits, &v, 4);
-        for (int sh = 24; sh >= 0; sh -= 8) {
-          out.push_back(static_cast<std::uint8_t>(bits >> sh));
-        }
-      }
-    }
-    p = out;
-    return true;
-  });
-  project::ProjectState s;
-  REQUIRE(load(old, s).status == project::Status::Ok);
-  CHECK(s.snap_values == kOld);
-  Session b;
-  project::apply(b.rig, b.engine, s);
-  REQUIRE(b.rig.wiring.snaps.used(0));
-  REQUIRE(b.rig.wiring.snaps.used(6));
-  float live[kSnapValues];
-  b.rig.controls.snap_capture(b.engine, live);
-  const project::ProjectState g = b.gather();
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
-    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
-  }
-  // The sound the new targets are filled from is the project's: the scrambled voice's ACC DECAY is target 22.
-  CHECK(live[22] == doctest::Approx(a.engine.param(a.rig.wiring.voice, AcidVoice::AccDecay)));
-}
-
-TEST_CASE("project: a SNAP with more values than this build holds (an image of a later build) keeps the first kSnapValues of every slot and reads on in step") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  constexpr unsigned kMore = kSnapValues + 6;  // what a build with six more targets would write
-  const auto more = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (!is(id, "SNAP")) {
-      return true;
-    }
-    std::vector<std::uint8_t> out = {p[0], p[1], 8, kMore, 0xFF};
-    for (unsigned s = 0; s < 8; ++s) {
-      for (unsigned i = 0; i < kMore; ++i) {
-        const float v = static_cast<float>(100 * s + i);
-        std::uint32_t bits;
-        std::memcpy(&bits, &v, 4);
-        for (int sh = 24; sh >= 0; sh -= 8) {
-          out.push_back(static_cast<std::uint8_t>(bits >> sh));
-        }
-      }
-    }
-    p = out;
-    return true;
-  });
-  project::ProjectState s;
-  REQUIRE(load(more, s).status == project::Status::Ok);
-  CHECK(s.snap_values == kSnapValues);  // the bound is the build's (an older image's clamp: it keeps what it has room for)
-  for (unsigned slot = 0; slot < 8; ++slot) {  // the extra values did not push the next slot out of place
-    for (unsigned i = 0; i < kSnapValues; ++i) {
-      CHECK(s.snap[slot][i] == static_cast<float>(100 * slot + i));
-    }
-  }
-}
-
-TEST_CASE("project: a SNAP saved before RANGE and SUSTAIN (42 values a slot) loads, and the last two targets, 42 and 43, are filled from the sound as loaded") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  constexpr unsigned kOld = 42;
-  static_assert(kSnapTargetCount == kOld + 2 + 4, "the voice rewrite appended RANGE and SUSTAIN as targets 42 and 43, A2 the tract's four as 44..47");
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (!is(id, "SNAP")) {
-      return true;
-    }
-    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
-    for (unsigned s = 0; s < 8; ++s) {
-      for (unsigned i = 0; i < kOld; ++i) {
-        const float v = static_cast<float>(100 * s + i);
-        std::uint32_t bits;
-        std::memcpy(&bits, &v, 4);
-        for (int sh = 24; sh >= 0; sh -= 8) {
-          out.push_back(static_cast<std::uint8_t>(bits >> sh));
-        }
-      }
-    }
-    p = out;
-    return true;
-  });
-  project::ProjectState s;
-  REQUIRE(load(old, s).status == project::Status::Ok);
-  CHECK(s.snap_values == kOld);
-  Session b;
-  project::apply(b.rig, b.engine, s);
-  REQUIRE(b.rig.wiring.snaps.used(0));
-  float live[kSnapValues];
-  b.rig.controls.snap_capture(b.engine, live);
-  const project::ProjectState g = b.gather();
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
-    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
-  }
-  // The sound they are filled from is the project's: RANGE and SUSTAIN as loaded (the scramble leaves them at their defaults).
-  CHECK(live[42] == doctest::Approx(a.engine.param(a.rig.wiring.voice, AcidVoice::Range)));
-  CHECK(live[43] == doctest::Approx(a.engine.param(a.rig.wiring.voice, AcidVoice::Sustain)));
-}
-
-TEST_CASE("project: a SNAP saved before the tract (44 values a slot) loads, and the tract's four targets, 44 to 47, are filled from the sound as loaded (the tract stays as it is)") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  constexpr unsigned kOld = 44;
-  static_assert(kSnapTargetCount == kOld + 4, "A2 appended the tract's VOWEL, TONGUE, LIPS and TRC MIX as targets 44 to 47");
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (!is(id, "SNAP")) {
-      return true;
-    }
-    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
-    for (unsigned s = 0; s < 8; ++s) {
-      for (unsigned i = 0; i < kOld; ++i) {
-        const float v = static_cast<float>(100 * s + i);
-        std::uint32_t bits;
-        std::memcpy(&bits, &v, 4);
-        for (int sh = 24; sh >= 0; sh -= 8) {
-          out.push_back(static_cast<std::uint8_t>(bits >> sh));
-        }
-      }
-    }
-    p = out;
-    return true;
-  });
-  project::ProjectState s;
-  REQUIRE(load(old, s).status == project::Status::Ok);
-  CHECK(s.snap_values == kOld);
-  Session b;
-  project::apply(b.rig, b.engine, s);
-  REQUIRE(b.rig.wiring.snaps.used(0));
-  float live[kSnapValues];
-  b.rig.controls.snap_capture(b.engine, live);
-  const project::ProjectState g = b.gather();
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
-    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
-  }
-  // The sound they are filled from is the project's: the tract's four as loaded (a recall of an old snapshot leaves the tract where it is).
-  for (unsigned i = 44; i < kSnapTargetCount; ++i) {
-    CHECK(live[i] == doctest::Approx(b.rig.controls.get(b.engine, snap_target(i))));
-    CHECK(g.snap[0][i] == doctest::Approx(live[i]));
-  }
-  CHECK(live[47] == doctest::Approx(a.engine.param(a.rig.wiring.tract, TractFx::Mix)));
-}
-
-TEST_CASE("project: a project saved without RANGE and SUSTAIN (no SND entry for them) loads them at their defaults") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  Session b;
-  b.engine.set_param(b.rig.wiring.voice, AcidVoice::Range, 1.0f);
-  b.engine.set_param(b.rig.wiring.voice, AcidVoice::Sustain, 0.8f);
-  project::ProjectState s;
-  REQUIRE(load(img, s).status == project::Status::Ok);
-  // The file of the voice before the rewrite: drop the voice's entries for ids 20 and 21 (the voice's target is kLaneVoice).
-  unsigned kept = 0;
-  for (unsigned i = 0; i < s.sound_n; ++i) {
-    const project::SoundEntry& en = s.sound[i];
-    if (en.target == kLaneVoice && (en.id == AcidVoice::Range || en.id == AcidVoice::Sustain)) {
-      continue;
-    }
-    s.sound[kept++] = en;
-  }
-  s.sound_n = kept;
-  project::apply(b.rig, b.engine, s);
-  CHECK(b.engine.param(b.rig.wiring.voice, AcidVoice::Range) == 0.0f);
-  CHECK(b.engine.param(b.rig.wiring.voice, AcidVoice::Sustain) == 0.0f);
-}
-
-TEST_CASE("project: a SNAP saved before P2 (18 values a slot) loads, and the growl's four targets are filled from the sound as loaded") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  constexpr unsigned kOld = 18;  // the targets of kSnapTargetCount before P2: SOUND, distortion, delay, level, send
-  static_assert(kSnapTargetCount == kOld + 4 + 14 + 6 + 2 + 4, "P2 appended VOWEL, FMT Q, GRL MIX and CMB MIX, MODS S2 the eleven mods and FMT MIX, CMB TUNE, CMB FB, B5a the wobble's six, the voice rewrite RANGE and SUSTAIN, A2 the tract's four");
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (!is(id, "SNAP")) {
-      return true;
-    }
-    // slots 8, values 18, used = slots 0 and 6, then 8 x 18 floats: slot s value i = 100 s + i
-    std::vector<std::uint8_t> out = {p[0], p[1], 8, kOld, 0x41};
-    for (unsigned s = 0; s < 8; ++s) {
-      for (unsigned i = 0; i < kOld; ++i) {
-        const float v = static_cast<float>(100 * s + i);
-        std::uint32_t bits;
-        std::memcpy(&bits, &v, 4);
-        for (int sh = 24; sh >= 0; sh -= 8) {
-          out.push_back(static_cast<std::uint8_t>(bits >> sh));
-        }
-      }
-    }
-    p = out;
-    return true;
-  });
-  project::ProjectState s;
-  REQUIRE(load(old, s).status == project::Status::Ok);
-  CHECK(s.snap_values == kOld);
-  CHECK(s.snap_used == 0x41);
-
-  Session b;
-  project::apply(b.rig, b.engine, s);
-  REQUIRE(b.rig.wiring.snaps.used(0));
-  REQUIRE(b.rig.wiring.snaps.used(6));
-  CHECK_FALSE(b.rig.wiring.snaps.used(1));
-  float live[kSnapValues];
-  b.rig.controls.snap_capture(b.engine, live);
-  const project::ProjectState g = b.gather();
-  for (unsigned i = 0; i < kSnapTargetCount; ++i) {
-    // The old targets keep what the file held; the new ones are the sound as loaded (the growl's vowel, Q, mix and comb mix of the project, then the mods').
-    CHECK(g.snap[0][i] == (i < kOld ? static_cast<float>(i) : live[i]));
-    CHECK(g.snap[6][i] == (i < kOld ? static_cast<float>(600 + i) : live[i]));
-  }
-  CHECK(live[18] == doctest::Approx(a.engine.param(a.rig.wiring.growl, Growl::Vowel)));  // the saved sound's, scrambled away from the defaults
-  CHECK(live[21] == doctest::Approx(a.engine.param(a.rig.wiring.growl, Growl::CombMix)));
-  CHECK(live[18] != doctest::Approx(0.0f));
-  // Written again, the file has all the targets.
-  const std::vector<std::uint8_t> again = encode_session(b);
-  project::ProjectState s2;
-  REQUIRE(load(again, s2).status == project::Status::Ok);
-  CHECK(s2.snap_values == kSnapTargetCount);
-}
-
-TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, and a project of the format before loads with the new defaults") {
+TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, and a project without the latch's entry has it off") {
   Session a;
   scramble(a);
   a.rig.wiring.wobble = WobbleSettings{5, 1, 33, true, kWobbleCutoff};
@@ -1168,7 +911,7 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
   project::apply(b.rig, b.engine, s);
   CHECK(b.rig.wiring.wob_want == 0);
 
-  // The image of the format before B5a, from real bytes: no SND entry for the latch (app id 9) and 36 values a SNAP slot.
+  // An image with no SND entry for the latch (app id 9): the latch ends off.
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "SND ")) {
       std::vector<std::uint8_t> out(p.begin(), p.begin() + 4);
@@ -1186,15 +929,6 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
       out[2] = static_cast<std::uint8_t>(kept >> 8);
       out[3] = static_cast<std::uint8_t>(kept);
       p = out;
-    } else if (is(id, "SNAP")) {
-      constexpr unsigned kBefore = 36;
-      const unsigned n = p[3];
-      std::vector<std::uint8_t> out = {p[0], p[1], p[2], kBefore, p[4]};
-      for (unsigned slot = 0; slot < p[2]; ++slot) {
-        const auto first = p.begin() + 5 + static_cast<std::ptrdiff_t>(slot * n * 4);
-        out.insert(out.end(), first, first + kBefore * 4);
-      }
-      p = out;
     }
     return true;
   });
@@ -1205,20 +939,16 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
   Session c;
   c.rig.wiring.wob_want = 1;  // a session with the latch on: the old project has none, so it ends off
   REQUIRE(load(old, s).status == project::Status::Ok);
-  CHECK(s.snap_values == 36);
   project::apply(c.rig, c.engine, s);
   CHECK(c.rig.wiring.wob_want == 0);
   CHECK(c.rig.wiring.wobble.rate == 5);  // what the file held stays
-  float live[kSnapValues];
-  c.rig.controls.snap_capture(c.engine, live);
-  const project::ProjectState g = c.gather();
-  for (unsigned slot : {0u, 3u, 7u}) {
-    for (unsigned i = kSnapWobbleFirst; i < kSnapTargetCount; ++i) {
-      CHECK(g.snap[slot][i] == live[i]);  // the six new targets are the sound as loaded
+  // A project whose SND holds no entry: every default is the new one.
+  const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "SND ")) {
+      p = {2, 0, 0, 0};  // an SND chunk with no entries
     }
-  }
-  // A project with no SND at all: every default is the new one.
-  const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "SND "); });
+    return true;
+  });
   REQUIRE(load(nosnd, s).status == project::Status::Ok);
   project::apply(c.rig, c.engine, s);
   CHECK_FALSE(c.rig.wiring.wobble.reset);                                  // RESET defaults off
@@ -1227,7 +957,7 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
   CHECK_FALSE(c.sequencer->wobble().reset_on_note);
 }
 
-TEST_CASE("project: F13a, MODS on or off and the growl's last mix are saved, and a project of the format before loads with the mods heard and 50 %") {
+TEST_CASE("project: F13a, MODS on or off and the growl's last mix are saved, and a project with neither entry loads with the mods heard and 50 %") {
   Session a;
   scramble(a);
   a.rig.controls.set(a.engine, Entry{Item::Mods, 0, nullptr}, 0.0f);  // MODS off: STOCK on
@@ -1253,7 +983,7 @@ TEST_CASE("project: F13a, MODS on or off and the growl's last mix are saved, and
   CHECK_FALSE(c.rig.wiring.stock);
   CHECK(c.engine.param(c.rig.wiring.voice, AcidVoice::Stock) == 0.0f);
 
-  // The format before: no SND entry for either (app ids 10 and 11). The session's STOCK ends and the mix is 50 %.
+  // No SND entry for either (app ids 10 and 11). The session's STOCK ends and the mix is 50 %.
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "SND ")) {
       std::vector<std::uint8_t> out(p.begin(), p.begin() + 4);
@@ -1283,7 +1013,7 @@ TEST_CASE("project: F13a, MODS on or off and the growl's last mix are saved, and
   CHECK(d.rig.wiring.growl_last_mix == doctest::Approx(0.5f));
 }
 
-TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane round-trip; a project of v0.6.0's shape loads with TRACT at Mix 0 and a last mix of 50 %") {
+TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane round-trip; a project with no entry for the tract loads with TRACT at Mix 0 and a last mix of 50 %") {
   Session a;
   const Wiring& wa = a.rig.wiring;
   CHECK(static_cast<unsigned>(kLaneTract) == 7u);
@@ -1317,7 +1047,7 @@ TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane roun
   CHECK(got.lanes[6].id == TractFx::Mix);
   CHECK(encode_session(b) == img);
 
-  // v0.6.0's shape: no SND entry of target 7 (the tract's parameters) and none for the app value kAppTractLastMix.
+  // No SND entry of target 7 (the tract's parameters) and none for the app value kAppTractLastMix.
   const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& pl) {
     if (is(id, "SND ")) {
       std::vector<std::uint8_t> out(pl.begin(), pl.begin() + 4);
@@ -1348,32 +1078,9 @@ TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane roun
   CHECK(d.rig.wiring.tract_last_mix == doctest::Approx(0.5f));
 }
 
-// The image without the SND entries of the app value `app_id` (an older build never wrote it).
-bool drop_app_entry(const char (&id)[4], std::vector<std::uint8_t>& pl, unsigned app_id) {
-  if (!is(id, "SND ")) {
-    return true;
-  }
-  std::vector<std::uint8_t> out(pl.begin(), pl.begin() + 4);
-  unsigned kept = 0;
-  const unsigned n = (static_cast<unsigned>(pl[2]) << 8) | pl[3];
-  for (unsigned i = 0; i < n; ++i) {
-    const std::uint8_t* en = &pl[4 + i * 8];
-    const unsigned pid = (static_cast<unsigned>(en[2]) << 8) | en[3];
-    if (en[0] == project::kSndApp && pid == app_id) {
-      continue;
-    }
-    out.insert(out.end(), en, en + 8);
-    ++kept;
-  }
-  out[2] = static_cast<std::uint8_t>(kept >> 8);
-  out[3] = static_cast<std::uint8_t>(kept);
-  pl = out;
-  return true;
-}
-
 bool same_line(const TractLine& a, const TractLine& b) { return std::memcmp(&a, &b, sizeof(TractLine)) == 0; }
 
-TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, in a chunk of their own after PATS") {
+TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, inside PATS") {
   Session a;
   scramble(a);  // random lines (steps, GLD, lengths) in all 48 patterns, LINE on
   bool any_vowel = false;
@@ -1390,27 +1097,6 @@ TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, in a c
   REQUIRE((any_vowel && any_glide && any_len));
   const std::vector<std::uint8_t> img = encode_session(a);
 
-  // The layout: PATS keeps its 2,260 bytes a pattern, TRCT follows it with 48 lines of 68 bytes.
-  std::vector<std::string> order;
-  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
-    order.emplace_back(id, 4);
-    if (is(id, "PATS")) {
-      CHECK(p.size() == 5 + kPatternCount * 2260u);
-      CHECK(p[2] == kPatternCount);
-      CHECK(((static_cast<unsigned>(p[3]) << 8) | p[4]) == 2260u);
-    }
-    if (is(id, "TRCT")) {
-      CHECK(p.size() == 5 + kPatternCount * 68u);
-      CHECK(p[0] == 1);  // major 1
-      CHECK(p[2] == kPatternCount);
-      CHECK(((static_cast<unsigned>(p[3]) << 8) | p[4]) == 68u);
-      CHECK(std::memcmp(&p[5], &a.bank->pattern(0).tract, 68) == 0);
-    }
-    return true;
-  });
-  const auto at = [&](const char* id) { return std::find(order.begin(), order.end(), std::string(id, 4)) - order.begin(); };
-  CHECK(at("TRCT") == at("PATS") + 1);
-
   project::ProjectState s;
   const project::Result res = load(img, s);
   REQUIRE(res.status == project::Status::Ok);
@@ -1423,7 +1109,7 @@ TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, in a c
   CHECK(b.sequencer->tract_line_on());
   CHECK(encode_session(b) == img);
 
-  // LINE off is saved as off, whatever the lines hold (the rule for a missing entry is only for older files).
+  // LINE off is saved as off, whatever the lines hold.
   a.sequencer->set_tract_line(false);
   const std::vector<std::uint8_t> off = encode_session(a);
   REQUIRE(load(off, s).status == project::Status::Ok);
@@ -1432,200 +1118,6 @@ TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, in a c
   REQUIRE(project::apply(c.rig, c.engine, s));
   CHECK_FALSE(c.sequencer->tract_line_on());
   CHECK(same_line(c.bank->pattern(5).tract, a.bank->pattern(5).tract));
-}
-
-TEST_CASE("project: A1b, a file from before the line loads with every line empty and LINE off (on only if a line holds vowels)") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-
-  // No TRCT, no LINE entry: the shape of v0.6.0 and of every project before A1b.
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    return !is(id, "TRCT") && drop_app_entry(id, p, project::kAppTractLine);
-  });
-  project::ProjectState s;
-  const project::Result res = load(old, s);
-  REQUIRE(res.status == project::Status::Ok);
-  CHECK(res.skipped == 0);
-  CHECK(s.trct == nullptr);
-  Session b;
-  b.sequencer->set_tract_line(true);  // what the session had: the load takes it back
-  REQUIRE(project::apply(b.rig, b.engine, s));
-  TractLine empty;
-  tract_clear(empty);
-  for (unsigned i = 0; i < kPatternCount; ++i) {
-    CHECK(same_line(b.bank->pattern(i).tract, empty));
-    // the notes are the file's own: all but the line
-    CHECK(std::memcmp(&b.bank->pattern(i), &a.bank->pattern(i), kPatBytes) == 0);
-  }
-  CHECK_FALSE(b.sequencer->tract_line_on());
-
-  // No LINE entry but a TRCT with vowels in it (a file this build wrote with the entry lost): the rule turns LINE on.
-  const auto lost = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) { return drop_app_entry(id, p, project::kAppTractLine); });
-  REQUIRE(load(lost, s).status == project::Status::Ok);
-  Session c;
-  REQUIRE(project::apply(c.rig, c.engine, s));
-  CHECK(c.sequencer->tract_line_on());
-  CHECK(same_line(c.bank->pattern(7).tract, a.bank->pattern(7).tract));
-
-  // The entry says LINE on and the file has no TRCT: LINE on, the lines empty (the entry is what the file says).
-  const auto only_entry = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "TRCT"); });
-  REQUIRE(load(only_entry, s).status == project::Status::Ok);
-  Session d;
-  REQUIRE(project::apply(d.rig, d.engine, s));
-  CHECK(d.sequencer->tract_line_on());
-  CHECK(same_line(d.bank->pattern(7).tract, empty));
-
-  // A TRCT whose lines hold no vowel and no LINE entry: off.
-  Session e;
-  for (unsigned i = 0; i < kPatternCount; ++i) {
-    Pattern p = e.bank->pattern(i);
-    p.tract.step[2] = tract_make(kTractFollow, true);  // GLD on a "-" step is not a vowel
-    p.tract.len = 8;
-    (void)e.bank->restore(i, p);
-  }
-  const auto novowel = rebuild(encode_session(e), [](char (&id)[4], std::vector<std::uint8_t>& p) { return drop_app_entry(id, p, project::kAppTractLine); });
-  REQUIRE(load(novowel, s).status == project::Status::Ok);
-  Session f;
-  f.sequencer->set_tract_line(true);
-  REQUIRE(project::apply(f.rig, f.engine, s));
-  CHECK_FALSE(f.sequencer->tract_line_on());
-  CHECK(f.bank->pattern(4).tract.len == 8);
-}
-
-TEST_CASE("project: A1b, a damaged TRCT is skipped or brought into range and never takes the file down") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  project::ProjectState s;
-  TractLine empty;
-  tract_clear(empty);
-
-  // Lines of another size: the chunk is skipped, every line is empty.
-  const auto other = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "TRCT")) {
-      p[4] = 69;
-    }
-    return true;
-  });
-  const project::Result r1 = load(other, s);
-  REQUIRE(r1.status == project::Status::Ok);
-  CHECK(r1.skipped == 1);
-  Session b;
-  REQUIRE(project::apply(b.rig, b.engine, s));
-  CHECK(same_line(b.bank->pattern(9).tract, empty));
-  CHECK(same_pattern(b.bank->pattern(9), [&] { Pattern p = a.bank->pattern(9); p.tract = empty; return p; }()));
-
-  // A major this build cannot read: skipped too.
-  const auto newer = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "TRCT")) {
-      p[0] = 2;
-    }
-    return true;
-  });
-  REQUIRE(load(newer, s).status == project::Status::Ok);
-  CHECK(s.trct == nullptr);
-
-  // Fewer lines than 48 (here 5): the others are empty.
-  const auto few = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "TRCT")) {
-      p[2] = 5;
-      p.resize(5 + 5 * sizeof(TractLine));
-    }
-    return true;
-  });
-  REQUIRE(load(few, s).status == project::Status::Ok);
-  Session c;
-  REQUIRE(project::apply(c.rig, c.engine, s));
-  CHECK(same_line(c.bank->pattern(4).tract, a.bank->pattern(4).tract));
-  CHECK(same_line(c.bank->pattern(5).tract, empty));
-
-  // A count the payload cannot hold: skipped.
-  const auto many = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "TRCT")) {
-      p[2] = 60;
-    }
-    return true;
-  });
-  CHECK(load(many, s).skipped == 1);
-
-  // Values out of range are brought into range: a vowel above U is "-", a length that is not SAME or 4..64 is SAME, the unused bits go.
-  const auto wild = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "TRCT")) {
-      p[5 + 0] = 0x07;         // vowel 7
-      p[5 + 1] = 0x4Au;        // unused bits and vowel 2 (E)
-      p[5 + 2] = 0x80u | 0x06; // GLD and vowel 6
-      p[5 + 64] = 12;          // length 12
-      p[5 + 65] = 0xFFu;       // reserved
-    }
-    return true;
-  });
-  REQUIRE(load(wild, s).status == project::Status::Ok);
-  Session d;
-  REQUIRE(project::apply(d.rig, d.engine, s));
-  const TractLine& w = d.bank->pattern(0).tract;
-  CHECK(w.step[0] == kTractFollow);
-  CHECK(w.step[1] == kTractE);
-  CHECK(w.step[2] == kTractGlide);
-  CHECK(w.len == kTractSame);
-  CHECK(w.reserved[0] == 0);
-
-  // TRCT twice: the first one counts.
-  std::vector<std::uint8_t> first;
-  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "TRCT")) {
-      first = p;
-    }
-    return true;
-  });
-  std::vector<std::uint8_t> zeros = first;
-  std::fill(zeros.begin() + 5, zeros.end(), std::uint8_t{0});
-  const auto twice = rebuild(img, [](char (&)[4], std::vector<std::uint8_t>&) { return true; }, {{"TRCT", zeros}});
-  const project::Result r2 = load(twice, s);
-  REQUIRE(r2.status == project::Status::Ok);
-  CHECK(r2.skipped == 1);
-  Session e;
-  REQUIRE(project::apply(e.rig, e.engine, s));
-  CHECK(same_line(e.bank->pattern(2).tract, a.bank->pattern(2).tract));
-}
-
-TEST_CASE("project: A1b, a reader of v0.6.0's shape (PATS of 2,260 bytes, every other chunk it does not know skipped) still reads a file with a TRCT chunk") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-
-  // What the v0.6.0 reader does with the image: the container (magic, length, CRC) opens, the chunks it knows are read by their own layout, the others are skipped.
-  chunk::Reader r;
-  REQUIRE(r.open(img.data(), img.size(), "303P") == chunk::Error::None);
-  chunk::Chunk c;
-  unsigned heads = 0;
-  unsigned pats = 0;
-  unsigned unknown = 0;
-  unsigned patterns_read = 0;
-  while (r.next(c)) {
-    const std::string id(c.id, 4);
-    if (id == "HEAD") {
-      ++heads;
-    } else if (id == "PATS") {
-      ++pats;
-      REQUIRE(c.size == 5 + kPatternCount * 2260u);
-      const unsigned count = c.data[2];
-      const unsigned bytes = (static_cast<unsigned>(c.data[3]) << 8) | c.data[4];
-      CHECK(count == 48);
-      CHECK(bytes == 2260);  // the v0.6.0 reader refuses any other size
-      for (unsigned i = 0; i < count; ++i) {
-        // v0.6.0's pattern is these 2,260 bytes: the notes, the motion, the lanes, and nothing of the line
-        CHECK(std::memcmp(c.data + 5 + i * bytes, &a.bank->pattern(i), 2260) == 0);
-        ++patterns_read;
-      }
-    } else if (id == "TRCT") {
-      ++unknown;  // not in v0.6.0's list: skipped by its length
-    }
-  }
-  CHECK(heads == 1);
-  CHECK(pats == 1);
-  CHECK(unknown == 1);
-  CHECK(patterns_read == 48);
 }
 
 TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {
@@ -1646,63 +1138,11 @@ TEST_CASE("project: gathering a session leaves the snapshots' morph alone") {
   CHECK(s.snap[3][2] == doctest::Approx(30.0f + 2.0f * 0.37f - 1.0f));
 }
 
-TEST_CASE("project: patterns of another size or fewer of them; out of range fields are brought into range") {
+TEST_CASE("project: out of range fields of a file with a good CRC are brought into range") {
   Session a;
   scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
-
-  // PATS with another pattern size: the part is skipped, every pattern is the fresh one (with its line, TRCT is a chunk of its own).
-  const auto other = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p[4] = static_cast<std::uint8_t>(p[4] + 1);  // bytes a pattern 2,261
-    }
-    return true;
-  });
-  const project::Result r1 = load(other, s);
-  REQUIRE(r1.status == project::Status::Ok);
-  CHECK(r1.skipped == 1);
-  CHECK(s.pats == nullptr);
   Session b;
-  project::apply(b.rig, b.engine, s);
-  Pattern fresh;
-  clear(fresh);
-  // The lines come from the TRCT chunk, which is read on its own: a skipped PATS leaves them in.
-  const auto with_line = [&](unsigned i) {
-    Pattern p = fresh;
-    p.tract = a.bank->pattern(i).tract;
-    return p;
-  };
-  for (unsigned i = 0; i < kPatternCount; ++i) {
-    CHECK(same_pattern(b.bank->pattern(i), with_line(i)));
-  }
-
-  // Fewer patterns than 48 (here 5): the others are fresh (with their lines).
-  const auto few = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p[2] = 5;
-      p.resize(5 + 5 * kPatBytes);
-    }
-    return true;
-  });
-  REQUIRE(load(few, s).status == project::Status::Ok);
-  CHECK(s.pats_n == 5);
-  project::apply(b.rig, b.engine, s);
-  for (unsigned i = 0; i < kPatternCount; ++i) {
-    CHECK(same_pattern(b.bank->pattern(i), i < 5 ? a.bank->pattern(i) : with_line(i)));
-  }
-
-  // A pattern chunk shorter than it says is skipped.
-  const auto cut = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p.resize(p.size() - 10);
-    }
-    return true;
-  });
-  const project::Result r3 = load(cut, s);
-  REQUIRE(r3.status == project::Status::Ok);
-  CHECK(r3.skipped == 1);
-  CHECK(s.pats == nullptr);
 
   // Fields a sequencer indexes with, out of range in a file whose CRC is good: clamped (a length of 65, a note of 200, a lane of target 99, ...).
   Pattern bad = random_pattern(3);
@@ -1749,7 +1189,7 @@ TEST_CASE("project: the image fits its buffer, at the fullest too, and an apply 
   project::ProjectState s = a.gather();
   const std::size_t typical = project::encode(s, *a.bank, project::buffer(), project::kProjectBytes);
   CHECK(typical > 108'000);
-  CHECK(typical < 116'000);  // PATS 48 x 2,260 plus TRCT 3,269
+  CHECK(typical < 116'000);  // PATS is 48 x sizeof(Pattern)
 
   // SND full: still inside the buffer, with the song's reserve left over.
   s.sound_n = project::kMaxSound;
@@ -1857,7 +1297,7 @@ void push_f32(std::vector<std::uint8_t>& v, float f) {
 
 // An SND payload of `n` entries of the voice's Cutoff (and the header's count `claimed`).
 std::vector<std::uint8_t> sound_payload(unsigned n, unsigned claimed, float value) {
-  std::vector<std::uint8_t> p = {1, 0, static_cast<std::uint8_t>(claimed >> 8), static_cast<std::uint8_t>(claimed)};
+  std::vector<std::uint8_t> p = {2, 0, static_cast<std::uint8_t>(claimed >> 8), static_cast<std::uint8_t>(claimed)};
   for (unsigned i = 0; i < n; ++i) {
     p.insert(p.end(), {kLaneVoice, 0, 0, static_cast<std::uint8_t>(AcidVoice::Cutoff)});
     push_f32(p, value);
@@ -1866,38 +1306,6 @@ std::vector<std::uint8_t> sound_payload(unsigned n, unsigned claimed, float valu
 }
 
 }  // namespace
-
-TEST_CASE("project: patterns_ok says whether the file's patterns were read") {
-  Session a;
-  scramble(a);
-  const std::vector<std::uint8_t> img = encode_session(a);
-  project::ProjectState s;
-  CHECK(load(img, s).patterns_ok);
-
-  const auto other = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p[4] = static_cast<std::uint8_t>(p[4] + 1);
-    }
-    return true;
-  });
-  project::Result r = load(other, s);
-  CHECK(r.status == project::Status::Ok);
-  CHECK_FALSE(r.patterns_ok);
-
-  const auto newer = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p[0] = 2;
-    }
-    return true;
-  });
-  r = load(newer, s);
-  CHECK(r.status == project::Status::Ok);
-  CHECK_FALSE(r.patterns_ok);
-  CHECK(r.skipped == 1);
-
-  const auto none = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "PATS"); });
-  CHECK_FALSE(load(none, s).patterns_ok);
-}
 
 TEST_CASE("project: an encode between decode and apply makes apply refuse, and touch nothing") {
   Session a;
@@ -1928,97 +1336,33 @@ TEST_CASE("project: an encode between decode and apply makes apply refuse, and t
   CHECK(project::apply(b.rig, b.engine, fresh));
 }
 
-TEST_CASE("project: short and oversized payloads skip their part and nothing else") {
+TEST_CASE("project: a short payload, or a count the payload cannot hold, makes the file damaged") {
   Session a;
   scramble(a);
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
-  const seq::GenParams def;
 
-  // Short GEN, SND, SNAP: skipped, the rest is read.
-  const auto shorts = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "GEN ")) {
-      p.resize(5);
-    } else if (is(id, "SND ")) {
-      p.resize(4 + 8 * 3 + 5);  // says 41 entries, holds three and a bit
-    } else if (is(id, "SNAP")) {
-      p.resize(p.size() - 7);
-    }
-    return true;
-  });
-  project::Result r = load(shorts, s);
-  REQUIRE(r.status == project::Status::Ok);
-  CHECK(r.skipped == 3);
-  CHECK(s.gen.density == def.density);
-  CHECK(s.sound_n == 0);
-  CHECK(s.snap_used == 0);
-  CHECK(s.selected == 17);
-  CHECK(r.patterns_ok);
-  CHECK(s.perf[1] == static_cast<std::uint8_t>(PerfAction::Wobble));
+  const auto with = [&](const char* chunk_id, const std::function<void(std::vector<std::uint8_t>&)>& fn) {
+    return rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
+      if (is(id, chunk_id)) {
+        fn(p);
+      }
+      return true;
+    });
+  };
+  // Short GEN, SND, SNAP, PERF: each is a chunk of the format that does not read.
+  CHECK(load(with("GEN ", [](std::vector<std::uint8_t>& p) { p.resize(5); }), s).status == project::Status::Damaged);
+  CHECK(load(with("SND ", [](std::vector<std::uint8_t>& p) { p.resize(4 + 8 * 3 + 5); }), s).status == project::Status::Damaged);  // says many entries, holds three and a bit
+  CHECK(load(with("SNAP", [](std::vector<std::uint8_t>& p) { p.resize(p.size() - 7); }), s).status == project::Status::Damaged);
+  CHECK(load(with("PERF", [](std::vector<std::uint8_t>& p) { p.resize(4); }), s).status == project::Status::Damaged);
+  CHECK(load(with("PERF", [](std::vector<std::uint8_t>& p) { p.resize(1); }), s).status == project::Status::Damaged);
 
-  // A count that the payload cannot hold: SND n = 65535, SNAP 255 slots of 255 values.
-  const auto big = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "SND ")) {
-      p[2] = 0xFF;
-      p[3] = 0xFF;
-    } else if (is(id, "SNAP")) {
-      p[2] = 255;
-      p[3] = 255;
-    }
-    return true;
-  });
-  r = load(big, s);
-  REQUIRE(r.status == project::Status::Ok);
-  CHECK(r.skipped == 2);
-  CHECK(s.sound_n == 0);
-  CHECK(s.snap_used == 0);
-
-  // PERF: a short one gives the buttons it has and keeps the others' defaults; one with half a version is skipped.
-  const auto perf2 = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      p.resize(4);
-    }
-    return true;
-  });
-  r = load(perf2, s);
-  REQUIRE(r.status == project::Status::Ok);
-  CHECK(s.perf[0] == static_cast<std::uint8_t>(PerfAction::Reverse));
-  CHECK(s.perf[1] == static_cast<std::uint8_t>(PerfAction::Wobble));
-  CHECK(s.perf[2] == kDefaultPerf[2]);
-  CHECK(s.perf[3] == kDefaultPerf[3]);
-  const auto perf1 = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      p.resize(1);
-    }
-    return true;
-  });
-  r = load(perf1, s);
-  REQUIRE(r.status == project::Status::Ok);
-  CHECK(r.skipped == 1);
-  CHECK(s.perf[0] == kDefaultPerf[0]);
-
-  // PATS: a count above 48 (here 52) with the bytes for it keeps 48; a count the payload cannot hold is skipped.
-  const auto many = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p[2] = 52;
-      p.resize(p.size() + 4 * kPatBytes, 0x55);
-    }
-    return true;
-  });
-  r = load(many, s);
-  REQUIRE(r.status == project::Status::Ok);
-  CHECK(r.patterns_ok);
-  CHECK(s.pats_n == kPatternCount);
-  const auto toomany = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PATS")) {
-      p[2] = 255;
-    }
-    return true;
-  });
-  r = load(toomany, s);
-  REQUIRE(r.status == project::Status::Ok);
-  CHECK_FALSE(r.patterns_ok);
-  CHECK(r.skipped == 1);
+  // A count that the payload cannot hold: SND n = 65535, SNAP 255 slots of 255 values, PATS 255 patterns.
+  CHECK(load(with("SND ", [](std::vector<std::uint8_t>& p) { p[2] = 0xFF; p[3] = 0xFF; }), s).status == project::Status::Damaged);
+  CHECK(load(with("SNAP", [](std::vector<std::uint8_t>& p) { p[2] = 255; p[3] = 255; }), s).status == project::Status::Damaged);
+  CHECK(load(with("PATS", [](std::vector<std::uint8_t>& p) { p[2] = 255; }), s).status == project::Status::Damaged);
+  // More patterns than this build has, even with the bytes for them: another layout, so damaged too.
+  CHECK(load(with("PATS", [](std::vector<std::uint8_t>& p) { p[2] = 52; p.resize(p.size() + 4 * sizeof(Pattern), 0x55); }), s).status == project::Status::Damaged);
 }
 
 TEST_CASE("project: a name with no NUL, more entries than a state holds, and values that are not numbers") {
@@ -2148,7 +1492,7 @@ TEST_CASE("project: an autosave gathered during a tempo nudge stores the tempo t
 }
 
 // F3 review: the save counter of HEAD 1.1 (boot and LOAD take the newest of live.o3a and project.o3a by it).
-TEST_CASE("project: HEAD 1.1 carries the save counter; a 1.0 HEAD reads as 0; small_crc ignores it") {
+TEST_CASE("project: HEAD carries the save counter; small_crc ignores it") {
   Session a;
   scramble(a);
   project::ProjectState st = a.gather();
@@ -2162,27 +1506,13 @@ TEST_CASE("project: HEAD 1.1 carries the save counter; a 1.0 HEAD reads as 0; sm
   REQUIRE(load(img, back).status == project::Status::Ok);
   CHECK(back.save_count == 0xA1B2C3D4u);
 
-  // A HEAD of version 1.0 ends at the name: the counter is 0 and the rest is read as before.
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "HEAD")) {
-      p[1] = 0;  // minor 0
-      p.resize(p.size() - 4);
-    }
-    return true;
-  });
-  project::ProjectState o;
-  REQUIRE(load(old, o).status == project::Status::Ok);
-  CHECK(o.save_count == 0u);
-  CHECK(o.tempo_mbpm == back.tempo_mbpm);
-  CHECK(std::string(o.name) == "JAM ONE");
-
   // The counter moves with every write: it is no change of the session.
   project::ProjectState other = st;
   other.save_count = 7;
   CHECK(project::small_crc(st) == project::small_crc(other));
 }
 
-TEST_CASE("project: KNOBS' four sets and the set in use round-trip (PERF 1.2); a file without them gives the factory sets; a damaged row falls back to its factory knob") {
+TEST_CASE("project: KNOBS' four sets and the set in use round-trip; a damaged row falls back to its factory knob") {
   Session a;
   scramble(a);
   Wiring& w = a.rig.wiring;
@@ -2193,10 +1523,10 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip (PERF 1.2); a
   project::ProjectState s;
   REQUIRE(load(img, s).status == project::Status::Ok);
   CHECK(s.knob_set == 2);
-  CHECK(s.sets[0][0].target == kLaneGrowl);
-  CHECK(s.sets[0][0].id == Growl::Mix);
-  CHECK(s.sets[2][3].target == kLaneDelay);
-  CHECK(s.sets[2][3].id == 1);
+  CHECK(s.sets.row[1][0].target == kLaneGrowl);
+  CHECK(s.sets.row[1][0].id == Growl::Mix);
+  CHECK(s.sets.row[3][3].target == kLaneDelay);
+  CHECK(s.sets.row[3][3].id == 1);
   Session b;
   REQUIRE(project::apply(b.rig, b.engine, s));
   CHECK(b.rig.wiring.knob_set == 2);
@@ -2217,39 +1547,14 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip (PERF 1.2); a
   CHECK(!knob_set_is_factory(b.rig.wiring, 1));
   CHECK(knob_set_is_factory(b.rig.wiring, 2));
 
-  // The chunk of PERF 1.1 (the five slots, nothing after): sets 2..4 are the factory sets and set 1 is in use.
-  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      p[1] = 1;
-      p.resize(2 + kPerfButtons + 2 * kLadderRows);
-    }
-    return true;
-  });
-  project::ProjectState o;
-  REQUIRE(load(old, o).status == project::Status::Ok);
-  CHECK(o.knob_set == 0);
-  for (unsigned t = 0; t < kKnobSets - 1; ++t) {
-    for (unsigned pos = 0; pos < kKnobsPerSet; ++pos) {
-      CHECK(o.sets[t][pos].target == kKnobFactory.row[t + 1][pos].target);
-      CHECK(o.sets[t][pos].id == kKnobFactory.row[t + 1][pos].id);
-    }
-  }
-  Session c;
-  scramble(c);
-  knob_set_use(c.rig.wiring, 3);
-  REQUIRE(project::apply(c.rig, c.engine, o));
-  CHECK(c.rig.wiring.knob_set == 0);
-  CHECK(knob_set_is_factory(c.rig.wiring, 1));
-  CHECK(knob_set_is_factory(c.rig.wiring, 3));
-
   // A damaged row (a target past the table, then the voice's Stock) and a set in use past the last: the factory knob, and set 1.
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons + 2 * kLadderRows;
+      const std::size_t at = 2 + kPerfButtons;
       p[at] = 9;                                                       // the set in use
-      p[at + 1] = static_cast<std::uint8_t>(kLaneTargetCount);         // set 2 row 1
+      p[at + 1] = static_cast<std::uint8_t>(kLaneTargetCount);         // set 1 row 1
       p[at + 2] = 0;
-      p[at + 3] = kLaneVoice;                                          // set 2 row 2
+      p[at + 3] = kLaneVoice;                                          // set 1 row 2
       p[at + 4] = kLaneVoiceStock;
     }
     return true;
@@ -2257,10 +1562,10 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip (PERF 1.2); a
   project::ProjectState g;
   REQUIRE(load(bad, g).status == project::Status::Ok);
   CHECK(g.knob_set == 0);
-  CHECK(g.sets[0][0].target == kKnobFactory.row[1][0].target);
-  CHECK(g.sets[0][0].id == kKnobFactory.row[1][0].id);
-  CHECK(g.sets[0][1].target == kKnobFactory.row[1][1].target);
-  CHECK(g.sets[0][1].id == kKnobFactory.row[1][1].id);
+  CHECK(g.sets.row[0][0].target == kKnobFactory.row[0][0].target);
+  CHECK(g.sets.row[0][0].id == kKnobFactory.row[0][0].id);
+  CHECK(g.sets.row[0][1].target == kKnobFactory.row[0][1].target);
+  CHECK(g.sets.row[0][1].id == kKnobFactory.row[0][1].id);
 }
 
 TEST_CASE("project: KN4, a row-only knob (WOB RATE, MODS, ...) in a KNOBS set round-trips; an unknown row-only target or one with an id falls back to the factory knob") {
@@ -2272,12 +1577,12 @@ TEST_CASE("project: KN4, a row-only knob (WOB RATE, MODS, ...) in a KNOBS set ro
   w.knob_sets.row[2][3] = LaneRef{kRowWobOn, 0};                         // set 3 row 4: WOB
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
-  REQUIRE(load(img, s).status == project::Status::Ok);  // s.sets holds sets 2..4
-  CHECK(s.sets[2][0].target == kRowWobRate);
-  CHECK(s.sets[2][0].id == 0);
-  CHECK(s.sets[0][1].target == kRowMods);
-  CHECK(s.sets[0][1].id == 0);
-  CHECK(s.sets[1][3].target == kRowWobOn);
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  CHECK(s.sets.row[3][0].target == kRowWobRate);
+  CHECK(s.sets.row[3][0].id == 0);
+  CHECK(s.sets.row[1][1].target == kRowMods);
+  CHECK(s.sets.row[1][1].id == 0);
+  CHECK(s.sets.row[2][3].target == kRowWobOn);
   Session b;
   REQUIRE(project::apply(b.rig, b.engine, s));
   CHECK(b.rig.wiring.knob_sets.row[1][1].target == kRowMods);
@@ -2285,182 +1590,21 @@ TEST_CASE("project: KN4, a row-only knob (WOB RATE, MODS, ...) in a KNOBS set ro
   CHECK(b.rig.wiring.knob_sets.row[3][0].target == kRowWobRate);
   CHECK(encode_session(b) == img);
 
-  // A target past the row-only ones, and a row-only target with an id: the factory knob of that place (an older build does the same for every row-only target).
+  // A target past the row-only ones, and a row-only target with an id: the factory knob of that place.
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons + 2 * kLadderRows;
-      p[at + 1] = static_cast<std::uint8_t>(kRowOnlyEnd);  // set 2 row 1: past the table
+      const std::size_t at = 2 + kPerfButtons;
+      p[at + 1] = static_cast<std::uint8_t>(kRowOnlyEnd);  // set 1 row 1: past the table
       p[at + 2] = 0;
-      p[at + 3] = static_cast<std::uint8_t>(kRowWobRate);  // set 2 row 2: a row-only target does not take an id
+      p[at + 3] = static_cast<std::uint8_t>(kRowWobRate);  // set 1 row 2: a row-only target does not take an id
       p[at + 4] = 3;
     }
     return true;
   });
   project::ProjectState g;
   REQUIRE(load(bad, g).status == project::Status::Ok);
-  CHECK(g.sets[0][0].target == kKnobFactory.row[1][0].target);
-  CHECK(g.sets[0][0].id == kKnobFactory.row[1][0].id);
-  CHECK(g.sets[0][1].target == kKnobFactory.row[1][1].target);
-  CHECK(g.sets[0][1].id == kKnobFactory.row[1][1].id);
-}
-
-TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier format (the buttons only) loads with the default rows; bad rows fall back") {
-  Session a;
-  scramble(a);
-  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderHome3)] = LaneRef{kLaneDist, 2};  // set 1 is the set in use: the live rows follow it (KN3)
-  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderHome4)] = LaneRef{kLaneVoice, 12};
-  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderKnobs1)] = LaneRef{kLaneGrowl, 2};
-  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderKnobs2)] = LaneRef{kLaneMixer, kMixerSendA};
-  knob_set_use(a.rig.wiring, 0);
-  a.rig.wiring.ladder[kLadderRetired] = LaneRef{kLaneDelay, 1};
-  const std::vector<std::uint8_t> img = encode_session(a);
-  project::ProjectState s;
-  REQUIRE(load(img, s).status == project::Status::Ok);
-  CHECK(s.ladder[kLadderKnobs1].target == kLaneGrowl);
-  CHECK(s.ladder[kLadderKnobs1].id == 2);
-  CHECK(s.ladder[kLadderKnobs2].target == kLaneMixer);
-  CHECK(s.ladder[kLadderKnobs2].id == kMixerSendA);
-  CHECK(s.ladder[0].target == kLaneDist);
-  CHECK(s.ladder[0].id == 2);
-  CHECK(s.ladder[1].target == kLaneVoice);
-  CHECK(s.ladder[1].id == 12);
-  CHECK(s.ladder[2].target == kLaneNone);  // KN1: slot 2 is written and ignored at load
-  CHECK(s.ladder[2].id == 0);
-  Session b;
-  REQUIRE(project::apply(b.rig, b.engine, s));
-  for (unsigned r = 0; r < kLadderRows; ++r) {
-    if (r == kLadderRetired) {
-      continue;
-    }
-    CHECK(b.rig.wiring.ladder[r].target == a.rig.wiring.ladder[r].target);
-    CHECK(b.rig.wiring.ladder[r].id == a.rig.wiring.ladder[r].id);
-  }
-
-  // The image as the build before B4 wrote it: the PERF chunk is the version and the four buttons, byte for byte, nothing after them.
-  std::size_t perf_now = 0;
-  const auto old = rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      perf_now = p.size();
-      const std::uint8_t earlier[2 + kPerfButtons] = {p[0], p[1], 1, 2, 3, 0};
-      p.assign(earlier, earlier + sizeof earlier);
-    }
-    return true;
-  });
-  REQUIRE(perf_now == 2 + kPerfButtons + 2 * kLadderRows + 1 + 3 * kKnobsPerSet * 2);  // KN3: the set in use and sets 2..4 after the five slots
-  project::ProjectState o;
-  const project::Result res = load(old, o);
-  REQUIRE(res.status == project::Status::Ok);
-  CHECK(res.skipped == 0);
-  CHECK(o.perf[0] == 1);
-  CHECK(o.perf[1] == 2);
-  CHECK(o.perf[2] == 3);
-  CHECK(o.perf[3] == 0);
-  for (unsigned r = 0; r < kLadderRows; ++r) {
-    CHECK(o.ladder[r].target == kDefaultLadder[r].target);
-    CHECK(o.ladder[r].id == kDefaultLadder[r].id);
-  }
-  Session c;
-  c.rig.wiring.ladder[kLadderHome3] = LaneRef{kLaneDist, 2};
-  REQUIRE(project::apply(c.rig, c.engine, o));  // a project without rows puts the rows back to the defaults
-  CHECK(c.rig.wiring.ladder[kLadderHome3].target == kLaneVoice);
-  CHECK(c.rig.wiring.ladder[kLadderHome3].id == 0);
-
-  // The PERF chunk of v0.6.0: minor 0, the three rows and nothing after them. The two KNOBS rows hold their defaults (ENV MOD, DECAY); the three before them are read as they are.
-  const auto three = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      p[1] = 0;  // minor 0
-      p.resize(2 + kPerfButtons + 6);
-    }
-    return true;
-  });
-  project::ProjectState t3;
-  const project::Result r3 = load(three, t3);
-  REQUIRE(r3.status == project::Status::Ok);
-  CHECK(r3.skipped == 0);
-  CHECK(t3.ladder[kLadderHome3].target == kLaneDist);
-  CHECK(t3.ladder[kLadderHome4].id == 12);
-  CHECK(t3.ladder[kLadderRetired].target == kLaneNone);  // KN1: the retired slot is read and ignored
-  CHECK(t3.ladder[kLadderKnobs1].target == kLaneVoice);
-  CHECK(t3.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
-  CHECK(t3.ladder[kLadderKnobs2].target == kLaneVoice);
-  CHECK(t3.ladder[kLadderKnobs2].id == AcidVoice::Decay);
-  // The file of today writes PERF as minor 2, and the first three rows sit where a v0.6.0 reader (which takes three and stops) looks for them.
-  bool seen_perf = false;
-  (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      seen_perf = true;
-      CHECK(p[0] == 1);
-      CHECK(p[1] == 2);
-      const std::size_t at = 2 + kPerfButtons;
-      CHECK(p[at + 0] == kLaneDist);
-      CHECK(p[at + 1] == 2);
-      CHECK(p[at + 4] == kLaneNone);  // the retired slot is written as its default (KN3)
-      CHECK(p[at + 6] == kLaneGrowl);
-      CHECK(p.size() == at + 10 + 1 + 3 * kKnobsPerSet * 2);
-    }
-    return true;
-  });
-  CHECK(seen_perf);
-  // A damaged row among the two new ones, and one that follows: the defaults.
-  const auto bad2 = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons + 6;
-      p[at + 0] = kLaneNone;
-      p[at + 1] = 0;
-      p[at + 2] = kLaneVoice;
-      p[at + 3] = kLaneVoiceStock;
-    }
-    return true;
-  });
-  project::ProjectState g2;
-  REQUIRE(load(bad2, g2).status == project::Status::Ok);
-  CHECK(g2.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
-  CHECK(g2.ladder[kLadderKnobs2].id == AcidVoice::Decay);
-
-  // Rows that mean nothing: a HOME row that follows, a target past the table, the voice's Stock: the defaults. The retired slot 2 is ignored whatever it holds (KN1).
-  const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons;
-      p[at + 0] = kLaneNone;
-      p[at + 1] = 5;
-      p[at + 2] = static_cast<std::uint8_t>(kLaneTargetCount);
-      p[at + 3] = 0;
-      p[at + 4] = kLaneNone;
-      p[at + 5] = 0;
-    }
-    return true;
-  });
-  project::ProjectState g;
-  REQUIRE(load(bad, g).status == project::Status::Ok);
-  CHECK(g.ladder[0].target == kLaneVoice);
-  CHECK(g.ladder[1].target == kLaneVoice);
-  CHECK(g.ladder[2].target == kLaneNone);
-  const auto stock = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      p[2 + kPerfButtons + 4] = kLaneVoice;
-      p[2 + kPerfButtons + 5] = kLaneVoiceStock;
-    }
-    return true;
-  });
-  REQUIRE(load(stock, g).status == project::Status::Ok);
-  CHECK(g.ladder[2].target == kLaneNone);
-  // A target the table knows but no row can drive (the mixer's PAN, the sequencer's own values, an id past the knobs): the defaults too, never a dead row.
-  const auto dead = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
-    if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons;
-      p[at + 0] = kLaneMixer;
-      p[at + 1] = 1;  // PAN
-      p[at + 2] = kLaneSeq;
-      p[at + 3] = 0;
-      p[at + 4] = kLaneDelay;
-      p[at + 5] = 200;
-    }
-    return true;
-  });
-  REQUIRE(load(dead, g).status == project::Status::Ok);
-  CHECK(g.ladder[0].target == kLaneVoice);
-  CHECK(g.ladder[0].id == 0);
-  CHECK(g.ladder[1].target == kLaneVoice);
-  CHECK(g.ladder[1].id == 1);
-  CHECK(g.ladder[2].target == kLaneNone);
+  CHECK(g.sets.row[0][0].target == kKnobFactory.row[0][0].target);
+  CHECK(g.sets.row[0][0].id == kKnobFactory.row[0][0].id);
+  CHECK(g.sets.row[0][1].target == kKnobFactory.row[0][1].target);
+  CHECK(g.sets.row[0][1].id == kKnobFactory.row[0][1].id);
 }

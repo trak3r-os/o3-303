@@ -2,29 +2,29 @@
 #pragma once
 
 // The project codec (docs/UX-303.md 8.1 and 8.3, docs/UX-PLAN.md F1): everything needed to come back to the jam, as bytes. No file I/O, no screen:
-// the project service (F2) moves the image to and from the card. A chunk file (o3sdk/formats/chunk_file.h) of FORM type "303P", every chunk's
-// payload starting with a u16 version (major high byte, minor low), all 1.0 here, then the CRC chunk:
+// the project service (F2) moves the image to and from the card. Format 2.0 (docs/PADS-TRACT-PLAN.md P): a chunk file (o3sdk/formats/chunk_file.h) of FORM
+// type "303P", every chunk's payload starting with a u16 version (major high byte, minor low, kVersion = 2.0 for all), then the CRC chunk. Seven chunks, each
+// present once:
 //
-//   HEAD  selected pattern u8, tempo u32 (milli-BPM), flags u8 (bit 0: the scale lock is set), name char[16], then (HEAD 1.1) the save counter u32: it counts the
-//         writes of one project (the service's), so that boot and LOAD take the newest of live.o3a, its .bak and project.o3a; a 1.0 file has none and reads as 0
+//   HEAD  selected pattern u8, tempo u32 (milli-BPM), flags u8 (0), name char[16], the save counter u32: it counts the writes of one project (the service's), so
+//         that boot and LOAD take the newest of live.o3a, its .bak and project.o3a
 //   GEN   the generator's settings, seven u8 (seq::GenParams in order)
-//   PATS  count u8 (48), bytes a pattern u16 (kPatBytes = 2,260: a Pattern without its TRACT line), then the patterns byte for byte in struct order
-//   TRCT  A1b (1.0), after PATS: count u8 (48), bytes a line u16 (sizeof(TractLine) = 68), then the TRACT lines byte for byte (tract_line.h). A file with no TRCT chunk
-//         (every project before A1b, whose readers skipped it all the same) reads with every line empty; LINE on/off is the app value kAppTractLine of SND
+//   PATS  count u8 (48), bytes a pattern u16 (sizeof(Pattern)), then the patterns byte for byte in struct order, the TRACT line of each included
 //   SND   n u16; n entries of {target u8, 0 u8, id u16, value f32}: the units' parameters by id (targets 1 voice, 2 distortion, 3 delay, 5 growl, 7 tract,
 //         16 the freeze's four settings) and the app's values (target 32, ids AppValue)
-//   SNAP  slots u8 (8), values a slot u8 (the snapshot targets at write time), used mask u8, then slots x values f32
-//   PERF  the PerfAction of Note, Instr, Vol and Fx, u8 each
-//   SONG  SG2 (1.0): length u8 (0..64), then length rows of {pattern u8, repeat u8, transpose i8, flags u8} (seq::SongRow; the song is the Bank's, on the undo stack). A
-//         file with no SONG chunk (every project before SG2, whose readers skipped it all the same) reads as an empty song
+//   SNAP  slots u8 (8), values a slot u8 (the snapshot targets), used mask u8, then slots x values f32
+//   PERF  the PerfAction of Note, Instr, Vol and Fx, u8 each; the KNOBS set in use u8; every KNOBS set (kKnobSets x kKnobsPerSet rows, target u8 and id u8 each)
+//   SONG  length u8 (0..64), then length rows of {pattern u8, repeat u8, transpose i8, flags u8} (seq::SongRow; the song is the Bank's, on the undo stack)
 //
 // The image is built in one buffer of kProjectBytes (buffer(), O3SDK_BIG), the only one: a save and a load never overlap. The patterns are never copied
-// into a ProjectState (108 KB): encode() reads them from the Bank and decode() leaves a pointer into the image, which apply() restores from.
+// into a ProjectState (112 KB): encode() reads them from the Bank and decode() leaves a pointer into the image, which apply() restores from.
 //
-// Reading (decode): the container and its CRC are checked first; a damaged image gives nothing. HEAD of a newer major refuses the project; another chunk
-// of a newer major, an unknown one, a short one or one that is there twice is skipped and its part keeps its defaults; a newer minor is read as far as
-// this build knows it; an SND entry this build has no parameter for is skipped when applied; a parameter the file does not have keeps its default;
-// a SNAP with fewer values than today's targets is filled from the sound as loaded. A ProjectState that decode() says Ok for is always in range.
+// Reading (decode): the container and its CRC are checked first; a damaged image gives nothing. HEAD of an older major (a project of format 1) is refused
+// whole as FromOlder, one of a newer major as FromNewer: nothing of such a file is ever read or applied, and there is no converter. Of a 2.x file all seven
+// chunks must be there once, whole and with this build's record sizes, or the file is Damaged (the service then tries the .bak): there is no half-load.
+// An unknown chunk, a repeated one or an entry past kMaxSound is skipped (counted in Result::skipped), a newer minor is read as far as this build knows
+// it, an SND entry this build has no parameter for is skipped when applied, and a parameter the file does not have keeps its default. A ProjectState that
+// decode() says Ok for is always in range.
 //
 // Contexts: main loop only (apply() reaches the engine, the bank and the sequencer as the screens do).
 
@@ -48,10 +48,8 @@ inline constexpr std::size_t kProjectBytes = 128u * 1024u;  // the one image buf
 inline constexpr unsigned kNameChars = 16;                  // with the terminating NUL (a valid_name is at most 15)
 inline constexpr unsigned kMaxSound = 128;                  // SND entries a ProjectState holds (about 40 are in use)
 
-inline constexpr std::uint16_t kVersion = 0x0100;      // every chunk's version: major 1, minor 0
-inline constexpr std::uint16_t kHeadVersion = 0x0101;  // HEAD's: minor 1 added the save counter
-inline constexpr std::uint16_t kPerfVersion = 0x0102;  // PERF's: minor 1 added the two KNOBS rows (five ladder rows; minor 0 had three, and a reader of it stops after them); minor 2 the KNOBS sets 2..4 and the set in use (KN3)
-inline constexpr unsigned kMajor = 1;
+inline constexpr std::uint16_t kVersion = 0x0200;  // every chunk's version: major 2, minor 0
+inline constexpr unsigned kMajor = 2;
 inline constexpr char kSongId[5] = "SONG";
 
 // SND's targets: the lane targets (pattern.h) by parameter id, the freeze, the app's own values.
@@ -90,40 +88,30 @@ struct ProjectState {
   std::uint8_t selected = 0;
   std::uint32_t tempo_mbpm = 125'000;
   char name[kNameChars] = {};  // informational; gather() leaves it alone: the service owns the name
-  std::uint32_t save_count = 0;  // HEAD 1.1: the write this image is (the service sets it before an encode; gather() leaves it alone; a 1.0 file reads 0). small_crc() ignores it
+  std::uint32_t save_count = 0;  // the write this image is (the service sets it before an encode; gather() leaves it alone). small_crc() ignores it
   // GEN
   seq::GenParams gen;
   // SND
   unsigned sound_n = 0;
   SoundEntry sound[kMaxSound] = {};
-  // SNAP: `snap_values` values a slot, from the file; the ones above it (and above kSnapTargetCount) are filled from the sound by apply()
-  std::uint8_t snap_values = static_cast<std::uint8_t>(kSnapTargetCount);
+  // SNAP: kSnapTargetCount values a slot (a NaN, from a damaged file, is filled from the sound by apply())
   std::uint8_t snap_used = 0;  // bit s: slot s holds a snapshot
   float snap[kSnapSlots][kSnapValues] = {};
   // PERF
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
-  // The ladder rows (PERF chunk, appended after the buttons: target u8 and id u8 for each of kLadderRows; a file without them gives the defaults)
-  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3], kDefaultLadder[4]};
-  // KN3, after the ladder rows (PERF 1.2: the set in use u8, then sets 2..4 of four rows, target u8 and id u8 each). `ladder` is KNOBS' set 1 in the file's slot order (kKnobsRowId: slots 3, 4, 0, 1); a file
-  // without these fields gives the factory sets 2..4 and set 1 in use.
-  LaneRef sets[kKnobSets - 1][kKnobsPerSet] = {{kKnobFactory.row[1][0], kKnobFactory.row[1][1], kKnobFactory.row[1][2], kKnobFactory.row[1][3]},
-                                               {kKnobFactory.row[2][0], kKnobFactory.row[2][1], kKnobFactory.row[2][2], kKnobFactory.row[2][3]},
-                                               {kKnobFactory.row[3][0], kKnobFactory.row[3][1], kKnobFactory.row[3][2], kKnobFactory.row[3][3]}};
+  // KNOBS: every set of four rows, and the set in use (PERF chunk). Set 1 is `Wiring::knob_sets.row[0]`, the store; `Wiring::ladder` is only the live copy of the set in use.
+  KnobSets sets = kKnobFactory;
   std::uint8_t knob_set = 0;
-  // SONG (canonical: seq::song_normalize() has been applied; an empty song unless the file has the chunk)
+  // SONG (canonical: seq::song_normalize() has been applied)
   seq::Song song = [] {
     seq::Song s;
     seq::clear_song(s);
     return s;
   }();
-  // PATS (decode only): `pats_n` patterns of kPatBytes bytes at `pats`, inside the image decode() was given. The image buffer is shared with
-  // encode(), so encode() counts a generation and decode() records it in `pats_generation`: apply() refuses a state whose patterns may have been
-  // overwritten by an encode in between (apply() before the next encode, or decode again).
+  // PATS (decode only): kPatternCount patterns of sizeof(Pattern) bytes at `pats`, inside the image decode() was given (null: a new project, apply() gives every pattern the fresh
+  // one). The image buffer is shared with encode(), so encode() counts a generation and decode() records it in `pats_generation`: apply() refuses a state whose patterns may have
+  // been overwritten by an encode in between (apply() before the next encode, or decode again).
   const std::uint8_t* pats = nullptr;
-  unsigned pats_n = 0;
-  // TRCT (decode only): `trct_n` lines of sizeof(TractLine) bytes at `trct`, inside the same image and under the same generation rule as `pats`.
-  const std::uint8_t* trct = nullptr;
-  unsigned trct_n = 0;
   std::uint32_t pats_generation = 0;
 };
 
@@ -174,18 +162,15 @@ class Encoder {
 
 enum class Status : std::uint8_t {
   Ok,
-  Damaged,    // the container, its CRC, or HEAD is bad ("PROJECT DAMAGED"; the .bak is the service's next try)
+  Damaged,    // the container, its CRC, HEAD or a required chunk is bad or missing ("PROJECT DAMAGED"; the .bak is the service's next try)
   FromNewer,  // HEAD's major is newer than this build's ("PROJECT FROM A NEWER O3-303")
+  FromOlder,  // HEAD's major is older (a project of format 1: no converter; "PROJECT FROM AN OLDER O3-303"): refused whole, the file is left as it is
 };
 
 struct Result {
   Status status = Status::Damaged;
   o3sdk::formats::chunk::Error error = o3sdk::formats::chunk::Error::None;  // why the container was refused (Damaged only)
-  unsigned skipped = 0;  // chunks skipped, and entries or patterns dropped: "PART OF THE PROJECT SKIPPED" when not 0
-  // The file's patterns were read (PATS present, of this build's pattern size, whole). When false (Ok all the same: the sound and the rest are good)
-  // apply() gives every pattern the fresh one, which is NOT the player's: F2 must not autosave over the file until the player acts (an edit, SAVE
-  // or NEW), or the skipped part is lost for good.
-  bool patterns_ok = false;
+  unsigned skipped = 0;  // unknown or repeated chunks skipped, and SND entries dropped: "PART OF THE PROJECT SKIPPED" when not 0
 };
 
 // Checks the image and reads it into `out` (reset to a default ProjectState first). `out` is only to be used when the status is Ok, and then every
