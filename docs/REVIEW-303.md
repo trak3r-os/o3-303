@@ -527,3 +527,13 @@ U7 and U5. I2 belongs in the same change as U3. I5 follows U1. Nothing here need
 - S5: Play's meaning tied to the screen it is pressed on.
 - I1: accepting that a v0.6.x build reads a new length as 16.
 - I5, I7, F11, X8: each needs an o3-sdk change, to be agreed with the other session first.
+
+## Decision (the maintainer, 2026-11-12)
+
+The maintainer accepted four items with "mete si a todo" (yes to all), as the orchestrator proposed them:
+
+- **S3**, with the Config row KEYS: ALL / IN SCALE, default ALL. The scale shown on F5 always lights the keys; every key plays and writes;
+  `scale_set` goes; IN SCALE restores the lock.
+- **S4** in its simple form: FX is page 1 of INSTRUMENT, VOICE page 2.
+- **I1**: lengths 1 to 64, Shift + turn jumping 8, 16, 32, 64. The CHANGELOG says an older version reads an unknown length as 16.
+- **I2** as written, built last; its four constants are tuned by ear on the unit.
