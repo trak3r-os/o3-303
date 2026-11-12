@@ -114,9 +114,11 @@ TEST_CASE("the LEDs draw the ladder position as a bar while FILT is on, and the 
   t.pad(kFiltPad);
   t.wait(80);
   CHECK(t.led(kFiltPad) == app::kLedLow);
-  // The keyboard's own LEDs: naturals dim, sharps off.
+  // The keyboard's own LEDs are the scale on F5 (C minor pentatonic at first): the root on, the scale at mid, the others dark.
+  CHECK(t.led(key_pad(36 + 0)) == app::kLedOn);
   CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);
-  CHECK(t.led(key_pad(36 + 2)) == app::kLedDim);
+  CHECK(t.led(key_pad(36 + 2)) == app::kLedOff);
+  CHECK(t.led(key_pad(36 + 3)) == app::kLedMid);
   CHECK(t.led(key_pad(48 + 1)) == app::kLedOff);
 }
 
