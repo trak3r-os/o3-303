@@ -426,7 +426,7 @@ bool read_snap(chunk::Fields& f, ProjectState& out) noexcept {
   return true;
 }
 
-// A knob a ladder row can hold: only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
+// A knob a ladder row can hold: only what Controls::row_entry() can hold (lane_ref()'s set and the row-only knobs of KN4): unit knobs below seq::kKnobs, the mixer's level and send A.
 bool lane_ref_ok(std::uint8_t target, std::uint8_t id) noexcept {
   switch (target) {
     case kLaneVoice:
@@ -439,7 +439,7 @@ bool lane_ref_ok(std::uint8_t target, std::uint8_t id) noexcept {
     case kLaneMixer:
       return id == kMixerLevel || id == kMixerSendA;
     default:
-      return false;
+      return row_only_target(target) && id == 0u;  // KN4: the wobble's settings and the switches; an older build refuses them and loads the row's default
   }
 }
 

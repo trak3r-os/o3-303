@@ -710,6 +710,49 @@ const char* Controls::lane_name(const dsp::Engine& e, const LaneRef& ref) const 
   return d != nullptr && d->name != nullptr ? d->name : "";
 }
 
+namespace {
+
+struct RowOnlyDef {
+  Item item;
+  std::uint16_t id;
+  const char* label;
+};
+// Indexed by RowOnlyTarget - kRowWobRate. The labels are at most 15 characters (the KNOBS row's name field).
+constexpr RowOnlyDef kRowOnly[kRowOnlyCount] = {
+    {Item::Wobble, kWobbleRate, "WOB RATE"}, {Item::Wobble, kWobbleShape, "WOB SHAPE"}, {Item::Wobble, kWobbleDepth, "WOB DEPTH"}, {Item::Wobble, kWobbleTarget, "WOB TARGET"},
+    {Item::Mods, 0, "MODS"},                 {Item::GrowlOn, 0, "GROWL"},               {Item::TractOn, 0, "TRACT"},              {Item::WobOn, 0, "WOB"},
+};
+
+}  // namespace
+
+bool Controls::row_ref(const Entry& entry, LaneRef& out) const noexcept {
+  if (lane_ref(entry, out)) {
+    return true;
+  }
+  for (unsigned i = 0; i < kRowOnlyCount; ++i) {
+    if (kRowOnly[i].item == entry.item && kRowOnly[i].id == entry.id) {
+      out = LaneRef{static_cast<std::uint8_t>(kRowWobRate + i), 0};
+      return true;
+    }
+  }
+  return false;
+}
+
+Entry Controls::row_entry(const LaneRef& ref) const noexcept {
+  if (row_only_target(ref.target)) {
+    const RowOnlyDef& d = kRowOnly[ref.target - kRowWobRate];
+    return Entry{d.item, d.id, d.label};
+  }
+  return lane_entry(ref);
+}
+
+const char* Controls::row_name(const dsp::Engine& e, const LaneRef& ref) const noexcept {
+  if (row_only_target(ref.target)) {
+    return kRowOnly[ref.target - kRowWobRate].label;
+  }
+  return lane_name(e, ref);
+}
+
 float Controls::to_lane(const Entry& entry, float v) const noexcept {
   switch (entry.item) {
     case Item::Level:  // the dB the page shows, as the linear gain apply_level() writes

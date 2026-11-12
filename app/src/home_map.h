@@ -44,6 +44,7 @@ inline constexpr std::uint64_t kHoldMs = 300;  // a press shorter than this is a
 // The toast when a lock or a recorded turn finds all eight lanes in use (UX-303 D2). A lane is free once its last lock is gone; the toast names the
 // way out that is always there (SETUP's CLEAR LOCKS).
 inline constexpr const char* kLanesUsedToast = "8 LANES USED: CLEAR LOCKS (SETUP)";
+inline constexpr const char* kNotRecordedToast = "REC DOES NOT RECORD IT";  // KN4: a row-only knob (the wobble's settings, MODS, GROWL, TRACT, WOB) has no lane
 
 // What the PADS line says (UX-303 6.2, the state table): a plain value, so the text is a pure function of it.
 struct PadsLineState {

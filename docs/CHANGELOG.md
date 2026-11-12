@@ -7,11 +7,14 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
-- **PERFORM KNOBS has four sets of four knobs.** F1 to F4 are SET 1 to SET 4 (FILTER, MODDED, GROWL, FX, filled at the start with ENV MOD / DECAY / CUTOFF / RESO,
-  ACC DECAY / SLIDE / OVERDRIVE / FILTER FM, VOWEL / FORMANT Q / COMB TUNE / MIX and DRIVE / FEEDBACK / DLY SEND / TIME); F5 to F8 are the rows' knobs, and a tap on a
+- **PERFORM KNOBS has four sets of four knobs.** F1 to F4 are SET 1 to SET 4 (FILTER, MODDED, GROWL, WOBBLE, filled at the start with ENV MOD / DECAY / CUTOFF / RESO,
+  ACC DECAY / SLIDE / OVERDRIVE / FILTER FM, VOWEL / FORMANT Q / COMB TUNE / MIX and WOB RATE / WOB DEPTH / DRIVE / DLY SEND); F5 to F8 are the rows' knobs, and a tap on a
   row's pad moves the encoder to that row. Hold a row's F key and press Up or Down to give the row another knob (Shift: the next family), Shift + F1 to F4 puts a set back
   (FACTORY), Shift + F7 and F8 are REDO and UNDO. HOME's FILT rows are rows 3 and 4 of the set in use. The sets are saved in the project (an older project loads with factory
   sets 2 to 4). This replaces the old hold-an-F-key-and-tap assignment and Shift + F1 to F4 list walk on KNOBS.
+- **A KNOBS row can hold the wobble's settings and the switches (KN4).** WOB RATE, WOB SHAPE, WOB DEPTH, WOB TARGET and the MODS, GROWL, TRACT and WOB switches join the list a row's
+  F key walks (last, after TRACT). A tap sets them at once; REC does not record them (they have no lane) and a toast says so. They are saved in the project as row targets above the
+  lane targets, so an older version loads that row with its factory knob. Set 4 is now WOBBLE (it was FX).
 - **PERFORM's arrows pick and move the knob.** Left and Right move the latch along F1 to F8 (blank keys skipped, no wrap); Up and Down move the latched knob by
   1/20 of its range, a switch flips, and they repeat while held, so a knob can be worked without touching the F row. With an F key held, Left and Right stay
   minus and plus 1/20, as on HOME. Nothing is saved differently.

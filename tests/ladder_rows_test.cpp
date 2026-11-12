@@ -449,7 +449,7 @@ TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the 
     CHECK(std::strlen(knob_set_name(s)) > 0u);
   }
   CHECK(std::strcmp(knob_set_name(0), "FILTER") == 0);
-  CHECK(std::strcmp(knob_set_name(3), "FX") == 0);
+  CHECK(std::strcmp(knob_set_name(3), "WOBBLE") == 0);
   CHECK(std::strlen(knob_set_name(kKnobSets)) == 0u);
   // Set 2 (MODDED): ACC DECAY, SLIDE, OVERDRIVE, FILTER FM.
   knob_set_use(w, 1);
@@ -515,4 +515,102 @@ TEST_CASE("KNOBS walk (KN3): the family comes out with the knob, and a family ju
   CHECK(std::strcmp(back, fam0) != 0);
   (void)ladder_walk(w, c, kLadderRetired, 1, &fam);  // the retired slot: nothing is stored for it
   CHECK(w.knob_set == 0u);
+}
+
+TEST_CASE("KNOBS row-only knobs (KN4): the wobble's four settings and the four switches have a row target of their own, no lane, a label, and the wobble's RESET and a blank have none") {
+  Wiring w;
+  Controls c;
+  c.init(w);
+  CHECK(kRowOnlyCount == 8u);
+  CHECK(kRowWobRate >= kLaneTargetCount);  // above the lane targets: an older build refuses them (project.cpp lane_ref_ok)
+  const struct {
+    Entry entry;
+    RowOnlyTarget target;
+    const char* name;
+  } rows[kRowOnlyCount] = {
+      {{Item::Wobble, kWobbleRate, nullptr}, kRowWobRate, "WOB RATE"},       {{Item::Wobble, kWobbleShape, nullptr}, kRowWobShape, "WOB SHAPE"},
+      {{Item::Wobble, kWobbleDepth, nullptr}, kRowWobDepth, "WOB DEPTH"},    {{Item::Wobble, kWobbleTarget, nullptr}, kRowWobTarget, "WOB TARGET"},
+      {{Item::Mods, 0, nullptr}, kRowMods, "MODS"},                          {{Item::GrowlOn, 0, nullptr}, kRowGrowlOn, "GROWL"},
+      {{Item::TractOn, 0, nullptr}, kRowTractOn, "TRACT"},                   {{Item::WobOn, 0, nullptr}, kRowWobOn, "WOB"},
+  };
+  Hands t;  // the engine, for row_name
+  for (const auto& r : rows) {
+    LaneRef lane{kLaneNone, 0};
+    CHECK_FALSE(c.lane_ref(r.entry, lane));  // no lane drives it
+    LaneRef ref{kLaneNone, 7};
+    REQUIRE(c.row_ref(r.entry, ref));
+    CHECK(ref.target == r.target);
+    CHECK(ref.id == 0u);
+    CHECK(row_only_target(ref.target));
+    const Entry back = c.row_entry(ref);
+    CHECK(back.item == r.entry.item);
+    CHECK(back.id == r.entry.id);
+    CHECK(std::strcmp(back.label, r.name) == 0);
+    CHECK(std::strcmp(c.row_name(t.h->engine(), ref), r.name) == 0);
+  }
+  // A lane knob is the same through row_ref as through lane_ref.
+  LaneRef cut{kLaneNone, 0};
+  REQUIRE(c.row_ref(Entry{Item::Voice, AcidVoice::Cutoff, nullptr}, cut));
+  CHECK(cut.target == kLaneVoice);
+  CHECK(cut.id == AcidVoice::Cutoff);
+  // What neither can hold.
+  LaneRef none{kLaneNone, 0};
+  CHECK_FALSE(c.row_ref(Entry{Item::Wobble, kWobbleReset, nullptr}, none));
+  CHECK_FALSE(c.row_ref(Entry{Item::Blank, 0, nullptr}, none));
+  CHECK_FALSE(row_only_target(kLaneTract));
+  CHECK_FALSE(row_only_target(kRowOnlyEnd));
+  CHECK(std::strlen(c.row_name(t.h->engine(), LaneRef{kRowOnlyEnd, 0})) == 0u);
+}
+
+TEST_CASE("KNOBS set 4 (KN4) is WOBBLE: WOB RATE, WOB DEPTH, DRIVE, DLY SEND; a row holds a row-only knob and the store keeps it") {
+  Wiring w;
+  Controls c;
+  c.init(w);
+  CHECK(std::strcmp(knob_set_name(3), "WOBBLE") == 0);
+  knob_set_use(w, 3);
+  CHECK(w.ladder[kLadderKnobs1].target == kRowWobRate);
+  CHECK(w.ladder[kLadderKnobs2].target == kRowWobDepth);
+  CHECK(w.ladder[kLadderHome3].target == kLaneDist);
+  CHECK(w.ladder[kLadderHome4].target == kLaneMixer);
+  CHECK(w.ladder[kLadderHome4].id == kMixerSendA);
+  // Assigning a row-only knob to a row writes through to the set.
+  const Entry mods{Item::Mods, 0, nullptr};
+  CHECK(ladder_assign(w, c, kLadderKnobs2, mods) == LadderAssign::Held);
+  CHECK(w.ladder[kLadderKnobs2].target == kRowMods);
+  CHECK(w.knob_sets.row[3][1].target == kRowMods);
+  CHECK(!knob_set_is_factory(w, 3));
+  CHECK(knob_set_is_factory(w, 2));
+  const Entry shown = ladder_entry(c, w, kLadderKnobs2);
+  CHECK(shown.item == Item::Mods);
+  knob_set_factory(w, 3);
+  CHECK(w.ladder[kLadderKnobs2].target == kRowWobDepth);
+}
+
+TEST_CASE("KNOBS walk (KN4): hold + Up / Down reaches the wobble's knobs and the switches, each once, and wraps") {
+  Wiring w;
+  Controls c;
+  c.init(w);
+  bool seen[kRowOnlyCount] = {};
+  unsigned steps = 0;
+  const char* fam = nullptr;
+  for (; steps < 200; ++steps) {
+    (void)ladder_walk(w, c, kLadderKnobs1, 1, &fam);
+    const LaneRef r = w.ladder[kLadderKnobs1];
+    if (row_only_target(r.target)) {
+      const unsigned i = static_cast<unsigned>(r.target - kRowWobRate);
+      CHECK_FALSE(seen[i]);  // once per lap
+      seen[i] = true;
+    }
+    unsigned n = 0;
+    for (const bool b : seen) {
+      n += b ? 1u : 0u;
+    }
+    if (n == kRowOnlyCount) {
+      break;
+    }
+  }
+  CHECK(steps < 200u);
+  for (const bool b : seen) {
+    CHECK(b);
+  }
 }

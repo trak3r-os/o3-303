@@ -113,7 +113,7 @@ Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row)
   if (row >= kLadderRows || row == kLadderRetired) {
     return Entry{};
   }
-  return controls.lane_entry(wiring.ladder[row]);
+  return controls.row_entry(wiring.ladder[row]);
 }
 
 unsigned knob_row_pos(unsigned row) noexcept {
@@ -146,7 +146,7 @@ void store_row(Wiring& wiring, unsigned row) noexcept {
 
 LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned row, const Entry& knob) noexcept {
   LaneRef ref{kLaneNone, 0};
-  if (row >= kLadderRows || row == kLadderRetired || !controls.lane_ref(knob, ref)) {
+  if (row >= kLadderRows || row == kLadderRetired || !controls.row_ref(knob, ref)) {
     return LadderAssign::NoLane;
   }
   if (same(wiring.ladder[row], ref)) {
@@ -179,7 +179,7 @@ void knob_set_factory(Wiring& wiring, unsigned set) noexcept {
 }
 
 const char* knob_set_name(unsigned set) noexcept {
-  static constexpr const char* kNames[kKnobSets] = {"FILTER", "MODDED", "GROWL", "FX"};
+  static constexpr const char* kNames[kKnobSets] = {"FILTER", "MODDED", "GROWL", "WOBBLE"};
   return set < kKnobSets ? kNames[set] : "";
 }
 
@@ -204,7 +204,7 @@ void ladder_reset_home(Wiring& wiring) noexcept {
 
 namespace {
 
-constexpr unsigned kWalkPageCount = 6;  // TRACT is the last: the walk's list only grows at its end (KN0)
+constexpr unsigned kWalkPageCount = 7;  // WOBBLE is the last (KN4; TRACT was before it, KN0): the walk's list only grows at its end
 constexpr unsigned kWalkMax = 96;       // the list's most places the family jump looks at (the pages hold under 50 knobs)
 
 const Page& walk_page(unsigned i) noexcept {
@@ -214,7 +214,8 @@ const Page& walk_page(unsigned i) noexcept {
     case 2: return kNotesPage;
     case 3: return kTonePage;
     case 4: return kGrowlPage;
-    default: return kTractPage;
+    case 5: return kTractPage;
+    default: return kWobblePage;
   }
 }
 
@@ -225,14 +226,14 @@ Entry walk_at(const Controls& controls, unsigned index, unsigned* count, unsigne
   for (unsigned p = 0; p < kWalkPageCount; ++p) {
     for (const Entry& en : walk_page(p).entry) {
       LaneRef ref{kLaneNone, 0};
-      if (en.item == Item::Blank || !controls.lane_ref(en, ref)) {
+      if (en.item == Item::Blank || !controls.row_ref(en, ref)) {
         continue;
       }
       bool seen = false;  // the same lane target on an earlier place
       for (unsigned q = 0; q < p && !seen; ++q) {
         for (const Entry& prev : walk_page(q).entry) {
           LaneRef pr{kLaneNone, 0};
-          seen = seen || (prev.item != Item::Blank && controls.lane_ref(prev, pr) && same(pr, ref));
+          seen = seen || (prev.item != Item::Blank && controls.row_ref(prev, pr) && same(pr, ref));
         }
       }
       if (seen) {
@@ -271,7 +272,7 @@ Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int de
   int at = -1;  // where the row's knob is in the list
   for (unsigned i = 0; i < n && at < 0; ++i) {
     LaneRef ref{kLaneNone, 0};
-    if (controls.lane_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
+    if (controls.row_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
       at = static_cast<int>(i);
     }
   }
@@ -281,7 +282,7 @@ Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int de
   unsigned fam = 0;
   const Entry en = walk_at(controls, static_cast<unsigned>(next), nullptr, &fam);
   LaneRef ref{kLaneNone, 0};
-  if (controls.lane_ref(en, ref)) {
+  if (controls.row_ref(en, ref)) {
     wiring.ladder[row] = ref;
     store_row(wiring, row);
   }
@@ -302,7 +303,7 @@ Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row,
   for (unsigned i = 0; i < count; ++i) {
     (void)walk_at(controls, i, nullptr, &fam[i]);
     LaneRef ref{kLaneNone, 0};
-    if (at < 0 && controls.lane_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
+    if (at < 0 && controls.row_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
       at = static_cast<int>(i);
     }
   }
@@ -323,7 +324,7 @@ Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row,
   }
   const Entry en = ladder_knob_at(controls, static_cast<unsigned>(target));
   LaneRef ref{kLaneNone, 0};
-  if (controls.lane_ref(en, ref)) {
+  if (controls.row_ref(en, ref)) {
     wiring.ladder[row] = ref;
     store_row(wiring, row);
   }
@@ -341,14 +342,14 @@ void ladder_caption(const o3::dsp::Engine& e, const Controls& controls, const Wi
   if (row >= kLadderRows || row == kLadderRetired) {
     return;
   }
-  copy_cut(controls.lane_name(e, wiring.ladder[row]), out, cap, 0);
+  copy_cut(controls.row_name(e, wiring.ladder[row]), out, cap, 0);
 }
 
 const char* ladder_short_name(const o3::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row) noexcept {
   if (row >= kLadderRows || row == kLadderRetired) {
     return "";
   }
-  return controls.lane_name(e, wiring.ladder[row]);
+  return controls.row_name(e, wiring.ladder[row]);
 }
 
 LadderTap ladder_tap(o3::app::Context& ctx, Rig& rig, bool rec_motion, unsigned sel, const Entry& entry, unsigned col) noexcept {
@@ -374,6 +375,7 @@ LadderTap ladder_tap(o3::app::Context& ctx, Rig& rig, bool rec_motion, unsigned 
     (void)rig.seq->slew(ref.target, ref.id, rig.controls.to_lane(entry, value), rig.live->ladder_slew_ms());
   }
   if (!lane) {
+    r.not_recorded = rec_motion;  // KN4: a row-only knob (the wobble, a switch) has no lane: the value is set, nothing is written
     return r;
   }
   const seq::Playhead ph = rig.seq->playhead();

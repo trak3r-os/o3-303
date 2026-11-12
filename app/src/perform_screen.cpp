@@ -321,6 +321,9 @@ void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
   if (t.lanes_full) {
     toast(ctx, kLanesUsedToast, true);
   }
+  if (t.not_recorded) {
+    toast(ctx, kNotRecordedToast, true);
+  }
 }
 
 // KNOBS: row `row` (0..3, top to bottom) is a ladder row of its own (kKnobsRowId: rows 3 and 4 are HOME's FILT rows). A tap on place `col` jumps its knob there as PERFORM's row 3 does (a slew, a switch at
@@ -337,6 +340,9 @@ void PerformScreen::knobs_press(app::Context& ctx, unsigned row, unsigned col) n
   const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), ladder_entry(*controls_, w, id), col);
   if (t.lanes_full) {
     toast(ctx, kLanesUsedToast, true);
+  }
+  if (t.not_recorded) {
+    toast(ctx, kNotRecordedToast, true);
   }
 }
 

@@ -2266,6 +2266,47 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip (PERF 1.2); a
   CHECK(g.sets[0][1].id == kKnobFactory.row[1][1].id);
 }
 
+TEST_CASE("project: KN4, a row-only knob (WOB RATE, MODS, ...) in a KNOBS set round-trips; an unknown row-only target or one with an id falls back to the factory knob") {
+  Session a;
+  scramble(a);
+  Wiring& w = a.rig.wiring;
+  CHECK(w.knob_sets.row[3][0].target == kRowWobRate);                   // the factory set 4 already holds them
+  w.knob_sets.row[1][1] = LaneRef{kRowMods, 0};                          // set 2 row 2: MODS
+  w.knob_sets.row[2][3] = LaneRef{kRowWobOn, 0};                         // set 3 row 4: WOB
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);  // s.sets holds sets 2..4
+  CHECK(s.sets[2][0].target == kRowWobRate);
+  CHECK(s.sets[2][0].id == 0);
+  CHECK(s.sets[0][1].target == kRowMods);
+  CHECK(s.sets[0][1].id == 0);
+  CHECK(s.sets[1][3].target == kRowWobOn);
+  Session b;
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  CHECK(b.rig.wiring.knob_sets.row[1][1].target == kRowMods);
+  CHECK(b.rig.wiring.knob_sets.row[2][3].target == kRowWobOn);
+  CHECK(b.rig.wiring.knob_sets.row[3][0].target == kRowWobRate);
+  CHECK(encode_session(b) == img);
+
+  // A target past the row-only ones, and a row-only target with an id: the factory knob of that place (an older build does the same for every row-only target).
+  const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      const std::size_t at = 2 + kPerfButtons + 2 * kLadderRows;
+      p[at + 1] = static_cast<std::uint8_t>(kRowOnlyEnd);  // set 2 row 1: past the table
+      p[at + 2] = 0;
+      p[at + 3] = static_cast<std::uint8_t>(kRowWobRate);  // set 2 row 2: a row-only target does not take an id
+      p[at + 4] = 3;
+    }
+    return true;
+  });
+  project::ProjectState g;
+  REQUIRE(load(bad, g).status == project::Status::Ok);
+  CHECK(g.sets[0][0].target == kKnobFactory.row[1][0].target);
+  CHECK(g.sets[0][0].id == kKnobFactory.row[1][0].id);
+  CHECK(g.sets[0][1].target == kKnobFactory.row[1][1].target);
+  CHECK(g.sets[0][1].id == kKnobFactory.row[1][1].id);
+}
+
 TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier format (the buttons only) loads with the default rows; bad rows fall back") {
   Session a;
   scramble(a);

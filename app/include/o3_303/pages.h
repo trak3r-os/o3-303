@@ -147,11 +147,27 @@ inline constexpr unsigned kKnobsPerSet = 4;
 struct KnobSets {
   LaneRef row[kKnobSets][kKnobsPerSet];
 };
+// KN4 (Q3-B): knobs a row can hold that no motion lane drives: the wobble's RATE, SHAPE, DEPTH and TARGET and the MODS, GROWL, TRACT and WOB switches. A row stores them as a LaneRef whose target is
+// one of these (id 0), above kLaneTargetCount, so an older build (project.cpp lane_ref_ok) refuses them and loads that row's default. A tap sets the value at once and REC records nothing (the toast says so).
+enum RowOnlyTarget : std::uint8_t {
+  kRowWobRate = 16,
+  kRowWobShape,
+  kRowWobDepth,
+  kRowWobTarget,
+  kRowMods,
+  kRowGrowlOn,
+  kRowTractOn,
+  kRowWobOn,
+  kRowOnlyEnd
+};
+inline constexpr unsigned kRowOnlyCount = kRowOnlyEnd - kRowWobRate;
+inline constexpr bool row_only_target(std::uint8_t target) noexcept { return target >= kRowWobRate && target < kRowOnlyEnd; }
+
 inline constexpr KnobSets kKnobFactory = {{
     {{kLaneVoice, 2}, {kLaneVoice, 3}, {kLaneVoice, 0}, {kLaneVoice, 1}},      // 1 FILTER: ENV MOD, DECAY, CUTOFF, RESO
     {{kLaneVoice, 8}, {kLaneVoice, 10}, {kLaneVoice, 17}, {kLaneVoice, 13}},   // 2 MODDED: ACC DECAY, SLIDE, OVERDRIVE, FILTER FM
     {{kLaneGrowl, 0}, {kLaneGrowl, 1}, {kLaneGrowl, 3}, {kLaneGrowl, 7}},      // 3 GROWL: VOWEL, FMT Q, CMB TUNE, GRL MIX
-    {{kLaneDist, 2}, {kLaneDelay, 1}, {kLaneMixer, kMixerSendA}, {kLaneDelay, 0}},  // 4 FX: DRIVE, DLY FB, DLY SEND, DLY TIME
+    {{kRowWobRate, 0}, {kRowWobDepth, 0}, {kLaneDist, 2}, {kLaneMixer, kMixerSendA}},  // 4 WOBBLE: WOB RATE, WOB DEPTH, DRIVE, DLY SEND (KN4; set 4 was FX before)
 }};
 
 struct Wiring {
@@ -233,6 +249,11 @@ class Controls {
   bool lane_ref(const Entry& entry, LaneRef& out) const noexcept;
   // The entry that shows a lane's target (Blank when none of the pages does, e.g. the mixer's pan).
   Entry lane_entry(const LaneRef& ref) const noexcept;
+  // KN4: the same for a ladder row, which also holds the row-only knobs (RowOnlyTarget): row_ref is lane_ref or a row-only target (false for what neither can hold, the wobble's RESET and the
+  // blank), row_entry the entry (labelled WOB RATE, WOB SHAPE, WOB DEPTH, WOB TARGET, MODS, GROWL, TRACT, WOB) and row_name its name; "" for a ref that is neither.
+  bool row_ref(const Entry& entry, LaneRef& out) const noexcept;
+  Entry row_entry(const LaneRef& ref) const noexcept;
+  const char* row_name(const o3sdk::dsp::Engine& e, const LaneRef& ref) const noexcept;
   // The name of what a lane drives ("CUTOFF", "DRIVE", "SEND A"), "" for kLaneNone.
   const char* lane_name(const o3sdk::dsp::Engine& e, const LaneRef& ref) const noexcept;
   // An entry's value in the lane's own units (the sequencer's record_motion and slew take these) and back: the same for a unit's

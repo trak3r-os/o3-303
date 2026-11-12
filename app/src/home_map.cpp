@@ -557,6 +557,9 @@ void HomeMap::ladder_press(app::Context& ctx, unsigned pad) noexcept {
   if (t.lanes_full) {
     toast(ctx, kLanesUsedToast, true);
   }
+  if (t.not_recorded) {
+    toast(ctx, kNotRecordedToast, true);
+  }
   const int shown = t.lane >= 0 ? seq::find_lane(pat(), rig_->wiring.ladder[row].target, rig_->wiring.ladder[row].id) : -1;
   if (shown >= 0) {
     lane_ = static_cast<unsigned>(shown);  // the motion lane under the step view follows the parameter the hand is on

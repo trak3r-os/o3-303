@@ -869,9 +869,16 @@ namespace {
 struct OnKnobs {
   Hands t;
   PerformScreen* s = nullptr;
-  OnKnobs() {
+  explicit OnKnobs(bool wobble_on = false) {
     t.skin_on();
     t.to_perform();
+    if (wobble_on) {  // the sequencer's wobble() follows the settings only while the wobble runs
+      t.tap(Button::Play);
+      t.wait(200);
+      shift_pad(t, action_pad(PerfAction::Wobble));
+      t.wait(40);
+      REQUIRE(seqr().wobble().on);
+    }
     t.to_perform();
     t.wait(60);
     s = static_cast<PerformScreen*>(t.h->runtime().context().screen());
@@ -886,7 +893,7 @@ struct OnKnobs {
 
 }  // namespace
 
-TEST_CASE("KNOBS (KN3): F1..F4 are SET 1..4, factory-filled: FILTER, MODDED, GROWL, FX; a set change toasts and swaps the four rows") {
+TEST_CASE("KNOBS (KN3): F1..F4 are SET 1..4, factory-filled: FILTER, MODDED, GROWL, WOBBLE; a set change toasts and swaps the four rows") {
   OnKnobs o;
   CHECK(o.row(0) == "ENV MOD");
   CHECK(o.row(1) == "DECAY");
@@ -905,11 +912,11 @@ TEST_CASE("KNOBS (KN3): F1..F4 are SET 1..4, factory-filled: FILTER, MODDED, GRO
   CHECK(o.row(2) == "COMB TUNE");
   CHECK(o.row(3) == "MIX");
   o.t.tap(Button::F4);
-  CHECK(o.toast() == "SET 4 FX");
-  CHECK(o.row(0) == "DRIVE");
-  CHECK(o.row(1) == "FEEDBACK");
-  CHECK(o.row(2) == "DLY SEND");
-  CHECK(o.row(3) == "TIME");
+  CHECK(o.toast() == "SET 4 WOBBLE");
+  CHECK(o.row(0) == "WOB RATE");
+  CHECK(o.row(1) == "WOB DEPTH");
+  CHECK(o.row(2) == "DRIVE");
+  CHECK(o.row(3) == "DLY SEND");
   o.t.tap(Button::F1);
   CHECK(o.row(2) == "CUTOFF");
 }
@@ -999,4 +1006,63 @@ TEST_CASE("KNOBS (KN3): the Shift row is FACTORY 1..4 on F1..F4 (the set in use 
   CHECK(same_pattern(before, seqr().bank().pattern(seqr().bank().selected())));
   o.t.tap(Button::F2);
   CHECK(o.toast() == "SET 2 MODDED");
+}
+
+TEST_CASE("KNOBS (KN4): set 4 WOBBLE's WOB RATE and WOB DEPTH set the wobble from a pad tap, and the encoder moves them after a latch") {
+  OnKnobs o(true);
+  o.t.tap(Button::F4);
+  CHECK(o.toast() == "SET 4 WOBBLE");
+  const unsigned rate0 = seqr().wobble().rate;
+  const float depth0 = seqr().wobble().depth;
+  o.t.pad(pp(kRow1, 0), 10);  // WOB RATE: the first place (a list: one pad a rate, the rest dark)
+  o.t.wait(150);
+  CHECK(seqr().wobble().rate != rate0);
+  CHECK(o.s->knobs_keys().focus() == 4u);  // the latch followed the tap
+  o.t.pad(pp(kRow2, 11), 10);  // WOB DEPTH: the top of the range
+  o.t.wait(150);
+  CHECK(seqr().wobble().depth > depth0);
+  const float d1 = seqr().wobble().depth;
+  o.t.turn(-3);
+  o.t.wait(150);
+  CHECK(seqr().wobble().depth < d1);
+  CHECK(o.toast() != "REC DOES NOT RECORD IT");  // REC is off: nothing to say
+}
+
+TEST_CASE("KNOBS (KN4): with REC on and the pattern playing a tap of a row-only knob sets it and records nothing; a toast says so; a lane knob still records") {
+  OnKnobs o(true);
+  o.t.tap(Button::F4);
+  o.t.wait(300);
+  o.t.tap(Button::Rec);
+  o.t.wait(100);
+  const Pattern before = o.t.pat();
+  const float depth0 = seqr().wobble().depth;
+  o.t.pad(pp(kRow2, 11), 10);  // WOB DEPTH
+  o.t.wait(300);
+  CHECK(seqr().wobble().depth > depth0);  // set
+  CHECK(o.toast() == "REC DOES NOT RECORD IT");
+  CHECK(same_pattern(o.t.pat(), before));  // and nothing written
+  o.t.pad(pp(kRow3, 10), 10);              // DRIVE has a lane: it records
+  o.t.wait(300);
+  const int lane = seq::find_lane(o.t.pat(), kLaneDist, 2);
+  REQUIRE(lane >= 0);
+  CHECK(seq::lane_has_motion(o.t.pat(), static_cast<unsigned>(lane)));
+  o.t.tap(Button::Play);
+  o.t.tap(Button::Rec);
+}
+
+TEST_CASE("KNOBS (KN4): hold + Up / Down walks a row on to the wobble's family: WOB RATE is on the last page, and the set keeps it") {
+  OnKnobs o;
+  bool wobble = false;
+  o.t.press(Button::F5);
+  for (unsigned i = 0; i < 400 && !wobble; ++i) {
+    o.t.tap(Button::Up);
+    wobble = o.row(0).rfind("WOB", 0) == 0;
+  }
+  o.t.release(Button::F5);
+  CHECK(wobble);
+  CHECK(o.toast().find("WOBBLE") != std::string::npos);
+  const std::string name = o.row(0);
+  o.t.tap(Button::F2);
+  o.t.tap(Button::F1);
+  CHECK(o.row(0) == name);
 }

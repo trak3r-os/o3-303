@@ -19,6 +19,7 @@ enum class LadderAssign : std::uint8_t {
 struct LadderTap {
   bool lanes_full = false;  // REC was on and all eight lanes drive something else: nothing was written
   int lane = -1;            // the lane the row's knob has in the pattern shown (-1 when none)
+  bool not_recorded = false;  // KN4: REC was on but the knob is a row-only one (the wobble's settings, MODS, GROWL, TRACT, WOB): it was set, nothing was written
 };
 
 // True for a knob whose pads are its values (see ladder_places).
@@ -60,11 +61,11 @@ LaneRef knob_factory(unsigned set, unsigned pos) noexcept;
 void knob_set_use(Wiring& wiring, unsigned set) noexcept;
 // Put set `set` back to its factory knobs (a copy of the four rows for UNDO is the caller's); the live rows follow when it is the one in use.
 void knob_set_factory(Wiring& wiring, unsigned set) noexcept;
-// What a set is called while it holds its factory knobs ("FILTER", "MODDED", "GROWL", "FX"), and whether it does (a re-pointed row makes it the player's own).
+// What a set is called while it holds its factory knobs ("FILTER", "MODDED", "GROWL", "WOBBLE"), and whether it does (a re-pointed row makes it the player's own).
 const char* knob_set_name(unsigned set) noexcept;
 bool knob_set_is_factory(const Wiring& wiring, unsigned set) noexcept;
 
-// The list the hold + Up/Down binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL, TRACT), a knob once.
+// The list the hold + Up/Down binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL, TRACT, WOBBLE); KN4: with the row-only knobs (RowOnlyTarget), a knob once.
 unsigned ladder_knob_count(const Controls& controls) noexcept;
 Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept;
 // Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now. `family` (if not null) gets the
