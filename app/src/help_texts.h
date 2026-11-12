@@ -97,10 +97,9 @@ struct HomePads {
 // The home map (HOME, PATTERN SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
 // keys' note names (the labels point into it). `h` already has the screen's Text (fill()).
 void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noexcept;
-// TRACT: the pads are not the home map's: rows 1 and 2 the pattern's TRACT line, row 3 the palette (A E I O U "-", GLD, LINE), row 4 the live vowels A E I O U. `h` already has the screen's Text (fill()).
-void fill_tract_pads(o3sdk::app::Help& h) noexcept;
-// TRACT's STEPS layer (E2a): rows 1 and 2 are the pattern's steps (columns 1-8; the rest do nothing), rows 3 and 4 as fill_tract_pads(); sets the group texts too.
-void fill_tract_steps_pads(o3sdk::app::Help& h) noexcept;
+// TRACT: rows 1 and 2 the pattern's steps (columns 1-8) and the tract keys (columns 10 and 12: RANDOM ALL, PLAY TRACT, RANDOM VOWELS, VOWEL MODE); rows 3 and 4 the vowels and the TONGUE and LIPS nudges, or
+// with `vowel_mode` the vowel, SIZE, GLIDE and the TONGUE and LIPS ladders. Sets the group texts too. `h` already has the screen's Text (fill()).
+void fill_tract_pads(o3sdk::app::Help& h, bool vowel_mode) noexcept;
 // The WOBBLE page (E2c): call after the home map's fill_home_pads(): row 3 becomes the wobble's rates (PERFORM's), row 4 keeps the keys, and the groups are STEPS, MODIFIERS, WOBBLE and KEYS.
 void fill_wobble_pads(o3sdk::app::Help& h) noexcept;
 // PERFORM: row 1 the line and tone actions and ALL OFF, row 2 the beat freeze's rates and the selectors SEL3 and SEL4 (pads 11 and 12), rows 3 and 4 what `row3` and `row4` say (kContentWobRates,

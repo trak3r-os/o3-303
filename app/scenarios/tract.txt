@@ -1,13 +1,13 @@
-# The TRACT page (docs/TRACT-KNOBS-PLAN.md A2, 3.3, 11.1): Sample Playback opens TRACT (it used to open GROWL; again it flips to GROWL and back), F1 VOWEL, F2 TONGUE, F3 LIPS, F4 RES,
-# F5 GLIDE, F6 SIZE, F7 TRC MIX, F8 the TRACT key (off is Mix 0, a bit-exact bypass; on gives the last mix back). The bottom row of pads holds the live vowels A E I O U: a tap writes
-# VOWEL, the LED of the vowel that sounds is on and the other four dim; the other pads: rows 1 and 2 are the pattern's steps on the STEPS layer (the page opens on it, E2a; the LINE layer is a second Sample Editor press), row 3 the palette. VOWEL reads a letter on a
-# vowel's point ("A", "O") and "<nearest letter> <percent>" between ("E 37%").
+# The TRACT page (docs/TRACT-KNOBS-PLAN.md A2, 3.3, 11.1; docs/PADS-TRACT-PLAN.md): Sample Playback opens TRACT (it used to open GROWL; again it flips to GROWL and back), F1 VOWEL,
+# F2 TONGUE, F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX, F8 the TRACT key (off is Mix 0, a bit-exact bypass; on gives the last mix back). There is one layer, the pattern's STEPS: the
+# pads are the steps (rows 0 and 1, columns 0 to 7), the vowel keys A E I on row 2 and O U - on row 3 (they write the held steps, else the cursor step), TONGUE and LIPS up and down in
+# columns 4 and 6, and the tools in columns 9 and 11 (tract_pads.txt). VOWEL reads a letter on a vowel's point ("A", "O") and "<nearest letter> <percent>" between ("E 37%").
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/tract.txt --out <dir>
 #
-# 01 TRACT at a first press (F8 off, the vowel pads lit); 02 F8 on (Mix 50 %); 03 the vowel O by its pad; 04 the mouth in between (F1 turned to 37 %: "E 37%"); 05 a pad outside the
-# vowels pressed: nothing changes; 06 Sample Playback again: GROWL; 07 again: TRACT back with its vowel; 08 F8 off. The WAV is the factory line: dry for the first bar, the tract on a
-# moving vowel for two, dry again at the end (the bit-exact A/B of the bypass is tests/tract_page_test.cpp).
+# 01 TRACT at a first press (F8 off); 02 F8 on (Mix 50 %); 03 the mouth narrowed and the mix up, the vowel O typed on step 0 by its key; 04 the mouth in between (F1 turned: "E 37%");
+# 05 a dark pad (column 8) pressed: nothing changes; 06 Sample Playback again: GROWL; 07 again: TRACT back with its vowel; 08 F8 off. The WAV is the factory line: dry for the first bar,
+# the tract on the pattern's vowels for two, dry again at the end (the bit-exact A/B of the bypass is tests/tract_page_test.cpp).
 wait 300
 record on
 tap play
@@ -18,42 +18,29 @@ snap 01_tract_first_press
 tap f8
 wait 100
 snap 02_tract_on
-# The knobs: F7 TRC MIX to 100 % and the mouth narrowed (F2 TONGUE, F3 LIPS), then the vowels by their pads.
+# The knobs: F7 TRC MIX to 100 % and the mouth narrowed (F2 TONGUE, F3 LIPS), then a vowel typed on the steps by its key.
 tap f7
 turn 50
 tap f2
 turn 30
 tap f3
 turn -20
-paddown 39
-wait 60
-padup 39
+pad 0 40
+pad 36 40
 wait 600
-snap 03_vowel_o_by_pad
-paddown 36
-wait 60
-padup 36
-wait 700
-paddown 37
-wait 60
-padup 37
+snap 03_vowel_o_on_step_0
+pad 24 40
+pad 25 40
+pad 37 40
 wait 700
 tap f1
 turn 12
 wait 100
 snap 04_vowel_between
-paddown 3
-wait 60
-padup 3
-paddown 41
-wait 60
-padup 41
+pad 8 40
+pad 20 40
 wait 800
-snap 05_other_pads_do_nothing
-paddown 40
-wait 60
-padup 40
-wait 900
+snap 05_dark_pads_do_nothing
 tap sampleplay
 wait 100
 snap 06_growl_by_the_second_press

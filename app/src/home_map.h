@@ -169,6 +169,9 @@ class HomeMap {
   }
   // The cursor on to the next step of the pattern, wrapping at its length: the palette types a line in step by step (E2a).
   void advance_cursor(o3sdk::app::Context& ctx) noexcept;
+  // The lock of `entry` on each of `steps` set to `value` (a value of the entry's own scale, "relative": the step's own lock, else the knob's, plus `value`), clamped to the
+  // descriptor's range; one undo step (the gesture's join byte). False: no lane can drive the entry, or all eight are in use (the toast is up). The TRACT pads' TONGUE and LIPS.
+  bool lock_value(o3sdk::app::Context& ctx, const Entry& entry, const unsigned* steps, unsigned count, float value, bool relative) noexcept;
   // The lane of `p` that drives what `entry` shows, -1 when the entry is not a lane target or no lane points at it.
   int lane_of(const Entry& entry, const Pattern& p) const noexcept;
 

@@ -38,6 +38,7 @@
 
 #include <o3sdk/app/screen.h>
 #include <o3_303/pages.h>
+#include <o3_303/units/tract/tract.h>
 
 #include <cstdint>
 
@@ -69,9 +70,10 @@ const InstrumentGroup& wobble_group() noexcept;
 // The drawer's cells of the page of 16 steps that starts at step `first` of `p`: the note ("C2", "D#3", "--" a rest, "~" a tie) and the gate glyph
 // ("." rest, "-" note, "A", "S", "AS", "~" tie); `view.cells` is how many are inside the pattern.
 void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept;
-// TRACT's strip (E2b): on the cells fill_cells() made, the mouth of each step of the same page: the line vowel under the step (`tract_line_step_of`: its own length wraps), GLD, and
-// whether the pattern locks VOWEL, TONGUE or LIPS (kLaneTract lanes 0, 1, 2) on it; the gate text becomes "A", "A~" (GLD), "A*" (a VOWEL lock) or "-" (none), and `view.tract` is set.
-void fill_tract_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept;
+// TRACT's strip (E2b, PADS-TRACT): on the cells fill_cells() made, the mouth of each step of the same page: the line vowel under the step (`tract_line_step_of`: its own length wraps), GLD, whether
+// the pattern locks VOWEL on it, and the values of its TONGUE and LIPS locks as text ("+40", "-20": `Controls::format` of the lock's point; empty with no lock); the gate text becomes "A", "A~" (GLD),
+// "A*" (a VOWEL lock) or "-" (none), and `view.tract` is set.
+void fill_tract_cells(const o3sdk::dsp::Engine& e, const Controls& controls, const Pattern& p, unsigned first, InstrumentView& view) noexcept;
 // The read-out sections page `page` of `group` shows, each line "value" + unit as the knob row shows it; the wobble line is ON or OFF. A page the group does not have shows none.
 void fill_sections(const o3sdk::dsp::Engine& e, const Controls& controls, bool wobble_on, const InstrumentGroup& group, unsigned page, InstrumentView& view) noexcept;
 // The knob `kn` as the lock of the held step `step` (0-based): "LOCK 5", the lock's text and position, in Accent. The label is kept in `view`.
@@ -89,10 +91,6 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void open_first_page() noexcept;
   void next_page() noexcept;
   unsigned page() const noexcept { return page_; }
-  // The TRACT screen has two layers of pads (E2a): STEPS (the default: the pattern's steps on rows 1-2 as on HOME, row 3 the palette, row 4 the live vowels; the palette and F1 write the
-  // step's line vowel, F2 and F3 lock TONGUE and LIPS) and LINE (the line's own 24-step editor). Sample Editor pressed again on the TRACT screen flips them; opening the screen shows STEPS.
-  void next_layer(o3sdk::app::Context& ctx) noexcept;
-  bool line_layer() const noexcept { return line_layer_; }
   const InstrumentGroup& group() const noexcept { return *group_; }
 
   const char* title() const noexcept override;
@@ -127,28 +125,24 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void learn_key(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void learn_drop(o3sdk::app::Context& ctx) noexcept;
   void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
-  bool tract_page() const noexcept;  // the TRACT screen (Sample Editor): the pads are the TRACT line, its palette and the live vowels
+  bool tract_page() const noexcept;  // the TRACT screen (Sample Editor): rows 0-1 of the pads are the pattern's steps and the tract's keys, rows 2-3 the vowels and the bends (PADS-TRACT)
   bool wobble_page() const noexcept;  // the WOBBLE screen: row 3 of the pads is the wobble's rates (PERFORM's row 3, E2c), row 4 the keys
   void wobble_end(o3sdk::app::Context& ctx) noexcept;  // the rate pads this screen holds let go (the page is left)
-  // ---- the TRACT page's pads (A2; TRACT-KNOBS-PLAN 11.4 and 11.6). Main loop only. The line is the selected pattern's (Bank::tract_line); its steps are shown 24 a page on rows 0 and 1.
-  static constexpr unsigned kLinePage = 24;                // the line's steps on the pads of a page (pad n of rows 0 and 1 is step page * 24 + n)
-  unsigned line_len() const noexcept;                      // the steps the selected pattern's line runs (its own length, else the pattern's)
-  unsigned line_page() const noexcept;                     // the page shown: the playhead's while it plays and nothing is pinned, else the cursor's
-  void line_fix() noexcept;                                // the cursor inside the line (its length or the pattern may have changed)
-  void line_pin() noexcept;                                // a hand on the line while it plays: the page stays (update() lets go at Stop)
-  void line_step_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
-  void palette_press(o3sdk::app::Context& ctx, unsigned col) noexcept;
-  void live_press(o3sdk::app::Context& ctx, unsigned vowel) noexcept;
-  // The STEPS layer (E2a): the line steps under the pattern steps held (else the cursor's) as a mask (`repeats`: a fixed line shorter than the pattern, the toast is up), the palette on them, F1's turn.
+  // ---- the TRACT page's pads (PADS-TRACT; TRACT-KNOBS-PLAN 11.4). Main loop only. The line is the selected pattern's (Bank::tract_line), under the pattern's steps (`tract_line_step_of`).
+  void top_press(o3sdk::app::Context& ctx, unsigned row, unsigned col) noexcept;  // rows 0-1, columns 9 and 11: RANDOMIZE, PLAY TRACT, VOWEL MODE
+  void palette_press(o3sdk::app::Context& ctx, unsigned row, unsigned col) noexcept;  // NORMAL mode, rows 2-3: the vowels and the TONGUE and LIPS nudges
+  void vowel_mode_press(o3sdk::app::Context& ctx, unsigned row, unsigned col) noexcept;  // VOWEL mode, rows 2-3: the vowel, SIZE, GLIDE, TONGUE and LIPS pickers
+  void vowel_press(o3sdk::app::Context& ctx, int vowel) noexcept;  // a vowel (0 "-", 1..5 A..U) on the steps held, else the cursor's (which then moves on)
+  // TONGUE or LIPS on the steps held (else the cursor's, or with `live` the knob): moved by `value` from the step's lock (`relative`), else set to it.
+  void bend_press(o3sdk::app::Context& ctx, TractFx::Param id, float value, bool relative, bool live) noexcept;
+  float bend_now(o3sdk::app::Context& ctx, TractFx::Param id) noexcept;  // the value the pads show: the first held step's lock, else the knob
+  void knob_toast(o3sdk::app::Context& ctx, const Entry& entry) noexcept;  // "SIZE BIG": a knob this screen set
+  void tract_pad_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds) noexcept;  // the page's pads
+  // The line steps under the pattern steps held (else the cursor's) as a mask (`repeats`: a fixed line shorter than the pattern, the toast is up); F1's turn on a held step.
   std::uint64_t steps_mask(o3sdk::app::Context& ctx, bool& repeats) noexcept;
-  void steps_palette(o3sdk::app::Context& ctx, unsigned col) noexcept;
   void steps_vowel_turn(o3sdk::app::Context& ctx, int detents) noexcept;
-  void palette_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds, std::uint8_t focus_value) const noexcept;
-  void live_end(o3sdk::app::Context& ctx) noexcept;        // the last live pad is up (or the page is left): the line gets the mouth back
   bool pad_up(o3sdk::app::Context& ctx, unsigned pad) noexcept;  // a release of a pad this screen holds; false: it is the home map's
-  bool line_tool(o3sdk::app::Context& ctx, unsigned k) noexcept;  // Shift + F`k` of the TRACT page: LEN (F4), CLEAR (F5); false: not a tool key
-  void line_arrow(o3sdk::app::Context& ctx, int direction) noexcept;
-  std::uint64_t held_steps() const noexcept;               // the line steps held on the pads (bit n = step n)
+  bool line_tool(o3sdk::app::Context& ctx, unsigned k) noexcept;  // Shift + F`k` of the TRACT page: LEN (F4), CLEAR (F5), NEW (F6); false: not a tool key
   bool mods_screen() const noexcept { return group_ != &instrument_group(); }  // MODDED, GROWL, TRACT, WOBBLE (not the INSTRUMENT FX and VOICE instance)
   PageKeys& keys() noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
   const PageKeys& keys() const noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
@@ -173,14 +167,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   unsigned learn_page_ = 0;    // ... on this page's key
   unsigned learn_key_ = 0;
   std::uint32_t tool_mask_ = 0;  // F keys pressed with Shift (their release is not the keys')
-  // The TRACT page's pads (SDRAM with the screen: no SRAM state). Main loop only.
-  int line_cursor_ = 0;                     // the line step the palette writes and Left / Right move
-  bool line_layer_ = false;                 // the LINE layer is shown (false: STEPS); main loop only
-  bool line_pinned_ = false;                // a hand on the line while it plays: the page stays where it is
-  int held_step_[kLinePage] = {};           // the line step a held pad of rows 0 and 1 selected, -1 up
-  std::uint32_t live_held_ = 0;             // the live vowels down (bit n = vowel n of the bottom row)
-  bool live_override_ = false;              // a live pad holds the mouth over a playing line (kPerfTractLive is set): its release gives the line back
-  float live_saved_ = 0.0f;                 // the VOWEL knob before the override: the "-" steps' base comes back with the line
+  bool vowel_mode_ = false;                 // the TRACT page's VOWEL MODE (pad row 1, column 11): rows 2-3 are the pickers; main loop only, not saved
   std::uint16_t wob_held_ = 0;              // the WOBBLE page's rate pads down (bit c = column c of row 3); the latches are LiveActions'
 };
 

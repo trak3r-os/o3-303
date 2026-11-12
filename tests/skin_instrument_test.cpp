@@ -211,18 +211,8 @@ TEST_CASE("skin instrument: a step lights ACCENT and SLIDE as its gate says and 
   CHECK(skin::step_leds(cell(true, true, false), true).accent);
 }
 
-TEST_CASE("skin instrument: TRACT's strip rows are its mouth (E2b): TONGUE and LIPS are LEDs lit by a lock, the vowel is a glyph tinted by GLD and by a VOWEL lock") {
+TEST_CASE("skin instrument: TRACT's strip rows are its mouth (E2b): the vowel is a glyph tinted by GLD and by a VOWEL lock") {
   InstrumentCell c;
-  const skin::StepLeds none = skin::tract_leds(c);
-  CHECK_FALSE(none.accent);
-  CHECK_FALSE(none.slide);
-  CHECK(none.step == skin::StripLed::Off);
-  c.tongue = true;
-  CHECK(skin::tract_leds(c).slide);
-  CHECK(skin::tract_leds(c).step == skin::StripLed::Off);
-  c.lips = true;
-  CHECK(skin::tract_leds(c).step == skin::StripLed::Lit);
-  CHECK_FALSE(skin::tract_leds(c).accent);  // the ACCENT row is no LED there
   const char* const letters = "-AEIOU";
   for (std::uint8_t v = 0; v < 6; ++v) {
     c.vowel = v;
@@ -239,17 +229,18 @@ TEST_CASE("skin instrument: TRACT's strip rows are its mouth (E2b): TONGUE and L
   CHECK(skin::vowel_ink(c) == ui::Color::Vol);
 }
 
-TEST_CASE("skin instrument: TRACT's ACCENT row holds no LED sprite and a vowel glyph per vowel step, at no more shapes than a line of dashes (E2b)") {
+TEST_CASE("skin instrument: TRACT's strip holds no LED sprite, a vowel glyph per vowel step and the TONGUE and LIPS values of the locks as texts, at no more shapes than a line of dashes (E2b, PADS-TRACT)") {
   OnInstrument o(Where::Tract);
   const unsigned shapes_dash = o.q().shapes();
   const unsigned texts_dash = o.q().texts();
-  CHECK(o.sprites(skin::Layer::Led, skin_assets::Id::Led) > 0u);  // the SLIDE and STEP rows are there
   const int accent_y = skin::led_centre(skin::StripRow::Accent, 0).y - 8;
-  auto accent_row_leds = [&o, accent_y]() {
+  const int step_y = skin::led_centre(skin::StripRow::Step, 0).y - 8;
+  // The three rows are text: no LED sprite lies in the strip (the page's other lamps are elsewhere).
+  auto accent_row_leds = [&o, accent_y, step_y]() {
     unsigned n = 0;
     for (unsigned i = 0; i < o.q().shapes(); ++i) {
       skin::Panel::SpriteInfo sp;
-      n += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == accent_y ? 1u : 0u;
+      n += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y >= accent_y && sp.y <= step_y ? 1u : 0u;
     }
     return n;
   };
@@ -267,6 +258,22 @@ TEST_CASE("skin instrument: TRACT's ACCENT row holds no LED sprite and a vowel g
   CHECK(o.q().shapes() == shapes_dash);  // the glyphs are texts: the shapes do not grow
   CHECK(o.q().texts() == texts_dash + 16u);
   MESSAGE("TRACT, 16 vowel steps vs a line of dashes: shapes " << shapes_dash << " -> " << o.q().shapes() << ", texts " << texts_dash << " -> " << o.q().texts() << " of " << skin::Panel::kTexts);
+  // A TONGUE lock and a LIPS lock on every step: two value texts a step, in the SLIDE and STEP rows.
+  const unsigned texts_vowels = o.q().texts();
+  for (unsigned k = 0; k < 16; ++k) {
+    REQUIRE(bank().lock_step(o.t.selected(), o3_303::kLaneTract, static_cast<std::uint8_t>(o3_303::TractFx::Tongue), k, static_cast<std::uint8_t>(10u + 10u * k)) >= 0);
+    REQUIRE(bank().lock_step(o.t.selected(), o3_303::kLaneTract, static_cast<std::uint8_t>(o3_303::TractFx::Lips), k, static_cast<std::uint8_t>(200u - 10u * k)) >= 0);
+  }
+  o.t.wait(60);
+  o.s = static_cast<InstrumentScreen*>(o.t.h->runtime().context().screen());
+  const int tongue_y = skin::led_centre(skin::StripRow::Slide, 0).y - 8;
+  const int lips_y = skin::led_centre(skin::StripRow::Step, 0).y - 8;
+  CHECK(o.texts_in(tongue_y, tongue_y + 1, ui::Color::Accent) == 16u);
+  CHECK(o.texts_in(lips_y, lips_y + 1, ui::Color::Accent) == 16u);
+  CHECK(o.q().shapes() == shapes_dash);
+  CHECK(o.q().texts() == texts_vowels + 32u);
+  CHECK(accent_row_leds() == 0u);
+  MESSAGE("TRACT, 16 vowel steps with both locks: texts " << texts_vowels << " -> " << o.q().texts() << " of " << skin::Panel::kTexts);
   o.intact();
 }
 
@@ -367,10 +374,10 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   o.intact();
 }
 
-TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT, MODDED and TRACT (its layers STEPS and LINE), one on GROWL and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
+TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and MODDED, one on GROWL, TRACT (STEPS only) and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
   for (const Where w : kAllScreens) {
     const unsigned page = where_page(w);
-    const unsigned tabs_expected = (w == Where::Wobble || w == Where::Growl) ? 1u : 2u;
+    const unsigned tabs_expected = (w == Where::Wobble || w == Where::Growl || w == Where::Tract) ? 1u : 2u;
     OnInstrument o(w);
     if (w == Where::Voice || w == Where::Fx) {
       REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);

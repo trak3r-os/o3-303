@@ -356,11 +356,9 @@ class O3_303App final : public app::App {
       return true;
     }
     if (in.press(Button::SampleEdit)) {
-      if (ctx.screen() != &tract_screen_) {
+      if (ctx.screen() != &tract_screen_) {  // one page: again does nothing
         tract_screen_.open_first_page();
         ctx.show(tract_screen_);
-      } else {
-        tract_screen_.next_layer(ctx);  // again: STEPS <-> LINE (E2a)
       }
       return true;
     }

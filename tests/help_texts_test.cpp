@@ -67,7 +67,7 @@ void check_pads_grouped(const Help& h, std::uint64_t used, const std::string& wh
 constexpr std::uint64_t kAllPads = (std::uint64_t{1} << app::kPadCount) - 1u;
 constexpr std::uint64_t kPerformDark = std::uint64_t{1} << 35;  // PERFORM SETUP: row 3's last pad
 constexpr std::uint64_t kPerformPads = kAllPads - kPerformDark - (std::uint64_t{0x3} << 22);  // PERFORM: and row 2's last two pads
-constexpr std::uint64_t kTractPads = std::uint64_t{0x1F} << 36;  // TRACT: the live vowels A E I O U, the bottom row's first five; the rest of the grid is dark and has no group
+constexpr std::uint64_t kTractPads = 0x57057AFFAFFULL;  // TRACT (normal mode): the steps (rows 1-2, columns 1-8), the four tract keys, A E I and T+ L+ on row 3, O U - and T- L- on row 4; the rest of the grid is dark and has no group
 constexpr std::uint64_t kRefusedKeyPads = (std::uint64_t{1} << 23) | (std::uint64_t{1} << 33);  // '+' and '@' on the name keyboard
 
 }  // namespace
@@ -482,14 +482,6 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
     CHECK_MESSAGE(std::strcmp(load->shift, on_modded ? "SAME: NEXT PAGE" : "SAME: OPEN MODDED") == 0, t.name << ": Shift + Sample Loader");
     for (const One& o : ones) {
       const HelpButton* hb = find(t, o.button);
-      if (id == Id::Tract && o.own == Id::Tract) {
-        // TRACT's own key is the layer switch (E2a), so it is listed: STEPS, LINE, and Shift does the same.
-        REQUIRE_MESSAGE(hb != nullptr, t.name << ": Sample Editor on TRACT switches the layer");
-        CHECK(std::strcmp(hb->text, "NEXT LAYER: STEPS, LINE") == 0);
-        REQUIRE(hb->shift != nullptr);
-        CHECK(std::strcmp(hb->shift, "SAME: NEXT LAYER") == 0);
-        continue;
-      }
       if (id == o.own) {
         CHECK_MESSAGE(hb == nullptr, t.name << ": the key of the sound's own screen does nothing (it is drawn dimmed)");
         continue;
@@ -503,10 +495,10 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
   }
 }
 
-TEST_CASE("help texts: TRACT's STEPS layer groups its pad rows 1 and 2 (columns 1-8) and the LINE layer all three rows of the line (E2a)") {
+TEST_CASE("help texts: TRACT groups its pad rows 1 and 2 (steps, the four tract keys), and rows 3 and 4 by mode (PADS-TRACT)") {
   Hands t;
   sim::Harness& h = *t.h;
-  tap(h, app::Button::SampleEdit);  // STEPS: the layer the page opens on
+  t.to_tract();
   {
     const Help& help = open_help(h);
     CHECK(help.group_count == 4u);
@@ -514,18 +506,25 @@ TEST_CASE("help texts: TRACT's STEPS layer groups its pad rows 1 and 2 (columns 
       CHECK_MESSAGE(help.pad_group[k] == 1u, "row 1 pad " << k);
       CHECK_MESSAGE(help.pad_group[app::kPadCols + k] == 1u, "row 2 pad " << k);
     }
-    for (unsigned k = 8; k < app::kPadCols; ++k) {
-      CHECK_MESSAGE(help.pad_group[k] == 0u, "row 1 pad " << k << " does nothing on STEPS");
+    for (const unsigned pad : {app::pad_at(0, 9), app::pad_at(0, 11), app::pad_at(1, 9), app::pad_at(1, 11)}) {
+      CHECK_MESSAGE(help.pad_group[pad] == 2u, "tract key " << pad);
     }
-    CHECK(help.pad_group[2 * app::kPadCols] != 0u);  // the palette's A
+    for (const unsigned pad : {app::pad_at(0, 8), app::pad_at(0, 10), app::pad_at(1, 8), app::pad_at(1, 10)}) {
+      CHECK_MESSAGE(help.pad_group[pad] == 0u, "dark pad " << pad);
+    }
+    CHECK(help.pad_group[app::pad_at(2, 0)] == 3u);  // the palette's A
+    CHECK(help.pad_group[app::pad_at(2, 4)] == 4u);  // TONGUE +
+    CHECK(help.pad_group[app::pad_at(3, 6)] == 4u);  // LIPS -
     close_help(h);
   }
-  tap(h, app::Button::SampleEdit);  // LINE: the old rows 1 and 2
+  t.pad(app::pad_at(1, 11));  // VOWEL MODE
   {
     const Help& help = open_help(h);
-    for (unsigned k = 0; k < 24; ++k) {
-      CHECK_MESSAGE(help.pad_group[k] != 0u, "LINE pad " << k);
-    }
+    CHECK(help.group_count == 5u);
+    CHECK(help.pad_group[app::pad_at(2, 5)] == 3u);   // SIZE
+    CHECK(help.pad_group[app::pad_at(2, 11)] == 4u);  // GLIDE 500
+    CHECK(help.pad_group[app::pad_at(3, 0)] == 5u);   // TONGUE -100
+    CHECK(help.pad_group[app::pad_at(3, 11)] == 5u);  // LIPS +100
     close_help(h);
   }
 }

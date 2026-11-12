@@ -883,6 +883,33 @@ HomeMap::LockResult HomeMap::lock_steps(app::Context& ctx, const Entry& entry, c
   return LockResult::Done;
 }
 
+bool HomeMap::lock_value(app::Context& ctx, const Entry& entry, const unsigned* steps, unsigned count, float value, bool relative) noexcept {
+  LaneRef ref{kLaneNone, 0};
+  const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
+  if (d == nullptr || !controls_->lane_ref(entry, ref)) {
+    return false;
+  }
+  const unsigned join = join_of(steps, count);
+  for (unsigned i = 0; i < count; ++i) {
+    float v = value;
+    if (relative) {
+      const int have = seq::find_lane(pat(), ref.target, ref.id);
+      const std::uint8_t cur = have >= 0 ? step_lock_point(pat(), static_cast<unsigned>(have), steps[i]) : kNoLock;
+      v += cur == kNoLock ? controls_->get(ctx.engine(), entry) : controls_->from_point(ctx.engine(), entry, cur);
+    }
+    v = v < d->min ? d->min : (v > d->max ? d->max : v);
+    const int lane = rig_->bank->lock_step(sel(), ref.target, ref.id, steps[i], controls_->to_point(ctx.engine(), entry, v), join);
+    if (lane < 0) {  // all eight lanes are in use by other parameters (D2)
+      toast(ctx, kLanesUsedToast, true);
+      return false;
+    }
+    lane_ = static_cast<unsigned>(lane);
+    on_lane_ = true;
+  }
+  ctx.redraw();
+  return true;
+}
+
 // Hold a step + the encoder on an entry a lane can drive: a parameter lock on each held step.
 bool HomeMap::lock_turn(app::Context& ctx, const Entry& entry, int detents, bool coarse) noexcept {
   unsigned steps[kPageSteps];

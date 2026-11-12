@@ -1,0 +1,57 @@
+# The pads of the TRACT page (docs/PADS-TRACT-PLAN.md, the redesign of 2026-11-13). 0-based, row 0 at the top: rows 0 and 1 columns 0 to 7 are the 16 steps; column 9 holds the two RANDOMIZEs
+# (row 0: the whole tract pattern, vowels plus TONGUE and LIPS locks; row 1: the vowels only), column 11 PLAY TRACT (row 0: the pattern or the knobs drive the mouth; the LED blinks high playing, low
+# stopped) and VOWEL MODE (row 1). Columns 8 and 10 are dark. Normal mode, row 2: A E I, TONGUE up (column 4), LIPS up (column 6); row 3: O U "-", TONGUE down, LIPS down. VOWEL MODE, row 2: A E I O U
+# (the one that sounds lit), SIZE (column 5: each tap is the next size, the LED off), GLIDE 5 16 50 158 500 ms (columns 7 to 11); row 3: TONGUE (columns 0 to 5) and LIPS (columns 6 to 11) at
+# -100 -60 -20 +20 +60 +100. With steps held the vowel-mode pads write those steps, else the knobs.
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/tract_pads.txt --out <dir>
+#
+# 01 TRACT, the pads in normal mode (PLAY TRACT blinking high); 02 RANDOMIZE ALL: a new tract pattern (toast NEW TRACT PATTERN); 03 RANDOMIZE VOWELS; 04 PLAY TRACT off (the LED blinks low, the knobs
+# drive the mouth); 05 back on; 06 VOWEL MODE (the picker pads); 07 vowel I, SIZE a tap, GLIDE 158 ms, TONGUE +60, LIPS -60; 08 the same on the held step 4; 09 VOWEL MODE off. The WAV: the random pattern playing.
+wait 300
+record on
+tap sampleedit   # TRACT (Sample Editor, E1a)
+tap f8
+tap f7
+turn 50
+wait 100
+snap 01_pads_normal
+pad 9 40
+wait 100
+snap 02_randomize_all
+pad 21 40
+wait 100
+snap 03_randomize_vowels
+pad 11 40
+wait 700
+snap 04_play_tract_off
+pad 11 40
+wait 100
+snap 05_play_tract_on
+pad 23 40
+wait 700
+snap 06_vowel_mode
+pad 26 40
+pad 29 40
+pad 34 40
+pad 39 40
+pad 42 40
+pad 40 40
+wait 700
+snap 07_vowel_mode_set_knobs
+paddown 4
+wait 60
+pad 24 40
+pad 41 40
+pad 46 40
+padup 4
+wait 100
+snap 08_held_step_4
+pad 23 40
+wait 100
+snap 09_vowel_mode_off
+tap play
+wait 3000
+tap play
+wait 300
+wav tract_pads

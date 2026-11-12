@@ -32,8 +32,10 @@ struct InstrumentCell {
   std::uint8_t vowel = 0;   // the line's vowel under the step: 0 "-" (follows the knob), 1..5 = A E I O U
   bool glide = false;       // GLD on a vowel step (the mouth glides to the next one)
   bool vowel_lock = false;  // a VOWEL lock of the step (the lane lock of F1 on a held step)
-  bool tongue = false;      // a TONGUE lock of the step: the skin's SLIDE row LED
-  bool lips = false;        // a LIPS lock of the step: the skin's STEP row LED
+  bool tongue = false;      // a TONGUE lock of the step
+  bool lips = false;        // a LIPS lock of the step
+  char tongue_txt[5] = "";  // the lock's value as the signed percent ("+40", "-100"); "" without a lock: the strip prints it under the vowel
+  char lips_txt[5] = "";
 };
 
 // What the Shift row says of a knob (MIDI learn, UX-303 5.5): nothing while Shift is up; "-" for a knob that is not a unit parameter (and for an empty box); LEARN; LEARN waiting for its controller.
@@ -46,7 +48,7 @@ struct InstrumentView {
   InstrumentSection section[kMaxSections];
   unsigned sections = 0;
   InstrumentCell cell[16];  // the page of 16 steps shown
-  bool tract = false;       // TRACT: the strip shows the mouth (vowel glyph, TONGUE and LIPS LEDs) where the others show ACCENT, SLIDE and STEP (E2b)
+  bool tract = false;       // TRACT: the strip shows the mouth (vowel glyph, TONGUE and LIPS values as text) where the others show ACCENT, SLIDE and STEP LEDs (E2b)
   unsigned cells = 0;       // how many of them are inside the pattern
   view::Marks marks;        // the cursor, the playhead and the held steps of the page
   char lock_label[16] = "";  // "LOCK 5": the label of the knob the encoder locks on a held step

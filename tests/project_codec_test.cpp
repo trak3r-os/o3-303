@@ -193,7 +193,7 @@ void scramble(Session& t) {
   w.wobble.reset = true;  // away from the default (off since B5a)
   w.wobble.target = kWobbleVowel;
   w.wob_want = 1;         // the WOB latch is saved too (B5a)
-  t.sequencer->set_tract_line(true);  // LINE on (A1b), away from the default
+  t.sequencer->set_tract_line(false);  // PLAY TRACT off (PADS-TRACT), away from the default (on)
   float values[kSnapValues] = {};
   for (const unsigned slot : {0u, 3u, 7u}) {
     for (unsigned i = 0; i < kSnapValues; ++i) {
@@ -306,7 +306,7 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(wb.wobble.reset);
   CHECK(wb.wobble.target == kWobbleVowel);
   CHECK(wb.wob_want == 1);  // the latch comes back as a request: LiveActions::update latches it
-  CHECK(b.sequencer->tract_line_on());  // LINE (A1b)
+  CHECK_FALSE(b.sequencer->tract_line_on());  // PLAY TRACT (PADS-TRACT: saved, the default is on)
   for (const dsp::UnitId u : {wa.voice, wa.dist, wa.delay, wa.growl, wa.freeze}) {
     for (unsigned id = 0; id < param_count(a.engine, u); ++id) {
       if (carried(wa, u, id)) {
@@ -1075,9 +1075,9 @@ TEST_CASE("project: A1, the tract's settings, its last mix and a tract lane roun
 
 bool same_line(const TractLine& a, const TractLine& b) { return std::memcmp(&a, &b, sizeof(TractLine)) == 0; }
 
-TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, inside PATS") {
+TEST_CASE("project: A1b, the TRACT lines and PLAY TRACT round-trip bit for bit, inside PATS") {
   Session a;
-  scramble(a);  // random lines (steps, GLD, lengths) in all 48 patterns, LINE on
+  scramble(a);  // random lines (steps, GLD, lengths) in all 48 patterns, PLAY TRACT off
   bool any_vowel = false;
   bool any_glide = false;
   bool any_len = false;
@@ -1101,17 +1101,17 @@ TEST_CASE("project: A1b, the TRACT lines and LINE round-trip bit for bit, inside
   for (unsigned i = 0; i < kPatternCount; ++i) {
     CHECK(same_line(b.bank->pattern(i).tract, a.bank->pattern(i).tract));
   }
-  CHECK(b.sequencer->tract_line_on());
+  CHECK_FALSE(b.sequencer->tract_line_on());
   CHECK(encode_session(b) == img);
 
-  // LINE off is saved as off, whatever the lines hold.
-  a.sequencer->set_tract_line(false);
-  const std::vector<std::uint8_t> off = encode_session(a);
-  REQUIRE(load(off, s).status == project::Status::Ok);
+  // PLAY TRACT on is saved as on (it is the default of a new project too), whatever the lines hold.
+  a.sequencer->set_tract_line(true);
+  const std::vector<std::uint8_t> on = encode_session(a);
+  REQUIRE(load(on, s).status == project::Status::Ok);
   Session c;
-  c.sequencer->set_tract_line(true);
+  c.sequencer->set_tract_line(false);
   REQUIRE(project::apply(c.rig, c.engine, s));
-  CHECK_FALSE(c.sequencer->tract_line_on());
+  CHECK(c.sequencer->tract_line_on());
   CHECK(same_line(c.bank->pattern(5).tract, a.bank->pattern(5).tract));
 }
 

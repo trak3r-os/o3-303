@@ -55,7 +55,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   // Shift they do the same (o3_303_app.cpp ignores Shift for the four): the Shift text says so (U8). Song opens SONG, again RECORD, and from RECORD SONG.
   b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", w == Where::Modded ? "SAME: NEXT PAGE" : "SAME: OPEN MODDED");
   b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
-  b.add(Button::SampleEdit, w == Where::Tract ? "NEXT LAYER: STEPS, LINE" : "OPEN TRACT", w == Where::Tract ? "SAME: NEXT LAYER" : "SAME: OPEN TRACT");
+  b.add(Button::SampleEdit, w == Where::Tract ? nullptr : "OPEN TRACT", w == Where::Tract ? nullptr : "SAME: OPEN TRACT");
   b.add(Button::SampleRec, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
   // The four colour keys (E1b), the same on every screen: each flips its sound (sound_buttons.h); Shift does the same (PF1: the PERFORM assignments are gone, MUTE, ACC, FILL and FRZ stay on the pads).
   // On the screens with the drawer a step held down gives the plain press to the drawer row instead.
@@ -191,23 +191,24 @@ constexpr HelpPadGroup kHomeFiltGroups[] = {
     {"LADDERS", "12 PLACES. F + TAP ASSIGNS. SHIFT+FILT: RESET", Color::Instr},
 };
 
-// TRACT's pads (A2): rows 1 and 2 the line's steps, row 3 the palette (A E I O U "-", GLD and LINE), row 4 the live vowels.
+// TRACT's pads: rows 1-2 the pattern's steps (columns 1-8) and the two columns of tract keys (10 and 12), rows 3-4 the vowels and the TONGUE and LIPS nudges, or in VOWEL MODE the vowel, size,
+// glide and the TONGUE and LIPS ladders.
 constexpr HelpPadGroup kTractGroups[] = {
-    {"LINE", "TAP: SELECT A STEP. HOLD IT, THEN TAP ROW 3", Color::Instr},
-    {"PALETTE", "A E I O U - : WRITE THE STEP, THEN GO ON", Color::Accent},
-    {"GLD, LINE", "GLD: GLIDE OF THE STEP. LINE: ON / OFF", Color::Accent},
-    {"LIVE VOWELS", "TAP: VOWEL KNOB. LINE ON: HOLD TO OVERRIDE", Color::Instr},
-};
-// The STEPS layer (E2a): the same rows 3 and 4, and the pattern's own steps on rows 1 and 2 (columns 1-8; the modifier columns do nothing there).
-constexpr HelpPadGroup kTractStepsGroups[] = {
     {"STEPS", "TAP: SELECT. HOLD, THEN ROW 3 OR F1-F3 + TURN", Color::Instr},
-    kTractGroups[1],
-    kTractGroups[2],
-    kTractGroups[3],
+    {"TRACT", "10: RANDOM ALL, VOWELS. 12: PLAY, VOWEL MODE", Color::Fx},
+    {"VOWELS", "A E I O U - : WRITE THE STEP, THEN GO ON", Color::Accent},
+    {"TONGUE, LIPS", "T / L + OR - 10 ON THE STEP'S LOCK", Color::Vol},
 };
-constexpr const char* kVowelPads[] = {"A", "E", "I", "O", "U"};
-constexpr const char* kPalettePads[] = {"A", "E", "I", "O", "U", "-"};
-constexpr const char* kGldLinePads[] = {"GLD", "LINE"};
+constexpr HelpPadGroup kTractVowelModeGroups[] = {
+    kTractGroups[0],
+    kTractGroups[1],
+    {"VOWEL, SIZE", "A E I O U: STEP OR KNOB. SIZE: NEXT SIZE", Color::Accent},
+    {"GLIDE", "5, 16, 50, 158, 500 MS", Color::Instr},
+    {"TONGUE, LIPS", "-100 TO +100, SIX STEPS: STEP OR KNOB", Color::Vol},
+};
+constexpr const char* kTractVowelLabels[] = {"A", "E", "I", "O", "U", "-"};
+constexpr const char* kTractLadderLabels[] = {"-100", "-60", "-20", "20", "60", "100"};
+constexpr const char* kTractGlideLabels[] = {"5", "16", "50", "158", "500"};
 
 // The WOBBLE page (E2c): the home map's steps and modifiers on rows 1 and 2, PERFORM's wobble rates on row 3, the keys on row 4.
 constexpr HelpPadGroup kWobblePageGroups[] = {
@@ -373,7 +374,7 @@ constexpr Text kTexts[kIdCount] = {
      kTractButtons.n,
      kTractGroups,
      count_of(sizeof kTractGroups / sizeof kTractGroups[0]),
-     "ROWS 1-2: STEPS (LINE LAYER: THE LINE). ROW 3: PALETTE. ROW 4: LIVE VOWELS. SAMPLE EDIT: LAYER."},
+     "ROWS 1-2: STEPS, RANDOM, PLAY TRACT, VOWEL MODE. ROWS 3-4: VOWELS, TONGUE, LIPS."},
     // Growl
     {"GROWL",
      "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE LEVEL. INSTR: ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
@@ -609,20 +610,41 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
   }
 }
 
-void fill_tract_pads(Help& h) noexcept {
-  app::help_pads(h, 0, 0, 1, 11, 1);
-  app::help_pads(h, 2, 0, 2, 5, 2, kPalettePads);
-  app::help_pads(h, 2, 10, 2, 11, 3, kGldLinePads);
-  app::help_pads(h, 3, 0, 3, 4, 4, kVowelPads);
-}
-
-void fill_tract_steps_pads(Help& h) noexcept {
+void fill_tract_pads(Help& h, bool vowel_mode) noexcept {
+  const auto label = [&h](unsigned row, unsigned col, std::uint8_t group, const char* text) {
+    const unsigned pad = app::pad_at(row, col);
+    h.pad_group[pad] = group;
+    h.pad_label[pad] = text;
+  };
   app::help_pads(h, 0, 0, 1, 7, 1);
-  app::help_pads(h, 2, 0, 2, 5, 2, kPalettePads);
-  app::help_pads(h, 2, 10, 2, 11, 3, kGldLinePads);
-  app::help_pads(h, 3, 0, 3, 4, 4, kVowelPads);
-  h.groups = kTractStepsGroups;
-  h.group_count = count_of(sizeof kTractStepsGroups / sizeof kTractStepsGroups[0]);
+  label(0, 9, 2, "ALL");
+  label(0, 11, 2, "PLAY");
+  label(1, 9, 2, "VOWEL");
+  label(1, 11, 2, "MODE");
+  if (!vowel_mode) {
+    for (unsigned c = 0; c < 3; ++c) {
+      label(2, c, 3, kTractVowelLabels[c]);
+      label(3, c, 3, kTractVowelLabels[c + 3]);
+    }
+    label(2, 4, 4, "T+");
+    label(3, 4, 4, "T-");
+    label(2, 6, 4, "L+");
+    label(3, 6, 4, "L-");
+    h.groups = kTractGroups;
+    h.group_count = count_of(sizeof kTractGroups / sizeof kTractGroups[0]);
+    return;
+  }
+  for (unsigned c = 0; c < 5; ++c) {
+    label(2, c, 3, kTractVowelLabels[c]);
+    label(2, 7 + c, 4, kTractGlideLabels[c]);
+  }
+  label(2, 5, 3, "SIZE");
+  for (unsigned c = 0; c < 6; ++c) {
+    label(3, c, 5, kTractLadderLabels[c]);
+    label(3, 6 + c, 5, kTractLadderLabels[c]);
+  }
+  h.groups = kTractVowelModeGroups;
+  h.group_count = count_of(sizeof kTractVowelModeGroups / sizeof kTractVowelModeGroups[0]);
 }
 
 void fill_wobble_pads(Help& h) noexcept {

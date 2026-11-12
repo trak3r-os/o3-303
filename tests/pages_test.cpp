@@ -952,22 +952,18 @@ TEST_CASE("pages: the TRACT page (A2): seven knobs, VOWEL's read-out, the on / o
   rig.controls.set(rig.engine, vowel, 1.0f);
   CHECK(rig.text(vowel) == "U");
 
-  // The vowel table: points, the nearest, the pad row.
+  // The vowel table: points, the nearest.
   CHECK(kTractVowelCount == 5);
   for (unsigned i = 0; i < kTractVowelCount; ++i) {
     CHECK(tract_vowel_point(i) == doctest::Approx(static_cast<float>(i) * 0.25f));
     CHECK(tract_nearest_vowel(tract_vowel_point(i)) == i);
     CHECK(tract_on_vowel(tract_vowel_point(i)));
-    CHECK(tract_vowel_pad(app::pad_at(3, i)) == static_cast<int>(i));
   }
   CHECK(tract_nearest_vowel(0.12f) == 0);
   CHECK(tract_nearest_vowel(0.13f) == 1);
   CHECK(tract_nearest_vowel(-3.0f) == 0);
   CHECK(tract_nearest_vowel(9.0f) == 4);
   CHECK_FALSE(tract_on_vowel(0.37f));
-  CHECK(tract_vowel_pad(app::pad_at(3, 5)) == -1);  // the rest of the bottom row and rows 1 to 3 do nothing yet
-  CHECK(tract_vowel_pad(app::pad_at(2, 0)) == -1);
-  CHECK(tract_vowel_pad(app::pad_at(0, 0)) == -1);
   char buf[8];
   CHECK(tract_vowel_text(1.0f, buf, sizeof buf) == 1);
   CHECK(std::strcmp(buf, "U") == 0);

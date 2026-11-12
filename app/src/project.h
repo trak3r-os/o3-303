@@ -71,7 +71,7 @@ enum AppValue : std::uint16_t {
   kAppModsOn,    // F13a: MODS heard (1) or off, the STOCK view (0)
   kAppGrowlLastMix,  // F13a: GROWL F8's "last mix", percent (1..100)
   kAppTractLastMix,  // A1: TRACT's "last mix", percent (1..100)
-  kAppTractLine,     // A1b: LINE on (1) or off (0), the TRACT line plays
+  kAppTractLine,     // PLAY TRACT on (1, the default) or stopped (0): the tract pattern (vowel line, TONGUE / LIPS locks) drives the mouth
   kAppValueCount,
 };
 

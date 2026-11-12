@@ -1,20 +1,19 @@
 # The wobble on the tract's MOUTH (docs/TRACT-KNOBS-PLAN.md A2, 11.5): WOBBLE's TARGET has a third word, MOUTH, after CUTOFF and VOWEL: the sequencer's wobble swings the TRACT's VOWEL around
 # the vowel that sounds, as it swings the growl's. With the tract off the key refuses it ("TRACT IS OFF" for a second, the target stays on VOWEL), as VOWEL with the growl off says GROWL
-# IS OFF. TRACT: the vowel I (pad), the mix at 100 %; WOBBLE: RATE 1/8, DEPTH 100 %, TARGET MOUTH, then the latch (F8) on and the factory line plays: the WAV shows the vowel moving at 1/8.
+# IS OFF. TRACT: the vowel by F1, the mix at 100 %; WOBBLE: RATE 1/8, DEPTH 100 %, TARGET MOUTH, then the latch (F8) on and the factory line plays: the WAV shows the vowel moving at 1/8.
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/tract_wobble.txt --out <dir>
 #
 # 01 WOBBLE with the growl on and the tract off: the TARGET turned to VOWEL, a turn on to MOUTH is refused (the toast on HOME); 02 the tract on; 03 TARGET MOUTH; 04 the latch on; 05 the line plays.
 wait 300
 record on
-# TRACT: on, mix 100 %, the vowel I by its pad. The growl is on too (F8 of GROWL) so VOWEL is a target one step before MOUTH.
+# TRACT: on, mix 100 %, the vowel from F1. The growl is on too (F8 of GROWL) so VOWEL is a target one step before MOUTH.
 tap sampleedit   # TRACT (Sample Editor, E1a)
 tap f8
 tap f7
 turn 100
-paddown 38
-wait 60
-padup 38
+tap f1
+turn 40
 tap sampleplay
 tap f8
 wait 50

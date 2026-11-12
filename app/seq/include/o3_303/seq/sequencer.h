@@ -109,7 +109,7 @@
 //               hits included: one Param event a note.
 //   tract       given to set_unit(kLaneTract, id): its parameters are lane and slew targets like the growl's (no per-note event).
 //   tract line  (docs/TRACT-KNOBS-PLAN.md A1b) the pattern's TRACT line (tract_line.h; the Bank's tract_step() and friends edit it), played
-//               when set_tract_line(true) and the tract unit is given: at the frame a step starts, a vowel step writes the tract's VOWEL
+//               while PLAY TRACT is on (set_tract_line, on by default; it also lets the TONGUE and LIPS lane locks through) and the tract unit is given: at the frame a step starts, a vowel step writes the tract's VOWEL
 //               (kTractVowelParam) like a lock; a "-" step gives the knob (or a slew's value) back, so the line only holds the parameter
 //               while it has a vowel. A GLD step also glides: at its first quarter it sets GLIDE to a quarter of the step's length (5..500 ms)
 //               and VOWEL to the next step's vowel (the knob's value when that is "-"), so the mouth is at the next vowel by the step's end
@@ -308,7 +308,8 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   std::uint8_t perf() const noexcept { return perf_.load(std::memory_order_relaxed); }
 
   // ---- The TRACT line (main loop; atomics, effective at the next step; see "tract line" above) -----------------------------------
-  // LINE on / off, project-wide (saved in the SND chunk as kAppTractLine, project.cpp). Off: the line is not played and the VOWEL knob rules.
+  // PLAY TRACT on / off, project-wide, on by default (saved in the SND chunk as kAppTractLine, project.cpp). Off: the vowel line is not played
+  // and the TONGUE / LIPS locks stand aside (emit_points), so the F1-F3 knobs rule.
   void set_tract_line(bool on) noexcept { tract_line_on_.store(on ? 1u : 0u, std::memory_order_relaxed); }
   bool tract_line_on() const noexcept { return tract_line_on_.load(std::memory_order_relaxed) != 0u; }
   // The line's step that started last (0..63), for the LEDs; -1 when stopped. It is published whether LINE is on or off.
@@ -524,7 +525,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   o3sdk::core::SpscRing<SlewCommand, 64> slew_commands_;
   std::atomic<int> live_transpose_{0};
   std::atomic<std::uint8_t> perf_{0};
-  std::atomic<std::uint8_t> tract_line_on_{0};  // single writer (the main loop), read by the render at each step
+  std::atomic<std::uint8_t> tract_line_on_{1};  // PLAY TRACT, on by default: the tract pattern (vowel line and the TONGUE / LIPS locks) drives the mouth; single writer (the main loop), read by the render at each step
   std::atomic<int> tract_head_{-1};             // single writer (the render), read by the main loop: the line's playhead
   std::atomic<std::uint8_t> fill_variant_{0};
   std::atomic<std::uint32_t> seed_;          // single writer (the main loop), read by the render when seed_version_ moves

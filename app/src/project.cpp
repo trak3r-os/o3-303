@@ -195,8 +195,8 @@ float app_default(unsigned id) noexcept {
       return 0.0f;
     case kAppModsOn:
       return 1.0f;
-    case kAppTractLine:  // a project whose SND has no entry for it has the line off
-      return 0.0f;
+    case kAppTractLine:  // PLAY TRACT: a project whose SND has no entry for it plays the tract pattern
+      return 1.0f;
     case kAppGrowlLastMix:
     case kAppTractLastMix:
       return 50.0f;

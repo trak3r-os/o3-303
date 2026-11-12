@@ -162,6 +162,9 @@ class Bank {
   // NEW for the line (the TRACT page's Shift + F6, A2b): the steps the line runs through (its length, or the pattern's when SAME) get a vowel, "-" or a vowel with GLD drawn from `seed`
   // (a Rng: the same seed and the same length give the same line, bit for bit); step 0 always has a vowel. The length field and the steps above it stay. One undo step. false when nothing changed.
   bool random_tract(unsigned index, std::uint32_t seed) noexcept;
+  // The whole tract pattern of the pads' RANDOMIZE (PADS-TRACT): the vowel line as random_tract draws it, and a TONGUE and a LIPS lock (random points 0..kMaxPoint of the lanes of
+  // (kLaneTract, tongue_id) and (kLaneTract, lips_id), claimed if need be) on every step of the pattern. One undo step. false when nothing changed.
+  bool random_tract_all(unsigned index, std::uint32_t seed, std::uint8_t tongue_id, std::uint8_t lips_id) noexcept;
   bool random_fill(unsigned index, const GenParams& g, std::uint32_t seed) noexcept;
   bool mutate(unsigned index, const GenParams& g, std::uint32_t seed, unsigned amount_pct) noexcept;
   bool set_motion_point(unsigned index, unsigned lane, unsigned step, unsigned point, std::uint8_t value) noexcept;

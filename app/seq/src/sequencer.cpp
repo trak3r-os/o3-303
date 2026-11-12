@@ -881,8 +881,10 @@ void Sequencer::emit_points(dsp::BlockContext& ctx, unsigned frame, unsigned qua
   }
   const Pattern& pat = shadow_[cur_];  // the lanes and the motion are the stored pattern's, whatever the fill plays
   const unsigned at = static_cast<unsigned>(cur_step_) * kMotionPointsPerStep + quarter;
+  const bool tract_on = tract_line_on_.load(std::memory_order_relaxed) != 0u;  // PLAY TRACT: stopped, the tract's locks stand aside and the knobs rule
   for (unsigned lane = 0; lane < kMotionLanes; ++lane) {
-    const std::uint8_t point = pat.motion[lane][at];
+    const std::uint8_t raw = pat.motion[lane][at];
+    const std::uint8_t point = (!tract_on && pat.lanes[lane].target == kLaneTract) ? kNoLock : raw;
     const std::uint8_t bit = static_cast<std::uint8_t>(1u << lane);
     const LaneRef ref = pat.lanes[lane];
     if ((overridden_ & bit) != 0u && (point == kNoLock || ref.target != lane_target_[lane] || ref.id != lane_id_[lane])) {

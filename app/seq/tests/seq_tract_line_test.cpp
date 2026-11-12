@@ -711,3 +711,41 @@ TEST_CASE("the tract line: a motion lane on VOWEL wins over the line") {
     CHECK(e.value == doctest::Approx(0.5f));  // never the line's A
   }
 }
+
+TEST_CASE("PLAY TRACT: it is on by default; a TONGUE lock drives the unit with it on and stands aside with it off, the knob's value coming back") {
+  {
+    Rig rig;
+    CHECK(rig.seq.tract_line_on());  // on without a call: a new project plays its tract pattern
+  }
+  for (const bool on : {true, false}) {
+    CAPTURE(on);
+    Rig rig;
+    rig.start();
+    constexpr std::uint16_t kTongue = TractFx::Tongue;
+    rig.knob(kTongue, 10.0f);
+    Pattern p = play_all(8);
+    p.lanes[0] = LaneRef{kLaneTract, static_cast<std::uint8_t>(TractFx::Tongue)};
+    for (unsigned j = 0; j < 8; ++j) {
+      for (unsigned q = 0; q < kMotionPointsPerStep; ++q) {
+        p.motion[0][j * kMotionPointsPerStep + q] = kMotionMaxPoint;  // the top of TONGUE's range: +100
+      }
+    }
+    rig.bank->replace(0, p);
+    rig.seq.set_tract_line(on);
+    rig.engine.play();
+    const std::uint64_t end = frame_of(8 * kStep);
+    rig.run(end + 256);
+    const std::vector<Rec> ev = before(events_of(rig.tract.log, kTongue), end);
+    if (on) {
+      REQUIRE_FALSE(ev.empty());
+      for (const Rec& e : ev) {
+        CHECK(e.value == doctest::Approx(100.0f));
+      }
+    } else {
+      for (const Rec& e : ev) {
+        CAPTURE(e.frame);
+        CHECK(e.value == doctest::Approx(10.0f));  // nothing but the knob's own value
+      }
+    }
+  }
+}

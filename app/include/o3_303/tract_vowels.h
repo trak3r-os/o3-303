@@ -57,10 +57,4 @@ inline unsigned tract_vowel_text(float value, char* out, unsigned cap) noexcept 
   return n;
 }
 
-// The TRACT page's pads (A2): pad row 3 (the bottom row, left to right) holds the live vowels A E I O U in its first five pads; a tap writes the VOWEL knob there (rows 0 to 2 are the line and its palette).
-// The vowel of `pad`, or -1 for any other pad.
-constexpr int tract_vowel_pad(unsigned pad) noexcept {
-  return o3sdk::app::pad_row(pad) == 3u && o3sdk::app::pad_col(pad) < kTractVowelCount ? static_cast<int>(o3sdk::app::pad_col(pad)) : -1;
-}
-
 }  // namespace o3_303
