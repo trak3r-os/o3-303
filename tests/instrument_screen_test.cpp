@@ -246,7 +246,7 @@ TEST_CASE("every key of FX, GROWL and WOBBLE reaches its parameter") {
   t.turn(5);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) != send0);
 
-  t.to_growl();  // GROWL: the formant, the comb, the growl's mix; F8 is an empty well
+  t.to_growl();  // GROWL: the formant, the comb, the growl's mix and F8 GAIN
   CHECK(key_moves(t, 0, kGrowl, Growl::Vowel));
   CHECK(key_moves(t, 1, kGrowl, Growl::FormantQ));
   CHECK(key_moves(t, 2, kGrowl, Growl::FormantMix));
@@ -254,6 +254,7 @@ TEST_CASE("every key of FX, GROWL and WOBBLE reaches its parameter") {
   CHECK(key_moves(t, 4, kGrowl, Growl::CombFeedback));
   CHECK(key_moves(t, 5, kGrowl, Growl::CombMix));
   CHECK(key_moves(t, 6, kGrowl, Growl::Mix));
+  CHECK(key_moves(t, 7, kGrowl, Growl::Gain));  // F8 is GAIN (B2)
 }
 
 TEST_CASE("every label of the pages' knobs fits the knob strip's nine characters (U3: WOB TARGET showed as WOB TARGE)") {
@@ -425,16 +426,16 @@ TEST_CASE("MIDI learn arms only unit parameters: VOLUME, DLY SEND, MODEL and the
   t.wait(5);
   CHECK_FALSE(ctx.midi().learning());
 
-  t.to_growl();  // GROWL: the seven growl knobs are unit parameters, F8 is an empty well
+  t.to_growl();  // GROWL: the seven growl knobs and GAIN (B2) are unit parameters
   t.press(Button::Shift);
-  const char* growl[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "-"};
+  const char* growl[8] = {"LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN", "LEARN"};
   for (unsigned k = 0; k < 8; ++k) {
     INFO("GROWL F" << (k + 1));
     CHECK(row(k) == growl[k]);
   }
   t.release(Button::Shift);
-  t.shift_tap(Button::F8);
-  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F8);  // GAIN: armed, the next F key moves the arm
+  CHECK(ctx.midi().learning());
   t.shift_tap(Button::F6);  // CMB MIX: armed, and leaving the screen drops it
   CHECK(ctx.midi().learning());
   t.to_home();

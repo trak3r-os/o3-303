@@ -7,6 +7,9 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **GAIN on F8 of TRACT and GROWL (B2).** The level of each one's wet sound (-12 to +18 dB; +0.5 dB and +15 dB at first) is a knob on the page now: turn it, lock it on a held step, record it in a
+  lane or learn it from a controller (Shift + F8). The Vol and Instr buttons keep switching TRACT and GROWL on and off.
+
 - **Project format 2.0: projects saved by an earlier version are refused (P1).** The project file now has one strict layout (HEAD, GEN, PATS, SND, SNAP, PERF and SONG, each once)
   and the format is 2.0. A project saved by any earlier o3-303 (v0.8.0 and before) does not load: the unit says PROJECT FROM AN OLDER O3-303, loads nothing of it and leaves the file on
   the card untouched (autosave stays off until you SAVE). **There is no converter**: start those projects again. A project of a newer o3-303 is refused the same way. A file with a

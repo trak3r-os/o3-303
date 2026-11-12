@@ -202,20 +202,20 @@ constexpr Page kNotesPage = {"NOTES",
 constexpr Page kTonePage = {"TONE",
                             {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), voice(AcidVoice::Range), voice(AcidVoice::Sustain),
                              Entry{}}};
-// The growl in signal order: the formant, the comb, then the growl's mix. F8 is empty: the Instr key flips GROWL (Mix to 0 and back to its last non-zero value, B5a).
+// The growl in signal order: the formant, the comb, then the growl's mix and GAIN (B2: the wet level, before the mix). The Instr key flips GROWL (Mix to 0 and back to its last non-zero value, B5a).
 constexpr Page kGrowlPage = {"GROWL",
                              {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
-                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}};
+                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), growl(Growl::Gain, "GAIN")}};
 // The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 and F7 are free; F8 is the WOB key (5.5, MIDI-learnable there), the same latch as the Fx key.
 constexpr Page kWobblePage = {"WOBBLE",
                               {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
                                Entry{}, Entry{}, app_item(Item::WobOn, "WOB")}};
 
-// The tract in signal order: the mouth (VOWEL, TONGUE, LIPS), the resonance and glide, the room (SIZE), then the mix. F8 is empty: the Vol key flips TRACT (Mix to 0 and back to its last non-zero
-// value, like GROWL's, A2). F1 reads a letter (tract_vowels.h). The pads of the page are the live vowels (instrument_screen.cpp).
+// The tract in signal order: the mouth (VOWEL, TONGUE, LIPS), the resonance and glide, the room (SIZE), then the mix and GAIN (B2: the wet level, after the processor and before the mix). The Vol key flips TRACT (Mix to 0 and back to its last
+// non-zero value, like GROWL's, A2). F1 reads a letter (tract_vowels.h). The pads of the page are the live vowels (instrument_screen.cpp).
 constexpr Page kTractPage = {"TRACT",
                              {tract(TractFx::Vowel, "VOWEL"), tract(TractFx::Tongue, "TONGUE"), tract(TractFx::Lips, "LIPS"), tract(TractFx::Res, "RES"),
-                              tract(TractFx::Glide, "GLIDE"), tract(TractFx::Size, "SIZE"), tract(TractFx::Mix, "TRC MIX"), Entry{}}};
+                              tract(TractFx::Glide, "GLIDE"), tract(TractFx::Size, "SIZE"), tract(TractFx::Mix, "TRC MIX"), tract(TractFx::Gain, "GAIN")}};
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
 const Page& setup_page() noexcept { return kSetupPage; }

@@ -552,8 +552,8 @@ MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen 
 ### TRACT
 
 Press **Sample Edit**. TRACT is a mouth after the growl: F1 VOWEL (A E I O U morphed; the read-out is a letter on a vowel and "E 37%" between), F2 TONGUE,
-F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8, which switches the tract on and off (off is Mix 0, the dry sound bit for bit; on brings back the last
-mix). The tract also has a level on its wet sound (GAIN, -12 to +18 dB, +0.5 dB at first: the level match of the factory vowel); it has no knob on the page yet. Shift + F1 to F3 and F7 are MIDI learn (Shift + F4, F5 and F6 are the line's LEN, CLEAR and NEW, below). Another press of Sample Play flips to GROWL and back.
+F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8 GAIN. The **Vol** button switches the tract on and off (off is Mix 0, the dry sound bit for bit; on brings back the last
+mix). GAIN is the level of the tract's wet sound (-12 to +18 dB, +0.5 dB at first: the level match of the factory vowel); like any knob it can be locked on a held step, recorded and learned. Shift + F1 to F3, F7 and F8 are MIDI learn (Shift + F4, F5 and F6 are the line's LEN, CLEAR and NEW, below). Another press of Sample Play flips to GROWL and back.
 
 The pads are the TRACT line of the pattern shown, the vowel the mouth takes on each step (48 patterns, 48 lines of up to 64 steps; a step with "-" leaves the
 VOWEL knob as it is). With LINE on the line plays with the pattern; with LINE off it is only stored.
@@ -573,7 +573,7 @@ VOWEL knob as it is). With LINE on the line plays with the pattern; with LINE of
 ### GROWL
 
 Press **Sample Play**. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
-comb, then the mix), and F8 switches the growl on and off.
+comb, then the mix), and F8 is the level of the wet sound. The **Instr** button switches the growl on and off.
 
 ![GROWL: F1 VOWEL, F2 FMT Q, F3 FMT MIX, F4 CMB TUNE, F5 CMB FB, F6 CMB MIX, F7 GRL MIX; the VOICE and WOBBLE read-outs](manual/img/growl.png)
 
@@ -588,10 +588,9 @@ comb, then the mix), and F8 switches the growl on and off.
 | F5 CMB FB | The comb's feedback | -0.95 to +0.95 | 0.6 |
 | F6 CMB MIX | How much of the comb is heard | 0 to 100 % | 50 % |
 | F7 GRL MIX | The growl's wet and dry, for the whole growl | 0 to 100 % | 0 % (off) |
-| F8 GROWL | Mix to 0 (off), and back to the last value, 50 % at first (saved with the project). The strip says GROWL OFF: F8 while off | OFF, ON | OFF |
+| F8 GAIN | The level of the growl's wet sound, before the Mix | -12 to +18 dB | +15 dB |
 
-The growl also has a level on its wet sound (GAIN, -12 to +18 dB, +15 dB at first: the growl comes out well under its input, and this brings it back to the same level at Mix 100 %);
-it has no knob on the page yet. The Mix crossfades dry and wet at equal power, so the level holds as you turn it.
+GAIN's +15 dB at first is there because the growl comes out well under its input: it brings the wet sound back to the same level at Mix 100 %. The **Instr** button flips the growl off (Mix 0) and back to the last mix, 50 % at first (saved with the project); the strip says GROWL OFF: INSTR while off. The Mix crossfades dry and wet at equal power, so the level holds as you turn it.
 
 Shift + an F key is MIDI learn for F1 to F7 (section 10). The pads are the home map, so the line plays and edits while you shape the growl.
 Like the other knobs, a growl knob can be locked per step and recorded as motion.

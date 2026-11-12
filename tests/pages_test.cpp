@@ -96,7 +96,7 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
   };
   const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0, 8}, {&kFxPage, 0, 9},
                          {&kNotesPage, 1u << 7, 9},     {&kTonePage, 1u << 7, 9},
-                         {&kTractPage, 1u << 7, 9},     {&kGrowlPage, 1u << 7, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
+                         {&kTractPage, 0, 9},           {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
   for (const Shown& sh : shown) {
     for (unsigned k = 0; k < kKeys; ++k) {
       const Entry e = rig.entry(*sh.page, k);
@@ -639,7 +639,7 @@ TEST_CASE("pages: A1, the tract's parameters are Item::Tract entries, lane targe
 
 TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the wobble's settings in the screen's order, PERF the freeze's roll and stop (M3c)") {
   Rig rig;
-  // GROWL: F1..F7 are the growl's ids 0..5 and 7 (Note, id 6, is the sequencer's), F8 is free.
+  // GROWL: F1..F7 are the growl's ids 0..5 and 7 (Note, id 6, is the sequencer's), F8 is GAIN (id 8).
   static constexpr Growl::Param kIds[7] = {Growl::Vowel,      Growl::FormantQ, Growl::FormantMix, Growl::CombTune,
                                            Growl::CombFeedback, Growl::CombMix, Growl::Mix};
   for (unsigned k = 0; k < 7; ++k) {
@@ -649,6 +649,18 @@ TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the
     CHECK(rig.controls.get(rig.engine, e) == doctest::Approx(rig.engine.param(rig.wiring.growl, kIds[k])));
   }
   CHECK(rig.text(rig.entry(kGrowlPage, 6)) == "0%");  // Mix 0: the growl is a bit-exact bypass until the player opens it
+  // F8 is GAIN (B2), the unit's id 8: the wet level in dB, a knob the lanes and MIDI learn reach.
+  const Entry ggain = rig.entry(kGrowlPage, 7);
+  CHECK(ggain.item == Item::Growl);
+  CHECK(ggain.id == Growl::Gain);
+  CHECK(std::strcmp(rig.controls.label(rig.engine, ggain), "GAIN") == 0);
+  CHECK(rig.controls.kind(rig.engine, ggain) == KeyKind::Knob);
+  LaneRef ggain_ref{kLaneNone, 0};
+  CHECK(rig.controls.lane_ref(ggain, ggain_ref));
+  CHECK(ggain_ref.target == kLaneGrowl);
+  CHECK(ggain_ref.id == Growl::Gain);
+  rig.controls.set(rig.engine, ggain, -3.0f);
+  CHECK(rig.engine.param(rig.wiring.growl, Growl::Gain) == doctest::Approx(-3.0f));
   const float vowel0 = rig.controls.get(rig.engine, rig.entry(kGrowlPage, 0));
   rig.controls.step(rig.engine, rig.entry(kGrowlPage, 0), 10, false);
   CHECK(rig.controls.get(rig.engine, rig.entry(kGrowlPage, 0)) > vowel0);
@@ -902,7 +914,7 @@ TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule
 
 TEST_CASE("pages: the TRACT page (A2): seven knobs, VOWEL's read-out, the on / off item with the last mix, the vowel table") {
   Rig rig;
-  // F1 VOWEL, F2 TONGUE, F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX are the unit's parameters; F8 is the app's on / off key.
+  // F1 VOWEL, F2 TONGUE, F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX are the unit's parameters; F8 is GAIN.
   const unsigned ids[7] = {TractFx::Vowel, TractFx::Tongue, TractFx::Lips, TractFx::Res, TractFx::Glide, TractFx::Size, TractFx::Mix};
   const char* const names[7] = {"VOWEL", "TONGUE", "LIPS", "RES", "GLIDE", "SIZE", "TRC MIX"};
   for (unsigned k = 0; k < 7; ++k) {
@@ -914,7 +926,20 @@ TEST_CASE("pages: the TRACT page (A2): seven knobs, VOWEL's read-out, the on / o
     CHECK(ref.target == kLaneTract);
     CHECK(ref.id == ids[k]);
   }
-  CHECK(rig.entry(kTractPage, 7).item == Item::Blank);  // F8 is empty: the Vol key flips the tract (E1b)
+  // F8 is GAIN (B2), the unit's id 7: the wet level in dB, a knob, learnable, lockable, and still 0.5 dB steps (the Vol key is the on / off key since E1b).
+  const Entry gain = rig.entry(kTractPage, 7);
+  CHECK(gain.item == Item::Tract);
+  CHECK(gain.id == TractFx::Gain);
+  CHECK(std::strcmp(rig.controls.label(rig.engine, gain), "GAIN") == 0);
+  CHECK(rig.controls.kind(rig.engine, gain) == KeyKind::Knob);
+  LaneRef gain_ref{kLaneNone, 0};
+  CHECK(rig.controls.lane_ref(gain, gain_ref));
+  CHECK(gain_ref.target == kLaneTract);
+  CHECK(gain_ref.id == TractFx::Gain);
+  CHECK(rig.controls.get(rig.engine, gain) == doctest::Approx(o3_303::kTractGainDefaultDb));
+  rig.controls.set(rig.engine, gain, 6.0f);
+  CHECK(rig.engine.param(rig.wiring.tract, TractFx::Gain) == doctest::Approx(6.0f));
+  CHECK(rig.text(gain).find("6.0dB") != std::string::npos);
   const Entry on{Item::TractOn, 0, nullptr};
   CHECK(std::strcmp(rig.controls.label(rig.engine, on), "TRACT") == 0);
 

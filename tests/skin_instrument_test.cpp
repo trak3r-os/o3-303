@@ -410,9 +410,9 @@ TEST_CASE("skin instrument: F8 of MODDED and GROWL is an empty well (E1b): no ac
 TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and no label, latch LED or readout; the other slots have all three") {
   struct Blanks {
     Where w;
-    unsigned count;  // F8 of NOTES, TONE and GROWL (the colour keys flip the sounds, E1b); F6 and F7 on WOBBLE (its F8 is the WOB key); INSTRUMENT has none
+    unsigned count;  // F8 of NOTES and TONE (GROWL's F8 is GAIN since B2; the colour keys flip the sounds, E1b); F6 and F7 on WOBBLE (its F8 is the WOB key); INSTRUMENT has none
   };
-  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 1}, {Where::Tone, 1}, {Where::Growl, 1}, {Where::Wobble, 2}};
+  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 1}, {Where::Tone, 1}, {Where::Growl, 0}, {Where::Wobble, 2}};
   for (const Blanks& expect : kBlanks) {
     OnInstrument o(expect.w);
     INFO(where_name(expect.w));
@@ -442,7 +442,7 @@ TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and
   }
 }
 
-TEST_CASE("skin instrument: the F8 well has no readout text on MODDED and GROWL (E1b)") {
+TEST_CASE("skin instrument: the F8 well has no readout text on MODDED (E1b)") {
   // The F8 well (x 700..800, y 457..479): its readout used to be the action key's ON / OFF.
   const auto texts_in_f8 = [](const OnInstrument& o) {
     unsigned n = 0;
@@ -454,7 +454,7 @@ TEST_CASE("skin instrument: the F8 well has no readout text on MODDED and GROWL 
     }
     return n;
   };
-  for (const Where w : {Where::Notes, Where::Tone, Where::Growl}) {
+  for (const Where w : {Where::Notes, Where::Tone}) {
     OnInstrument o(w);
     INFO(where_name(w));
     CHECK(texts_in_f8(o) == 0u);

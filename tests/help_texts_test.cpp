@@ -96,15 +96,15 @@ TEST_CASE("help texts: MODDED's summary says what ends STOCK and what does not (
 
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
   // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD four (ARM BARS SAVE DISCARD),
-  // GROWL and TRACT seven (the sound's on / off is a colour key now), WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE five; MODDED NOTES names seven (the rest are empty wells).
+  // GROWL and TRACT eight (F8 is GAIN; the sound's on / off is a colour key), WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE five; MODDED NOTES names seven (the rest are empty wells).
   for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
       CHECK_MESSAGE(text(id).fkey[k] != nullptr, text(id).name << " F" << k + 1);
     }
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    CHECK_MESSAGE((text(Id::Tract).fkey[k] != nullptr) == (k < 7), "TRACT F" << k + 1);
-    CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 7), "GROWL F" << k + 1);
+    CHECK_MESSAGE(text(Id::Tract).fkey[k] != nullptr, "TRACT F" << k + 1);
+    CHECK_MESSAGE(text(Id::Growl).fkey[k] != nullptr, "GROWL F" << k + 1);
     CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
     CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5), "MODDED TONE F" << k + 1);
     CHECK_MESSAGE((text(Id::ModdedNotes).fkey[k] != nullptr) == (k < 7), "MODDED NOTES F" << k + 1);

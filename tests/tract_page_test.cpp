@@ -236,6 +236,18 @@ TEST_CASE("tract page: Left and Right move the line's cursor, the LINE pad flips
   CHECK(t.pat().tract.len == o3_303::kTractSame);
 }
 
+TEST_CASE("tract page: F8 is GAIN (B2), the wet level: it turns the unit's id 7 and is MIDI-learnable") {
+  Hands t;
+  t.to_tract();
+  app::Context& ctx = t.h->runtime().context();
+  CHECK(t.param(kTract, TractFx::Gain) == doctest::Approx(o3_303::kTractGainDefaultDb));
+  t.tap(Button::F8);
+  t.turn(4);
+  CHECK(t.param(kTract, TractFx::Gain) > o3_303::kTractGainDefaultDb);
+  t.shift_tap(Button::F8);  // Shift + F8 arms MIDI learn on it
+  CHECK(ctx.midi().learning());
+}
+
 TEST_CASE("tract page: the Shift row shows LEN, CLEAR and NEW on F4 to F6 and LEARN on the other unit knobs") {
   Hands t;
   t.to_tract();
@@ -252,6 +264,7 @@ TEST_CASE("tract page: the Shift row shows LEN, CLEAR and NEW on F4 to F6 and LE
   CHECK(row(4) == "CLEAR");
   CHECK(row(5) == "NEW");
   CHECK(row(6) == "LEARN");
+  CHECK(row(7) == "LEARN");
   t.release(Button::Shift);
 }
 
