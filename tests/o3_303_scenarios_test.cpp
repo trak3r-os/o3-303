@@ -173,7 +173,7 @@ TEST_CASE("scenarios: there is one for each screen and gesture group") {
     return;
   }
   const fs::path dir = O3_303_SCENARIO_DIR;
-  for (const char* name : {"boot", "write", "edit", "home", "rec_hold", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "knobs", "knobs_rec", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "length_odd", "new_line", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_knobs", "skin_instrument", "tract", "tract_wobble", "skin_tract", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab", "skin_modded", "skin_strip", "classic", "fkeys"}) {
+  for (const char* name : {"boot", "write", "edit", "home", "rec_hold", "instrument", "config_303", "tools", "patterns", "pattern_setup", "perform", "perform_pads", "perform_setup", "knobs", "knobs_rec", "home_rows", "home_tools", "project", "file", "library", "record", "growl_wobble", "long", "length_odd", "new_line", "skin_home", "help_skin", "song", "skin_song", "skin_perform", "skin_knobs", "skin_instrument", "tract", "tract_steps", "tract_wobble", "skin_tract", "skin_master", "skin_record", "skin_file", "manual_tour", "manual_screens", "modded", "mods", "mods_stock", "mods_stock_ab", "skin_modded", "skin_strip", "classic", "fkeys"}) {
     CHECK_MESSAGE(fs::exists(dir / (std::string(name) + ".txt")), name);
   }
 }

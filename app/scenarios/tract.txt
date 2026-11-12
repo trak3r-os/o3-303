@@ -1,6 +1,6 @@
 # The TRACT page (docs/TRACT-KNOBS-PLAN.md A2, 3.3, 11.1): Sample Playback opens TRACT (it used to open GROWL; again it flips to GROWL and back), F1 VOWEL, F2 TONGUE, F3 LIPS, F4 RES,
 # F5 GLIDE, F6 SIZE, F7 TRC MIX, F8 the TRACT key (off is Mix 0, a bit-exact bypass; on gives the last mix back). The bottom row of pads holds the live vowels A E I O U: a tap writes
-# VOWEL, the LED of the vowel that sounds is on and the other four dim; the other pads (rows 1 to 3 are the TRACT pattern's, later) are dark and do nothing. VOWEL reads a letter on a
+# VOWEL, the LED of the vowel that sounds is on and the other four dim; the other pads: rows 1 and 2 are the pattern's steps on the STEPS layer (the page opens on it, E2a; the LINE layer is a second Sample Editor press), row 3 the palette. VOWEL reads a letter on a
 # vowel's point ("A", "O") and "<nearest letter> <percent>" between ("E 37%").
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/tract.txt --out <dir>

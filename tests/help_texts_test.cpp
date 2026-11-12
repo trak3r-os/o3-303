@@ -454,6 +454,14 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
     CHECK_MESSAGE(std::strcmp(load->shift, on_modded ? "SAME: NEXT PAGE" : "SAME: OPEN MODDED") == 0, t.name << ": Shift + Sample Loader");
     for (const One& o : ones) {
       const HelpButton* hb = find(t, o.button);
+      if (id == Id::Tract && o.own == Id::Tract) {
+        // TRACT's own key is the layer switch (E2a), so it is listed: STEPS, LINE, and Shift does the same.
+        REQUIRE_MESSAGE(hb != nullptr, t.name << ": Sample Editor on TRACT switches the layer");
+        CHECK(std::strcmp(hb->text, "NEXT LAYER: STEPS, LINE") == 0);
+        REQUIRE(hb->shift != nullptr);
+        CHECK(std::strcmp(hb->shift, "SAME: NEXT LAYER") == 0);
+        continue;
+      }
       if (id == o.own) {
         CHECK_MESSAGE(hb == nullptr, t.name << ": the key of the sound's own screen does nothing (it is drawn dimmed)");
         continue;
@@ -464,6 +472,33 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
       CHECK_MESSAGE(std::strncmp(hb->shift, "SAME: ", 6) == 0, t.name);
       CHECK_MESSAGE(std::strcmp(hb->shift + 6, o.open) == 0, t.name);
     }
+  }
+}
+
+TEST_CASE("help texts: TRACT's STEPS layer groups its pad rows 1 and 2 (columns 1-8) and the LINE layer all three rows of the line (E2a)") {
+  Hands t;
+  sim::Harness& h = *t.h;
+  tap(h, app::Button::SampleEdit);  // STEPS: the layer the page opens on
+  {
+    const Help& help = open_help(h);
+    CHECK(help.group_count == 4u);
+    for (unsigned k = 0; k < 8; ++k) {
+      CHECK_MESSAGE(help.pad_group[k] == 1u, "row 1 pad " << k);
+      CHECK_MESSAGE(help.pad_group[app::kPadCols + k] == 1u, "row 2 pad " << k);
+    }
+    for (unsigned k = 8; k < app::kPadCols; ++k) {
+      CHECK_MESSAGE(help.pad_group[k] == 0u, "row 1 pad " << k << " does nothing on STEPS");
+    }
+    CHECK(help.pad_group[2 * app::kPadCols] != 0u);  // the palette's A
+    close_help(h);
+  }
+  tap(h, app::Button::SampleEdit);  // LINE: the old rows 1 and 2
+  {
+    const Help& help = open_help(h);
+    for (unsigned k = 0; k < 24; ++k) {
+      CHECK_MESSAGE(help.pad_group[k] != 0u, "LINE pad " << k);
+    }
+    close_help(h);
   }
 }
 

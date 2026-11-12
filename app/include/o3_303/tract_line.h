@@ -61,6 +61,14 @@ constexpr unsigned tract_length(const TractLine& t, unsigned pattern_length) noe
 // the pattern's length): the line wraps on its own length. `length` is the line's own length (4..64), a power of two; a SAME line does not come here.
 constexpr unsigned tract_index(unsigned n, unsigned length) noexcept { return n & (length - 1u); }
 
+// The line step a pattern step `s` (0..pattern_length-1) edits on the TRACT STEPS layer: the same index for a SAME line (or one that holds an illegal
+// length), else the pattern step wrapped on the line's own length, the way the playhead wraps it (`tract_index`). A line longer than the pattern is
+// reached only for its first `pattern_length` steps from there; the LINE layer reaches all of it.
+constexpr unsigned tract_line_step_of(unsigned s, const TractLine& t, unsigned pattern_length) noexcept {
+  (void)pattern_length;
+  return tract_valid_length(t.len) ? tract_index(s, t.len) : s;
+}
+
 // A vowel step's position in the unit's VOWEL knob (units/tract: A = 0, E = .25, I = .5, O = .75, U = 1); 0 for "-".
 constexpr float tract_vowel_value(std::uint8_t vowel) noexcept {
   return vowel >= kTractA && vowel <= kTractVowels ? static_cast<float>(vowel - kTractA) * 0.25f : 0.0f;

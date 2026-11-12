@@ -311,6 +311,11 @@ void HomeMap::move_cursor(app::Context& ctx, int to) noexcept {
   ctx.redraw();
 }
 
+void HomeMap::advance_cursor(app::Context& ctx) noexcept {
+  clamp_cursor();
+  move_cursor(ctx, static_cast<int>((static_cast<unsigned>(cursor_) + 1u) % length()));
+}
+
 void HomeMap::toast(app::Context& ctx, const char* text, bool off) noexcept {
   cut(text, sizeof toast_ - 1u, toast_, sizeof toast_);
   toast_off_ = off;

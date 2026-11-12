@@ -7,6 +7,8 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **TRACT's STEPS layer (E2a).** The TRACT page now opens on the pattern's own steps: the pads of rows 1 and 2 (columns 1 to 8) are steps 1 to 16, and the mouth is set where the notes are. Hold a step and tap the palette on row 3 to write its vowel, turn F1 to move the vowel of the held steps, or turn F2 / F3 to lock TONGUE or LIPS on that step. The line keeps its own length (a short line's step is edited under its wrap, the toast says so). **Sample Edit again** is the LINE layer, the old pads of the line, and again STEPS. Shift + F5 CLEAR also clears the TONGUE and LIPS locks.
+
 - **GAIN on F8 of TRACT and GROWL (B2).** The level of each one's wet sound (-12 to +18 dB; +0.5 dB and +15 dB at first) is a knob on the page now: turn it, lock it on a held step, record it in a
   lane or learn it from a controller (Shift + F8). The Vol and Instr buttons keep switching TRACT and GROWL on and off.
 

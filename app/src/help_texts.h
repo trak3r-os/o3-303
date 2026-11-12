@@ -98,6 +98,8 @@ struct HomePads {
 void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noexcept;
 // TRACT: the pads are not the home map's: rows 1 and 2 the pattern's TRACT line, row 3 the palette (A E I O U "-", GLD, LINE), row 4 the live vowels A E I O U. `h` already has the screen's Text (fill()).
 void fill_tract_pads(o3sdk::app::Help& h) noexcept;
+// TRACT's STEPS layer (E2a): rows 1 and 2 are the pattern's steps (columns 1-8; the rest do nothing), rows 3 and 4 as fill_tract_pads(); sets the group texts too.
+void fill_tract_steps_pads(o3sdk::app::Help& h) noexcept;
 // PERFORM and PERFORM SETUP: row 1 the eleven live actions and ALL OFF, row 2 the snapshots and the variations, row 3 the ladder, row 4 the keys. `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
 void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false) noexcept;
 // FILE LIBRARY: the 48 pads are slots 00..47 of the bank.

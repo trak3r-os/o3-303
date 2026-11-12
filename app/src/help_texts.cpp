@@ -54,7 +54,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   // Shift they do the same (o3_303_app.cpp ignores Shift for the four): the Shift text says so (U8). Song opens SONG, again RECORD, and from RECORD SONG.
   b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", w == Where::Modded ? "SAME: NEXT PAGE" : "SAME: OPEN MODDED");
   b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
-  b.add(Button::SampleEdit, w == Where::Tract ? nullptr : "OPEN TRACT", w == Where::Tract ? nullptr : "SAME: OPEN TRACT");
+  b.add(Button::SampleEdit, w == Where::Tract ? "NEXT LAYER: STEPS, LINE" : "OPEN TRACT", w == Where::Tract ? "SAME: NEXT LAYER" : "SAME: OPEN TRACT");
   b.add(Button::SampleRec, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
   // The four colour keys (E1b), the same on every screen: each flips its sound (sound_buttons.h), and with Shift runs the PERFORM action assigned on PERFORM SETUP (a tap latches it, a hold is momentary).
   // On the screens with the drawer a step held down gives the plain press to the drawer row instead.
@@ -183,6 +183,13 @@ constexpr HelpPadGroup kTractGroups[] = {
     {"PALETTE", "A E I O U - : WRITE THE STEP, THEN GO ON", Color::Accent},
     {"GLD, LINE", "GLD: GLIDE OF THE STEP. LINE: ON / OFF", Color::Accent},
     {"LIVE VOWELS", "TAP: VOWEL KNOB. LINE ON: HOLD TO OVERRIDE", Color::Instr},
+};
+// The STEPS layer (E2a): the same rows 3 and 4, and the pattern's own steps on rows 1 and 2 (columns 1-8; the modifier columns do nothing there).
+constexpr HelpPadGroup kTractStepsGroups[] = {
+    {"STEPS", "TAP: SELECT. HOLD, THEN ROW 3 OR F1-F3 + TURN", Color::Instr},
+    kTractGroups[1],
+    kTractGroups[2],
+    kTractGroups[3],
 };
 constexpr const char* kVowelPads[] = {"A", "E", "I", "O", "U"};
 constexpr const char* kPalettePads[] = {"A", "E", "I", "O", "U", "-"};
@@ -335,7 +342,7 @@ constexpr Text kTexts[kIdCount] = {
      kTractButtons.n,
      kTractGroups,
      count_of(sizeof kTractGroups / sizeof kTractGroups[0]),
-     "ROWS 1-2: THE LINE. ROW 3: PALETTE. ROW 4: LIVE VOWELS. LEFT / RIGHT: CURSOR."},
+     "ROWS 1-2: THE STEPS (LINE LAYER: THE LINE). ROW 3: PALETTE. ROW 4: LIVE VOWELS. SAMPLE EDIT: NEXT LAYER."},
     // Growl
     {"GROWL",
      "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE LEVEL. INSTR: ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
@@ -572,6 +579,15 @@ void fill_tract_pads(Help& h) noexcept {
   app::help_pads(h, 2, 0, 2, 5, 2, kPalettePads);
   app::help_pads(h, 2, 10, 2, 11, 3, kGldLinePads);
   app::help_pads(h, 3, 0, 3, 4, 4, kVowelPads);
+}
+
+void fill_tract_steps_pads(Help& h) noexcept {
+  app::help_pads(h, 0, 0, 1, 7, 1);
+  app::help_pads(h, 2, 0, 2, 5, 2, kPalettePads);
+  app::help_pads(h, 2, 10, 2, 11, 3, kGldLinePads);
+  app::help_pads(h, 3, 0, 3, 4, 4, kVowelPads);
+  h.groups = kTractStepsGroups;
+  h.group_count = count_of(sizeof kTractStepsGroups / sizeof kTractStepsGroups[0]);
 }
 
 void fill_perform_pads(Help& h, bool knobs) noexcept {

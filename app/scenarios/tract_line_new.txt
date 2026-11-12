@@ -8,7 +8,8 @@
 # the second for two.
 wait 300
 record on
-tap sampleedit   # TRACT (Sample Editor, E1a)
+tap sampleedit   # TRACT (Sample Editor, E1a), the STEPS layer
+tap sampleedit   # again: the LINE layer (E2a)
 wait 100
 tap f8
 tap f7
@@ -42,7 +43,8 @@ press shift
 tap f8
 release shift
 wait 100
-tap sampleedit   # TRACT (Sample Editor, E1a)
+tap sampleedit   # TRACT (Sample Editor, E1a): the page opens on STEPS
+tap sampleedit   # LINE layer
 wait 100
 snap 06_after_undo
 wait 300

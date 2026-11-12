@@ -1,4 +1,4 @@
-# TRACT on the obsidian skin (TRACT-KNOBS-PLAN A2, docs/SKIN-PLAN.md 2.4): the instrument screen with the page tabs TRACT and GROWL (Sample Play flips them), the eight knobs as knob58
+# TRACT on the obsidian skin (TRACT-KNOBS-PLAN A2, docs/SKIN-PLAN.md 2.4): the instrument screen with the layer tabs STEPS and LINE (Sample Editor flips them; E2a), the eight knobs as knob58
 # with "Fn NAME" over each (F1 VOWEL's readout is a letter on a vowel and "E 37%" between, F8 GAIN), the sections of the other pages as boxes, the PADS line naming the vowels.
 # The skin is off until SK8, so the scenario turns it on through Config as skin_instrument.txt does.
 #

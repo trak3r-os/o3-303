@@ -308,10 +308,10 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   o.intact();
 }
 
-TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and MODDED, one on GROWL, TRACT and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
+TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT, MODDED and TRACT (its layers STEPS and LINE), one on GROWL and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
   for (const Where w : kAllScreens) {
     const unsigned page = where_page(w);
-    const unsigned tabs_expected = (w == Where::Wobble || w == Where::Growl || w == Where::Tract) ? 1u : 2u;
+    const unsigned tabs_expected = (w == Where::Wobble || w == Where::Growl) ? 1u : 2u;
     OnInstrument o(w);
     if (w == Where::Voice || w == Where::Fx) {
       REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);

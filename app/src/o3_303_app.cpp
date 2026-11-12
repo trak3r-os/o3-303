@@ -371,6 +371,8 @@ class O3_303App final : public app::App {
       if (ctx.screen() != &tract_screen_) {
         tract_screen_.open_first_page();
         ctx.show(tract_screen_);
+      } else {
+        tract_screen_.next_layer(ctx);  // again: STEPS <-> LINE (E2a)
       }
       return true;
     }

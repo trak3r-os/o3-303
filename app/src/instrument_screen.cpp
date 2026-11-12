@@ -9,12 +9,15 @@
 #include "step_view.h"
 #include "wobble_learn.h"
 
+#include <initializer_list>
+
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/widgets.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/dsp/engine.h>
 #include <o3sdk/hal/cycles.h>
 #include <o3sdk/ui/components.h>
+#include <o3_303/seq/ops.h>
 #include <o3_303/step_model.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
@@ -107,6 +110,8 @@ constexpr unsigned kGrowlShown[1] = {kSecVoice | kSecWobble};
 constexpr help_texts::Id kGrowlHelp[1] = {help_texts::Id::Growl};
 
 constexpr const char* kTractTitles[1] = {"TRACT"};
+constexpr unsigned kStepCols = 8;  // the pattern's step pads of a page: columns 1-8 of rows 1-2 (home_map.h pad_page_step); 9-12 are the modifiers there and do nothing on TRACT STEPS
+constexpr const char* kTractLayerTabs[2] = {"STEPS", "LINE"};  // the TRACT screen's two layers (E2a): the skin's tabs there
 constexpr const Page* kTractPages[1] = {&kTractPage};
 constexpr unsigned kTractShown[1] = {kSecVoice | kSecWobble};
 constexpr help_texts::Id kTractHelp[1] = {help_texts::Id::Tract};
@@ -485,6 +490,21 @@ void InstrumentScreen::open_first_page() noexcept {
   release_keys();  // a key held across the change would stay held in the keys it was pressed on
   home_->release_row();
   page_ = 0;
+  line_layer_ = false;  // the TRACT screen opens on its STEPS layer
+}
+
+// Sample Editor pressed again on the TRACT screen: STEPS <-> LINE. What the old layer held (a line step, a live vowel) lets go; the home map's held steps keep their own release.
+void InstrumentScreen::next_layer(app::Context& ctx) noexcept {
+  if (!tract_page()) {
+    return;
+  }
+  live_end(ctx);
+  for (int& h : held_step_) {
+    h = -1;
+  }
+  line_layer_ = !line_layer_;
+  line_fix();
+  home_->toast(ctx, line_layer_ ? "TRACT LINE LAYER" : "TRACT STEPS LAYER");
 }
 
 void InstrumentScreen::next_page() noexcept {
@@ -564,7 +584,11 @@ void InstrumentScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
   const unsigned row = app::pad_row(in.pad());
   const unsigned col = app::pad_col(in.pad());
   if (row < 2u) {
-    line_step_press(ctx, in.pad());
+    if (line_layer_) {
+      line_step_press(ctx, in.pad());
+    } else if (col < kStepCols) {
+      (void)home_->input(ctx, in);  // STEPS: the pattern's steps are the home map's (its holds, cursor and Rec); the modifier columns do nothing here
+    }
   } else if (row == 2u) {
     palette_press(ctx, col);
   } else if (col < kTractVowelCount) {
@@ -635,6 +659,10 @@ void InstrumentScreen::palette_press(app::Context& ctx, unsigned col) noexcept {
   if (!vowel_key && col != 10u) {
     return;
   }
+  if (!line_layer_) {
+    steps_palette(ctx, col);
+    return;
+  }
   line_fix();
   std::uint64_t mask = held_steps();
   const bool typed = mask == 0u;  // no step held: the cursor's
@@ -661,6 +689,71 @@ void InstrumentScreen::palette_press(app::Context& ctx, unsigned col) noexcept {
   if (typed) {
     line_pin();
   }
+}
+
+// The palette on the STEPS layer (E2a): the same keys, aimed at the pattern's steps held on rows 1-2, else the cursor's (which then moves on, so a line is typed in). A pattern step edits the line step under it
+// (tract_line_step_of): with a fixed line shorter than the pattern one edit reaches every repeat, and the toast says so.
+std::uint64_t InstrumentScreen::steps_mask(app::Context& ctx, bool& repeats) noexcept {
+  const seq::Bank& bank = *rig_->bank;
+  const Pattern& p = bank.pattern(bank.selected());
+  const unsigned plen = p.length != 0u ? p.length : kDefaultLength;
+  unsigned st[kPageSteps];
+  const unsigned n = home_->take_steps(st);
+  std::uint64_t mask = 0;
+  for (unsigned i = 0; i < n; ++i) {
+    mask |= std::uint64_t{1} << (tract_line_step_of(st[i], p.tract, plen) & (kTractSteps - 1u));
+  }
+  repeats = tract_valid_length(p.tract.len) && p.tract.len < plen;
+  if (repeats) {
+    char text[40];
+    text[0] = '\0';
+    char num[4] = {static_cast<char>('0' + p.tract.len / 10u), static_cast<char>('0' + p.tract.len % 10u), '\0', '\0'};
+    append(text, sizeof text, "LINE LEN ");
+    append(text, sizeof text, p.tract.len >= 10u ? num : num + 1);
+    append(text, sizeof text, ": EDIT REPEATS");
+    home_->toast(ctx, text);
+  }
+  return mask;
+}
+
+void InstrumentScreen::steps_palette(app::Context& ctx, unsigned col) noexcept {
+  seq::Bank& bank = *rig_->bank;
+  const unsigned sel = bank.selected();
+  const bool typed = !home_->any_step_held();  // no step held: the cursor's
+  bool repeats = false;
+  const std::uint64_t mask = steps_mask(ctx, repeats);
+  if (col <= 5u) {
+    (void)bank.paint_tract(sel, mask, col < 5u ? static_cast<int>(col) + 1 : 0, -1);
+    if (typed) {
+      home_->advance_cursor(ctx);
+    }
+    return;
+  }
+  bool all = true;  // GLD: every step already glides -> off, else on
+  for (unsigned n = 0; n < kTractSteps; ++n) {
+    if (((mask >> n) & 1u) != 0u && !tract_glide(bank.tract_step(sel, n))) {
+      all = false;
+    }
+  }
+  if (!bank.paint_tract(sel, mask, -1, all ? 0 : 1)) {
+    home_->toast(ctx, "GLD NEEDS A VOWEL", true);
+  }
+}
+
+// F1 VOWEL turned with a pattern step held on the STEPS layer: the line vowel of the held steps moves by the detents ("-" A E I O U, no wrap), each from the first one's value; GLD stays.
+void InstrumentScreen::steps_vowel_turn(app::Context& ctx, int detents) noexcept {
+  seq::Bank& bank = *rig_->bank;
+  const unsigned sel = bank.selected();
+  bool repeats = false;
+  const std::uint64_t mask = steps_mask(ctx, repeats);
+  unsigned first = 0;
+  while (first < kTractSteps && ((mask >> first) & 1u) == 0u) {
+    ++first;
+  }
+  int v = static_cast<int>(tract_vowel(bank.tract_step(sel, first))) + detents;
+  v = v < 0 ? 0 : (v > static_cast<int>(kTractVowels) ? static_cast<int>(kTractVowels) : v);
+  (void)bank.paint_tract(sel, mask, v, -1);
+  ctx.redraw();
 }
 
 // A live vowel pad (row 4). The mouth moves now: the VOWEL knob is written (the F1 read-out follows). Over a playing line the knob is only borrowed: the value before is kept and comes back with the
@@ -737,7 +830,14 @@ bool InstrumentScreen::line_tool(app::Context& ctx, unsigned k) noexcept {
     return true;
   }
   if (k == 4u) {
-    home_->toast(ctx, bank.clear_tract(sel) ? "TRACT LINE CLEARED" : "TRACT LINE ALREADY EMPTY", false);
+    bool done = bank.clear_tract(sel);
+    for (const TractFx::Param fx : {TractFx::Tongue, TractFx::Lips}) {  // TONGUE and LIPS are lane locks (E2a): they go with the line (one undo step each)
+      const int lane = seq::find_lane(bank.pattern(sel), kLaneTract, static_cast<std::uint8_t>(fx));
+      if (lane >= 0) {
+        done = bank.clear_lane_motion(sel, static_cast<unsigned>(lane)) || done;
+      }
+    }
+    home_->toast(ctx, done ? "TRACT LINE CLEARED" : "TRACT LINE ALREADY EMPTY", false);
     line_fix();
     return true;
   }
@@ -764,6 +864,11 @@ void InstrumentScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   PageKeys& pk = keys();
+  if (tract_page() && !line_layer_ && !home_->overlay() && home_->any_step_held() && pk.focused().item == Item::Tract && pk.focused().id == static_cast<std::uint16_t>(TractFx::Vowel)) {
+    steps_vowel_turn(ctx, in.delta());  // STEPS: F1 on a held step writes the step's line vowel, not a VOWEL lock
+    pk.mark_turned();
+    return;
+  }
   if (home_->turn(ctx, pk.lock_detents(ctx, *controls_, pk.focused(), in.delta(), in.shift), in.shift, pk.focused())) {  // hold a step + the encoder: the lock of the knob (or the step's ratchet or condition)
     pk.mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
     return;
@@ -844,7 +949,7 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
     }
     return;
   }
-  if (tract_page() && !home_->overlay() && in.type == Input::Type::Press && (in.which() == Button::Left || in.which() == Button::Right)) {
+  if (tract_page() && line_layer_ && !home_->overlay() && in.type == Input::Type::Press && (in.which() == Button::Left || in.which() == Button::Right)) {
     line_arrow(ctx, in.which() == Button::Right ? 1 : -1);  // the line's cursor, not the notes'
     ctx.redraw();
     return;
@@ -962,6 +1067,21 @@ void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
   leds.clear();
   const seq::Bank& bank = *rig_->bank;
   const unsigned sel = bank.selected();
+  if (!line_layer_) {  // STEPS: the home map's step rows (the modifier columns and the key rows are not there), the palette and the live vowels
+    home_->leds(ctx, leds);
+    for (unsigned col = kStepCols; col < app::kPadCols; ++col) {
+      leds.set(0u, col, app::kLedOff);
+      leds.set(1u, col, app::kLedOff);
+    }
+    for (unsigned col = 0; col < app::kPadCols; ++col) {
+      leds.set(2u, col, app::kLedOff);
+      leds.set(3u, col, app::kLedOff);
+    }
+    const Pattern& p = bank.pattern(sel);
+    const unsigned plen = p.length != 0u ? p.length : kDefaultLength;
+    palette_leds(ctx, leds, bank.tract_step(sel, tract_line_step_of(home_->focus_step(), p.tract, plen) & (kTractSteps - 1u)));
+    return;
+  }
   const unsigned len = line_len();
   const unsigned base = line_page() * kLinePage;
   const seq::Playhead ph = rig_->seq->playhead();
@@ -988,7 +1108,11 @@ void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
       break;
     }
   }
-  const std::uint8_t fv = bank.tract_step(sel, static_cast<unsigned>(focus));
+  palette_leds(ctx, leds, bank.tract_step(sel, static_cast<unsigned>(focus)));
+}
+
+// Rows 3 and 4 of the TRACT pads, the same on both layers: the palette (the focus step's value mid, GLD mid when it glides, LINE on while the line plays) and the live vowels.
+void InstrumentScreen::palette_leds(app::Context& ctx, app::PadLeds& leds, std::uint8_t fv) const noexcept {
   for (unsigned c = 0; c <= 5u; ++c) {
     const unsigned want = c < 5u ? c + 1u : 0u;
     leds.set(2u, c, tract_vowel(fv) == want ? app::kLedMid : app::kLedLow);
@@ -1017,7 +1141,11 @@ void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcep
     h.fkey_shift[3] = "LEN";
     h.fkey_shift[4] = "CLEAR";
     h.fkey_shift[5] = "NEW";
-    help_texts::fill_tract_pads(h);
+    if (line_layer_) {
+      help_texts::fill_tract_pads(h);
+    } else {
+      help_texts::fill_tract_steps_pads(h);
+    }
     return;
   }
   home_->help_pads(h);
@@ -1040,7 +1168,9 @@ void InstrumentScreen::enc_text(app::Context& ctx, char* out, unsigned cap) cons
 
 void InstrumentScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const noexcept {
   if (tract_page() && !home_->overlay()) {
-    cut("ROWS 1-2 LINE STEPS . ROW 3 A E I O U - GLD LINE . ROW 4 LIVE VOWELS", cap - 1u, out, cap);
+    cut(line_layer_ ? "ROWS 1-2 LINE STEPS . ROW 3 A E I O U - GLD LINE . ROW 4 LIVE VOWELS"
+                    : "ROWS 1-2 PATTERN STEPS . ROW 3 A E I O U - GLD LINE . ROW 4 LIVE VOWELS . HOLD A STEP, TURN F1-F3",
+        cap - 1u, out, cap);
     return;
   }
   home_->pads_line(ctx, out, cap);
@@ -1073,6 +1203,11 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   view.page = page_;
   view.tab_count = group_->count;
   view.tabs = group_->tabs;
+  if (tract_page()) {  // the TRACT screen's tabs are its two layers (E2a)
+    view.page = line_layer_ ? 1u : 0u;
+    view.tab_count = 2;
+    view.tabs = kTractLayerTabs;
+  }
   view.hint = group_->hint;
   if (ctx.panel().shift() && !page_learnable()) {  // a page of app values only has nothing to learn (U8a; WOBBLE has been learnable since D1)
     view.hint = "NOT LEARNABLE";

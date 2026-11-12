@@ -86,6 +86,10 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void open_first_page() noexcept;
   void next_page() noexcept;
   unsigned page() const noexcept { return page_; }
+  // The TRACT screen has two layers of pads (E2a): STEPS (the default: the pattern's steps on rows 1-2 as on HOME, row 3 the palette, row 4 the live vowels; the palette and F1 write the
+  // step's line vowel, F2 and F3 lock TONGUE and LIPS) and LINE (the line's own 24-step editor). Sample Editor pressed again on the TRACT screen flips them; opening the screen shows STEPS.
+  void next_layer(o3sdk::app::Context& ctx) noexcept;
+  bool line_layer() const noexcept { return line_layer_; }
   const InstrumentGroup& group() const noexcept { return *group_; }
 
   const char* title() const noexcept override;
@@ -127,6 +131,11 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void line_step_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
   void palette_press(o3sdk::app::Context& ctx, unsigned col) noexcept;
   void live_press(o3sdk::app::Context& ctx, unsigned vowel) noexcept;
+  // The STEPS layer (E2a): the line steps under the pattern steps held (else the cursor's) as a mask (`repeats`: a fixed line shorter than the pattern, the toast is up), the palette on them, F1's turn.
+  std::uint64_t steps_mask(o3sdk::app::Context& ctx, bool& repeats) noexcept;
+  void steps_palette(o3sdk::app::Context& ctx, unsigned col) noexcept;
+  void steps_vowel_turn(o3sdk::app::Context& ctx, int detents) noexcept;
+  void palette_leds(o3sdk::app::Context& ctx, o3sdk::app::PadLeds& leds, std::uint8_t focus_value) const noexcept;
   void live_end(o3sdk::app::Context& ctx) noexcept;        // the last live pad is up (or the page is left): the line gets the mouth back
   bool pad_up(o3sdk::app::Context& ctx, unsigned pad) noexcept;  // a release of a pad this screen holds; false: it is the home map's
   bool line_tool(o3sdk::app::Context& ctx, unsigned k) noexcept;  // Shift + F`k` of the TRACT page: LEN (F4), CLEAR (F5); false: not a tool key
@@ -157,6 +166,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   std::uint32_t tool_mask_ = 0;  // F keys pressed with Shift (their release is not the keys')
   // The TRACT page's pads (SDRAM with the screen: no SRAM state). Main loop only.
   int line_cursor_ = 0;                     // the line step the palette writes and Left / Right move
+  bool line_layer_ = false;                 // the LINE layer is shown (false: STEPS); main loop only
   bool line_pinned_ = false;                // a hand on the line while it plays: the page stays where it is
   int held_step_[kLinePage] = {};           // the line step a held pad of rows 0 and 1 selected, -1 up
   std::uint32_t live_held_ = 0;             // the live vowels down (bit n = vowel n of the bottom row)

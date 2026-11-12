@@ -8,10 +8,13 @@
 
 #include "../app/src/frame.h"
 #include "../app/src/home_map.h"
+#include "../app/src/instrument_screen.h"
 #include "../app/src/main_screen.h"
 
 #include <o3sdk/dsp/engine.h>
 #include <o3_303/app_access.h>
+#include <o3_303/seq/ops.h>
+#include <o3_303/step_model.h>
 #include <o3_303/tract_line.h>
 #include <o3_303/tract_vowels.h>
 #include <o3_303/units/growl/growl.h>
@@ -126,7 +129,7 @@ unsigned line_len_of(Hands& t) { return o3_303::tract_length(t.pat().tract, t.pa
 
 TEST_CASE("tract page: rows 1 and 2 are the line, 24 steps a page; the LEDs show its steps inside the length and nothing past it") {
   Hands t;
-  t.to_tract();
+  t.to_tract_line();
   REQUIRE(line_len_of(t) == 16u);
   for (unsigned n = 0; n < 16; ++n) {
     CHECK(t.led(n) != app::kLedOff);  // "-" inside the length: dim (the cursor's blinks)
@@ -149,7 +152,7 @@ TEST_CASE("tract page: rows 1 and 2 are the line, 24 steps a page; the LEDs show
 
 TEST_CASE("tract page: a step pad selects it, the palette writes it and goes on, held steps take one write together, GLD flips the glide, undo is one step") {
   Hands t;
-  t.to_tract();
+  t.to_tract_line();
   REQUIRE(line_len_of(t) == 16u);
   t.pad(2);
   t.pad(pal_pad(3));  // O (4) on step 2, the cursor goes on to 3
@@ -198,7 +201,7 @@ TEST_CASE("tract page: a step pad selects it, the palette writes it and goes on,
 
 TEST_CASE("tract page: Left and Right move the line's cursor, the LINE pad flips LINE, Shift + F4 steps the length, Shift + F5 clears the line") {
   Hands t;
-  t.to_tract();
+  t.to_tract_line();
   t.pad(4);
   t.tap(Button::Right);
   t.pad(pal_pad(0));  // A on step 5
@@ -309,7 +312,7 @@ TEST_CASE("tract page: Shift + F6 NEW draws a line over the line's length, one u
 
 TEST_CASE("tract page: a live pad over a playing line overrides it while held and the knob comes back on release; Rec writes the sounding step") {
   Hands t;
-  t.to_tract();
+  t.to_tract_line();
   t.pad(pal_pad(11));  // LINE on
   REQUIRE(app_sequencer().tract_line_on());
   t.pad(vowel_pad(1));  // stopped: the tap is the knob's
@@ -424,4 +427,157 @@ TEST_CASE("tract page: the wobble on MOUTH changes the sound (the tract's vowel 
   const std::string cutoff = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap fx\ntap pattern\n");
   CHECK(cutoff != mouth);
   CHECK(cutoff != still);
+}
+
+// ---- The STEPS layer (E2a) ----------------------------------------------------------------------------------------------------------------------
+
+namespace {
+
+std::string toast_now(Hands& t) {
+  o3_303::frame::StatusView sv;
+  home_of(t).status(sv);
+  return sv.toast;
+}
+
+// How many of the pattern's lanes drive the tract.
+unsigned tract_lanes(Hands& t) {
+  unsigned n = 0;
+  for (const auto& l : t.pat().lanes) {
+    n += l.target == o3_303::kLaneTract ? 1u : 0u;
+  }
+  return n;
+}
+
+}  // namespace
+
+TEST_CASE("tract line step of: a SAME line (or an illegal length) is the pattern's index, a fixed one wraps on its own length") {
+  o3_303::TractLine line;
+  o3_303::tract_clear(line);
+  CHECK(o3_303::tract_line_step_of(5, line, 16) == 5u);
+  line.len = 4;
+  CHECK(o3_303::tract_line_step_of(5, line, 16) == 1u);
+  CHECK(o3_303::tract_line_step_of(15, line, 16) == 3u);
+  line.len = 32;
+  CHECK(o3_303::tract_line_step_of(15, line, 16) == 15u);
+  line.len = 7;  // not a legal length: the line is read as SAME
+  CHECK(o3_303::tract_line_step_of(9, line, 16) == 9u);
+}
+
+TEST_CASE("tract page: it opens on STEPS, Sample Editor again is LINE and back, and leaving and coming again is STEPS (E2a)") {
+  Hands t;
+  t.to_tract();
+  const auto view = [&]() -> bool {
+    return static_cast<o3_303::InstrumentScreen*>(t.h->runtime().context().screen())->line_layer();
+  };
+  CHECK_FALSE(view());
+  t.tap(Button::SampleEdit);
+  CHECK(view());
+  CHECK(toast_now(t) == "TRACT LINE LAYER");
+  t.tap(Button::SampleEdit);
+  CHECK_FALSE(view());
+  CHECK(toast_now(t) == "TRACT STEPS LAYER");
+  t.tap(Button::SampleEdit);
+  REQUIRE(view());
+  t.to_growl();
+  t.to_tract();
+  CHECK_FALSE(view());
+  // From another screen Shift + Sample Editor only opens it; on it Shift does the same as the plain press.
+  t.shift_tap(Button::SampleEdit);
+  CHECK(view());
+}
+
+TEST_CASE("tract page STEPS: a tap selects a pattern step, the palette writes the line under it and goes on, held steps take one write together, the other columns do nothing") {
+  Hands t;
+  t.to_tract();
+  REQUIRE(line_len_of(t) == 16u);
+  t.pad(2);
+  CHECK(home_of(t).cursor() == 2);
+  t.pad(pal_pad(3));  // O on step 2, the cursor goes on to 3
+  CHECK(vowel_of(2) == 4u);
+  CHECK(home_of(t).cursor() == 3);
+  t.pad(pal_pad(0));
+  t.pad(pal_pad(1));
+  CHECK(vowel_of(3) == 1u);
+  CHECK(vowel_of(4) == 2u);
+  // Held: one write on both, the cursor stays. The second row is steps 8 to 15.
+  t.down(5);
+  t.down(app::pad_at(1, 2));  // step 10
+  t.pad(pal_pad(4));
+  t.up(app::pad_at(1, 2));
+  t.up(5);
+  CHECK(vowel_of(5) == 5u);
+  CHECK(vowel_of(10) == 5u);
+  CHECK(home_of(t).cursor() == 5);
+  // GLD flips the glide of the held steps, refused on a "-" step.
+  t.down(5);
+  t.pad(pal_pad(10));
+  t.up(5);
+  CHECK(o3_303::tract_glide(step_of(5)));
+  t.pad(9);
+  t.pad(pal_pad(10));
+  CHECK(step_of(9) == 0u);
+  CHECK(toast_now(t) == "GLD NEEDS A VOWEL");
+  // The old line pads past the eighth column are inert on STEPS: no step, no line change.
+  const auto before = t.pat();
+  for (unsigned c = 8; c < 12; ++c) {
+    t.pad(app::pad_at(0, c));
+    t.pad(app::pad_at(1, c));
+  }
+  CHECK(std::memcmp(&before, &t.pat(), sizeof before) == 0);
+  // The note steps are not touched by any of it.
+  for (unsigned n = 0; n < 16; ++n) {
+    CHECK(t.pat().steps[n].flags == before.steps[n].flags);
+  }
+}
+
+TEST_CASE("tract page STEPS: F1 turned on a held step moves that step's line vowel, GLD stays, it is a line write and not a lock") {
+  Hands t;
+  t.to_tract();
+  CHECK(bank().set_tract_step(t.selected(), 2, 1, true));
+  t.down(2);
+  t.tap(Button::F1);
+  t.turn(1);
+  t.up(2);
+  CHECK(vowel_of(2) == 2u);
+  CHECK(o3_303::tract_glide(step_of(2)));
+  CHECK(tract_lanes(t) == 0u);
+  t.down(2);
+  t.turn(-9);  // down to "-", no wrap
+  t.up(2);
+  CHECK(vowel_of(2) == 0u);
+  // A fixed line shorter than the pattern: the step under the pattern's step 6 is the line's 2, and the toast says the edit repeats.
+  CHECK(bank().set_tract_length(t.selected(), 4));
+  t.down(6);
+  t.pad(pal_pad(2));
+  t.up(6);
+  CHECK(vowel_of(2) == 3u);
+  CHECK(toast_now(t) == "LINE LEN 4: EDIT REPEATS");
+}
+
+TEST_CASE("tract page STEPS: a held step with F2 or F3 turned locks TONGUE and LIPS on the tract's lanes, the line is untouched, CLEAR takes them away") {
+  Hands t;
+  t.to_tract();
+  REQUIRE(tract_lanes(t) == 0u);
+  t.down(3);
+  t.tap(Button::F2);  // TONGUE
+  t.turn(3);
+  t.tap(Button::F3);  // LIPS
+  t.turn(-3);
+  t.up(3);
+  const int tongue = o3_303::seq::find_lane(t.pat(), o3_303::kLaneTract, TractFx::Tongue);
+  const int lips = o3_303::seq::find_lane(t.pat(), o3_303::kLaneTract, TractFx::Lips);
+  REQUIRE(tongue >= 0);
+  REQUIRE(lips >= 0);
+  CHECK(tongue != lips);
+  CHECK(o3_303::step_lock_point(t.pat(), static_cast<unsigned>(tongue), 3) != o3_303::kNoLock);
+  CHECK(o3_303::step_lock_point(t.pat(), static_cast<unsigned>(lips), 3) != o3_303::kNoLock);
+  CHECK(o3_303::step_lock_point(t.pat(), static_cast<unsigned>(tongue), 4) == o3_303::kNoLock);
+  CHECK(tract_lanes(t) == 2u);  // at most the two
+  CHECK(step_of(3) == 0u);
+  // Shift + F5 CLEAR: the line and the two lanes.
+  CHECK(bank().set_tract_step(t.selected(), 1, 3, false));
+  t.shift_tap(Button::F5);
+  CHECK(step_of(1) == 0u);
+  CHECK_FALSE(o3_303::seq::lane_has_motion(t.pat(), static_cast<unsigned>(tongue)));
+  CHECK_FALSE(o3_303::seq::lane_has_motion(t.pat(), static_cast<unsigned>(lips)));
 }

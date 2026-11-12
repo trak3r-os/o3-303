@@ -152,6 +152,11 @@ struct Hands {
   }
   // Sample Playback is GROWL, Sample Editor TRACT and Sample Recorder WOBBLE (E1a).
   void to_tract() { tap(Button::SampleEdit); }
+  // TRACT's LINE layer (E2a): the page opens on STEPS, a second Sample Editor press goes to LINE (the old line pads). From any screen.
+  void to_tract_line() {
+    to_tract();
+    tap(Button::SampleEdit);
+  }
   void to_growl() { tap(Button::SamplePlay); }
   void to_wobble() { tap(Button::SampleRec); }
   // RECORD (Song again, E1a): from SONG itself the Song button goes to RECORD, from any other screen it takes two.

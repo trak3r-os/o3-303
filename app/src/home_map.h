@@ -159,6 +159,16 @@ class HomeMap {
     clamp_cursor();
     view_page_ = cursor_ / 16;
   }
+  // The steps a row edits (the held ones, else the cursor's) into `out`, the count: what the TRACT STEPS layer's palette writes to (E2a). Marks the held steps used (their release does not select).
+  unsigned take_steps(unsigned (&out)[kPageSteps]) noexcept { return row_steps(out); }
+  // The step the palette's lights follow: the first held step, else the cursor's (0-based; the cursor is clamped first).
+  unsigned focus_step() noexcept {
+    const unsigned h = first_held_step();
+    clamp_cursor();
+    return h != 0u ? h - 1u : static_cast<unsigned>(cursor_);
+  }
+  // The cursor on to the next step of the pattern, wrapping at its length: the palette types a line in step by step (E2a).
+  void advance_cursor(o3sdk::app::Context& ctx) noexcept;
   // The lane of `p` that drives what `entry` shows, -1 when the entry is not a lane target or no lane points at it.
   int lane_of(const Entry& entry, const Pattern& p) const noexcept;
 

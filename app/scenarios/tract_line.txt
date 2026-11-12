@@ -1,4 +1,4 @@
-# The TRACT line on the TRACT page (docs/TRACT-KNOBS-PLAN.md A2 rest): the pads are the pattern's line. Rows 1 and 2 (pads 0 to 23) are its steps, 24 a page; row 3 is the palette
+# The TRACT line on the TRACT page's LINE layer (docs/TRACT-KNOBS-PLAN.md A2 rest; the page opens on STEPS since E2a, a second Sample Editor press is LINE): the pads are the pattern's line. Rows 1 and 2 (pads 0 to 23) are its steps, 24 a page; row 3 is the palette
 # (pads 24 to 28 write A E I O U, 29 writes "-", 34 is GLD, 35 is LINE); row 4 (pads 36 to 47) stays live: with LINE off a tap writes VOWEL, with LINE on and the pattern playing a hold
 # overrides the line and the release gives it back. A write goes to the held steps, else to the cursor, and the cursor moves on. Shift + F4 is LEN, Shift + F5 CLEAR.
 #
@@ -9,7 +9,8 @@
 # the line is stored but the vowel is the knob's; 09 CLEAR. The WAV: the factory line under the tract, the line moving the vowel for two bars, a hold on O, the line again, LINE off.
 wait 300
 record on
-tap sampleedit   # TRACT (Sample Editor, E1a)
+tap sampleedit   # TRACT (Sample Editor, E1a), the STEPS layer
+tap sampleedit   # again: the LINE layer (E2a), where the pads are the line
 wait 100
 tap f8
 tap f7
