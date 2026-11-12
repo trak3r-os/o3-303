@@ -132,7 +132,7 @@ TEST_CASE("tract: the table is valid, in the contract's order, and Mix defaults 
   CHECK(info.kind == dsp::UnitKind::Effect);
   CHECK(std::strcmp(info.name, "TRACT") == 0);
   NEED(info.param_count == TractFx::kParamCount);
-  CHECK(TractFx::kParamCount == 7);
+  CHECK(TractFx::kParamCount == 8);
   CHECK(TractFx::Vowel == 0);
   CHECK(TractFx::Tongue == 1);
   CHECK(TractFx::Lips == 2);
@@ -140,7 +140,8 @@ TEST_CASE("tract: the table is valid, in the contract's order, and Mix defaults 
   CHECK(TractFx::Glide == 4);
   CHECK(TractFx::Size == 5);
   CHECK(TractFx::Mix == 6);
-  const char* const names[] = {"VOWEL", "TONGUE", "LIPS", "RES", "GLIDE", "SIZE", "MIX"};
+  CHECK(TractFx::Gain == 7);
+  const char* const names[] = {"VOWEL", "TONGUE", "LIPS", "RES", "GLIDE", "SIZE", "MIX", "GAIN"};
   for (unsigned p = 0; p < info.param_count; ++p) {
     INFO(info.params[p].name);
     CHECK(o3sdk::core::param_desc_valid(info.params[p]));
@@ -180,6 +181,11 @@ TEST_CASE("tract: the table is valid, in the contract's order, and Mix defaults 
   for (unsigned i = 0; i < 5; ++i) {
     CHECK(std::strcmp(size.names[i], sizes[i]) == 0);
   }
+  CHECK(info.params[TractFx::Gain].min == -12.0f);
+  CHECK(info.params[TractFx::Gain].max == 18.0f);
+  CHECK(info.params[TractFx::Gain].def == o3_303::kTractGainDefaultDb);
+  CHECK(info.params[TractFx::Gain].unit == ParamUnit::Fixed1);
+  CHECK(info.params[TractFx::Gain].detents == 60);
   CHECK(info.params[TractFx::Mix].def == 0.0f);  // wired and untouched is transparent
   CHECK(info.params[TractFx::Mix].unit == ParamUnit::NormPct);
   CHECK(u.idle());
@@ -355,5 +361,129 @@ TEST_CASE("tract: random parameter motion, out-of-range and NaN values included,
   for (std::size_t i = 0; i < n; ++i) {
     peak = std::max({peak, std::fabs(out.l[i]), std::fabs(out.r[i])});
   }
-  CHECK(peak < 20.0f);   // the dry noise is under 1 and the wet path is clamped to 8
+  CHECK(peak < 70.0f);   // the dry noise is under 1, the wet path is clamped to 8 and GAIN can raise it by up to +18 dB (7.94)
+}
+
+namespace {
+
+// FNV-1a over the bit patterns of both channels: a golden of the unit's whole output.
+std::uint32_t fnv_bits(const Stereo& s) {
+  std::uint32_t h = 2166136261u;
+  for (const auto* v : {&s.l, &s.r}) {
+    for (const float f : *v) {
+      std::uint32_t u = 0;
+      std::memcpy(&u, &f, sizeof u);
+      for (int b = 0; b < 4; ++b) {
+        h = (h ^ ((u >> (8 * b)) & 0xFFu)) * 16777619u;
+      }
+    }
+  }
+  return h;
+}
+
+}  // namespace
+
+TEST_CASE("tract: GAIN at 0 dB leaves the output bit for bit what the unit gave before GAIN existed (golden hash)") {
+  // The wet path scaled by 1.0f exactly is the identical float, so one hash covers a long, busy run: Mix up, a vowel and tongue sweep, a
+  // SIZE switch, a half mix, and Mix back to 0. The events set GAIN to 0 dB at frame 0: the hash was taken before the stage existed.
+  const std::size_t n = 16384;
+  std::vector<float> a = saw(n, 110.0);
+  const std::vector<float> nz = noise(n, 5, 0.05f);
+  for (std::size_t i = 0; i < n; ++i) {
+    a[i] += nz[i];
+  }
+  Stereo in{a, noise(n, 6, 0.2f)};
+  for (std::size_t i = 0; i < n; ++i) {
+    in.r[i] += a[i] * 0.5f;
+  }
+  const std::vector<Ev> ev = {{0, TractFx::Gain, 0.0f}, {0, TractFx::Mix, 1.0f},      {2000, TractFx::Vowel, 0.4f}, {3000, TractFx::Tongue, 50.0f},
+                              {4000, TractFx::Res, 0.9f}, {5000, TractFx::Size, 0.0f}, {7000, TractFx::Mix, 0.5f},   {9000, TractFx::Lips, -40.0f},
+                              {11000, TractFx::Mix, 0.3f}, {13000, TractFx::Mix, 0.0f}};
+  constexpr std::uint32_t kGolden = 3771882222u;   // taken on the tree before GAIN existed
+  TractFx u;
+  u.prepare(static_cast<float>(kRate));
+  const Stereo out = run(u, in, ev);
+  CHECK_EQ(fnv_bits(out), kGolden);
+}
+
+namespace {
+
+double rms_of(const std::vector<float>& v, std::size_t from, std::size_t to) {
+  double acc = 0.0;
+  for (std::size_t i = from; i < to; ++i) {
+    acc += static_cast<double>(v[i]) * static_cast<double>(v[i]);
+  }
+  return std::sqrt(acc / static_cast<double>(to - from));
+}
+
+}  // namespace
+
+TEST_CASE("tract: GAIN scales the wet signal in dB, to the tenth of a dB, at the table's ends too") {
+  const std::size_t n = 12000;
+  const Stereo in = mono(saw(n, 110.0));
+  auto level = [&](float gain_db) {
+    TractFx u;
+    u.prepare(static_cast<float>(kRate));
+    const Stereo out = run(u, in, {{0, TractFx::Gain, gain_db}, {0, TractFx::Mix, 1.0f}});
+    return rms_of(out.l, 6000, 12000);
+  };
+  const double ref = level(0.0f);
+  REQUIRE(ref > 0.001);
+  CHECK(20.0 * std::log10(level(6.0f) / ref) == doctest::Approx(6.02).epsilon(0.1 / 6.02));
+  CHECK(20.0 * std::log10(level(-6.0f) / ref) == doctest::Approx(-6.02).epsilon(0.1 / 6.02));
+  CHECK(20.0 * std::log10(level(18.0f) / ref) == doctest::Approx(18.06).epsilon(0.1 / 18.06));
+  CHECK(20.0 * std::log10(level(-12.0f) / ref) == doctest::Approx(-12.04).epsilon(0.1 / 12.04));
+  // Out of range and NaN values are the table's: clamped, the default.
+  CHECK(level(40.0f) == doctest::Approx(level(18.0f)));
+}
+
+TEST_CASE("tract: Mix 0 is the input bit for bit at any GAIN, also after a gain ramp") {
+  const std::size_t n = 4096;
+  const Stereo in{noise(n, 21, 0.9f), noise(n, 22, 0.9f)};
+  for (const float db : {-12.0f, 0.0f, 6.0f, 18.0f}) {
+    TractFx u;
+    u.prepare(static_cast<float>(kRate));
+    const Stereo out = run(u, in, {{0, TractFx::Gain, db}, {500, TractFx::Gain, 0.0f}, {1000, TractFx::Gain, db}});
+    CHECK(same_bits(out.l, in.l));
+    CHECK(same_bits(out.r, in.r));
+  }
+}
+
+TEST_CASE("tract: a GAIN step ramps over 5 ms, with no jump, whatever the block size") {
+  const std::size_t n = 8192;
+  const Stereo in = mono(saw(n, 110.0));
+  for (const std::uint32_t block : {64u, 7u}) {
+    TractFx u;
+    u.prepare(static_cast<float>(kRate));
+    const Stereo out = run(u, in, {{0, TractFx::Gain, 0.0f}, {0, TractFx::Mix, 1.0f}, {4000, TractFx::Gain, 12.0f}}, block);
+    NEED(all_finite(out));
+    double worst = 0.0;
+    for (std::size_t i = 3000; i < 7000; ++i) {
+      worst = std::max(worst, std::fabs(static_cast<double>(out.l[i]) - static_cast<double>(out.l[i - 1])));
+    }
+    const Stereo flat = [&] {
+      TractFx w;
+      w.prepare(static_cast<float>(kRate));
+      return run(w, in, {{0, TractFx::Gain, 12.0f}, {0, TractFx::Mix, 1.0f}}, block);
+    }();
+    double flat_worst = 0.0;
+    for (std::size_t i = 3000; i < 7000; ++i) {
+      flat_worst = std::max(flat_worst, std::fabs(static_cast<double>(flat.l[i]) - static_cast<double>(flat.l[i - 1])));
+    }
+    CHECK(worst < flat_worst * 1.5);   // the largest step of the stepped run is no more than the largest of the run already at +12 dB (3.98x)
+  }
+}
+
+TEST_CASE("tract: the block size does not change a sample at a GAIN that moves") {
+  const std::size_t n = 6000;
+  const Stereo in{saw(n, 98.0), saw(n, 147.0)};
+  const std::vector<Ev> ev = {{0, TractFx::Mix, 0.7f}, {0, TractFx::Gain, 3.0f}, {1500, TractFx::Gain, -9.0f}, {1520, TractFx::Gain, 9.0f}};
+  TractFx a;
+  a.prepare(static_cast<float>(kRate));
+  TractFx b;
+  b.prepare(static_cast<float>(kRate));
+  const Stereo x = run(a, in, ev, 64);
+  const Stereo y = run(b, in, ev, 5);
+  CHECK(same_bits(x.l, y.l));
+  CHECK(same_bits(x.r, y.r));
 }

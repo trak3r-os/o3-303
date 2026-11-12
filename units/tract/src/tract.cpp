@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <o3_303/units/tract/tract.h>
 
+#include <cmath>
 #include <cstring>
 
 // Cost [est]: the processor's, from extras/tract (an instruction trace of its cross build: about 256 cycles a frame at Full including the
@@ -29,12 +30,14 @@ constexpr o3sdk::core::ParamDesc kParams[TractFx::kParamCount] = {
     {"GLIDE", "ms", nullptr, nullptr, 5.0f, 500.0f, 30.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Log, 0, 0},
     {"SIZE", "", kSizeNames, nullptr, 0.0f, 4.0f, 2.0f, 4, 1, 5, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 0.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
+    {"GAIN", "dB", nullptr, nullptr, -12.0f, 18.0f, kTractGainDefaultDb, 60, 6, 0, ParamUnit::Fixed1, ParamCurve::Linear, kSmooth, 0},
 };
 
 constexpr dsp::UnitInfo kInfo{"TRACT", dsp::UnitKind::Effect, kParams, TractFx::kParamCount, nullptr, 0};
 
 constexpr float kMixRampSeconds = 0.005f;
 constexpr float kMixOff = 1.0e-3f;  // a Mix below this is 0: the unit is bypassed (a tenth of the 1 % the page shows)
+constexpr float kLn10Over20 = 0.115129255f;  // dB to a ratio: exp(dB * ln(10) / 20)
 
 }  // namespace
 
@@ -52,6 +55,8 @@ void TractFx::prepare(float sample_rate) noexcept {
   }
   mix_ = 0.0f;
   mix_target_ = 0.0f;
+  gain_ = gain_target_;
+  gain_step_ = 0.0f;
   proc_.reset();  // lands every smoother on the defaults just set
 }
 
@@ -86,9 +91,21 @@ void TractFx::set(std::uint16_t id, float v) noexcept {
       mix_target_ = x < kMixOff ? 0.0f : x;
       if (was_idle && mix_target_ > 0.0f) {
         proc_.reset();  // the tube ran last at some earlier signal: start from silence at the shape asked for
+        gain_ = gain_target_;  // the gain does not ramp while idle: it is where it was asked to be
+        gain_step_ = 0.0f;
       }
       break;
     }
+    case Gain:
+      // Exactly 1.0f at 0 dB (the multiply is then skipped: the run is bit for bit the one without the stage), else a ratio.
+      gain_target_ = x == 0.0f ? 1.0f : std::exp(x * kLn10Over20);
+      if (idle()) {
+        gain_ = gain_target_;  // nothing is heard: no ramp
+        gain_step_ = 0.0f;
+      } else {
+        gain_step_ = (gain_target_ - gain_) * mix_step_;  // 5 ms, as the Mix ramp, from where the gain is now
+      }
+      break;
     default:
       break;
   }
@@ -114,6 +131,22 @@ void TractFx::run(const dsp::ProcessArgs& a, std::uint32_t from, std::uint32_t t
     mono_[i] = 0.5f * (il[i] + ir[i]);
   }
   proc_.process(mono_, mono_, n);
+  // GAIN scales the wet signal, after the processor (its own level trim would cancel a gain before it) and before the crossfade.
+  if (gain_ != 1.0f || gain_target_ != 1.0f) {
+    float g = gain_;
+    const float gt = gain_target_;
+    const float gs = gain_step_;
+    for (std::uint32_t i = 0; i < n; ++i) {
+      if (g != gt) {
+        g += gs;
+        if (gs > 0.0f ? g >= gt : g <= gt) {
+          g = gt;
+        }
+      }
+      mono_[i] *= g;
+    }
+    gain_ = g;
+  }
   float m = mix_;
   const float t = mix_target_;
   const float step = mix_step_;

@@ -36,6 +36,7 @@ constexpr o3sdk::core::ParamDesc kParams[Growl::kParamCount] = {
     {"COMB MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 0.5f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
     {"NOTE", "", nullptr, nullptr, 0.0f, 127.0f, 36.0f, 127, 12, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0},
     {"MIX", "%", nullptr, nullptr, 0.0f, 1.0f, 0.0f, 100, 10, 0, ParamUnit::NormPct, ParamCurve::Linear, kSmooth, 0},
+    {"GAIN", "dB", nullptr, nullptr, -12.0f, 18.0f, kGrowlGainDefaultDb, 60, 6, 0, ParamUnit::Fixed1, ParamCurve::Linear, kSmooth, 0},
 };
 
 constexpr dsp::UnitInfo kInfo{"GROWL", dsp::UnitKind::Effect, kParams, Growl::kParamCount, nullptr, 0};
@@ -48,6 +49,8 @@ constexpr float kMixRampSeconds = 0.005f;
 constexpr float kTinyAudio = 1.0e-20f;   // below this a comb sample is zero: no denormals in the loop
 constexpr float kTinyState = 1.0e-15f;   // the same for the filter states, checked once a period
 constexpr float kMixOff = 1.0e-3f;       // a Mix below this is 0: the unit is bypassed (a tenth of the 1 % the page shows)
+constexpr float kHalfPi = 1.57079633f;
+constexpr float kLn10Over20 = 0.115129255f;  // dB to a ratio: exp(dB * ln(10) / 20)
 constexpr float kHugeState = 1.0e6f;     // a filter state above this has blown up: it is cleared, like a NaN
 
 struct VowelRow {
@@ -151,11 +154,12 @@ void Growl::clear_state() noexcept {
   cleared_ = true;
 }
 
-// The comb's output gains from Comb Mix and Feedback as they stand: wet = c1 y + cn yc.
+// The comb's output gains from Comb Mix and Feedback as they stand: wet = c1 y + cn yc. GAIN is folded in (a product with 1.0f at 0 dB,
+// which is exact: the wet signal is then the very floats of the unit without the stage, and the stage costs nothing a frame).
 void Growl::derive_comb() noexcept {
   const float fa = fb_ < 0.0f ? -fb_ : fb_;
-  c1_ = 1.0f - cmix_;
-  cn_ = cmix_ * (1.0f - fa);
+  c1_ = (1.0f - cmix_) * gain_;
+  cn_ = cmix_ * (1.0f - fa) * gain_;
 }
 
 // The smoothed values jump to their targets (leaving idle, prepare): the wet signal starts at the vowel and the pitch that were asked for.
@@ -172,6 +176,9 @@ void Growl::snap() noexcept {
   fmix_ = fmix_s_;
   cmix_ = cmix_s_;
   fb_ = fb_s_;
+  gain_ = gain_target_;
+  gain_end_ = gain_target_;
+  gain_rate_ = 0.0f;
   derive_comb();
   delay_ = delay_end_;
   left_ = 0;
@@ -188,7 +195,12 @@ void Growl::prepare(float sample_rate) noexcept {
   }
   mix_ = 0.0f;
   mix_end_ = 0.0f;
-  mix_inc_ = 0.0f;
+  md_ = 1.0f;
+  mw_ = 0.0f;
+  md_end_ = 1.0f;
+  mw_end_ = 0.0f;
+  md_inc_ = 0.0f;
+  mw_inc_ = 0.0f;
   w_ = 0;
   sweep_ = 0;
   clear_state();
@@ -228,6 +240,16 @@ void Growl::set(std::uint16_t id, float v) noexcept {
     case Note:
       note_ = x;
       break;
+    case Gain:
+      // Exactly 1.0f at 0 dB, else a ratio. The comb's output gains carry it, ramped over the 5 ms of the Mix, one step a control period.
+      gain_target_ = x == 0.0f ? 1.0f : std::exp(x * kLn10Over20);
+      gain_rate_ = (gain_target_ - gain_) * (mix_step_ * static_cast<float>(kControl));
+      if (idle()) {
+        gain_ = gain_target_;  // nothing is heard: no ramp (snap() does the same when Mix leaves 0)
+        gain_end_ = gain_target_;
+        gain_rate_ = 0.0f;
+      }
+      break;
     case Mix: {
       const bool was_idle = idle();
       // Below the display's last digit is off: a knob walked down in float steps can stop a hair above 0 and show 0 %, and the unit would
@@ -253,9 +275,12 @@ void Growl::land() noexcept {
   fmix_ = fmix_s_;
   cmix_ = cmix_s_;
   fb_ = fb_s_;
+  gain_ = gain_end_;
   derive_comb();
   delay_ = delay_end_;
   mix_ = mix_end_;
+  md_ = md_end_;
+  mw_ = mw_end_;
 }
 
 // The three band-passes for the vowel as it stands. g = tan(pi f / fs) is a [3/2] Pade form N/D, a1 = 1 / (1 + g (g + 1/Q)): the six divisions
@@ -297,8 +322,15 @@ void Growl::control() noexcept {
     fmix_s_ += k_mixes_ * (fmix_target_ - fmix_s_);
     cmix_s_ += k_mixes_ * (cmix_target_ - cmix_s_);
     fb_s_ += k_mixes_ * (fb_target_ - fb_s_);
+    gain_end_ = gain_;
+    if (gain_ != gain_target_) {  // the gain's step of this period (a linear ramp that lands on its target exactly)
+      gain_end_ = gain_ + gain_rate_;
+      if (gain_rate_ > 0.0f ? gain_end_ >= gain_target_ : gain_end_ <= gain_target_) {
+        gain_end_ = gain_target_;
+      }
+    }
     // A one-pole in float stops where k (t - s) is below half an ulp of s: the period it stops in is the last that moves.
-    moving_ = vowel_s_ != v0 || pitch_s_ != p0 || fmix_s_ != f0 || cmix_s_ != c0 || fb_s_ != b0;
+    moving_ = vowel_s_ != v0 || pitch_s_ != p0 || fmix_s_ != f0 || cmix_s_ != c0 || fb_s_ != b0 || gain_end_ != gain_target_;
 
     if (coef_dirty_ || vowel_s_ != vowel_c_) {
       coefficients();
@@ -310,13 +342,13 @@ void Growl::control() noexcept {
       pitch_c_ = pitch_s_;
     }
     constexpr float kInvPeriod = 1.0f / static_cast<float>(kControl);
-    if (fmix_s_ != fmix_ || cmix_s_ != cmix_ || fb_s_ != fb_) {
+    if (fmix_s_ != fmix_ || cmix_s_ != cmix_ || fb_s_ != fb_ || gain_end_ != gain_) {
       mode_ = Ramps;
       const float fa = fb_s_ < 0.0f ? -fb_s_ : fb_s_;
       fmix_inc_ = (fmix_s_ - fmix_) * kInvPeriod;
       fb_inc_ = (fb_s_ - fb_) * kInvPeriod;
-      c1_inc_ = ((1.0f - cmix_s_) - c1_) * kInvPeriod;
-      cn_inc_ = (cmix_s_ * (1.0f - fa) - cn_) * kInvPeriod;
+      c1_inc_ = ((1.0f - cmix_s_) * gain_end_ - c1_) * kInvPeriod;
+      cn_inc_ = (cmix_s_ * (1.0f - fa) * gain_end_ - cn_) * kInvPeriod;
       delay_inc_ = (delay_end_ - delay_) * kInvPeriod;
     } else if (delay_end_ != delay_) {
       mode_ = Glide;
@@ -343,13 +375,21 @@ void Growl::control() noexcept {
   const float delta = mix_target_ - mix_;
   if (delta == 0.0f) {
     mix_end_ = mix_;
-    mix_inc_ = 0.0f;
+    md_end_ = md_;
+    mw_end_ = mw_;
+    md_inc_ = 0.0f;
+    mw_inc_ = 0.0f;
   } else {
     constexpr float kInvPeriod = 1.0f / static_cast<float>(kControl);
     const float step = mix_step_ * static_cast<float>(kControl);
     const float mag = delta < 0.0f ? -delta : delta;
     mix_end_ = mag <= step ? mix_target_ : (delta < 0.0f ? mix_ - step : mix_ + step);
-    mix_inc_ = (mix_end_ - mix_) * kInvPeriod;
+    // The crossfade is equal power, dry cos(pi m / 2) + wet sin(pi m / 2): the dry and the wet are formant-shaped and decorrelated, and a linear
+    // one dips ~3 dB at Mix 50 % (tests/fx_level_test.cpp). Both gains are ramped linearly over the period from their ends.
+    md_end_ = mix_end_ == 0.0f ? 1.0f : std::cos(mix_end_ * kHalfPi);
+    mw_end_ = std::sin(mix_end_ * kHalfPi);
+    md_inc_ = (md_end_ - md_) * kInvPeriod;
+    mw_inc_ = (mw_end_ - mw_) * kInvPeriod;
     if (mode_ != Ramps) {  // only the Mix moves: the other ramps are flat
       fmix_inc_ = 0.0f;
       fb_inc_ = 0.0f;
@@ -376,13 +416,13 @@ void Growl::render(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32
   const float a1_0 = a1_[0], a1_1 = a1_[1], a1_2 = a1_[2];
   const float a2_0 = a2_[0], a2_1 = a2_[1], a2_2 = a2_[2];
   const float g2_0 = g2_[0], g2_1 = g2_[1], g2_2 = g2_[2];
-  float fmix = fmix_, fb = fb_, c1 = c1_, cn = cn_, delay = delay_, m = mix_;
+  float fmix = fmix_, fb = fb_, c1 = c1_, cn = cn_, delay = delay_, md = md_, mw = mw_;
   // Fixed mixes: the Formant Mix folded into the weights, y = (1 - fmix) x + fmix w . v1 (one operation fewer a frame, and a register).
   const float w0 = kFixedMix ? fmix * weight_[0] : weight_[0];
   const float w1 = kFixedMix ? fmix * weight_[1] : weight_[1];
   const float w2 = kFixedMix ? fmix * weight_[2] : weight_[2];
   const float c0 = 1.0f - fmix;
-  const float fmix_inc = fmix_inc_, fb_inc = fb_inc_, c1_inc = c1_inc_, cn_inc = cn_inc_, delay_inc = delay_inc_, mix_inc = mix_inc_;
+  const float fmix_inc = fmix_inc_, fb_inc = fb_inc_, c1_inc = c1_inc_, cn_inc = cn_inc_, delay_inc = delay_inc_, md_inc = md_inc_, mw_inc = mw_inc_;
   float* const line = line_;
   std::uint32_t w = w_;
   constexpr std::uint32_t kMask = kCombFrames - 1u;
@@ -431,8 +471,8 @@ void Growl::render(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32
       args.out_l[i] = wet;  // Mix 100 %: the dry part is gone
       args.out_r[i] = wet;
     } else {
-      args.out_l[i] = xl + m * (wet - xl);
-      args.out_r[i] = xr + m * (wet - xr);
+      args.out_l[i] = md * xl + mw * wet;
+      args.out_r[i] = md * xr + mw * wet;
     }
 
     if constexpr (!kFixedMix) {
@@ -440,7 +480,8 @@ void Growl::render(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32
       fb += fb_inc;
       c1 += c1_inc;
       cn += cn_inc;
-      m += mix_inc;
+      md += md_inc;
+      mw += mw_inc;
     }
     if constexpr (!kFixedDelay) {
       delay += delay_inc;
@@ -458,7 +499,8 @@ void Growl::render(const dsp::ProcessArgs& args, std::uint32_t from, std::uint32
     fb_ = fb;
     c1_ = c1;
     cn_ = cn;
-    mix_ = m;
+    md_ = md;
+    mw_ = mw;
   }
   if constexpr (!kFixedDelay) {
     delay_ = delay;

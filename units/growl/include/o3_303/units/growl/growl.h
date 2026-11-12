@@ -29,8 +29,8 @@
 // Smoothing (the engine does not ramp parameters: FRAMEWORK.md "Units"). The control period is kControl (16) frames, counted across blocks,
 // so the result does not depend on the block size. Each period: Vowel (3 ms) and the pitch of Note + Tune (4 ms) are one-pole smoothed and
 // the filter coefficients follow; Formant Mix, Comb Mix, Feedback and the delay are smoothed (5 ms) and ramped linearly across the period,
-// and the Mix is a linear ramp of 5 ms that lands exactly on its target. The wobble drives Vowel every 16 frames: the one-pole takes the
-// staircase out. A Note jump is a glide of the comb's pitch of a few ms, not a step of its delay line.
+// and the Mix is a linear ramp of 5 ms that lands exactly on its target, crossfading dry and wet at equal power (cos and sin of
+// pi Mix / 2). The wobble drives Vowel every 16 frames: the one-pole takes the staircase out. A Note jump is a glide of the comb's pitch of a few ms, not a step of its delay line.
 // The smoothed pitch lands on its target once it is within 1e-3 semitone (a tenth of a cent); the other values run their one-pole to where float
 // stops it. When none moves any more the control period has nothing to do, and a settled unit renders a whole run in one piece (the cost
 // of each case is in the .cpp).
@@ -44,6 +44,10 @@
 //   5 Comb Mix       0..1 (shown as %), default 0.5
 //   6 Note           0..127, a MIDI note, default 36: the sequencer sets it on each note start (seq::kGrowlNoteParam)
 //   7 Mix            0..1 (shown as %), default 0
+//   8 Gain           -12..+18 dB (0.5 dB steps), default kGrowlGainDefaultDb: the wet signal's level, before the Mix, a 5 ms ramp (one step a
+//                    control period). It is folded into the comb's output gains, so it costs nothing a frame and 0 dB is the unit as it was,
+//                    bit for bit. Mix 0 stays the exact bypass at any Gain. No automatic match (a level match would pump on transients, and
+//                    hides the control): docs/PADS-TRACT-PLAN.md, section B
 //
 // Memory. The comb's line is 2048 floats inside the unit (8 KiB), no SDRAM. The longest delay it needs (22 Hz) fits at 44.1 kHz.
 //
@@ -55,9 +59,13 @@
 
 namespace o3_303 {
 
+// The Gain default, in dB: the level match of the wet signal at Mix 100 % under the factory settings (the saw at C2, tests/fx_level_test.cpp),
+// to 0.5 dB.
+inline constexpr float kGrowlGainDefaultDb = 15.0f;
+
 class Growl final : public o3sdk::dsp::Unit {
  public:
-  enum Param : std::uint16_t { Vowel, FormantQ, FormantMix, CombTune, CombFeedback, CombMix, Note, Mix, kParamCount };
+  enum Param : std::uint16_t { Vowel, FormantQ, FormantMix, CombTune, CombFeedback, CombMix, Note, Mix, Gain, kParamCount };
 
   static constexpr unsigned kVowels = 5;               // A E I O U
   static constexpr unsigned kFormants = 3;
@@ -129,7 +137,13 @@ class Growl final : public o3sdk::dsp::Unit {
   float c1_ = 0.5f, c1_inc_ = 0.0f;
   float cn_ = 0.2f, cn_inc_ = 0.0f;
   float delay_ = 100.0f, delay_inc_ = 0.0f, delay_end_ = 100.0f;
-  float mix_ = 0.0f, mix_inc_ = 0.0f, mix_end_ = 0.0f;
+  float mix_ = 0.0f, mix_end_ = 0.0f;
+  // The equal-power crossfade of the Mix: the dry gain cos(pi mix / 2) and the wet gain sin(pi mix / 2) at the start of the period, at its end,
+  // and their steps a frame (always the values of mix_ between periods; render context only).
+  float md_ = 1.0f, mw_ = 0.0f, md_end_ = 1.0f, mw_end_ = 0.0f, md_inc_ = 0.0f, mw_inc_ = 0.0f;
+  // The wet gain (a ratio): where it is at the start of the period, where this period takes it, the target and the step a period. It rides
+  // inside c1_ and cn_; render context only (the main side's targets arrive as events).
+  float gain_ = 1.0f, gain_end_ = 1.0f, gain_target_ = 1.0f, gain_rate_ = 0.0f;
   std::uint32_t left_ = 0;  // frames left in the control period
   Mode mode_ = Ramps;       // this period
   bool cleared_ = true;     // the state is zero (idle)

@@ -21,6 +21,9 @@
 //   4 GLIDE    5..500 ms (log), default 30: how the mouth slides from one shape to the next
 //   5 SIZE     BIG LARGE NORMAL SMALL TINY, default NORMAL: the tube's length; a switch (a 5 ms dip of the wet gain), never a glide
 //   6 MIX      0..1 (shown as %), default 0
+//   7 GAIN     -12..+18 dB (0.5 dB steps), default kTractGainDefaultDb: the wet signal's level, after the processor and before the mix, a 5 ms
+//              ramp. 0 dB is exactly 1.0 and the multiply is skipped. Mix 0 stays the bit-exact bypass at any GAIN. No automatic match: the
+//              processor has its own AGC, and a level the player asked for must stay where they put it (docs/PADS-TRACT-PLAN.md, section B)
 //
 // Memory: the processor's state (under 1.5 KB) and one block of the mono sum, inside the unit; no SDRAM.
 // Cost [est]: the processor's (about 256 cycles a frame at Quality::Full, 220 at Lite: extras/tract/README.md, not measured on a unit) plus
@@ -34,9 +37,13 @@
 
 namespace o3_303 {
 
+// The GAIN default, in dB: the level match of the wet signal at Mix 100 % under the factory settings (the saw at C2, tests/fx_level_test.cpp),
+// to 0.5 dB.
+inline constexpr float kTractGainDefaultDb = 0.5f;
+
 class TractFx final : public o3sdk::dsp::Unit {
  public:
-  enum Param : std::uint16_t { Vowel, Tongue, Lips, Res, Glide, Size, Mix, kParamCount };
+  enum Param : std::uint16_t { Vowel, Tongue, Lips, Res, Glide, Size, Mix, Gain, kParamCount };
 
   // The quality of the processor: Full (22 sections at fs/2) or Lite (11 at fs/4). One line to change after the unit's CPU read (the 56 % rule).
   static constexpr o3sdk::extras::tract::Processor::Quality kQuality = o3sdk::extras::tract::Processor::Quality::Full;
@@ -61,6 +68,9 @@ class TractFx final : public o3sdk::dsp::Unit {
   float mix_ = 0.0f;       // the ramp's value now; main-side targets are events, so every field here is the render context's
   float mix_target_ = 0.0f;
   float mix_step_ = 0.0f;  // per frame
+  float gain_ = 1.0f;         // the wet gain's ramp, a ratio; the render context's, like the mix. Idle at 1.0 (and gain_target_ 1.0): no multiply
+  float gain_target_ = 1.0f;
+  float gain_step_ = 0.0f;    // per frame, signed
 };
 
 static_assert(alignof(TractFx) >= 16, "the mono block is declared aligned (alignas(16) in the class)");

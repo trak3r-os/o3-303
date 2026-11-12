@@ -11,6 +11,13 @@ hear says so in plain words.
   knob that many of its steps, so a whole knob takes fewer turns. It multiplies after DISPLAY's ENCODER acceleration. A list, a switch, Shift's coarse step and the arrows move as
   before. It is a setting of the unit, kept on the card.
 
+### What plays or sounds different
+
+- **TRACT and GROWL have a GAIN stage, and GROWL's Mix crossfades at equal power (B1).** Both units gain a level control on the wet sound (-12 to +18 dB, before the Mix), set by a
+  parameter that has no knob yet (the pages get it in a later slice). Its default is the level match of the factory sound at Mix 100 %: +0.5 dB on TRACT and +15 dB on GROWL (the
+  growl, a narrow vowel filter and a comb, comes out some 15 dB under its input). A growl sound that was loud before is now louder; a saved project loads with those defaults. GROWL's
+  Mix no longer dips about 3 dB at 50 %: it crossfades at equal power (TRACT's Mix stays linear, it dips 0.2 dB). Mix at 0 is still the input bit for bit.
+
 ## v0.8.0 (2026-11-12), a pre-release
 
 The keys, the Params order, pattern lengths and the NEW line. It needs more testing: the host tests and the cross build pass (remote CI), but nothing after
