@@ -2,11 +2,11 @@
 #pragma once
 
 // INSTRUMENT (docs/UX-303.md 5.5) and its three siblings MODDED, GROWL and WOBBLE (docs/MODS-PLAN.md 5.1): one screen class, four instances (the app holds them), each with an InstrumentGroup that says
-// what it shows. Params opens INSTRUMENT on VOICE, Params again cycles the pages; Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens TRACT and again goes to GROWL and back (A2) and Sample Editor
+// what it shows. Params opens INSTRUMENT on FX, Params again cycles the pages (FX, VOICE); Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens TRACT and again goes to GROWL and back (A2) and Sample Editor
 // WOBBLE (one page each):
 //
-//   INSTRUMENT VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   INSTRUMENT FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
+//   INSTRUMENT VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
 //   MODDED NOTES       SOFT ATK DECAY ACC DECAY AMP DECAY SLIDE ACC SWEEP SWP SPEED, and F8 STOCK (the 303 mods that move each note)
 //   MODDED TONE        TRACKING FILTER FM OVERDRIVE MUFFLER SUB OSC (what the filter is fed and gives), F8 STOCK
 //   TRACT              VOWEL TONGUE LIPS RES GLIDE SIZE TRC MIX, and F8 TRACT (on / off, an action key like GROWL's); the pads are the TRACT line (rows 1 and 2, 24 steps a page), the palette A E I O U - GLD LINE
@@ -45,16 +45,16 @@
 namespace o3_303 {
 
 // INSTRUMENT's pages (the index of `InstrumentScreen::page()` in the instrument group).
-inline constexpr unsigned kInstVoice = 0;
-inline constexpr unsigned kInstFx = 1;
-// The most pages a group has (INSTRUMENT: VOICE and FX; MODDED: NOTES and TONE).
+inline constexpr unsigned kInstFx = 0;
+inline constexpr unsigned kInstVoice = 1;
+// The most pages a group has (INSTRUMENT: FX and VOICE; MODDED: NOTES and TONE).
 inline constexpr unsigned kMaxGroupPages = 2;
 
 // What one instance of the screen shows (docs/MODS-PLAN.md 5.1): constexpr data in instrument_screen.cpp, one group for each of the four buttons.
 struct InstrumentGroup {
   unsigned count;                 // pages
-  const char* const* titles;      // "INSTRUMENT VOICE", "INSTRUMENT FX" | "MODDED NOTES", "MODDED TONE" | "GROWL" | "WOBBLE" (the screen's title, the header's)
-  const char* const* tabs;        // "VOICE", "FX" | "NOTES", "TONE" | "GROWL" | "WOBBLE" (the skin's tabs)
+  const char* const* titles;      // "INSTRUMENT FX", "INSTRUMENT VOICE" | "MODDED NOTES", "MODDED TONE" | "GROWL" | "WOBBLE" (the screen's title, the header's)
+  const char* const* tabs;        // "FX", "VOICE" | "NOTES", "TONE" | "GROWL" | "WOBBLE" (the skin's tabs)
   const Page* const* pages;       // the F keys of each page; a null one is the SOUND page on Rig::sound_keys (INSTRUMENT VOICE only, D3)
   const unsigned* shown;          // the read-out sections of each page (a mask of the sections of instrument_screen.cpp: what the page's own knobs do not draw)
   const help_texts::Id* help;     // HELP's Text of each page
@@ -151,8 +151,8 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   LiveActions* live_ = nullptr;
   HomeMap* home_ = nullptr;
   const InstrumentGroup* group_ = &instrument_group();  // set by init(); INSTRUMENT's until then, so title() and keys() never see null
-  PageKeys own_[kMaxGroupPages];  // each page with a table of its own keeps its own latch, indexed by the page (INSTRUMENT VOICE has sound_keys, so own_[0] is unused there)
-  unsigned page_ = kInstVoice;
+  PageKeys own_[kMaxGroupPages];  // each page with a table of its own keeps its own latch, indexed by the page (INSTRUMENT VOICE has sound_keys, so own_[kInstVoice] is unused there)
+  unsigned page_ = kInstFx;
   bool learn_armed_ = false;   // this screen armed MIDI learn (the kit's armed state may have ended since: a controller bound it)
   unsigned learn_page_ = 0;    // ... on this page's key
   unsigned learn_key_ = 0;

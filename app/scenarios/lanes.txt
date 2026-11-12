@@ -6,10 +6,10 @@ wait 300
 tap f4
 wait 100
 snap 01_decay_lane
-# INSTRUMENT FX (Params twice: VOICE, FX), F1 DRIVE: no lane drives it. Hold step 3 and turn it: the lock claims a lane (the first with no motion, lane 1: the cutoff's, which had no
+# INSTRUMENT FX (Params once since S4: it opens FX), F1 DRIVE: no lane drives it. Hold step 3 and turn it: the lock claims a lane (the first with no motion, lane 1: the cutoff's, which had no
 # locks) and the strip shows it as LOCK 3, scaled to the distortion's own range.
-tap params
-tap params
+tap params   # S4: Params opens FX (DRIVE on F1); it took two taps when VOICE came first
+wait 62
 tap f1
 paddown 2
 turn -12

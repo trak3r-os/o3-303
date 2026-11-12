@@ -24,8 +24,9 @@ tap down
 turn 4
 tap config
 wait 100
+tap params   # S4: Params opens FX; the second tap is VOICE
 tap params
-wait 100
+wait 38
 snap 01_voice
 tap params
 wait 50
@@ -38,8 +39,8 @@ snap 03_growl
 tap sampleedit
 wait 13
 snap 03b_wobble
+tap params   # S4: from WOBBLE Params opens FX; the second tap is VOICE (F4 is DECAY there)
 tap params
-wait 12
 # Step 6 held, the latched knob (F4 DECAY after the tap) turned: its lock.
 tap f4
 paddown 5
@@ -157,7 +158,7 @@ padup 1
 padup 13
 tap play
 wait 100
-# HELP over the skinned INSTRUMENT (on VOICE; the wait is the Params tap that wrapped to VOICE from MODS): Shift + Config opens it (its BUTTONS page, then its PADS page).
+# HELP over the skinned INSTRUMENT (on VOICE; the wait keeps the time of the pre-S4 gesture): Shift + Config opens it (its BUTTONS page, then its PADS page).
 wait 62
 press shift
 tap config

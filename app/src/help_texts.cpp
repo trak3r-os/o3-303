@@ -46,7 +46,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   // elsewhere it does nothing alone. Shift + Rec is the audio take, from every screen.
   b.add(Button::Rec, home_map ? "WRITE / RECORD MODE ON / OFF" : (perform ? "RECORD KNOB + LADDER MOVES" : nullptr), "ARM / STOP AN AUDIO TAKE");
   b.add(Button::Pattern, w == Where::Home ? "TAP: SETUP. HOLD: PATTERNS" : (w == Where::Setup ? "TAP: HOME. HOLD: PATTERNS" : "BACK TO THE STEPS"));
-  b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: VOICE, FX" : "OPEN INSTRUMENT");
+  b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: FX, VOICE" : "OPEN INSTRUMENT");
   b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM" : (w == Where::PerformSetup ? "LEAVE SETUP" : "OPEN PERFORM")), w == Where::PerformSetup ? nullptr : "PERFORM SETUP");
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
@@ -568,7 +568,7 @@ void fill_home_pads(Help& h, const HomePads& s, KeyNames& names) noexcept {
       h.pad_label[pad] = app::pad_row(pad) == 2u ? "ROW3" : "ROW4";
       continue;
     }
-    // The name is the kit's ("C#-1", C2 is MIDI 36: the bottom left key at octave 0); outside 0..127 or outside the locked scale: dark, nothing happens.
+    // The name is the kit's ("C#-1", C2 is MIDI 36: the bottom left key at octave 0); outside 0..127 or outside the scale Config's KEYS: IN SCALE locks to: dark, nothing happens.
     if (((s.out_of_scale >> i) & 1u) != 0u || !app::help_note_label(names[i], key_note(pad, s.octave))) {
       h.pad_group[pad] = 0;
       h.pad_label[pad] = nullptr;

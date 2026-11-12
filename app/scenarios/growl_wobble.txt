@@ -7,7 +7,7 @@
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/growl_wobble.txt --out <dir> --midi
 #
 # 01 GROWL (classic): the seven knobs, F1 latched; 02 a lock of F6 CMB MIX on a held step; 03 Shift: LEARN on each knob; 04 Shift + F6 arms it; 05 the controller binds it; 06 WOBBLE
-# (classic): the five keys and the three empty wells; 07 Shift: no LEARN row, the hint NOT LEARNABLE, F1 cannot be armed; 08 Sample Playback again from WOBBLE; 09 Params from GROWL opens VOICE.
+# (classic): the five keys and the three empty wells; 07 Shift: no LEARN row, the hint NOT LEARNABLE, F1 cannot be armed; 08 Sample Playback again from WOBBLE; 09 Params from GROWL opens FX (INSTRUMENT page 1).
 # The skinned GROWL and WOBBLE are skin_instrument.txt's (03_growl, 03b_wobble, 11_growl_lock_and_learn): only the skin_* scenarios get the skin's budgets.
 wait 300
 tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
@@ -49,7 +49,7 @@ wait 100
 snap 07b_shift_sample_edit_is_wobble
 release shift
 wait 100
-# Pressed again on the screen it opens, the button stays; from WOBBLE the other opens GROWL; Params goes to INSTRUMENT on VOICE.
+# Pressed again on the screen it opens, the button stays; from WOBBLE the other opens GROWL; Params goes to INSTRUMENT on FX.
 tap sampleedit
 tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
 tap sampleplay 29
@@ -57,7 +57,7 @@ wait 100
 snap 08_growl_again
 tap params
 wait 100
-snap 09_params_is_voice
+snap 09_params_is_fx
 # B5a: the keys on and off. WOBBLE (F8) is the latch: off at boot, "WOB OFF: F8" under the tabs; latched, the key lights; the wobble is at its new defaults (CUTOFF, 1/8,
 # SINE, 50 %, RESET off). GROWL's F8 is the Mix key: from 0 it takes 50 %, and with the growl on the strip is quiet. The WAV is the factory line with the latch on: the voice's
 # cutoff moves at 1/8 on the 16th-note line (compared with the same run unlatched, the samples differ and the spectrum moves).

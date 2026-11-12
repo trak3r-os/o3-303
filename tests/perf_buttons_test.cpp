@@ -197,7 +197,7 @@ TEST_CASE("leaving PERFORM lets go of the held buttons and keeps the latches") {
   CHECK(s.fill_held());
   CHECK(freeze_active(t) == 1.0f);
   t.tap(Button::Params);  // INSTRUMENT
-  CHECK(std::strcmp(t.title(), "INSTRUMENT VOICE") == 0);
+  CHECK(std::strcmp(t.title(), "INSTRUMENT FX") == 0);
   t.wait(10);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
   CHECK(freeze_active(t) == 0.0f);

@@ -28,11 +28,11 @@ padup 5
 tap up
 wait 100
 snap 04_cursor_semitone
-# INSTRUMENT VOICE (three Params: VOICE, FX, and the wrap back to VOICE: the MORE page went with P2 and the MODS page with MODS-PLAN S0, so this is what the four taps came to): F7
+# INSTRUMENT VOICE (two Params since S4: FX, then VOICE: the MORE page went with P2 and the MODS page with MODS-PLAN S0, so this is what the four taps came to): F7
 # and F8 are latched in turn and a step is held while the encoder turns.
 tap params
 tap params
-tap params
+wait 62
 tap f7
 paddown 7
 turn 2

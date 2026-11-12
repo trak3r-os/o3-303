@@ -47,32 +47,32 @@ bool key_moves(Hands& t, unsigned k, dsp::UnitId unit, unsigned id) {
 
 }  // namespace
 
-TEST_CASE("Params opens INSTRUMENT on VOICE from any screen, again it cycles VOICE FX and wraps") {
+TEST_CASE("Params opens INSTRUMENT on FX from any screen, again it cycles FX VOICE and wraps") {
   Hands t;
   CHECK_FALSE(on_instrument(t));
   t.tap(Button::Params);
+  CHECK(is_title(t, "INSTRUMENT FX"));
+  t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT VOICE"));
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT FX"));
-  t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));  // GROWL and WOBBLE are the Sample buttons' now (S0), the DEEP page is gone
+  CHECK(is_title(t, "INSTRUMENT FX"));  // GROWL and WOBBLE are the Sample buttons' now (S0), the DEEP page is gone
   t.shift_tap(Button::Params);  // Shift changes nothing
-  CHECK(is_title(t, "INSTRUMENT FX"));
-  // From another screen it always opens VOICE (D21), whatever page was left.
+  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  // From another screen it always opens FX (D21, S4), whatever page was left.
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT FX"));
   t.to_home();
   CHECK_FALSE(on_instrument(t));
   t.to_instrument(kInstFx);
   CHECK(is_title(t, "INSTRUMENT FX"));
   t.tap(Button::Pattern);
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT FX"));
 }
 
-TEST_CASE("Sample Playback opens TRACT, again GROWL and back; Sample Editor opens WOBBLE (one page); Params leaves for VOICE") {
+TEST_CASE("Sample Playback opens TRACT, again GROWL and back; Sample Editor opens WOBBLE (one page); Params leaves for FX") {
   Hands t;
   CHECK(is_title(t, "STEPS"));
   t.tap(Button::SamplePlay);
@@ -95,7 +95,7 @@ TEST_CASE("Sample Playback opens TRACT, again GROWL and back; Sample Editor open
   t.to_growl();
   CHECK(is_title(t, "GROWL"));
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT FX"));
   t.to_wobble();  // from INSTRUMENT
   CHECK(is_title(t, "WOBBLE"));
   t.tap(Button::Pattern);
@@ -163,7 +163,7 @@ TEST_CASE("Sample Loader opens MODDED NOTES from every screen; again it flips NO
   t.to_modded();
   CHECK(is_title(t, "MODDED NOTES"));
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT FX"));
   t.to_modded();
   t.tap(Button::SampleEdit);
   CHECK(is_title(t, "WOBBLE"));
@@ -174,12 +174,12 @@ TEST_CASE("Params is INSTRUMENT from FILE and from the library, and File opens F
   t.tap(Button::File);
   CHECK(is_title(t, "FILE PROJECTS"));
   t.tap(Button::Params);
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT FX"));
   t.tap(Button::File);
   t.tap(Button::File);
   CHECK(is_title(t, "FILE LIBRARY"));
   t.tap(Button::Params);  // no longer the library's key
-  CHECK(is_title(t, "INSTRUMENT VOICE"));
+  CHECK(is_title(t, "INSTRUMENT FX"));
   t.tap(Button::Pattern);
   CHECK_FALSE(on_instrument(t));
   t.to_instrument(kInstFx);
@@ -197,12 +197,13 @@ TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX, GROWL and WOBBLE each 
   t.turn(5);  // PERFORM's sound knob is the same latch
   CHECK(t.param(kVoice, AcidVoice::Decay) != decay0);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) == cutoff0);
+  t.tap(Button::Params);  // INSTRUMENT opens on FX
   t.tap(Button::Params);  // VOICE again: still DECAY
   const float decay1 = t.param(kVoice, AcidVoice::Decay);
   t.turn(5);
   CHECK(t.param(kVoice, AcidVoice::Decay) != decay1);
 
-  t.tap(Button::Params);  // FX: F1 DRIVE at first
+  t.tap(Button::Params);  // FX (the page after VOICE): F1 DRIVE at first
   const float drive0 = t.param(kDist, Distortion::Drive);
   t.turn(5);
   CHECK(t.param(kDist, Distortion::Drive) != drive0);
@@ -212,8 +213,7 @@ TEST_CASE("VOICE shares the SOUND latch with PERFORM; FX, GROWL and WOBBLE each 
   t.turn(5);
   CHECK(t.param(kGrowl, Growl::Vowel) != vowel0);
   t.tap(Button::F7);  // GRL MIX on GROWL
-  t.tap(Button::Params);  // VOICE
-  t.tap(Button::Params);  // FX again: DLY FB is still the latched key
+  t.tap(Button::Params);  // FX again (it opens on FX): DLY FB is still the latched key
   const float fb0 = t.param(kDelay, units::Delay::Feedback);
   t.turn(-5);
   CHECK(t.param(kDelay, units::Delay::Feedback) != fb0);

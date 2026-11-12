@@ -85,6 +85,7 @@ snap 15a_heard_acc_decay
 tap f5
 wait 100
 snap 15b_heard_slide
+tap params   # S4: FX first, VOICE on the second tap
 tap params
 tap f5
 turn -100

@@ -94,7 +94,7 @@ struct Hands {
     h->turn(d);
     h->run_ms(2);
   }
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX) on page `page` (kInstVoice ...), from any screen but INSTRUMENT.
+  // INSTRUMENT (Params opens FX; again, the next page: FX, VOICE) on page `page` (kInstFx, kInstVoice), from any screen but INSTRUMENT.
   void to_instrument(unsigned page = kInstVoice) {
     tap(Button::Params);
     for (unsigned i = 0; i < page; ++i) {

@@ -62,8 +62,8 @@ const char* where_name(Where w) {
   }
   return "";
 }
-// The page of the group the screen shows (GROWL and WOBBLE have the one): the second tab for FX and TONE.
-unsigned where_page(Where w) { return w == Where::Fx || w == Where::Tone || w == Where::Growl ? 1u : 0u; }  // GROWL is the second page of the Sample Play pair, after TRACT
+// The page of the group the screen shows (GROWL and WOBBLE have the one): the second tab for VOICE (INSTRUMENT is FX, VOICE, S4), TONE and GROWL.
+unsigned where_page(Where w) { return w == Where::Voice || w == Where::Tone || w == Where::Growl ? 1u : 0u; }  // GROWL is the second page of the Sample Play pair, after TRACT
 // Opens the screen from the 303 screen the way a finger does.
 void go_to(Hands& t, Where w) {
   switch (w) {
@@ -287,7 +287,7 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   CHECK(o.sprites(skin::Layer::KeyLight, skin_assets::Id::Key) == v.cells);
   CHECK(o.sprites(skin::Layer::KeyDark, skin_assets::Id::Key) == v.cells);
   CHECK(o.sprites(skin::Layer::Led, skin_assets::Id::Led) >= 3u * v.cells);  // the strip's, and the knobs' latch LEDs
-  // The tabs: the group's two (VOICE, FX) on the row, the shown page's in the Rec colour and no other.
+  // The tabs: the group's two (FX, VOICE) on the row, the shown page's in the Rec colour and no other.
   unsigned tabs = 0;
   unsigned red = 0;
   const ui::Rgb rec = skin::theme().rgb(ui::Color::Rec);
@@ -336,8 +336,9 @@ TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT, MO
     }
     CHECK_MESSAGE(tabs == tabs_expected, where_name(w));
     CHECK_MESSAGE(red == 1u, where_name(w));
-    // The red one is the page's: the first tab, or the second after VOICE's (56 px and a gap of 8).
-    CHECK_MESSAGE(red_x == (page == 0u ? 60 : 60 + 5 * 8 + 16 + 8), where_name(w));
+    // The red one is the page's: the first tab, or the second after the first's (8 px a letter and 16 of padding: FX 32 px, the others' five letters 56, and a gap of 8).
+    const int first_letters = (w == Where::Voice || w == Where::Fx) ? 2 : 5;
+    CHECK_MESSAGE(red_x == (page == 0u ? 60 : 60 + first_letters * 8 + 16 + 8), where_name(w));
     CHECK_MESSAGE(o.texts_in(kTabsY, kTabsY + 4, ui::Color::SelText) == 1u, where_name(w));  // the shown page's name; the others' are dim
     CHECK_MESSAGE(o.texts_in(kTabsY, kTabsY + 4, ui::Color::TextDim) == tabs_expected - 1u, where_name(w));
     InstrumentView v;

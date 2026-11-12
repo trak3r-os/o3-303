@@ -119,7 +119,7 @@ struct Hands {
     wait(60);
   }
 
-  // INSTRUMENT (Params opens VOICE; again, the next page: VOICE, FX) on page `page` (o3_303::kInstVoice ...), from any screen but
+  // INSTRUMENT (Params opens FX; again, the next page: FX, VOICE) on page `page` (o3_303::kInstFx, kInstVoice), from any screen but
   // INSTRUMENT itself. to_home() leaves it.
   void to_instrument(unsigned page = o3_303::kInstVoice) {
     tap(Button::Params);

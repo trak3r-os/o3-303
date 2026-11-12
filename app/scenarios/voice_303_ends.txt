@@ -3,6 +3,7 @@
 # 2,394 Hz from about four fifths up), then WAVE on SQR (the VOICE page's F6). The screens show the knob's own value in Hz, not the Hz heard. The WAV is the
 # evidence: `voice_303_ends.wav` starts at the first Play; the sections begin at about 0 s, 3.84 s (low), 7.68 s (high), 11.5 s (square).
 wait 300
+tap params   # S4: Params opens FX, the second is VOICE (CUTOFF on F1, WAVE on F6)
 tap params
 record on
 tap play

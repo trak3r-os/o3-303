@@ -13,9 +13,14 @@ pad 12 60
 release shift
 wait 100
 snap 02_stored_1
-# Sound 2: a bright, resonant, driven sound: INSTRUMENT VOICE (F1 CUTOFF, F2 RESO, F3 ENV MOD, F6 WAVE) and FX (F1 DRIVE, F7 DLY SEND), then back to
+# Sound 2: a bright, resonant, driven sound: INSTRUMENT FX (F1 DRIVE, F7 DLY SEND) and VOICE (F1 CUTOFF, F2 RESO, F3 ENV MOD, F6 WAVE), then back to
 # PERFORM and store it on pad 2. (The waits keep the times of the gestures the scenario's WAV was first made with.)
 wait 4
+tap params
+tap f1
+turn 25
+tap f7
+turn 20
 tap params
 tap f1
 turn 25
@@ -25,11 +30,6 @@ tap f3
 turn 15
 tap f6
 turn 1
-tap params
-tap f1
-turn 25
-tap f7
-turn 20
 tap performance
 press shift
 pad 13 60

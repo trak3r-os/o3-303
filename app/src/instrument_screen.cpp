@@ -85,11 +85,12 @@ static_assert(kSectionCount <= 8u * sizeof(unsigned), "the sections fit a mask")
 // ---- The groups (docs/MODS-PLAN.md 5.1) -----------------------------------------------------------------------------------------------------------
 
 // What each page shows as read-outs: the sections whose knobs it does not draw large (MODS-PLAN 5.1.1: VOICE, the anchor of the sound, and the page's closest neighbours).
-constexpr const char* kInstrumentTitles[2] = {"INSTRUMENT VOICE", "INSTRUMENT FX"};
-constexpr const char* kInstrumentTabs[2] = {"VOICE", "FX"};
-constexpr const Page* kInstrumentPages[2] = {nullptr, &kFxPage};
-constexpr unsigned kInstrumentShown[2] = {kSecDist | kSecDelay | kSecModded, kSecVoice | kSecModded};
-constexpr help_texts::Id kInstrumentHelp[2] = {help_texts::Id::Voice, help_texts::Id::Fx};
+// FX is page 1 (Params opens it, S4) and VOICE page 2, the sound page on Rig::sound_keys (a null table).
+constexpr const char* kInstrumentTitles[2] = {"INSTRUMENT FX", "INSTRUMENT VOICE"};
+constexpr const char* kInstrumentTabs[2] = {"FX", "VOICE"};
+constexpr const Page* kInstrumentPages[2] = {&kFxPage, nullptr};
+constexpr unsigned kInstrumentShown[2] = {kSecVoice | kSecModded, kSecDist | kSecDelay | kSecModded};
+constexpr help_texts::Id kInstrumentHelp[2] = {help_texts::Id::Fx, help_texts::Id::Voice};
 
 constexpr const char* kModdedTitles[2] = {"MODDED NOTES", "MODDED TONE"};
 constexpr const char* kModdedTabs[2] = {"NOTES", "TONE"};
