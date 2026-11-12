@@ -15,10 +15,6 @@ bool same(const LaneRef& a, const LaneRef& b) noexcept {
   return a.target == b.target && a.id == b.id;
 }
 
-bool follows(const Wiring& w, unsigned row) noexcept {
-  return w.ladder[row].target == kLaneNone;
-}
-
 void copy_cut(const char* s, char* out, unsigned cap, unsigned at) noexcept {
   unsigned n = at;
   for (; *s != '\0' && n + 1u < cap; ++s, ++n) {
@@ -102,16 +98,16 @@ void ladder_levels(const o3::core::ParamDesc* d, float value, bool blink, std::u
   }
 }
 
-Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched) noexcept {
-  if (row >= kLadderRows || follows(wiring, row)) {
-    return latched;
+Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row) noexcept {
+  if (row >= kLadderRows || row == kLadderRetired) {
+    return Entry{};
   }
   return controls.lane_entry(wiring.ladder[row]);
 }
 
 LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned row, const Entry& knob) noexcept {
   LaneRef ref{kLaneNone, 0};
-  if (row >= kLadderRows || !controls.lane_ref(knob, ref)) {
+  if (row >= kLadderRows || row == kLadderRetired || !controls.lane_ref(knob, ref)) {
     return LadderAssign::NoLane;
   }
   if (same(wiring.ladder[row], ref)) {
@@ -213,29 +209,20 @@ Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int de
   return en;
 }
 
-void ladder_caption(const o3::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched, char* out, unsigned cap) noexcept {
+void ladder_caption(const o3::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, char* out, unsigned cap) noexcept {
   if (cap == 0u) {
     return;
   }
   out[0] = '\0';
-  if (row >= kLadderRows) {
-    return;
-  }
-  if (follows(wiring, row)) {
-    copy_cut("LATCHED: ", out, cap, 0);
-    unsigned n = 0;
-    while (out[n] != '\0') {
-      ++n;
-    }
-    copy_cut(controls.label(e, latched), out, cap, n);
+  if (row >= kLadderRows || row == kLadderRetired) {
     return;
   }
   copy_cut(controls.lane_name(e, wiring.ladder[row]), out, cap, 0);
 }
 
 const char* ladder_short_name(const o3::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row) noexcept {
-  if (row >= kLadderRows || follows(wiring, row)) {
-    return "LATCHED";
+  if (row >= kLadderRows || row == kLadderRetired) {
+    return "";
   }
   return controls.lane_name(e, wiring.ladder[row]);
 }

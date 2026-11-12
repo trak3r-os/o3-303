@@ -179,8 +179,12 @@ TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in ever
   o.t.turn(-8);
   o.mirrors();
 
-  // The ladder follows the latched knob; a tap moves its place.
-  o.t.tap(Button::F2, 10);
+  // The ladder holds a knob (RESO, assigned with F2 held: KN1 ended the follow mode); a tap moves its place.
+  o.t.press(Button::F2);
+  o.t.wait(30);
+  o.t.pad(app::pad_at(2, 5), 10);
+  o.t.release(Button::F2);
+  o.t.wait(30);
   o.t.pad(app::pad_at(2, 8), 10);
   o.t.wait(300);  // the jump is a slew
   o.mirrors();

@@ -2189,7 +2189,7 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   scramble(a);
   a.rig.wiring.ladder[kLadderHome3] = LaneRef{kLaneDist, 2};
   a.rig.wiring.ladder[kLadderHome4] = LaneRef{kLaneVoice, 12};
-  a.rig.wiring.ladder[kLadderPerform] = LaneRef{kLaneDelay, 1};
+  a.rig.wiring.ladder[kLadderRetired] = LaneRef{kLaneDelay, 1};
   a.rig.wiring.ladder[kLadderKnobs1] = LaneRef{kLaneGrowl, 2};
   a.rig.wiring.ladder[kLadderKnobs2] = LaneRef{kLaneMixer, kMixerSendA};
   const std::vector<std::uint8_t> img = encode_session(a);
@@ -2203,11 +2203,14 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   CHECK(s.ladder[0].id == 2);
   CHECK(s.ladder[1].target == kLaneVoice);
   CHECK(s.ladder[1].id == 12);
-  CHECK(s.ladder[2].target == kLaneDelay);
-  CHECK(s.ladder[2].id == 1);
+  CHECK(s.ladder[2].target == kLaneNone);  // KN1: slot 2 is written and ignored at load
+  CHECK(s.ladder[2].id == 0);
   Session b;
   REQUIRE(project::apply(b.rig, b.engine, s));
   for (unsigned r = 0; r < kLadderRows; ++r) {
+    if (r == kLadderRetired) {
+      continue;
+    }
     CHECK(b.rig.wiring.ladder[r].target == a.rig.wiring.ladder[r].target);
     CHECK(b.rig.wiring.ladder[r].id == a.rig.wiring.ladder[r].id);
   }
@@ -2255,7 +2258,7 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   CHECK(r3.skipped == 0);
   CHECK(t3.ladder[kLadderHome3].target == kLaneDist);
   CHECK(t3.ladder[kLadderHome4].id == 12);
-  CHECK(t3.ladder[kLadderPerform].target == kLaneDelay);
+  CHECK(t3.ladder[kLadderRetired].target == kLaneNone);  // KN1: the retired slot is read and ignored
   CHECK(t3.ladder[kLadderKnobs1].target == kLaneVoice);
   CHECK(t3.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
   CHECK(t3.ladder[kLadderKnobs2].target == kLaneVoice);
@@ -2277,7 +2280,7 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
     return true;
   });
   CHECK(seen_perf);
-  // A damaged row among the two new ones, and one that follows (only PERFORM's may): the defaults.
+  // A damaged row among the two new ones, and one that follows: the defaults.
   const auto bad2 = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
       const std::size_t at = 2 + kPerfButtons + 6;
@@ -2293,7 +2296,7 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   CHECK(g2.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
   CHECK(g2.ladder[kLadderKnobs2].id == AcidVoice::Decay);
 
-  // Rows that mean nothing: a HOME row that follows, a target past the table, the voice's Stock: the defaults. PERFORM's row may follow.
+  // Rows that mean nothing: a HOME row that follows, a target past the table, the voice's Stock: the defaults. The retired slot 2 is ignored whatever it holds (KN1).
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
       const std::size_t at = 2 + kPerfButtons;

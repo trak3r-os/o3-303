@@ -474,7 +474,15 @@ TEST_CASE("the Shift row: F8 is UNDO and F7 REDO, the other keys do nothing (no 
   t.release(Button::Shift);
 }
 
-TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 makes it RESO; the LEDs are a bar to where it stands") {
+static void assign_row3(Hands& t, Button f) {  // F key held + a tap on row 3: the row holds that key's knob
+  t.press(f);
+  t.wait(30);
+  t.pad(pp(kRow3, 0), 10);
+  t.release(f);
+  t.wait(30);
+}
+
+TEST_CASE("row 3: twelve places of the knob it holds (CUTOFF) through a slew; F2 held + a tap makes it RESO; the LEDs are a bar to where it stands") {
   Hands t;
   t.to_perform();
   const core::ParamDesc* dc = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
@@ -499,17 +507,21 @@ TEST_CASE("row 3: twelve places of the latched sound knob through a slew; F2 mak
   t.wait(80);
   CHECK(seqr().slewing() == 0);
   CHECK(cutoff(t) == doctest::Approx(live_cutoff(7)).epsilon(0.001));
-  // F2: RESO.
+  // F2 latched changes nothing (KN1: the row no longer follows); F2 held + a tap gives the row RESO.
   t.tap(Button::F2);
+  t.pad(pp(kRow3, 4), 10);
+  t.wait(100);
+  CHECK(cutoff(t) == doctest::Approx(live_cutoff(4)).epsilon(0.001));
+  assign_row3(t, Button::F2);
   const core::ParamDesc* dr = t.h->engine().param_desc(kVoice, AcidVoice::Reso);
   REQUIRE(dr != nullptr);
   t.pad(pp(kRow3, 9), 10);
   t.wait(100);
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(core::param_denorm(*dr, ladder_norm(9))).epsilon(0.001));
-  CHECK(cutoff(t) == doctest::Approx(live_cutoff(7)).epsilon(0.001));  // the cutoff stayed
+  CHECK(cutoff(t) == doctest::Approx(live_cutoff(4)).epsilon(0.001));  // the cutoff stayed
   CHECK(lamp(t, pp(kRow3, 9)) == app::kLedOn);
   // A switch (F6, the wave) has a pad a value (SAW, SQR) and is set at once; the dark pads past them do nothing.
-  t.tap(Button::F6);
+  assign_row3(t, Button::F6);
   const core::ParamDesc* dw = t.h->engine().param_desc(kVoice, AcidVoice::Wave);
   REQUIRE(dw != nullptr);
   t.pad(pp(kRow3, 11), 10);  // dark
@@ -537,7 +549,7 @@ TEST_CASE("row 3 while the pattern plays and Rec is on: a ladder jump is written
   t.wait(300);
   CHECK(seq::lane_has_motion(t.pat(), 0));
   CHECK_FALSE(seq::lane_has_motion(t.pat(), 1));
-  t.tap(Button::F2);
+  assign_row3(t, Button::F2);
   t.pad(pp(kRow3, 11), 10);  // RESO is lane 1
   t.wait(300);
   CHECK(seq::lane_has_motion(t.pat(), 1));

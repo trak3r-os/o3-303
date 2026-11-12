@@ -1,5 +1,5 @@
-// The ladder rows (backlog item 8): HOME's FILT rows 3 and 4 and PERFORM's row 3 are one kind of row. A row follows the latched knob or holds a
-// knob of its own (Wiring::ladder, stored as a lane target and parameter), a tap jumps the knob to one of twelve places (a lane slew, or a direct
+// The ladder rows (backlog item 8): HOME's FILT rows 3 and 4 and PERFORM's row 3 (HOME's row 3 again: KN1) are one kind of row. A row holds a
+// knob (Wiring::ladder, stored as a lane target and parameter), a tap jumps the knob to one of twelve places (a lane slew, or a direct
 // set for a switch), and with REC on it writes the jump as motion. Everything here is main loop.
 #pragma once
 
@@ -39,8 +39,8 @@ unsigned ladder_pos(const o3sdk::core::ParamDesc& d, float value, const KnobSpan
 // the last; `blink` (the lit half of the blink while an F key is held: a tap assigns) draws every pad kLedOn. `d` null (a row that holds nothing): all dark.
 void ladder_levels(const o3sdk::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps], const KnobSpan* span = nullptr) noexcept;
 
-// The entry a row drives now: the held knob, or `latched` for a row that follows. Blank when the held knob has no entry on any page.
-Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched) noexcept;
+// The entry a row drives now: the knob it holds. Blank when that knob has no entry on any page (and for the retired slot, kLadderRetired).
+Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row) noexcept;
 
 // Hold an F key and tap a pad of the row: the row holds `knob`; again with the knob it holds, the row returns to its default.
 LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned row, const Entry& knob) noexcept;
@@ -58,13 +58,13 @@ void ladder_reset_knobs(Wiring& wiring) noexcept;
 // The list the Shift + F1..F4 binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL), a knob once.
 unsigned ladder_knob_count(const Controls& controls) noexcept;
 Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept;
-// Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them, or follows) and returns the entry it holds now.
+// Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now.
 Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta) noexcept;
 
-// "CUTOFF", or "LATCHED: DECAY" for a row that follows. At most cap-1 characters, cut at the end.
-void ladder_caption(const o3sdk::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, const Entry& latched, char* out, unsigned cap) noexcept;
+// "CUTOFF": the name of the knob the row holds. At most cap-1 characters, cut at the end.
+void ladder_caption(const o3sdk::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, char* out, unsigned cap) noexcept;
 
-// A short name of what a row drives, for the pads line and the strip: the held knob's name, "LATCHED" for a row that follows.
+// A short name of what a row drives, for the pads line and the strip: the held knob's name.
 const char* ladder_short_name(const o3sdk::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row) noexcept;
 
 // A tap on place `col` of a row whose entry is `entry`. `rec_motion`: REC is on while the pattern plays. `sel`: the pattern shown.

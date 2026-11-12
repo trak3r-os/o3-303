@@ -62,7 +62,7 @@ TEST_CASE("ladder rows: assign, assign again (back to the default), no lane, res
   const Entry tempo{Item::Tempo, 0, nullptr};
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
-  CHECK(w.ladder[kLadderPerform].target == kLaneNone);
+  CHECK(w.ladder[kLadderRetired].target == kLaneNone);
 
   CHECK(ladder_assign(w, c, kLadderHome3, decay) == LadderAssign::Held);
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Decay);
@@ -73,20 +73,19 @@ TEST_CASE("ladder rows: assign, assign again (back to the default), no lane, res
   CHECK(ladder_assign(w, c, kLadderHome4, tempo) == LadderAssign::NoLane);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
 
-  // PERFORM's row follows by default; a held knob is left by the same gesture.
-  CHECK(ladder_assign(w, c, kLadderPerform, decay) == LadderAssign::Held);
-  CHECK(ladder_entry(c, w, kLadderPerform, cutoff).id == AcidVoice::Decay);
-  CHECK(ladder_assign(w, c, kLadderPerform, decay) == LadderAssign::Default);
-  CHECK(ladder_entry(c, w, kLadderPerform, cutoff).id == AcidVoice::Cutoff);  // follows the latched knob again
+  // KN1: PERFORM's row 3 is HOME's row 3, so no row follows any more; the retired slot holds nothing and takes nothing.
+  CHECK(ladder_assign(w, c, kLadderRetired, decay) == LadderAssign::NoLane);
+  CHECK(ladder_entry(c, w, kLadderRetired).item == Item::Blank);
+  CHECK(ladder_entry(c, w, kLadderHome3).id == AcidVoice::Cutoff);
 
   // Shift + FILT: both HOME rows, and only them.
   (void)ladder_assign(w, c, kLadderHome3, decay);
   (void)ladder_assign(w, c, kLadderHome4, decay);
-  (void)ladder_assign(w, c, kLadderPerform, decay);
+  (void)ladder_assign(w, c, kLadderKnobs1, cutoff);
   ladder_reset_home(w);
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
-  CHECK(w.ladder[kLadderPerform].id == AcidVoice::Decay);
+  CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::Cutoff);
 }
 
 TEST_CASE("ladder rows: the strip names both HOME rows") {
@@ -221,35 +220,52 @@ TEST_CASE("HOME: REC while the pattern plays writes a tap of a held knob's row a
   t.tap(Button::Play);
 }
 
-TEST_CASE("PERFORM row 3: follows the latched knob; an F key held + a tap holds another knob, and again follows again") {
+TEST_CASE("PERFORM row 3 (KN1): CUTOFF whatever F key is latched; an F key held + a tap holds another knob, and again CUTOFF") {
   Hands t;
   t.to_perform();
   t.wait(60);
   const unsigned r3 = 2;
-  // Follow: F4 latches DECAY, the row drives it.
+  // A latched F4 (DECAY) no longer steers the row: it drives CUTOFF, as HOME's row 3 does.
   t.tap(Button::F4);
+  const float decay0 = val(t, AcidVoice::Decay);
   t.pad(row_pad(r3, 3), 10);
   t.wait(100);
-  CHECK(val(t, AcidVoice::Decay) == doctest::Approx(goal(t, AcidVoice::Decay, 3)).epsilon(0.001));
-  const float decay = val(t, AcidVoice::Decay);
+  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(goal(t, AcidVoice::Cutoff, 3)).epsilon(0.001));
+  CHECK(val(t, AcidVoice::Decay) == decay0);
+  const float cutoff = val(t, AcidVoice::Cutoff);
   const float accent0 = val(t, AcidVoice::Accent);
-  // Hold F5 (ACCENT) and tap a pad: the row holds ACCENT, the value does not move, and neither does DECAY.
+  // Hold F5 (ACCENT) and tap a pad: the row holds ACCENT, nothing moves.
   assign(t, Button::F5, row_pad(r3, 9));
   CHECK(val(t, AcidVoice::Accent) == accent0);
-  CHECK(val(t, AcidVoice::Decay) == decay);
-  // F4 is latched again (the latch is F5's after the assign: tap F4), the row still drives ACCENT.
+  CHECK(val(t, AcidVoice::Cutoff) == cutoff);
   t.tap(Button::F4);
   t.pad(row_pad(r3, 8), 10);
   t.wait(100);
   CHECK(val(t, AcidVoice::Accent) == doctest::Approx(goal(t, AcidVoice::Accent, 8)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::Decay) == decay);
-  // Again with ACCENT held: the row follows the latch (DECAY).
+  CHECK(val(t, AcidVoice::Decay) == decay0);
+  // Again with ACCENT held: back to CUTOFF (not to the latch).
   assign(t, Button::F5, row_pad(r3, 9));
   t.tap(Button::F4);
   t.pad(row_pad(r3, 1), 10);
   t.wait(100);
-  CHECK(val(t, AcidVoice::Decay) == doctest::Approx(goal(t, AcidVoice::Decay, 1)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::Accent) == doctest::Approx(goal(t, AcidVoice::Accent, 8)).epsilon(0.001));
+  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(goal(t, AcidVoice::Cutoff, 1)).epsilon(0.001));
+  CHECK(val(t, AcidVoice::Decay) == decay0);
+}
+
+TEST_CASE("PERFORM row 3 (KN1) is HOME's row 3: one assignment shows on both screens") {
+  Hands t;
+  t.to_perform();
+  t.wait(60);
+  assign(t, Button::F4, row_pad(2, 0));  // DECAY on PERFORM's row 3
+  t.to_home();
+  t.wait(60);
+  home_filt(t);
+  const float decay0 = val(t, AcidVoice::Decay);
+  const float cut0 = val(t, AcidVoice::Cutoff);
+  t.pad(row_pad(2, 11), 10);  // HOME's row 3 now drives DECAY too
+  t.wait(100);
+  CHECK(val(t, AcidVoice::Decay) != decay0);
+  CHECK(val(t, AcidVoice::Cutoff) == cut0);
 }
 
 TEST_CASE("PERFORM row 3: a held knob survives leaving PERFORM; a switch is set at once; the row blinks while an F key is held") {
@@ -279,7 +295,7 @@ TEST_CASE("PERFORM row 3: a held knob survives leaving PERFORM; a switch is set 
   CHECK(dark);
 }
 
-TEST_CASE("PERFORM row 3: REC while the pattern plays writes the jump as motion, following or holding") {
+TEST_CASE("PERFORM row 3: REC while the pattern plays writes the jump as motion, CUTOFF or the knob held") {
   Hands t;
   t.to_perform();
   t.wait(60);
@@ -288,12 +304,12 @@ TEST_CASE("PERFORM row 3: REC while the pattern plays writes the jump as motion,
   t.wait(300);
   t.tap(Button::Rec);
   t.wait(100);
-  t.tap(Button::F2);  // follows RESO
+  t.tap(Button::F2);  // the latch (RESO) is not the row's knob: CUTOFF is
   t.pad(row_pad(r3, 7), 10);
   t.wait(300);
-  const int reso = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Reso);
-  REQUIRE(reso >= 0);
-  CHECK(seq::lane_has_motion(t.pat(), static_cast<unsigned>(reso)));
+  const int cutoff = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Cutoff);
+  REQUIRE(cutoff >= 0);
+  CHECK(seq::lane_has_motion(t.pat(), static_cast<unsigned>(cutoff)));
   const int decay_before = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Decay);
   if (decay_before >= 0) {
     CHECK_FALSE(seq::lane_has_motion(t.pat(), static_cast<unsigned>(decay_before)));
@@ -420,5 +436,5 @@ TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and DECAY") {
   CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Decay);
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
-  CHECK(w.ladder[kLadderPerform].target == kLaneNone);
+  CHECK(w.ladder[kLadderRetired].target == kLaneNone);
 }

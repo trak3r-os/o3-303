@@ -7,6 +7,9 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **PERFORM's row 3 is CUTOFF, always.** It no longer follows the F key you tapped last (it could turn into ACCENT without telling you): it is HOME's
+  FILT row 3, so a knob assigned there (hold an F key and tap the row) shows on HOME, PERFORM and PERFORM KNOBS, and "LATCHED: ..." is gone. A
+  project saved by an older version loads with CUTOFF on that row; the row's two saved bytes stay in the file, unread.
 - **TRACT, a page to play the mouth.** Sample Play opens it: F1 VOWEL (A E I O U morphed: a letter on a vowel, "E 37%" between), F2 TONGUE, F3 LIPS,
   F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8 the tract on and off (off is Mix 0, the dry sound bit for bit; on gives the last mix back). The
   pads are the pattern's TRACT line: rows 1 and 2 its steps (24 a page), row 3 the palette A E I O U - with GLD and LINE, the bottom row the live

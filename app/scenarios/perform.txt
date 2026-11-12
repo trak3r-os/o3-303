@@ -86,11 +86,11 @@ snap 10_theme_white
 tap config
 turn 1
 tap config
-# B4: PERFORM's row 3 follows the latched knob (caption LATCHED: ...), or holds one of its own: F5 held and a tap on row 3 assigns it (caption ACCENT).
+# KN1: PERFORM's row 3 is CUTOFF (HOME's FILT row 3) whatever F key was tapped last: F4 (DECAY) latched, the caption still says CUTOFF; F5 held and a tap on row 3 assigns ACCENT (caption ACCENT).
 tap performance 5
 tap f4
 wait 100
-snap 11_ladder_follows_decay
+snap 11_ladder_stays_cutoff
 press f5
 pad 28
 wait 300
@@ -98,10 +98,10 @@ snap 12_ladder_assigning
 release f5
 wait 100
 snap 13_ladder_holds_accent
-# The longest follower caption on the classic screen: F3 (ENV MOD) latched (row 3 first goes back to following: F5 held and the same tap).
+# Again with the same knob: back to CUTOFF, with F3 (ENV MOD) latched: no "LATCHED:" or ">" caption any more.
 press f5
 pad 28
 release f5
 tap f3
 wait 100
-snap 14_ladder_follows_env_mod
+snap 14_ladder_cutoff_again

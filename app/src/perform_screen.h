@@ -6,7 +6,7 @@
 //
 //   row 1   the eleven live actions (held while the pad is down; Shift latches it) and ALL OFF
 //   row 2   snapshots 1..8 (a tap recalls and the encoder becomes MORPH; Shift stores), then NEW, VARY, UNDO, REDO
-//   row 3   the ladder: twelve places of the latched sound knob (while WOBBLE is on: the wobble's rate)
+//   row 3   the ladder: twelve places of the knob it holds (CUTOFF, HOME's FILT row 3; while WOBBLE is on: the wobble's rate)
 //   row 4   the keys: one octave, C..B, playing the voice or transposing the pattern
 //
 // The four colour buttons do their assigned actions too. Perform again opens KNOBS (docs/UX-303.md 5.3b, issue #2): the same four rows of pads, every one a ladder of a knob (rows 3 and 4

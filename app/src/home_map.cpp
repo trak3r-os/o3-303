@@ -552,7 +552,7 @@ void HomeMap::ladder_press(app::Context& ctx, unsigned pad) noexcept {
     ctx.redraw();
     return;
   }
-  const Entry entry = ladder_entry(*controls_, rig_->wiring, row, knob_);
+  const Entry entry = ladder_entry(*controls_, rig_->wiring, row);
   const LadderTap t = ladder_tap(ctx, *rig_, recording_motion(), sel(), entry, app::pad_col(pad));
   if (t.lanes_full) {
     toast(ctx, kLanesUsedToast, true);
@@ -1352,7 +1352,7 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
 void HomeMap::ladder_leds(app::Context& ctx, app::PadLeds& leds) const noexcept {
   const bool blink = knob_held_ && app::PadLeds::blink(ctx.now(), 250);
   for (unsigned row = 2; row < app::kPadRows; ++row) {
-    const Entry entry = ladder_entry(*controls_, rig_->wiring, row == 2u ? kLadderHome3 : kLadderHome4, knob_);
+    const Entry entry = ladder_entry(*controls_, rig_->wiring, row == 2u ? kLadderHome3 : kLadderHome4);
     const core::ParamDesc* d = controls_->desc(ctx.engine(), entry);
     std::uint8_t level[kLadderSteps];
     KnobSpan span;

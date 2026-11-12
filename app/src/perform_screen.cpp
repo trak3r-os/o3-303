@@ -287,20 +287,20 @@ void PerformScreen::variation(app::Context& ctx, PerformRole role) noexcept {
   }
 }
 
-// Row 3: a ladder row (ladder_rows.h): twelve places on the knob it follows (the latched sound knob) or holds (assigned with an F key held), by its normalised
+// Row 3: a ladder row (ladder_rows.h): twelve places on the knob it holds (CUTOFF, HOME's FILT row 3, until assigned with an F key held), by its normalised
 // position, so a log cutoff is a log ladder; the first pad is the minimum and the last the maximum. A tap jumps there through a slew (LADDER SLEW, 30 ms by default: so a jump does
 // not click and a p-lock or a motion point on the step wins over it); a switch (the wave) is set at once. With REC while the pattern plays the jump is written under the playhead like a turn.
-// With an F key held the tap only assigns the row that key's knob (again: back to following the latch) and the value does not move.
+// With an F key held the tap only assigns the row that key's knob (again: back to CUTOFF) and the value does not move.
 void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
   Wiring& w = rig_->wiring;
   if (rig_->sound_keys.held() != 0u) {
-    if (ladder_assign(w, *controls_, kLadderPerform, rig_->sound_keys.focused()) == LadderAssign::NoLane) {
+    if (ladder_assign(w, *controls_, kLadderHome3, rig_->sound_keys.focused()) == LadderAssign::NoLane) {
       toast(ctx, "THAT KNOB HAS NO LADDER", true);
     }
     ctx.redraw();
     return;
   }
-  const Entry entry = ladder_entry(*controls_, w, kLadderPerform, rig_->sound_keys.focused());
+  const Entry entry = ladder_entry(*controls_, w, kLadderHome3);
   const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), entry, col);
   if (t.lanes_full) {
     toast(ctx, kLanesUsedToast, true);
@@ -327,7 +327,7 @@ void PerformScreen::knobs_press(app::Context& ctx, unsigned row, unsigned col) n
     ctx.redraw();
     return;
   }
-  const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), ladder_entry(*controls_, w, id, latched), col);
+  const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), ladder_entry(*controls_, w, id), col);
   if (t.lanes_full) {
     toast(ctx, kLanesUsedToast, true);
   }
@@ -552,7 +552,7 @@ void PerformScreen::fill_knobs_view(app::Context& ctx, PerformView& view) const 
     view.lamp[pad] = PadLamp{};
   }
   for (unsigned row = 0; row < kKnobsRows; ++row) {
-    const Entry en = ladder_entry(*controls_, rig_->wiring, kKnobsRowId[row], rig_->sound_keys.focused());
+    const Entry en = ladder_entry(*controls_, rig_->wiring, kKnobsRowId[row]);
     const core::ParamDesc* kd = controls_->desc(e, en);
     const float value = kd != nullptr ? controls_->shown(e, en) : 0.0f;
     KnobSpan span;
@@ -586,8 +586,8 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   const SnapBank& snaps = rig_->wiring.snaps;
   const bool wobble = live_->wobble_on();
   const bool transposing = playing_ && live_->trnsp();
-  // Row 3's knob: the latched sound knob and where it stands.
-  const Entry knob = ladder_entry(*controls_, rig_->wiring, kLadderPerform, rig_->sound_keys.focused());
+  // Row 3's knob (CUTOFF unless an F key assigned another) and where it stands.
+  const Entry knob = ladder_entry(*controls_, rig_->wiring, kLadderHome3);
   const bool assigning = rig_->sound_keys.held() != 0u && app::PadLeds::blink(ctx.now(), 250);  // an F key is down: the row blinks, a tap assigns
   const core::ParamDesc* kd = controls_->desc(e, knob);
   std::uint8_t knob_level[kLadderSteps];  // the row's twelve lamps (a list has a pad a value)
@@ -680,7 +680,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   if (wobble) {
     cut("WOBBLE RATE", 15, view.ladder_caption, sizeof view.ladder_caption);
   } else {
-    ladder_caption(e, *controls_, rig_->wiring, kLadderPerform, rig_->sound_keys.focused(), view.ladder_caption, sizeof view.ladder_caption);
+    ladder_caption(e, *controls_, rig_->wiring, kLadderHome3, view.ladder_caption, sizeof view.ladder_caption);
   }
   cut(transposing ? "TRANSPOSE" : "PLAY VOICE", 15, view.keys_caption, sizeof view.keys_caption);
 }
@@ -751,7 +751,7 @@ void PerformScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const 
     append(out, cap, "WOBBLE RATE");
   } else {
     append(out, cap, "LADDER ");
-    append(out, cap, controls_->label(ctx.engine(), rig_->sound_keys.focused()));
+    append(out, cap, ladder_short_name(ctx.engine(), *controls_, rig_->wiring, kLadderHome3));
   }
   append(out, cap, " . ROW 4 KEYS");
 }

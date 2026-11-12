@@ -129,11 +129,12 @@ static_assert(kSnapTargetCount <= kSnapValues, "a snapshot has room for its targ
 const Entry& snap_target(unsigned index) noexcept;
 
 // The units and values the entries reach. The app fills it once at setup.
-// The ladder rows (backlog item 8): one kind of row, used five times. A row either follows the latched knob (target kLaneNone) or holds a knob of its own, stored
-// as its lane target and parameter (not as an F key's number, so it survives a page change). HOME's FILT rows hold CUTOFF and RESO by default, PERFORM's row 3 follows.
+// The ladder rows (backlog item 8, KN1): one kind of row: it holds a knob, stored as its lane target and parameter (not as an F key's number, so it survives a page change).
+// HOME's FILT rows hold CUTOFF and RESO by default; PERFORM's row 3 is HOME's FILT row 3 (kLadderHome3), no longer a row that follows the latch. Slot 2 of the table is retired:
+// it keeps its place in the PERF chunk (append-only: the older builds read it as "follows"), is written as {kLaneNone, 0} and ignored at load.
 // KNOBS (PERFORM's second page, issue #2) has four rows: its rows 3 and 4 are HOME's two (the same entries), rows 1 and 2 are kLadderKnobs1 and 2 (ENV MOD and DECAY).
 inline constexpr unsigned kLadderRows = 5;
-enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderPerform = 2, kLadderKnobs1 = 3, kLadderKnobs2 = 4 };
+enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderRetired = 2, kLadderKnobs1 = 3, kLadderKnobs2 = 4 };
 // voice ids 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay
 inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneNone, 0}, {kLaneVoice, 2}, {kLaneVoice, 3}};
 

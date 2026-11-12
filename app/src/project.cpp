@@ -435,12 +435,12 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
   for (unsigned r = 0; r < kLadderRows && f.left() >= 2; ++r) {
     const std::uint8_t target = f.u8();
     const std::uint8_t id = f.u8();
-    // PERFORM's row 3 may follow the latch (kLaneNone); every other row always holds a knob. The voice's Stock switch has no lane.
+    // Every row holds a knob; the retired slot (kLadderRetired: PERFORM's row 3 followed the latch before KN1) is read and ignored: it keeps its default, so a project saved in follow mode
+    // loads with CUTOFF on PERFORM (HOME's row 3). The voice's Stock switch has no lane.
     // Only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
     bool ok = false;
     switch (target) {
       case kLaneNone:
-        ok = r == kLadderPerform;
         break;
       case kLaneVoice:
         ok = id < seq::kKnobs && id != kLaneVoiceStock;
@@ -457,7 +457,7 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
       default:
         break;
     }
-    out.ladder[r] = ok ? LaneRef{target, target == kLaneNone ? std::uint8_t{0} : id} : kDefaultLadder[r];
+    out.ladder[r] = ok && r != kLadderRetired ? LaneRef{target, id} : kDefaultLadder[r];
   }
 }
 
