@@ -3,7 +3,7 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
-## Unreleased
+## v0.9.0 (2026-11-12), a pre-release
 
 ### What you can do that you could not before
 
@@ -67,8 +67,8 @@ hear says so in plain words.
 ### What plays or sounds different
 
 - **TRACT and GROWL have a GAIN stage, and GROWL's Mix crossfades at equal power (B1).** Both units gain a level control on the wet sound (-12 to +18 dB, before the Mix), set by a
-  parameter that has no knob yet (the pages get it in a later slice). Its default is the level match of the factory sound at Mix 100 %: +0.5 dB on TRACT and +15 dB on GROWL (the
-  growl, a narrow vowel filter and a comb, comes out some 15 dB under its input). A growl sound that was loud before is now louder; a saved project loads with those defaults. GROWL's
+  parameter that is F8 GAIN on each page (B2, above). Its default is the level match of the factory sound at Mix 100 %: +0.5 dB on TRACT and +15 dB on GROWL (the
+  growl, a narrow vowel filter and a comb, comes out some 15 dB under its input). A growl sound that was loud before is now louder. GROWL's
   Mix no longer dips about 3 dB at 50 %: it crossfades at equal power (TRACT's Mix stays linear, it dips 0.2 dB). Mix at 0 is still the input bit for bit.
 
 ## v0.8.0 (2026-11-12), a pre-release
