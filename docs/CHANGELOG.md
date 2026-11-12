@@ -3,7 +3,10 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
-## Unreleased
+## v0.8.0 (2026-11-12), a pre-release
+
+The keys, the Params order, pattern lengths and the NEW line. It needs more testing: the host tests and the cross build pass (remote CI), but nothing after
+v0.7.0 has been tried on a unit yet, so the key lamps, the LENGTH walk and the sound of NEW's four constants still have to be judged by eye and by ear there.
 
 ### What you can do that you could not before
 
