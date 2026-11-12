@@ -429,6 +429,8 @@ the Devil Fish mods on) and **8** GROWL (the growl on). Shift + a pad replaces a
 
 **Rec** on PERFORM records the knob and ladder moves while the line plays. **Shift** shows F7 REDO and F8 UNDO.
 
+The arrows work the knobs without the F row: **Left** and **Right** move the latch along F1 to F8 (no wrap), so the encoder, **Up** and **Down** are on the next knob; **Up** and **Down** move the latched knob by 1/20 of its range (a switch flips) and repeat while held. With an F key held, Left and Right are minus and plus 1/20 of that key's knob, as on HOME.
+
 Press **Performance** again for PERFORM KNOBS (and again to come back). **Shift + Performance** opens PERFORM SETUP.
 
 ### PERFORM KNOBS

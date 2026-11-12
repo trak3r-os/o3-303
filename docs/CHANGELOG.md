@@ -7,6 +7,9 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **PERFORM's arrows pick and move the knob.** Left and Right move the latch along F1 to F8 (blank keys skipped, no wrap); Up and Down move the latched knob by
+  1/20 of its range, a switch flips, and they repeat while held, so a knob can be worked without touching the F row. With an F key held, Left and Right stay
+  minus and plus 1/20, as on HOME. Nothing is saved differently.
 - **PERFORM's row 3 is CUTOFF, always.** It no longer follows the F key you tapped last (it could turn into ACCENT without telling you): it is HOME's
   FILT row 3, so a knob assigned there (hold an F key and tap the row) shows on HOME, PERFORM and PERFORM KNOBS, and "LATCHED: ..." is gone. A
   project saved by an older version loads with CUTOFF on that row; the row's two saved bytes stay in the file, unread.

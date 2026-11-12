@@ -888,6 +888,34 @@ bool PageKeys::arrow_turn(const app::Input& in, app::Input& out) noexcept {
   return true;
 }
 
+bool PageKeys::move_latch(const app::Input& in) noexcept {
+  if (held_ != 0u || in.shift || in.type != app::Input::Type::Press || !(in.is(app::Button::Left) || in.is(app::Button::Right))) {
+    return false;
+  }
+  const int step = in.is(app::Button::Right) ? 1 : -1;
+  for (int k = static_cast<int>(latched_) + step; k >= 0 && k < static_cast<int>(kKeys); k += step) {
+    if (page().entry[k].item != Item::Blank) {
+      latched_ = static_cast<unsigned>(k);
+      break;
+    }
+  }
+  return true;
+}
+
+bool PageKeys::value_arrow(const app::Input& in, app::Input& out) noexcept {
+  if (in.shift || in.type != app::Input::Type::Press || !(in.is(app::Button::Up) || in.is(app::Button::Down))) {
+    return false;
+  }
+  out = in;
+  out.type = app::Input::Type::Turn;
+  out.kind = core::InputKind::Encoder;
+  out.id = 0;
+  out.value = in.is(app::Button::Up) ? 1 : -1;
+  out.shift = false;
+  press_ = true;
+  return true;
+}
+
 int PageKeys::lock_detents(app::Context& ctx, const Controls& controls, const Entry& entry, int detents, bool coarse) noexcept {
   if (press_) {
     return (detents < 0 ? -1 : 1) * controls.press_detents(ctx.engine(), entry);

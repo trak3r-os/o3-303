@@ -75,7 +75,10 @@ class PerformScreen final : public o3sdk::app::Screen {
   const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void enter(o3sdk::app::Context& ctx) noexcept override;
   void leave(o3sdk::app::Context& ctx) noexcept override;
-  std::uint64_t repeat_buttons(const o3sdk::app::Context&) const noexcept override { return PageKeys::repeat_arrows(); }  // held Left and Right with an F key held keep stepping its knob
+  // Held Left and Right keep stepping (a knob with an F key held, else the latch along the F keys); on PERFORM Up and Down repeat as well (the latched knob by 1/20, KN2).
+  std::uint64_t repeat_buttons(const o3sdk::app::Context&) const noexcept override {
+    return PageKeys::repeat_arrows() | (page_ == PerformPage::Perform ? (std::uint64_t{1} << static_cast<unsigned>(o3sdk::app::Button::Up)) | (std::uint64_t{1} << static_cast<unsigned>(o3sdk::app::Button::Down)) : 0u);
+  }
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;

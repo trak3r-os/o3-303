@@ -104,6 +104,12 @@ constexpr Buttons make_perform(Where w) noexcept {
   Buttons b;
   add_globals(b, w);
   add_live(b);
+  if (w == Where::Perform) {  // KN2: the arrows pick the knob and move it
+    b.add(Button::Left, "HELD F: -1/20. ELSE LATCH <");
+    b.add(Button::Right, "HELD F: +1/20. ELSE LATCH >");
+    b.add(Button::Up, "LATCHED KNOB +1/20 (FLIP)");
+    b.add(Button::Down, "LATCHED KNOB -1/20 (FLIP)");
+  }
   return b;
 }
 constexpr Buttons make_file() noexcept {

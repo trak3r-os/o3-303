@@ -105,3 +105,16 @@ release f5
 tap f3
 wait 100
 snap 14_ladder_cutoff_again
+# KN2: Left and Right move the latch (F3 -> F5 here), Up and Down move the latched knob by 1/20: the ENC window and the knob row follow.
+tap right
+tap right
+wait 100
+snap 15_arrows_latch_f5
+tap up
+tap up
+tap up
+wait 100
+snap 16_arrows_up_accent
+tap down
+wait 100
+snap 17_arrows_down_accent

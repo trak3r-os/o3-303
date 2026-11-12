@@ -675,6 +675,53 @@ TEST_CASE("the encoder is the latched sound knob; PERFORM's latch is its own unt
   CHECK(t.param(kVoice, AcidVoice::Reso) > r2);
 }
 
+TEST_CASE("PERFORM's arrows (KN2): Left and Right move the latch along F1..F8, no wrap; Up and Down move the latched knob by 1/20, a switch flips") {
+  Hands t;
+  t.to_perform();
+  const float r = t.param(kVoice, AcidVoice::Reso);
+  t.tap(Button::Right);  // F1 (CUTOFF) -> F2 (RESO)
+  t.turn(-3);
+  CHECK(t.param(kVoice, AcidVoice::Reso) < r);
+  t.tap(Button::Left);
+  t.tap(Button::Left);  // at F1 already: stays, no wrap
+  const float c = cutoff(t);
+  t.turn(2);
+  CHECK(cutoff(t) > c);
+  for (unsigned i = 0; i < 12; ++i) {  // past F8: stays on F8 (VOLUME), no wrap
+    t.tap(Button::Right);
+  }
+  // Up and Down on a continuous knob: the step an F key held + Right gives (1/20 of the range).
+  t.tap(Button::Left);  // F7 (TUNE)
+  t.tap(Button::Left);  // F6 (WAVE)
+  t.tap(Button::Left);  // F5 (ACCENT)
+  t.tap(Button::Left);  // F4 (DECAY)
+  t.tap(Button::Left);  // F3 (ENV MOD)
+  t.tap(Button::Left);  // F2 (RESO)
+  const float r0 = t.param(kVoice, AcidVoice::Reso);
+  t.tap(Button::Up);
+  const float r1 = t.param(kVoice, AcidVoice::Reso);
+  CHECK(r1 > r0);
+  t.tap(Button::Down);
+  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(r0).epsilon(0.001));
+  t.press(Button::F2);
+  t.tap(Button::Right);
+  t.release(Button::F2);
+  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(r1).epsilon(0.001));  // the same 1/20
+  // A switch flips.
+  t.tap(Button::Right);
+  t.tap(Button::Right);
+  t.tap(Button::Right);
+  t.tap(Button::Right);  // F6 (WAVE)
+  const float w0 = t.param(kVoice, AcidVoice::Wave);
+  t.tap(Button::Up);
+  const float w1 = t.param(kVoice, AcidVoice::Wave);
+  CHECK(w1 != doctest::Approx(w0));
+  t.tap(Button::Down);
+  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(w0));
+  t.tap(Button::Left);  // F5 (ACCENT): the latch moved, the wave stayed
+  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(w0));
+}
+
 TEST_CASE("the keys of PageKeys run over a table of their own (set_table) and over the global one by default") {
   PageKeys keys;
   CHECK(keys.page_count() == kPageCount);

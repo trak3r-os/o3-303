@@ -431,7 +431,19 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     keys().end_press();
     return;
   }
-  if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (Left and Right keep their single press)
+  if (page_ == PerformPage::Perform) {  // KN2: Left and Right move the latch, Up and Down the latched knob by 1/20 (repeating while held)
+    if (keys().move_latch(in)) {
+      morph_ = false;  // the encoder is the knob again
+      ctx.redraw();
+      return;
+    }
+    if (Input step; keys().value_arrow(in, step)) {
+      turn_input(ctx, step);
+      keys().end_press();
+      return;
+    }
+  }
+  if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (a press of a key does its own thing)
     return;
   }
   if (in.type == Input::Type::Press && !(app::is_fkey(in.which()) && in.shift)) {  // any other key ends the walk of a row's list of knobs

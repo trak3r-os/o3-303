@@ -278,6 +278,12 @@ class PageKeys {
   // for every screen whose F keys own knobs.
   bool arrow_turn(const o3sdk::app::Input& in, o3sdk::app::Input& out) noexcept;
   void end_press() noexcept { press_ = false; }
+  // PERFORM's arrows with no F key held and no Shift (KN2): Left and Right move the latch along F1..F8 (a blank key is skipped, no wrap); true when the key was
+  // one of them and was taken (also at an end, where nothing moves). Up and Down are `value_arrow`: a press (or a repeat) is a turn of `out` by one detent
+  // that moves the focused knob by 1/20 of its range, a switch flips; true and `out` the encoder turn, which goes through the screen's turn path and then
+  // end_press() as for arrow_turn.
+  bool move_latch(const o3sdk::app::Input& in) noexcept;
+  bool value_arrow(const o3sdk::app::Input& in, o3sdk::app::Input& out) noexcept;
   // The buttons a screen with F-key knobs asks the kit to repeat while held (Screen::repeat_buttons): Left and Right. The mask does not depend on an F key being
   // held; a repeat with none held (or let go meanwhile) is dropped by the screen (arrow_turn is false and the screen returns on Input::repeat), so Left and Right
   // act as they always did. One undo per held arrow: the repeats are edits of one key, which the Bank coalesces as the encoder's turns.
