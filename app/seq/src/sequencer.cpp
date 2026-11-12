@@ -976,14 +976,15 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
   // Swing: the even steps are longer and the odd ones shorter by half the swing of a step (a percent of 240 ticks, halved).
   // The pairs sit on the grid: an even step starts a pair (pair_tick_) and lasts a sixteenth plus the swing; the odd step then starts
   // late by the swing and ends where the next pair begins. So a swing changed while playing only moves the odd steps from the next
-  // pair on, and the even steps never leave the grid.
+  // pair on, and the even steps never leave the grid. The last step of an odd length is an even step with no odd partner: it lasts a
+  // plain sixteenth, so the swing delays nothing past the loop point and the pass keeps its length of n sixteenths (I1).
   const unsigned swing = pat.swing > kMaxSwing ? kMaxSwing : pat.swing;
   const std::uint32_t sw = (swing * 6u + 2u) / 5u;
   const std::uint64_t start = step_tick_;
   std::uint64_t following;  // the tick the next step starts at
   if ((j & 1u) == 0u) {
     pair_tick_ = start;
-    following = start + dsp::kTicksPerSixteenth + sw;
+    following = start + dsp::kTicksPerSixteenth + (j + 1u < n ? sw : 0u);
   } else {
     following = pair_tick_ + 2u * dsp::kTicksPerSixteenth;
     if (following <= start) {  // not after an even step of this pair (cannot happen: step 0 is even): keep going on the grid

@@ -9,11 +9,9 @@
 // another platform's libm (exp / log); the pattern cannot.
 //
 // A preset is a pattern plus the voice that plays it. Replicant's line has 16 steps and a length of its own, 7, 8, 12 or 16, and
-// plays only that many steps. The Pattern's lengths are 8, 16, 32 and 64, so the line is mapped by its length:
-//     source 16: length 16, the 16 steps;      source 12: length 16, steps 12..15 rests;
-//     source 8:  length 8, the 8 steps;        source 7:  length 8, step 7 (the eighth) a rest.
-// Steps past `source_length` are rests, in the Pattern's hidden steps too (a longer length starts from silence). Lengths 7 and 12 are
-// the one deviation from Replicant: its loop of 7 or 12 sixteenths becomes 8 or 16 (the last steps rest), so the loop period differs.
+// plays only that many steps. A Pattern is 1..64 steps long (I1), so the line keeps its length as composed: 7, 8, 12 or 16, with no
+// padding and the same loop period as Replicant's.
+// Steps past `source_length` are rests, in the Pattern's hidden steps too (a longer length starts from silence).
 // `source_length` keeps the original's number. Gate false -> kStepRest, accent -> kStepAccent, slide -> kStepSlide, the swing as a
 // percent. The patch keeps Replicant's own units (0..1 knobs, seconds, BPM) so it can be compared exactly; to_values() turns it into
 // the values of the units' parameters.

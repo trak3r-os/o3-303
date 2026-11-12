@@ -97,19 +97,16 @@ TEST_CASE("F1 LENGTH: a step up copies the line into the new part, a step down t
   REQUIRE(before.length == 16);
   bank().clear_history();
   open_setup(t);  // F1 LENGTH is latched when SETUP opens
-  t.turn(1);
+  t.turn(16);
   REQUIRE(t.pat().length == 32);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[16 + i].note == before.steps[i].note);
     CHECK(t.pat().steps[16 + i].flags == before.steps[i].flags);
   }
-  t.turn(-2);  // 8
+  // The turns of one gesture are one UNDO step (I1: a step a detent): UNDO is on the Shift row of SETUP (F8), back to the 16 the line started with.
+  t.turn(-24);  // 8, the same gesture
   REQUIRE(t.pat().length == 8);
   CHECK(t.pat().steps[10].flags == kStepRest);  // cut
-  // UNDO is on the Shift row of SETUP (F8): 32 again, then the 16 the line started with.
-  t.shift_tap(Button::F8);
-  CHECK(t.pat().length == 32);
-  CHECK(t.pat().steps[16 + 5].note == before.steps[5].note);
   t.shift_tap(Button::F8);
   CHECK(t.pat().length == 16);
   CHECK_FALSE(bank().can_undo());
@@ -118,6 +115,11 @@ TEST_CASE("F1 LENGTH: a step up copies the line into the new part, a step down t
     CHECK(t.pat().steps[i].flags == before.steps[i].flags);
   }
   CHECK(t.selected() == sel);
+  // The undo ends the gesture: a turn after it is a step of its own (32 again, then the 16).
+  t.turn(16);
+  REQUIRE(t.pat().length == 32);
+  t.shift_tap(Button::F8);
+  CHECK(t.pat().length == 16);
   // The redo walks forward again: Shift + F7 on SETUP itself (U4), and SETUP stays up.
   t.shift_tap(Button::F7);
   CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
@@ -127,13 +129,13 @@ TEST_CASE("F1 LENGTH: a step up copies the line into the new part, a step down t
 TEST_CASE("LENGTH up to 64 and down: the cursor and the step pads follow the new length") {
   Hands t;
   open_setup(t);
-  t.turn(2);  // 64
+  t.turn(48);  // 64, a step a detent
   REQUIRE(t.pat().length == 64);
   t.tap(Button::Pattern);  // HOME
   t.tap(Button::Left);     // the cursor wraps to step 64: page 4
   t.wait(30);
   t.tap(Button::Pattern);  // SETUP
-  t.turn(-3);              // 8: the cursor is past the end, it is brought back
+  t.turn(-56);             // 8: the cursor is past the end, it is brought back
   t.wait(30);
   REQUIRE(t.pat().length == 8);
   for (unsigned k = 8; k < 16; ++k) {
@@ -161,7 +163,7 @@ TEST_CASE("F2 SWING, F3 GATE and F4 TRANSP are this pattern's own, a held F key 
   t.release(Button::F2);
   CHECK(t.pat().swing == 3);
   t.turn(1);
-  CHECK(t.pat().length == 32);
+  CHECK(t.pat().length == 17);
   // Another pattern has its own.
   t.select_pattern(7);
   CHECK(t.pat().swing == 0);

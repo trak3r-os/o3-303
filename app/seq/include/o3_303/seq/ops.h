@@ -73,7 +73,8 @@ bool transpose_notes(Pattern& p, int semitones) noexcept;
 void reverse(Pattern& p) noexcept;
 // Pitch mirror: every playing note becomes lowest + highest - note, so the pattern keeps its register.
 void invert(Pattern& p) noexcept;
-// Length x 2, the steps and motion copied into the new half. false (unchanged) at 64.
+// Length x 2 (clamped to 64: 40 becomes 64, its first 24 steps copied again), the steps and motion copied into the new part. false
+// (unchanged) at 64.
 bool double_length(Pattern& p) noexcept;
 // Every step a rest (no ratchet, no condition), no motion; length, swing, gate, transpose and the lanes stay. (o3_303::clear() is the
 // fresh pattern instead.)
@@ -115,7 +116,7 @@ void fill_ratchet(Pattern& p) noexcept;
 // `variant` applied to `p` (`seed` only matters to Mutate).
 void apply_fill(Pattern& p, FillVariant variant, std::uint32_t seed) noexcept;
 
-// 8, 16, 32 or 64; false (unchanged) for anything else.
+// 1..64; false (unchanged) for anything else.
 bool set_length(Pattern& p, unsigned length) noexcept;
 void set_swing(Pattern& p, int percent) noexcept;      // 0..kMaxSwing
 void set_gate(Pattern& p, int percent) noexcept;       // 5..100
@@ -219,8 +220,9 @@ bool set_gate_list(Pattern& p, unsigned step, unsigned index) noexcept;
 // (target, id); else -1 (all eight in use). Changes the pattern only in the second case.
 int claim_lane(Pattern& p, std::uint8_t target, std::uint8_t id) noexcept;
 
-// The length of the pattern, 8, 16, 32 or 64 (false, unchanged, for anything else or the length it has). Growing copies the steps below the
-// old length, with their motion, over and over into the new part (8 to 32: the 8 steps three more times; 16 to 32 is double_length());
+// The length of the pattern, 1..64 (false, unchanged, for anything else or the length it has). Growing copies, with their
+// motion, into the new part: a new step from the 16th on repeats the step 16 before it (16 to 32 is double_length(), and a walk of one step
+// a detent gives the same line), a step inside the first bar the old part over and over (8 to 16: the 8 steps twice);
 // shrinking truncates: the cut steps become rests (no note, ratchet or condition) and their motion points are cleared, so a lock above the
 // new length cannot keep a lane in use. Swing, gate, transpose and the lanes stay. true: changed.
 bool resize(Pattern& p, unsigned length) noexcept;

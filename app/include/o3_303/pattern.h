@@ -28,7 +28,7 @@
 namespace o3_303 {
 
 inline constexpr unsigned kMaxSteps = 64;
-inline constexpr std::uint8_t kLengths[] = {8, 16, 32, 64};
+inline constexpr unsigned kMinLength = 1;  // a pattern is 1..kMaxSteps steps long, any number in between (I1)
 inline constexpr std::uint8_t kDefaultLength = 16;
 inline constexpr unsigned kPatternCount = 48;  // a project: one pattern per pad when Pattern is held
 
@@ -249,7 +249,7 @@ struct Step {
 // 4-byte aligned and a multiple of 4 bytes long: the Bank copies, swaps and scans patterns a word at a time.
 struct alignas(4) Pattern {
   Step steps[kMaxSteps];
-  std::uint8_t length;     // one of kLengths
+  std::uint8_t length;     // kMinLength..kMaxSteps; an unknown value (0, above 64) reads as kDefaultLength
   std::uint8_t swing;      // percent, 0..kMaxSwing
   std::int8_t transpose;   // semitones, -24..+24
   std::uint8_t gate;       // percent, 5..100
@@ -269,7 +269,7 @@ static_assert(offsetof(Pattern, motion) % 4 == 0 && sizeof(Pattern::motion[0]) %
 // 2,328 bytes (2,260 of the pattern, 68 of the TRACT line); the 48 patterns of a project are about 112 KB of SDRAM (docs/M3-PLAN.md, "Memory").
 static_assert(sizeof(Pattern) <= 2328, "Pattern grew: check the project's SDRAM budget in docs/M3-PLAN.md");
 
-constexpr bool valid_length(unsigned n) noexcept { return n == 8u || n == 16u || n == 32u || n == 64u; }
+constexpr bool valid_length(unsigned n) noexcept { return n >= kMinLength && n <= kMaxSteps; }
 
 // The fresh pattern: 16 steps, every one a rest with C2 under it (a new project has no pattern that sounds; writing a note sets its
 // pitch and clears the rest), no ratchet, no condition, no swing, no transpose, the default gate, no motion, the default lanes.

@@ -45,7 +45,7 @@ What is in it:
   sound like a Roland TB-303: dry, with no distortion and no delay. Thirteen more controls, the Devil Fish-style mods on the MODDED pages,
   change the voice's circuit: one switch (MODS) turns all of them off, to hear the plain 303.
   Then a distortion with five models, a delay, a growl (a vowel filter) and a wobble (an LFO you sync to the tempo).
-- **The sequencer**: 48 patterns of 8, 16, 32 or 64 steps. Each step has a note, accent, slide, tie or rest, can play up to four times
+- **The sequencer**: 48 patterns of 1 to 64 steps. Each step has a note, accent, slide, tie or rest, can play up to four times
   (ratchets) or only now and then (conditions), and can hold its own value of a knob (a lock). Knob moves can be recorded as motion.
 - **SONG**: rows of patterns played in order, with repeats and transposes.
 - **PERFORM**: the 48 pads become live actions (mute, fills, rolls, freeze, tape stop, wobble), eight sound snapshots with a morph, a pad
@@ -366,7 +366,7 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 
 | Key | What | Values |
 |---|---|---|
-| F1 LENGTH | Steps in this pattern | 8, 16, 32, 64 |
+| F1 LENGTH | Steps in this pattern; the encoder moves one step a detent, Shift + turn jumps to 8, 16, 32 or 64 (and down to 1) | 1 to 64 (16 at first) |
 | F2 SWING | Swing | 0 to 66 % |
 | F3 GATE | How long the notes are | 5 to 100 % (50 % at first) |
 | F4 TRANSP | This pattern's transpose | -24 to +24 semitones |
@@ -379,6 +379,8 @@ The info line always shows the scale on F5 with its root ("D MAJOR"; "No scale" 
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
 pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F7 REDO, F8 UNDO.
+
+A pattern can be any length from 1 to 64 steps: a line of 7 or 12 steps makes a polymeter against a 16-step one. Turning LENGTH up repeats the bar before the new steps (16 to 32 doubles the line, with its motion), turning it down cuts the steps past the end; one gesture of turns is one UNDO. Under swing, the last step of an odd length has no partner and is not swung. The library's 7- and 12-step lines keep their length.
 
 The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back.
 

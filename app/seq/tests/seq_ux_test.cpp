@@ -464,6 +464,52 @@ TEST_CASE("resize 16 to 32 is double_length") {
   CHECK(same(a, b));
 }
 
+TEST_CASE("resize walks any length: 16 to 7 cuts, 7 to 12 repeats the 7 steps, 12 to 64 and back keep the line as composed") {
+  Pattern p = make_line(16);
+  const Pattern before = p;
+  REQUIRE(resize(p, 7));
+  CHECK(p.length == 7);
+  for (unsigned i = 7; i < 16; ++i) {
+    CHECK(p.steps[i].flags == kStepRest);
+  }
+  REQUIRE(resize(p, 12));
+  for (unsigned i = 0; i < 12; ++i) {
+    CAPTURE(i);
+    CHECK(p.steps[i].note == before.steps[i % 7].note);
+    CHECK(p.steps[i].flags == before.steps[i % 7].flags);
+  }
+  REQUIRE(resize(p, 64));
+  CHECK(p.steps[15].note == before.steps[(15 % 12) % 7].note);  // inside the first bar: the old part over and over
+  CHECK(p.steps[63].note == p.steps[47].note);                   // from the 16th step on: the step 16 back
+  CHECK(p.steps[16].note == p.steps[0].note);
+  REQUIRE(resize(p, 1));
+  CHECK(p.length == 1);
+  CHECK(p.steps[0].note == before.steps[0].note);
+  CHECK(p.steps[1].flags == kStepRest);
+}
+
+TEST_CASE("resize one step at a time (the encoder) gives the line of one jump, from 16 and from 32") {
+  for (unsigned from : {16u, 32u}) {
+    Pattern walked = make_line(from);
+    Pattern jumped = walked;
+    for (unsigned n = from + 1u; n <= 64u; ++n) {
+      REQUIRE(resize(walked, n));
+    }
+    REQUIRE(resize(jumped, 64));
+    CAPTURE(from);
+    CHECK(same(walked, jumped));
+  }
+  // The walk to 40 is the line repeated: the 24 new steps are the first 24.
+  Pattern p = make_line(16);
+  const Pattern before = p;
+  for (unsigned n = 17u; n <= 40u; ++n) {
+    REQUIRE(resize(p, n));
+  }
+  for (unsigned i = 16; i < 40; ++i) {
+    CHECK(p.steps[i].note == before.steps[i % 16u].note);
+  }
+}
+
 TEST_CASE("resize down truncates: the cut steps become rests and lose their motion") {
   Pattern p = make_line(32);
   const Pattern before = p;
@@ -507,6 +553,24 @@ TEST_CASE("resize down frees a lane whose only locks were above the new length (
   CHECK(claim_lane(p, kLaneGrowl, 0) == 3);
 }
 
+TEST_CASE("Bank resize a step at a time (the encoder) is one UNDO step: 48 detents do not push the history off the stack") {
+  auto bank = make_bank();
+  bank->clear_history();
+  const Pattern start = bank->pattern(0);
+  for (unsigned n = 17; n <= 64; ++n) {
+    REQUIRE(bank->resize(0, n));
+  }
+  for (unsigned n = 63; n >= 5; --n) {
+    REQUIRE(bank->resize(0, n));
+  }
+  CHECK(bank->pattern(0).length == 5);
+  CHECK(bank->undo() == 0);
+  CHECK(same(bank->pattern(0), start));
+  CHECK_FALSE(bank->can_undo());
+  CHECK(bank->redo() == 0);
+  CHECK(bank->pattern(0).length == 5);
+}
+
 TEST_CASE("Bank resize down: one UNDO restores the steps and the points") {
   auto bank = make_bank();
   bank->resize(0, 32);
@@ -528,10 +592,10 @@ TEST_CASE("Bank resize down: one UNDO restores the steps and the points") {
   CHECK_FALSE(bank->can_undo());
 }
 
-TEST_CASE("resize refuses an illegal length and the length it has") {
+TEST_CASE("resize refuses an illegal length (0, above 64) and the length it has") {
   Pattern p = make_line(16);
   const Pattern before = p;
-  for (const unsigned bad : {0u, 7u, 12u, 15u, 17u, 24u, 48u, 65u, 128u}) {
+  for (const unsigned bad : {0u, 65u, 128u, 255u, 256u}) {
     CHECK_FALSE(resize(p, bad));
   }
   CHECK_FALSE(resize(p, 16));
@@ -572,7 +636,8 @@ TEST_CASE("Bank regen_rhythm, regen_notes and resize are one undo step each, and
   REQUIRE(bank->resize(0, 64));
   CHECK(bank->pattern(0).length == 64);
   CHECK_FALSE(bank->resize(0, 64));
-  CHECK_FALSE(bank->resize(0, 13));
+  CHECK_FALSE(bank->resize(0, 65));
+  CHECK_FALSE(bank->resize(0, 0));
   CHECK(bank->undo() == 0);
   CHECK(same(bank->pattern(0), start));
   CHECK_FALSE(bank->can_undo());

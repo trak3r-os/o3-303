@@ -108,7 +108,7 @@ TEST_CASE("the other slots are generated, deterministic, named, and all differen
   CHECK(std::memcmp(&last.pattern, &past.pattern, sizeof(Pattern)) == 0);
 }
 
-TEST_CASE("a generated pattern is a playable Pattern of length 8 or 16: rests where the gate was closed and after the original's steps") {
+TEST_CASE("a generated pattern is a playable Pattern of its own length (7, 8, 12 or 16): rests where the gate was closed and after the original's steps") {
   for (unsigned bank = 0; bank < gen::kBanks; ++bank) {
     for (unsigned slot = 0; slot < gen::kSlots; ++slot) {
       gen::Preset p;
@@ -116,7 +116,7 @@ TEST_CASE("a generated pattern is a playable Pattern of length 8 or 16: rests wh
       CAPTURE(bank);
       CAPTURE(slot);
       CHECK(valid_length(p.pattern.length));
-      CHECK(p.pattern.length == (p.source_length <= 8 ? 8 : 16));
+      CHECK(p.pattern.length == p.source_length);
       CHECK(p.source_length >= 7);
       CHECK(p.source_length <= 16);
       CHECK(p.pattern.gate == kDefaultGate);

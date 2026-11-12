@@ -184,8 +184,8 @@ TEST_CASE("it plays the selected pattern from step 0 at the press of Play; nothi
   CHECK(ph.sounding);
 }
 
-TEST_CASE("steps and gates land on their ticks, and the pattern wraps at 8, 16, 32 and 64 steps") {
-  for (const unsigned length : {8u, 16u, 32u, 64u}) {
+TEST_CASE("steps and gates land on their ticks, and the pattern wraps at any length from 1 to 64 steps") {
+  for (const unsigned length : {1u, 2u, 3u, 7u, 8u, 12u, 16u, 31u, 32u, 40u, 63u, 64u}) {
     CAPTURE(length);
     Rig rig;
     rig.bank->replace(0, play_all(length));
@@ -262,6 +262,37 @@ TEST_CASE("swing delays the odd steps and shortens them: the pair still adds up 
   const auto m = full.notes();
   REQUIRE(m.size() >= 4);
   CHECK(m[2].frame == frame_of(kStep + 79, 120'000));
+}
+
+TEST_CASE("an odd length under swing loops in exactly n sixteenths: the last step has no odd partner to be delayed by") {
+  for (const unsigned length : {1u, 3u, 7u, 13u, 63u}) {
+    CAPTURE(length);
+    Rig rig;
+    Pattern p = play_all(length);
+    set_swing(p, 50);  // the odd steps start 60 ticks late; the even ones last 60 ticks longer
+    rig.bank->replace(0, p);
+    rig.start(120'000);
+    rig.engine.play();
+    rig.run(frame_of((3ull * length + 1u) * kStep, 120'000));
+    std::vector<std::uint64_t> on;
+    for (const Rec& e : rig.notes()) {
+      if (e.kind == dsp::EventKind::NoteOn) {
+        on.push_back(e.frame);
+      }
+    }
+    REQUIRE(on.size() >= 2u * length + 1u);
+    // Step 0 of every pass sits on the grid: pass k starts k x length sixteenths in, not later by the last step's swing.
+    for (unsigned pass = 0; pass < 3; ++pass) {
+      CAPTURE(pass);
+      CHECK(on[pass * length] == frame_of(static_cast<std::uint64_t>(pass) * length * kStep, 120'000));
+    }
+    // Inside a pass the even steps are on the grid and the odd ones 60 ticks late.
+    for (unsigned j = 0; j < length; ++j) {
+      CAPTURE(j);
+      const std::uint64_t tick = static_cast<std::uint64_t>(j) * kStep + (j % 2 == 1 ? 60u : 0u);
+      CHECK(on[j] == frame_of(tick, 120'000));
+    }
+  }
 }
 
 TEST_CASE("the gate is a percent of the step's own length") {
@@ -594,6 +625,37 @@ TEST_CASE("a queued pattern starts when the playing one ends; then it repeats; t
     ++k;
   }
   CHECK(k >= 40);
+}
+
+TEST_CASE("a chain of odd lengths (7, 12, 40 steps) hands over on the sixteenth the pattern ends on, no gap in the grid") {
+  Rig rig;
+  const unsigned lens[3] = {7, 12, 40};
+  for (unsigned i = 0; i < 3; ++i) {
+    Pattern p = play_all(lens[i]);
+    for (unsigned j = 0; j < kMaxSteps; ++j) {
+      p.steps[j].note = static_cast<std::uint8_t>(36 + 25 * i + j % 25u);
+    }
+    rig.bank->replace(i, p);
+  }
+  rig.start(120'000);
+  rig.engine.play();
+  rig.run(frame_of(2 * kStep, 120'000));
+  CHECK(rig.seq.queue(1));
+  CHECK(rig.seq.queue(2));
+  rig.run(frame_of((7 + 12 + 40 + 4) * kStep + kStep / 2, 120'000) - frame_of(2 * kStep, 120'000));
+  CHECK(rig.seq.playhead().pattern == 2);  // the chain is used up: pattern 2 repeats, and is in its fifth step of the second lap
+  CHECK(rig.seq.playhead().step == 4);
+  unsigned k = 0;
+  for (const Rec& e : rig.notes()) {
+    if (e.kind != dsp::EventKind::NoteOn) {
+      continue;
+    }
+    CHECK(e.frame == frame_of(static_cast<std::uint64_t>(k) * kStep, 120'000));
+    const unsigned expect = k < 7 ? 36 + k : (k < 19 ? 61 + (k - 7) : 86 + ((k - 19) % 40u) % 25u);
+    CHECK(e.note == expect);
+    ++k;
+  }
+  CHECK(k == 64);
 }
 
 TEST_CASE("the chain loops when asked, and clear_queue empties it") {
@@ -1285,7 +1347,7 @@ std::vector<Ev> model(const Pattern& p, unsigned steps, std::uint64_t* end_tick)
   for (unsigned k = 0; k < steps; ++k) {
     const unsigned j = k % n;
     const Step s = p.steps[j];
-    const unsigned len = kStep + (j % 2 == 0 ? sw : 0u) - (j % 2 == 1 ? sw : 0u);
+    const unsigned len = kStep + (j % 2 == 0 && j + 1u < n ? sw : 0u) - (j % 2 == 1 ? sw : 0u);  // the last step of an odd length has no partner
     const unsigned gate = (len * p.gate + 50u) / 100u;
     // The motion points of this step.
     for (unsigned q = 0; q < 4; ++q) {
@@ -1370,7 +1432,7 @@ TEST_CASE("random patterns play exactly as the model says, at any tempo and bloc
     Rng r(seed * 7919u);
     Pattern p;
     clear(p);
-    p.length = kLengths[r.next_int(0, 3)];
+    p.length = static_cast<std::uint8_t>(r.next_int(1, 64));
     GenParams g;
     g.density = static_cast<std::uint8_t>(r.next_int(30, 100));
     g.accent_pct = static_cast<std::uint8_t>(r.next_int(0, 60));

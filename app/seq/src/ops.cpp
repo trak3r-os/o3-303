@@ -35,6 +35,8 @@ void rotate_right(T* a, unsigned n, unsigned r) noexcept {
   reverse_range(a + r, n - r);
 }
 
+constexpr unsigned kBarSteps = 16;  // a bar of sixteenths: the distance a grown step looks back (resize)
+
 void clear_points(Pattern& p, unsigned step) noexcept {
   for (auto& lane : p.motion) {
     for (unsigned q = 0; q < kMotionPointsPerStep; ++q) {
@@ -394,14 +396,15 @@ void invert(Pattern& p) noexcept {
 
 bool double_length(Pattern& p) noexcept {
   const unsigned n = length_of(p);
-  if (n * 2u > kMaxSteps) {
+  const unsigned m = n * 2u > kMaxSteps ? kMaxSteps : n * 2u;  // 40 doubles to 64 (the first 24 steps again), never past it
+  if (m == n) {
     return false;
   }
-  for (unsigned j = 0; j < n; ++j) {
-    p.steps[n + j] = p.steps[j];
-    copy_points(p, n + j, j);
+  for (unsigned j = n; j < m; ++j) {
+    p.steps[j] = p.steps[j - n];
+    copy_points(p, j, j - n);
   }
-  p.length = static_cast<std::uint8_t>(n * 2u);
+  p.length = static_cast<std::uint8_t>(m);
   return true;
 }
 
@@ -581,7 +584,7 @@ void fill_octave_up(Pattern& p) noexcept {
 
 void fill_ratchet(Pattern& p) noexcept {
   const unsigned n = length_of(p);
-  const unsigned roll = n - n / 4u;  // the last quarter of the pattern
+  const unsigned roll = n - (n / 4u != 0u ? n / 4u : 1u);  // the last quarter of the pattern, at least the last step
   for (unsigned j = 0; j < n; ++j) {
     if (!is_playing(p.steps[j])) {
       continue;
@@ -897,9 +900,10 @@ bool resize(Pattern& p, unsigned length) noexcept {
     return false;
   }
   const unsigned n = length_of(p);
-  for (unsigned j = n; j < length; ++j) {  // growing: the old part over and over (a no-op when shrinking)
-    p.steps[j] = p.steps[j % n];
-    copy_points(p, j, j % n);
+  for (unsigned j = n; j < length; ++j) {  // growing (a no-op when shrinking): a new step repeats the bar before it (the step 16 back), inside the first bar the old part over and over
+    const unsigned from = j >= kBarSteps ? j - kBarSteps : j % n;  // the encoder grows a line one step a detent: this way a walk to 32 is the doubling
+    p.steps[j] = p.steps[from];
+    copy_points(p, j, from);
   }
   for (unsigned j = length; j < n; ++j) {  // shrinking: the cut part goes, its locks too (a lock above the length would keep a lane in use)
     make_rest(p, j);

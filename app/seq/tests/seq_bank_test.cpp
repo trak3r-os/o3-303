@@ -110,7 +110,9 @@ TEST_CASE("an edit that changes nothing is not recorded") {
   CHECK_FALSE(bank->set_flag(0, 0, kStepAccent, false));       // already off
   CHECK_FALSE(bank->edit(0, [](Pattern&) { return false; }));  // the function says so
   CHECK_FALSE(bank->transpose_notes(0, 200));                  // refused by the operation: 100 + 200 > 127
-  CHECK_FALSE(bank->set_length(0, 12));
+  CHECK_FALSE(bank->set_length(0, 0));   // refused: no such length
+  CHECK_FALSE(bank->set_length(0, 65));
+  CHECK_FALSE(bank->set_length(0, 16));  // the length it has
   CHECK_FALSE(bank->invert(0));  // a single pitch mirrors onto itself
   CHECK(bank->double_length(0)); // a real one does: 16 -> 32
   CHECK(bank->pattern(0).length == 32);

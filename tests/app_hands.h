@@ -120,11 +120,21 @@ struct Hands {
   void to_home() { tap(Button::Pattern); }
   // HOME's Shift row (UX-303 5.1), at once: F1 NEW, F2 VARY, F3 RHYTHM, F4 NOTES, F5 REVERSE, F6 CLEAR, F7 REDO, F8 UNDO.
   void new_line() { shift_tap(Button::F1); }
-  // PATTERN SETUP's F1 LENGTH (from HOME: Pattern, a tap): `steps` detents (8 / 16 / 32 / 64: DOUBLE is +1), then back on HOME.
+  // PATTERN SETUP's F1 LENGTH (from HOME: Pattern, a tap): `steps` detents, one step of length each (I1: 1..64), then back on HOME. length_to() starts from
+  // the default 16; length_jump() is Shift + turn (8, 16, 32, 64 stops).
   void length_steps(int steps) {
     tap(Button::Pattern);
     tap(Button::F1);
     turn(steps);
+    tap(Button::Pattern);
+  }
+  void length_to(int target, int from = 16) { length_steps(target - from); }
+  void length_jump(int stops) {
+    tap(Button::Pattern);
+    tap(Button::F1);
+    press(Button::Shift);
+    turn(stops);
+    release(Button::Shift);
     tap(Button::Pattern);
   }
   // A performance button's action, set on PERFORM SETUP: F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions (to the first,

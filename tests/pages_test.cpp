@@ -448,14 +448,35 @@ TEST_CASE("pages: the tempo and the fields of the selected pattern (MASTER's and
 
   const Entry length = setup_page().entry[0];
   CHECK(rig.text(length) == "16");
-  rig.controls.step(rig.engine, length, 1, false);
+  rig.controls.step(rig.engine, length, 1, false);  // I1: a detent is one step of length
+  CHECK(bank.pattern(sel).length == 17);
+  CHECK(rig.text(length) == "17");
+  rig.controls.step(rig.engine, length, 15, false);
   CHECK(bank.pattern(sel).length == 32);
   CHECK(rig.text(length) == "32");
-  rig.controls.step(rig.engine, length, 1, false);
+  rig.controls.step(rig.engine, length, 100, false);  // clamps at 64
   CHECK(bank.pattern(sel).length == 64);
-  rig.controls.step(rig.engine, length, 5, false);
-  CHECK(bank.pattern(sel).length == 64);
+  CHECK(rig.text(length) == "64");
   rig.controls.step(rig.engine, length, -3, false);
+  CHECK(bank.pattern(sel).length == 61);
+  // Shift + turn jumps over the stops 1, 8, 16, 32, 64 (one per detent), up and down.
+  rig.controls.step(rig.engine, length, -1, true);
+  CHECK(bank.pattern(sel).length == 32);
+  rig.controls.step(rig.engine, length, -2, true);
+  CHECK(bank.pattern(sel).length == 8);
+  rig.controls.step(rig.engine, length, -1, true);
+  CHECK(bank.pattern(sel).length == 1);
+  rig.controls.step(rig.engine, length, -1, true);
+  CHECK(bank.pattern(sel).length == 1);
+  rig.controls.step(rig.engine, length, 1, true);
+  CHECK(bank.pattern(sel).length == 8);
+  rig.controls.step(rig.engine, length, 3, true);
+  CHECK(bank.pattern(sel).length == 64);
+  rig.controls.step(rig.engine, length, 1, true);
+  CHECK(bank.pattern(sel).length == 64);
+  rig.controls.step(rig.engine, length, -48, false);  // 16
+  CHECK(bank.pattern(sel).length == 16);
+  rig.controls.step(rig.engine, length, -8, false);
   CHECK(bank.pattern(sel).length == 8);
 
   // The pages edit the selected pattern, whichever it is.
@@ -791,28 +812,32 @@ TEST_CASE("pages: LENGTH goes through seq::resize: a step up copies the line int
   bank.clear_history();
   const Pattern before = bank.pattern(sel);
   REQUIRE(before.length == 16);
-  rig.controls.step(rig.engine, length, 1, false);  // 32
+  rig.controls.step(rig.engine, length, 16, false);  // 32
   REQUIRE(bank.pattern(sel).length == 32);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(bank.pattern(sel).steps[16 + i].note == bank.pattern(sel).steps[i].note);
     CHECK(bank.pattern(sel).steps[16 + i].flags == bank.pattern(sel).steps[i].flags);
   }
-  rig.controls.step(rig.engine, length, -2, false);  // 8: the steps past the 8th are cut
+  rig.controls.step(rig.engine, length, -24, false);  // 8: the steps past the 8th are cut
   REQUIRE(bank.pattern(sel).length == 8);
   CHECK(bank.pattern(sel).steps[9].flags == kStepRest);
   CHECK(bank.pattern(sel).steps[3].note == before.steps[3].note);
-  // One undo each way.
-  CHECK(bank.undo() == static_cast<int>(sel));
-  CHECK(bank.pattern(sel).length == 32);
-  CHECK(bank.pattern(sel).steps[16 + 5].note == before.steps[5].note);
+  // The turns of one gesture are ONE undo step (I1: LENGTH walks a step a detent, 24 detents must not push the history off the stack): back to the 16 the line started with.
   CHECK(bank.undo() == static_cast<int>(sel));
   CHECK(bank.pattern(sel).length == 16);
   CHECK_FALSE(bank.can_undo());
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(bank.pattern(sel).steps[i].note == before.steps[i].note);
   }
+  // The undo ends the gesture: the next turn is a step of its own.
+  rig.controls.step(rig.engine, length, 4, false);  // 20
+  rig.controls.step(rig.engine, length, 4, false);  // 24
+  CHECK(bank.pattern(sel).length == 24);
+  CHECK(bank.undo() == static_cast<int>(sel));
+  CHECK(bank.pattern(sel).length == 16);
+  CHECK_FALSE(bank.can_undo());
   // The same length again is no edit.
-  rig.controls.set(rig.engine, length, 1.0f);
+  rig.controls.set(rig.engine, length, 15.0f);
   CHECK_FALSE(bank.can_undo());
 }
 

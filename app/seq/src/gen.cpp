@@ -508,7 +508,7 @@ void make_generated(RPreset& r, int bank, int slot, std::uint32_t seed) noexcept
   sanitise(r);
 }
 
-// Replicant's preset as ours (gen.h): the steps of its length, in a Pattern of length 8 or 16; every step past that a rest.
+// Replicant's preset as ours (gen.h): the steps of its length, in a Pattern of that length (7 and 12 as composed, no padding); every step past it a rest.
 void map_preset(Preset& out, const RPreset& r) noexcept {
   clear(out.pattern);  // every step a rest with C2 under it
   const unsigned source = static_cast<unsigned>(jlimit(1, kLineSteps, r.length));
@@ -517,7 +517,7 @@ void map_preset(Preset& out, const RPreset& r) noexcept {
     out.pattern.steps[i].note = static_cast<std::uint8_t>(s.note);
     out.pattern.steps[i].flags = static_cast<std::uint8_t>((s.accent ? kStepAccent : 0u) | (s.slide ? kStepSlide : 0u) | (s.gate ? 0u : kStepRest));
   }
-  out.pattern.length = source <= 8u ? 8 : 16;
+  out.pattern.length = static_cast<std::uint8_t>(source);
   const int swing = static_cast<int>(r.patch.swing * 100.0f + 0.5f);
   out.pattern.swing = static_cast<std::uint8_t>(jlimit(0, static_cast<int>(kMaxSwing), swing));
   out.patch = r.patch;

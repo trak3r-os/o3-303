@@ -58,7 +58,7 @@ constexpr unsigned tract_length(const TractLine& t, unsigned pattern_length) noe
 }
 
 // The line's step under the pattern's step counter `n` (steps played since the pattern started a pass, counted from 0 and not wrapped to
-// the pattern's length): the line wraps on its own length. `length` is tract_length(), a power of two.
+// the pattern's length): the line wraps on its own length. `length` is the line's own length (4..64), a power of two; a SAME line does not come here.
 constexpr unsigned tract_index(unsigned n, unsigned length) noexcept { return n & (length - 1u); }
 
 // A vowel step's position in the unit's VOWEL knob (units/tract: A = 0, E = .25, I = .5, O = .75, U = 1); 0 for "-".

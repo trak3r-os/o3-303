@@ -125,7 +125,7 @@ Pattern random_pattern(std::uint32_t seed) {
     st.flags = static_cast<std::uint8_t>(lcg(s) & 0x3Fu);
     st.cond = static_cast<std::uint8_t>(lcg(s) % 4 == 0 ? 0xC0 + lcg(s) % 4 : lcg(s) % 100);
   }
-  p.length = kLengths[lcg(s) % 4];
+  p.length = static_cast<std::uint8_t>(lcg(s) % 64 + 1);
   p.swing = static_cast<std::uint8_t>(lcg(s) % (kMaxSwing + 1u));
   p.transpose = static_cast<std::int8_t>(static_cast<int>(lcg(s) % 49) - 24);
   p.gate = static_cast<std::uint8_t>(5 + lcg(s) % 96);
@@ -1704,9 +1704,9 @@ TEST_CASE("project: patterns of another size or fewer of them; out of range fiel
   CHECK(r3.skipped == 1);
   CHECK(s.pats == nullptr);
 
-  // Fields a sequencer indexes with, out of range in a file whose CRC is good: clamped (a length of 7, a note of 200, a lane of target 99, ...).
+  // Fields a sequencer indexes with, out of range in a file whose CRC is good: clamped (a length of 65, a note of 200, a lane of target 99, ...).
   Pattern bad = random_pattern(3);
-  bad.length = 7;
+  bad.length = 65;
   bad.steps[2].note = 200;
   bad.steps[3].flags = 0xFF;
   bad.swing = 200;

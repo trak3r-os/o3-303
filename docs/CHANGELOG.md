@@ -13,6 +13,11 @@ hear says so in plain words.
   A project saved with the old lock loads without it (the flag is read and ignored); KEYS is a setting of the unit, not of the project.
 - **Params opens FX first (S4).** INSTRUMENT has the same two pages and read-outs, but FX is page 1 (the distortion and the delay, the effects you reach for most) and VOICE
   is page 2. Params from another screen opens FX; Params again goes to VOICE and back.
+- **Patterns of any length from 1 to 64 steps (I1).** PATTERN SETUP's LENGTH moves one step a detent, and Shift + turn jumps over 8, 16, 32 and 64 (and down to 1). The library's
+  7- and 12-step lines keep their own length instead of being padded to 8 or 16, so they loop as composed. A growing line repeats the bar before the new steps (16 to 32 still
+  doubles it), a shrinking one cuts; the turns of one gesture are one UNDO step. DOUBLE clamps at 64 (40 doubles to 64 by repeating its first 24 steps). The last step of an odd
+  length has no partner under swing and is not swung. A project with a length other than 8, 16, 32 or 64 saves and loads as it is; **an older version (v0.7.0 and before) reads
+  a length it does not know as 16**, so open such a project in the new version.
 
 ## v0.7.0 (2026-11-12), a pre-release
 

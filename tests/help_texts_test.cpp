@@ -607,7 +607,7 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
 TEST_CASE("help screens: the home map's pads follow the pattern, the octave, the scale lock and FILT") {
   Hands t;
   sim::Harness& h = *t.h;
-  t.length_steps(-1);  // 16 -> 8 steps
+  t.length_to(8);  // 16 -> 8 steps
   REQUIRE(t.pat().length == 8);
   {
     const Help& help = open_help(h);
@@ -617,7 +617,7 @@ TEST_CASE("help screens: the home map's pads follow the pattern, the octave, the
     CHECK(std::strcmp(help.pad_label[36], "C2") == 0);
     close_help(h);
   }
-  t.length_steps(1);
+  t.length_to(16, 8);
   t.pad(role_pad(PadRole::OctUp), 10);  // the keyboard an octave up
   {
     const Help& help = open_help(h);

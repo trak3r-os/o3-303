@@ -1,0 +1,21 @@
+# I1: LENGTH is any of 1 to 64. Seven steps: the pads past the 7th are dark and the playhead wraps after 7 sixteenths; forty steps: three pages, the last one holds 8 (the cursor wraps to step 40 on page 3).
+wait 300
+tap pattern
+tap f1
+turn -9
+tap pattern
+wait 100
+snap 01_length_7
+tap play
+wait 700
+snap 02_playing_7
+tap play
+tap pattern
+tap f1
+turn 33
+tap pattern
+tap left
+wait 100
+snap 03_length_40_cursor_on_the_last_step
+tap right
+snap 04_cursor_wrapped_to_step_1

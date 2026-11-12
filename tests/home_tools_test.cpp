@@ -307,8 +307,8 @@ TEST_CASE("Shift + F8 UNDO on PATTERN SETUP undoes a SETUP edit and leaves SETUP
   t.tap(Button::Pattern);
   REQUIRE(std::strcmp(t.title(), "PATTERN SETUP") == 0);
   t.tap(Button::F1);
-  t.turn(1);  // LENGTH 16 > 32, one step
-  REQUIRE(t.pat().length == 32);
+  t.turn(1);  // LENGTH 16 > 17, one step
+  REQUIRE(t.pat().length == 17);
   Keys k;
   t.press(Button::Shift);
   k = soft_keys(t);

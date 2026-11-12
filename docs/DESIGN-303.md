@@ -167,7 +167,7 @@ patterns a project. Improvements over the original:
 struct Step { std::uint8_t note, flags, cond; };  // flags: ACC | SLIDE | TIE | REST, the ratchet in bits 4-5; cond: the trig condition
 struct Pattern {
   Step steps[64];
-  std::uint8_t length, swing; std::int8_t transpose; std::uint8_t gate;  // length 8, 16, 32 or 64
+  std::uint8_t length, swing; std::int8_t transpose; std::uint8_t gate;  // length 1..64 (8, 16, 32 or 64 until v0.7.0)
   std::uint8_t motion[8][64 * 4];  // 8 lanes (the SOUND page), 4 points a step, 0xFF = no lock
   LaneRef lanes[8];                // {target, id}: the parameter each lane drives (M3b, docs/M3B-PLAN.md)
 };                                 // 2,260 bytes a pattern; 48 patterns about 108 KB, in the SDRAM

@@ -299,6 +299,36 @@ TEST_CASE("double_length copies the pattern into the new half, up to 64") {
   CHECK(same(p, before));
 }
 
+TEST_CASE("double_length clamps at 64: an odd or long length doubles to what fits, the first steps copied again") {
+  Pattern p = make({}, 7);
+  for (unsigned i = 0; i < kMaxSteps; ++i) {
+    p.steps[i].note = static_cast<std::uint8_t>(20 + i);
+  }
+  set_motion_point(p, 2, 3, 1, 44);
+  CHECK(double_length(p));  // 7 -> 14
+  CHECK(p.length == 14);
+  CHECK(p.steps[7].note == 20);
+  CHECK(p.steps[13].note == 26);
+  CHECK(pt(p, 2, 10, 1) == 44);
+  p = make({}, 40);
+  for (unsigned i = 0; i < kMaxSteps; ++i) {
+    p.steps[i].note = static_cast<std::uint8_t>(20 + i);
+  }
+  set_motion_point(p, 2, 3, 1, 44);
+  CHECK(double_length(p));  // 40 -> 64, not 80 and not refused
+  CHECK(p.length == 64);
+  CHECK(p.steps[40].note == 20);  // step 40 is step 0 again, step 63 is step 23
+  CHECK(p.steps[63].note == 20 + 23);
+  CHECK(pt(p, 2, 43, 1) == 44);
+  p = make({}, 33);
+  CHECK(double_length(p));  // 33 -> 64 (66 clamped)
+  CHECK(p.length == 64);
+  CHECK_FALSE(double_length(p));
+  p = make({}, 1);
+  CHECK(double_length(p));  // 1 -> 2
+  CHECK(p.length == 2);
+}
+
 TEST_CASE("clear_pattern silences every step and keeps the pattern's settings") {
   Pattern p = make({1, 2, 3});
   p.length = 32;
@@ -319,7 +349,7 @@ TEST_CASE("clear_pattern silences every step and keeps the pattern's settings") 
   CHECK(p.transpose == 5);
 }
 
-TEST_CASE("set_length accepts 8, 16, 32 and 64 and keeps the hidden steps") {
+TEST_CASE("set_length accepts 1 to 64 and keeps the hidden steps") {
   Pattern p = make({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16});
   CHECK(set_length(p, 8));
   CHECK(p.length == 8);
@@ -329,7 +359,12 @@ TEST_CASE("set_length accepts 8, 16, 32 and 64 and keeps the hidden steps") {
   CHECK(set_length(p, 32));
   CHECK(set_length(p, 64));
   CHECK(p.length == 64);
-  for (const unsigned bad : {0u, 1u, 7u, 9u, 12u, 15u, 17u, 24u, 48u, 63u, 65u, 128u}) {
+  for (const unsigned ok : {1u, 7u, 9u, 12u, 15u, 17u, 24u, 48u, 63u, 64u}) {  // any length in between (I1)
+    CHECK(set_length(p, ok));
+    CHECK(p.length == ok);
+    CHECK(p.steps[12].note == 13);
+  }
+  for (const unsigned bad : {0u, 65u, 128u, 255u, 256u}) {
     CHECK_FALSE(set_length(p, bad));
     CHECK(p.length == 64);
   }
@@ -851,6 +886,20 @@ TEST_CASE("fills: octave up clamps, ratchet doubles and rolls the last quarter, 
   CHECK(get_ratchet(r, 13) == kMaxRatchet);
   CHECK(get_ratchet(r, 4) == 0);  // a rest
   CHECK(get_ratchet(r, 5) == 0);  // a tie
+  // A short line: the last quarter is at least the last step (1 step: that step; 3 steps: the third; 7: the last two).
+  for (const unsigned len : {1u, 3u, 7u, 13u}) {
+    Pattern q = make({}, len);
+    for (unsigned i = 0; i < kMaxSteps; ++i) {
+      q.steps[i].flags = 0;
+    }
+    fill_ratchet(q);
+    const unsigned roll = len - (len / 4u != 0u ? len / 4u : 1u);
+    for (unsigned i = 0; i < len; ++i) {
+      CAPTURE(len);
+      CAPTURE(i);
+      CHECK(get_ratchet(q, i) == (i >= roll ? kMaxRatchet : 1u));
+    }
+  }
   Pattern a = p;
   apply_fill(a, FillVariant::AccRotate, 0);
   CHECK((a.steps[7].flags & kStepAccent) != 0);

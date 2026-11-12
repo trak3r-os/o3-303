@@ -86,7 +86,7 @@ bool playhead_on_pads(Hands& t, unsigned cursor_pad) {
 
 TEST_CASE("long patterns, F4: a tap on a step pins the page while the line plays; Stop gives the follow back") {
   Hands t;
-  t.length_steps(1);  // 32 steps: two pages, a little under 4 s a pass
+  t.length_to(32);  // 32 steps: two pages, a little under 4 s a pass
   REQUIRE(t.pat().length == 32);
   t.tap(Button::Play);
   t.wait(300);
@@ -105,7 +105,7 @@ TEST_CASE("long patterns, F4: a tap on a step pins the page while the line plays
 
 TEST_CASE("long patterns, F4: Left across the page edge pins the page it lands on") {
   Hands t;
-  t.length_steps(1);
+  t.length_to(32);
   REQUIRE(t.pat().length == 32);
   t.tap(Button::Play);
   t.wait(300);
@@ -121,7 +121,7 @@ TEST_CASE("long patterns, F4: Left across the page edge pins the page it lands o
 
 TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the playhead take the page along") {
   Hands t;
-  t.length_steps(1);  // PATTERN SETUP's LENGTH up (today's DOUBLE): 32 steps
+  t.length_to(32);  // PATTERN SETUP's LENGTH up to 32 steps
   CHECK(t.pat().length == 32);
   const Pattern p = t.pat();
   // Page 1: the pads are steps 1..16.
@@ -155,7 +155,7 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   // Shorter lengths: the pads past the end are dark.
   t.tap(Button::Pattern);  // PATTERN SETUP: F1 LENGTH
   t.tap(Button::F1);
-  t.turn(-3);  // 8 steps
+  t.turn(-24);  // 32 -> 8 steps
   CHECK(t.pat().length == 8);
   t.wait(30);
   for (unsigned k = 8; k < 16; ++k) {

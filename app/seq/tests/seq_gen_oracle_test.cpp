@@ -29,11 +29,11 @@ unsigned compare(const rep::Preset& o, const gen::Preset& m, std::string& first,
       first = what;
     }
   };
-  // Replicant's line plays `length` of its 16 steps (7, 8, 12 or 16); ours is a Pattern of length 8 or 16 (gen.h): the same steps,
+  // Replicant's line plays `length` of its 16 steps (7, 8, 12 or 16); ours is a Pattern of that same length (gen.h, I1): the same steps,
   // and rests after them.
   const unsigned source = static_cast<unsigned>(o.pattern.length);
   if (m.source_length != source) fail("source length");
-  if (m.pattern.length != (source <= 8u ? 8u : 16u)) fail("pattern length");
+  if (m.pattern.length != source) fail("pattern length");
   for (unsigned i = 0; i < source; ++i) {
     const rep::Step& s = o.pattern.steps[i];
     const o3_303::Step& t = m.pattern.steps[i];
@@ -165,7 +165,7 @@ TEST_CASE("GEN: the oracle comparison is not vacuous (the vault has variety, a t
   CHECK((a.patch.cutoff != b.patch.cutoff || a.patch.resonance != b.patch.resonance));
 }
 
-TEST_CASE("GEN: Replicant's lengths 7, 8, 12 and 16 become Pattern lengths 8, 8, 16 and 16, with rests after the original's steps") {
+TEST_CASE("GEN: Replicant's lengths 7, 8, 12 and 16 stay Pattern lengths 7, 8, 12 and 16, with rests after the original's steps") {
   unsigned seen[17] = {};
   for (unsigned bank = 0; bank < gen::kBanks; ++bank) {
     for (unsigned slot = 0; slot < gen::kSlots; ++slot) {
@@ -174,7 +174,7 @@ TEST_CASE("GEN: Replicant's lengths 7, 8, 12 and 16 become Pattern lengths 8, 8,
       const unsigned source = p.source_length;
       REQUIRE((source == 7 || source == 8 || source == 12 || source == 16));
       ++seen[source];
-      CHECK(p.pattern.length == (source <= 8 ? 8u : 16u));
+      CHECK(p.pattern.length == source);
       CHECK(o3_303::valid_length(p.pattern.length));
       for (unsigned i = source; i < o3_303::kMaxSteps; ++i) {
         CHECK(p.pattern.steps[i].flags == o3_303::kStepRest);

@@ -26,6 +26,7 @@ constexpr std::uint32_t kKeySongTranspose = 0x0F000000u;
 constexpr std::uint32_t kKeySongAppend = 0x10000000u;  // a run of appends from the END line
 constexpr std::uint32_t kKeyTractStep = 0x12000000u;  // | step: one step of the TRACT line
 constexpr std::uint32_t kKeyTractLen = 0x13000000u;
+constexpr std::uint32_t kKeyLength = 0x14000000u;  // LENGTH walks a step a detent (I1): a turn of the encoder is one undo step, not one a step
 constexpr std::uint32_t kKeyHold = 0x11000000u;  // | hold id: a key held while recording, the note and its ties (HomeMap)
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
@@ -356,7 +357,7 @@ bool Bank::regen_notes(unsigned index, const GenParams& g, std::uint32_t seed) n
 }
 
 bool Bank::resize(unsigned index, unsigned length) noexcept {
-  return edit(index, [&](Pattern& p) { return seq::resize(p, length); });
+  return edit(index, [&](Pattern& p) { return seq::resize(p, length); }, kKeyLength);
 }
 
 bool Bank::set_gate_list(unsigned index, unsigned step, unsigned entry, unsigned join) noexcept {

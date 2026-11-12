@@ -87,7 +87,12 @@ static_assert(AcidVoice::AmpDecay - AcidVoice::AccDecay == 10, "the snapshot hol
 // ---- Descriptors of the app-level values (name, unit text, names, knots, min, max, default, detents, coarse, list count, display,
 // curve, flags, page) ---------------------------------------------------------------------------------------------------------
 
-constexpr const char* kLengthNames[] = {"8", "16", "32", "64"};
+// LENGTH: 1..64 steps, the value is length - 1 (I1). One encoder detent is one step; Shift + turn jumps to 8, 16, 32, 64 (Controls::step).
+constexpr const char* kLengthNames[] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22",
+    "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43",
+    "44", "45", "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63", "64"};
+static_assert(sizeof(kLengthNames) / sizeof(kLengthNames[0]) == kMaxSteps, "one name per length");
 
 // The scale names as pointers (core::kScaleNames holds fixed-width rows).
 struct ScaleNames {
@@ -102,7 +107,7 @@ constexpr ScaleNames kScaleNamePtrs{};
 
 constexpr core::ParamDesc kTempo = {"TEMPO", "BPM", nullptr, nullptr, 20.0f, 300.0f, 125.0f, 560, 10, 0, ParamUnit::Fixed1, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSwing = {"SWING", "%", nullptr, nullptr, 0.0f, static_cast<float>(kMaxSwing), 0.0f, kMaxSwing, 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kLength = {"LENGTH", "", kLengthNames, nullptr, 0.0f, 3.0f, 1.0f, 3, 1, 4, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kLength = {"LENGTH", "", kLengthNames, nullptr, 0.0f, static_cast<float>(kMaxSteps - 1u), static_cast<float>(kDefaultLength - 1u), kMaxSteps - 1u, 1, kMaxSteps, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kGate = {"GATE", "%", nullptr, nullptr, 5.0f, 100.0f, static_cast<float>(kDefaultGate), 95, 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kTranspose = {"TRANSPOSE", "st", nullptr, nullptr, -24.0f, 24.0f, 0.0f, 48, 12, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kScale = {"SCALE", "", kScaleNamePtrs.p, nullptr, 0.0f, static_cast<float>(core::kScaleCount - 1u), 18.0f,
@@ -150,15 +155,27 @@ constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
      static_cast<std::uint8_t>(kWobbleTargetCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
 };
 
-constexpr unsigned kLengthCount = sizeof(kLengths) / sizeof(kLengths[0]);
+// The LENGTH value of a pattern length (an unknown one reads as the default, like the sequencer does).
+unsigned length_index(unsigned length) noexcept { return (valid_length(length) ? length : kDefaultLength) - kMinLength; }
 
-unsigned length_index(unsigned length) noexcept {
-  for (unsigned i = 0; i < kLengthCount; ++i) {
-    if (kLengths[i] == length) {
-      return i;
+// Shift + turn on LENGTH: from `length` to the next of 8, 16, 32, 64 above it (`up`) or the next below it, down to 1.
+unsigned length_jump(unsigned length, bool up) noexcept {
+  constexpr unsigned kStops[] = {1, 8, 16, 32, 64};
+  constexpr int kCount = sizeof(kStops) / sizeof(kStops[0]);
+  if (up) {
+    for (int i = 0; i < kCount; ++i) {
+      if (kStops[i] > length) {
+        return kStops[i];
+      }
+    }
+    return kStops[kCount - 1];
+  }
+  for (int i = kCount - 1; i >= 0; --i) {
+    if (kStops[i] < length) {
+      return kStops[i];
     }
   }
-  return 1;
+  return kStops[0];
 }
 
 int round_to_int(float v) noexcept { return static_cast<int>(v < 0.0f ? v - 0.5f : v + 0.5f); }
@@ -369,7 +386,7 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       (void)w_->bank->set_swing(sel, round_to_int(v));
       break;
     case Item::Length:
-      (void)w_->bank->resize(sel, kLengths[static_cast<unsigned>(round_to_int(v)) % kLengthCount]);  // a step up copies the line into the new part (one undo)
+      (void)w_->bank->resize(sel, static_cast<unsigned>(round_to_int(v)) + kMinLength);  // v is clamped to 0..63 above  // a step up copies the line into the new part (one undo)
       break;
     case Item::Gate:
       (void)w_->bank->set_gate(sel, round_to_int(v));
@@ -595,6 +612,14 @@ void Controls::step(dsp::Engine& e, const Entry& entry, int detents, bool coarse
       }
       set(e, entry, v);
     }
+    return;
+  }
+  if (entry.item == Item::Length && coarse) {  // Shift: 8, 16, 32, 64 (and 1 at the bottom), one stop per detent
+    unsigned len = static_cast<unsigned>(round_to_int(get(e, entry))) + kMinLength;
+    for (int i = 0; i < (detents < 0 ? -detents : detents); ++i) {
+      len = length_jump(len, detents > 0);
+    }
+    set(e, entry, static_cast<float>(len - kMinLength));
     return;
   }
   const int n = coarse ? detents * static_cast<int>(d->coarse) : detents;

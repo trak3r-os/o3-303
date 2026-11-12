@@ -39,7 +39,7 @@ the hardware you know, the pads, the buttons, the encoder and the screen, and th
 - **The voice.** Saw or square wave, cutoff, resonance, envelope, accent and eleven Devil Fish-style mods. One switch, MODS, turns the mods
   off to hear the plain 303.
 - **Growl and wobble.** A vowel filter and an LFO synced to the tempo, with a five-model distortion and a delay.
-- **The sequencer.** 48 patterns of 8, 16, 32 or 64 steps, with accent, slide, tie and rest. A step can ratchet, play only now and then, or
+- **The sequencer.** 48 patterns of 1 to 64 steps, with accent, slide, tie and rest. A step can ratchet, play only now and then, or
   hold its own value of a knob, and knob moves can be recorded as motion.
 - **PERFORM.** The 48 pads become live actions (mute, fills, rolls, freeze, tape stop, wobble), eight sound snapshots with a morph, a pad
   ladder for the filter, and a keyboard.

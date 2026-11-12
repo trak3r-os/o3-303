@@ -1,27 +1,27 @@
-# PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH up copies the line into the new half and down truncates,
-# each one UNDO; F5 SCALE locks the keyboard; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, ROOT, REDO and UNDO.
+# PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH walks 1 to 64 a step a detent (Shift + turn jumps 8, 16, 32, 64; a longer line repeats the bar before, a shorter one cuts),
+# one gesture is one UNDO; F5 SCALE lights the keys; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, ROOT, REDO and UNDO.
 wait 300
 tap pattern
 wait 100
 snap 01_setup_open
-# F1 LENGTH is latched: one detent up is 32, the new half is the line again.
+# F1 LENGTH is latched: one detent up is 17, an odd length (the 17th step is the first of the line again).
 turn 1
 wait 100
-snap 02_length_32
-# Two down is 8: the steps past the 8th are cut. One UNDO gives the 32 back, a second the 16 the line started with.
-turn -2
+snap 02_length_17
+# Shift + one detent up jumps to the next stop, 32; then back down to 8 with the plain encoder (24 detents): the steps past the 8th are cut. One UNDO gives the 16 the line started with.
+press shift
+turn 1
+release shift
+wait 100
+snap 02b_length_32
+turn -24
 wait 100
 snap 03_length_8
 press shift
 tap f8
 release shift
 wait 100
-snap 04_undo_to_32
-press shift
-tap f8
-release shift
-wait 100
-snap 05_undo_to_16
+snap 04_undo_to_16
 # F5 SCALE: walk to Major (entry 3); the keyboard pads out of it go dark and the info strip says so.
 tap f5
 turn -40
