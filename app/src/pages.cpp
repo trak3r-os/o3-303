@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <o3_303/pages.h>
 
+#include "wobble_learn.h"
+
 #include <o3sdk/core/scales.h>
 #include <o3sdk/units/delay/delay.h>
 #include <o3_303/pattern.h>
@@ -144,7 +146,8 @@ constexpr core::ParamDesc kGrowlOn = {"GROWL", "", kOffOnNames, nullptr, 0.0f, 1
 constexpr core::ParamDesc kTractOn = {"TRACT", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kModsKey = {"MODS", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kWobOn = {"WOB", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
+// One contiguous table: the five settings, then WOB (WobbleLearn's six parameters, wobble_learn_desc below).
+constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount + 1u] = {
     {"RATE", "", seq::kWobbleRateNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleRateCount - 1u), static_cast<float>(seq::kWobble1_8),
      static_cast<std::uint16_t>(seq::kWobbleRateCount - 1u), 1, static_cast<std::uint8_t>(seq::kWobbleRateCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"SHAPE", "", seq::kWobbleShapeNames, nullptr, 0.0f, static_cast<float>(seq::kWobbleShapeCount - 1u), static_cast<float>(seq::kWobbleSine),
@@ -153,6 +156,7 @@ constexpr core::ParamDesc kWobbleDescs[kWobbleFieldCount] = {
     {"RESET", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0},
     {"TARGET", "", kWobbleTargetNames, nullptr, 0.0f, static_cast<float>(kWobbleTargetCount - 1u), 0.0f, static_cast<std::uint16_t>(kWobbleTargetCount - 1u), 1,
      static_cast<std::uint8_t>(kWobbleTargetCount), ParamUnit::Enum, ParamCurve::Linear, 0, 0},
+    kWobOn,
 };
 
 // The LENGTH value of a pattern length (an unknown one reads as the default, like the sequencer does).
@@ -181,6 +185,8 @@ unsigned length_jump(unsigned length, bool up) noexcept {
 int round_to_int(float v) noexcept { return static_cast<int>(v < 0.0f ? v - 0.5f : v + 0.5f); }
 
 }  // namespace
+
+const core::ParamDesc* wobble_learn_desc(std::uint16_t id) noexcept { return id < kWobbleFieldCount + 1u ? &kWobbleDescs[id] : nullptr; }
 
 // The tables of the INSTRUMENT screen's groups (MODS-PLAN 5): each page is one constexpr table, declared in pages.h. VOICE has none (it is SOUND, above).
 // DLY MODE is MASTER's F5; the growl's FMT MIX, CMB TUNE and CMB FB and the wobble's RESET, which were Config's page DEEP, are keys of GROWL and WOBBLE

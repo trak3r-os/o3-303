@@ -11,6 +11,9 @@ hear says so in plain words.
   knob that many of its steps, so a whole knob takes fewer turns. It multiplies after DISPLAY's ENCODER acceleration. A list, a switch, Shift's coarse step and the arrows move as
   before. It is a setting of the unit, kept on the card.
 
+- **WOBBLE learns MIDI (D1).** On the WOBBLE page, Shift + F1 to F5 and Shift + F8 arm RATE, SHAPE, DEPTH, TARGET, RESET and WOB for MIDI learn, like any other knob; the Shift row
+  no longer says NOT LEARNABLE. MIDI Pickup applies (the controller acts once it has reached the value shown). The bindings are kept with the other MIDI bindings.
+
 ### What plays or sounds different
 
 - **TRACT and GROWL have a GAIN stage, and GROWL's Mix crossfades at equal power (B1).** Both units gain a level control on the wet sound (-12 to +18 dB, before the Mix), set by a

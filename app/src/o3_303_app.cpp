@@ -32,6 +32,7 @@
 #include "skin/skin.h"
 #include "song_screen.h"
 #include "vault_screen.h"
+#include "wobble_learn.h"
 
 #include <o3_303/app_access.h>
 #include <o3_303/skin_assets.h>
@@ -129,7 +130,7 @@ class O3_303App final : public app::App {
 
   // A learned controller moved a unit's parameter (the kit applied it): with REC on and the line playing it is motion on the current step, as a turned knob is
   // (HomeMap::turned). A parameter that is no lane's (a unit the app has no lane for, Stock) records nothing; REC off, nothing at all.
-  void midi_learned_moved(app::Context& ctx, dsp::UnitId unit, std::uint16_t param, float /*value*/) noexcept override {
+  void midi_learned_moved(app::Context& ctx, dsp::UnitId unit, std::uint16_t param, float value) noexcept override {
     const o3_303::Wiring& w = rig_.wiring;
     o3_303::Item item = o3_303::Item::Blank;
     if (unit == w.voice) {
@@ -142,6 +143,13 @@ class O3_303App final : public app::App {
       item = o3_303::Item::Growl;
     } else if (unit == w.tract) {
       item = o3_303::Item::Tract;
+    } else if (unit == w.wob_learn) {  // D1: WOBBLE's settings and latch have no lane; the controller's value goes to them
+      if (param < o3_303::kWobbleFieldCount) {
+        rig_.controls.set(ctx.engine(), o3_303::Entry{o3_303::Item::Wobble, param, nullptr}, value);
+      } else if (param == o3_303::WobbleLearn::kWob && (value >= 0.5f) != live_.wobble_on()) {
+        live_.toggle_latch(ctx, o3_303::PerfAction::Wobble);
+      }
+      return;
     } else {
       return;
     }
@@ -165,6 +173,7 @@ class O3_303App final : public app::App {
     const dsp::UnitId freeze = e.attach(freeze_);  // after the others: the units' ids (voice 0, distortion 1, delay 2, freeze 3) are the tests' contract
     const dsp::UnitId growl = e.attach(growl_);    // M3c: slot 0's insert 1, after the distortion; attached last, so the ids above stay
     const dsp::UnitId tract = e.attach(tract_);    // A1: slot 0's insert 2, after the growl; attached last (id 5), so the ids above stay; Mix 0 is a bit-exact bypass
+    const dsp::UnitId wob_learn = e.attach(wob_learn_);  // D1: id 6, in no chain and never routed; MIDI learn's address for WOBBLE's settings (wobble_learn.h)
     (void)e.set_source(0, voice);
     (void)e.set_insert(0, 0, dist);
     (void)e.set_insert(0, 1, growl);
@@ -191,6 +200,7 @@ class O3_303App final : public app::App {
     rig_.wiring.freeze = freeze;
     rig_.wiring.growl = growl;
     rig_.wiring.tract = tract;
+    rig_.wiring.wob_learn = wob_learn;
     rig_.wiring.bank = rig_.bank;
     rig_.controls.init(rig_.wiring);
 
@@ -374,6 +384,7 @@ class O3_303App final : public app::App {
     sequencer_.update();
     master_.service(ctx);  // a tempo restore that the command ring refused
     live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
+    wob_learn_.mirror(ctx.engine(), rig_.wiring.wob_learn, rig_.wiring.wobble, live_.wobble_on());  // D1: the learnable copy of WOBBLE's values follows the settings
     record_.settle(ctx);   // a WAV job that ended: its result is read before the project's next job can replace it in the files service
     project_.update(ctx);  // the project on the card: the boot load, autosave, SAVE (after the actions, so a morph's last value is the one it sees)
     // The audio take: its chip and messages, its end, its WAV, whatever screen is up. AFTER the project service on purpose: both use the one files service and a job reads its result
@@ -416,6 +427,7 @@ class O3_303App final : public app::App {
   o3_303::Freeze freeze_{g_freeze_l.v, g_freeze_r.v, kFreezeCapacity};
   o3_303::Growl growl_;
   o3_303::TractFx tract_;
+  o3_303::WobbleLearn wob_learn_;
   o3_303::seq::Sequencer sequencer_{o3_303::seq::project_bank()};
   // SDRAM (sdram_instance): Rig, the screens and the project service, 7.9 KB that SRAM_U (32 KiB free below the stack, ADR 0013 D7) could not spare with the TRACT unit in.
   // Each is the main loop's alone: Screen's calls are all main loop, and nothing hands a screen or the service to the render, a Clocked hook or an ISR (the take's buffer is

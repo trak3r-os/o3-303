@@ -6,6 +6,7 @@
 #include "skin/instrument.h"
 #include "skin/skin.h"
 #include "step_view.h"
+#include "wobble_learn.h"
 
 #include <o3sdk/app/context.h>
 #include <o3sdk/app/widgets.h>
@@ -422,8 +423,15 @@ bool learn_target(const Wiring& wiring, const Entry& entry, dsp::UnitId& unit, s
     case Item::Freeze:
       unit = wiring.freeze;
       break;
+    case Item::Wobble:  // D1: WOBBLE's settings are app values; the proxy unit (wobble_learn.h) is their address for MIDI learn
+      unit = wiring.wob_learn;
+      break;
+    case Item::WobOn:  // ... and the WOB latch is its param 5
+      unit = wiring.wob_learn;
+      param = WobbleLearn::kWob;
+      return unit != dsp::kNoUnit;
     default:
-      return false;  // VOLUME, DLY SEND, MODEL, the wobble ...: app values, not a unit's parameter [D15]
+      return false;  // VOLUME, DLY SEND, MODEL ...: app values, not a unit's parameter [D15]
   }
   param = entry.id;
   return unit != dsp::kNoUnit;
@@ -864,7 +872,7 @@ bool InstrumentScreen::action_on(const dsp::Engine& e, const Entry& entry) const
 // The Shift row (UX-303 5.5, D15): LEARN for each knob that is a unit parameter (lit while this key's learn is waiting for its controller), "-" for the others; nothing
 // while Shift is up (the knob row carries the names).
 void InstrumentScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
-  if (!ctx.panel().shift() || !page_learnable()) {  // a page with nothing to learn (WOBBLE) has no Shift row, not eight "-" (U8a)
+  if (!ctx.panel().shift() || !page_learnable()) {  // a page with nothing to learn has no Shift row, not eight "-" (U8a)
     return;
   }
   for (unsigned k = 0; k < kKeys; ++k) {
@@ -1081,7 +1089,7 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   view.tab_count = group_->count;
   view.tabs = group_->tabs;
   view.hint = group_->hint;
-  if (ctx.panel().shift() && !page_learnable()) {  // WOBBLE's knobs are the screen's own settings, not unit parameters (U8a)
+  if (ctx.panel().shift() && !page_learnable()) {  // a page of app values only has nothing to learn (U8a; WOBBLE has been learnable since D1)
     view.hint = "NOT LEARNABLE";
   } else if (group_ == &kGrowlGroup && page_ == kTractPageIndex && controls_->get(e, Entry{Item::TractOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
     view.hint = "TRACT OFF: F8";

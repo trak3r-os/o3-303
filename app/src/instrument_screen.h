@@ -74,7 +74,7 @@ void fill_sections(const o3sdk::dsp::Engine& e, const Controls& controls, bool w
 // The knob `kn` as the lock of the held step `step` (0-based): "LOCK 5", the lock's text and position, in Accent. The label is kept in `view`.
 void apply_lock(InstrumentView& view, view::Knob& kn, int step, const char* text, float norm) noexcept;
 
-// The unit parameter an entry is, for MIDI learn: false for the entries that are app values (VOLUME, DLY SEND, MODEL, the wobble, the tempo ...) and the blank.
+// The unit parameter an entry is, for MIDI learn: false for the entries that are app values (VOLUME, DLY SEND, MODEL, the tempo ...) and the blank. The wobble's five settings and WOB are the proxy unit's (wobble_learn.h, D1).
 bool learn_target(const Wiring& wiring, const Entry& entry, o3sdk::dsp::UnitId& unit, std::uint16_t& param) noexcept;
 
 class InstrumentScreen final : public o3sdk::app::Screen {
@@ -141,7 +141,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void draw_skinned(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r) noexcept;
   // What the Shift row says of key `k` (soft_keys() and the skin's knob labels): Learn::None while Shift is up.
   Learn learn_of(const o3sdk::app::Context& ctx, unsigned k) const noexcept;
-  // True when at least one key of the page is a unit parameter a controller can be learned on; WOBBLE's page has none (U8a): its Shift row shows nothing and the hint says so.
+  // True when at least one key of the page is a unit parameter a controller can be learned on; a page with none (WOBBLE's was one until D1) has no Shift row and its hint says NOT LEARNABLE.
   bool page_learnable() const noexcept;
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   void pads_line(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;

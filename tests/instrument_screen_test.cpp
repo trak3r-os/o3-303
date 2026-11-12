@@ -434,29 +434,29 @@ TEST_CASE("MIDI learn arms only unit parameters: VOLUME, DLY SEND, MODEL and the
   CHECK_FALSE(ctx.midi().learning());
   CHECK(ctx.midi().bindings() == 0u);
 
-  t.to_wobble();  // WOBBLE: the wobble's settings are app values: with Shift the row is empty (not eight "-", U8a), the hint says NOT LEARNABLE, and none can be armed
+  t.to_wobble();  // WOBBLE (D1): its five settings and WOB are the proxy unit's parameters, so the row is LEARN on them and "-" on the two empty wells; the hint is the page's own
   InstrumentView iv;
-  static_cast<InstrumentScreen*>(ctx.screen())->fill_view(ctx, iv);
-  CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") != 0);  // without Shift the page's own hint
   t.press(Button::Shift);
   for (unsigned k = 0; k < 8; ++k) {
     INFO("WOBBLE F" << (k + 1));
-    CHECK(row(k).empty());
+    CHECK(row(k) == (k == 5u || k == 6u ? "-" : "LEARN"));
   }
   static_cast<InstrumentScreen*>(ctx.screen())->fill_view(ctx, iv);
-  CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") == 0);
+  CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") != 0);
   t.release(Button::Shift);
+  t.shift_tap(Button::F6);  // an empty well cannot be armed
+  CHECK_FALSE(ctx.midi().learning());
+  t.shift_tap(Button::F1);  // RATE: armed; the page change drops it as on any page
+  CHECK(ctx.midi().learning());
+  t.tap(Button::Params);
+  t.wait(5);
+  CHECK_FALSE(ctx.midi().learning());
   t.to_growl();  // a page with unit parameters keeps its LEARN row and its own hint
   t.press(Button::Shift);
   CHECK(row(0) == "LEARN");
   static_cast<InstrumentScreen*>(ctx.screen())->fill_view(ctx, iv);
   CHECK(std::strcmp(iv.hint, "NOT LEARNABLE") != 0);
   t.release(Button::Shift);
-  t.to_wobble();
-  for (unsigned k = 0; k < 8; ++k) {
-    t.shift_tap(app::fkey(k));
-    CHECK_FALSE(ctx.midi().learning());
-  }
 }
 
 TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the app's values") {
@@ -466,6 +466,7 @@ TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the a
   w.delay = 2;
   w.freeze = 3;
   w.growl = 4;
+  w.wob_learn = 6;
   dsp::UnitId unit = dsp::kNoUnit;
   std::uint16_t param = 99;
   CHECK(learn_target(w, Entry{Item::Voice, AcidVoice::Reso, nullptr}, unit, param));
@@ -477,7 +478,13 @@ TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the a
   CHECK(unit == 2);
   CHECK(learn_target(w, Entry{Item::Growl, Growl::Vowel, nullptr}, unit, param));
   CHECK(unit == 4);
-  for (const Item item : {Item::Blank, Item::Level, Item::SendA, Item::DistMode, Item::Wobble, Item::Tempo, Item::Master, Item::Perf, Item::FillVariant}) {
+  CHECK(learn_target(w, Entry{Item::Wobble, kWobbleTarget, nullptr}, unit, param));  // D1: the wobble's settings are the proxy's params 0..4, WOB is its param 5
+  CHECK(unit == 6);
+  CHECK(param == kWobbleTarget);
+  CHECK(learn_target(w, Entry{Item::WobOn, 0, nullptr}, unit, param));
+  CHECK(unit == 6);
+  CHECK(param == 5);
+  for (const Item item : {Item::Blank, Item::Level, Item::SendA, Item::DistMode, Item::Tempo, Item::Master, Item::Perf, Item::FillVariant}) {
     CHECK_FALSE(learn_target(w, Entry{item, 0, nullptr}, unit, param));
   }
 }

@@ -1,0 +1,33 @@
+# WOBBLE's MIDI learn (docs/PADS-TRACT-PLAN.md D1): the five settings and WOB are parameters of a proxy unit, so the Shift row of WOBBLE reads LEARN and a controller moves them.
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/wobble_learn.txt --out <dir> --midi
+#
+# 01 WOBBLE: the settings at their defaults (RATE 1/8, DEPTH 50); 02 Shift: LEARN on F1 to F5 and F8; 03 Shift + F1 arms RATE; 04 CC 74 binds it; 05 the controller at its top (RATE 1/16D);
+# 06 the controller at its bottom (RATE 1/1); 07 Shift + F8 arms WOB and CC 75 latches the wobble (F8 lit).
+wait 300
+tap sampleedit
+wait 100
+snap 01_wobble_defaults
+press shift
+wait 800
+snap 02_shift_learn_row
+tap f1
+wait 100
+snap 03_rate_armed
+midi usb b0 4a 40
+wait 200
+release shift
+snap 04_rate_bound
+midi usb b0 4a 7f
+wait 200
+snap 05_rate_top
+midi usb b0 4a 00
+wait 200
+snap 06_rate_bottom
+press shift
+tap f8
+release shift
+wait 100
+midi usb b0 4b 7f
+wait 200
+snap 07_wob_latched

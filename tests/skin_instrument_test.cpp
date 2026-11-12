@@ -703,7 +703,7 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
     }
     CHECK_MESSAGE(rings >= 16u, where_name(w));
     CHECK_MESSAGE(leds_on >= 32u + 15u, where_name(w));  // ACCENT and SLIDE of the 16 and the dim STEP of the 15 off the playhead (the playhead's is lit: also counted, so 48)
-    CHECK_MESSAGE(message == (w == Where::Wobble ? 0u : 1u), where_name(w) << ": the toast is in the PAGE window (this counts the accent-coloured LEARN wait in the PAGE window, which only an armed knob has: WOBBLE's keys cannot be armed, they show the CANNOT LEARN toast, which is not it)");
+    CHECK_MESSAGE(message == 1u, where_name(w) << ": the toast is in the PAGE window (this counts the accent-coloured LEARN wait in the PAGE window, which an armed knob has: WOBBLE's keys arm too since D1)");
     CHECK_MESSAGE(q.dropped() == 0u, where_name(w));
     MESSAGE("worst frame, " << where_name(w) << ": " << q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.texts() << " texts of " << skin::Panel::kTexts);
     CHECK(q.shapes() + 40u <= skin::Panel::kShapes);  // room to spare: a longer name does not drop

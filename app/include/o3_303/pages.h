@@ -176,7 +176,8 @@ struct Wiring {
   o3sdk::dsp::UnitId delay = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId freeze = o3sdk::dsp::kNoUnit;  // master insert 0: the beat freeze (units/freeze, M3b R6)
   o3sdk::dsp::UnitId growl = o3sdk::dsp::kNoUnit;   // slot 0's insert 1: the growl (units/growl, M3c G); attached after the freeze (ids: voice 0, dist 1, delay 2, freeze 3, growl 4, tract 5)
-  o3sdk::dsp::UnitId tract = o3sdk::dsp::kNoUnit;   // slot 0's insert 2, after the growl: the tract (units/tract, A1); attached last (id 5)
+  o3sdk::dsp::UnitId tract = o3sdk::dsp::kNoUnit;   // slot 0's insert 2, after the growl: the tract (units/tract, A1); id 5
+  o3sdk::dsp::UnitId wob_learn = o3sdk::dsp::kNoUnit;  // D1: the WOBBLE settings' proxy unit (app/src/wobble_learn.h), attached last (id 6) and never routed: only MIDI learn binds to it
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;  // FILL's variant (PERFORM SETUP); null: the entry reads and writes nothing
   seq::GenParams gen;        // the generator's settings (PATTERN SETUP)
