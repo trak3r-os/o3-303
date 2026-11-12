@@ -174,7 +174,6 @@ inline constexpr std::uint8_t kPerfMute = 1u << 0;      // no new notes (the pla
 inline constexpr std::uint8_t kPerfAccAll = 1u << 1;    // every note is accented
 inline constexpr std::uint8_t kPerfSlideAll = 1u << 2;  // every step slides
 inline constexpr std::uint8_t kPerfFill = 1u << 3;      // FILL: the pattern plays its fill variant, from the next step (set_fill())
-inline constexpr std::uint8_t kPerfTractLive = 1u << 4;  // a live vowel pad of the TRACT page is held (A2): the line stands aside, as with LINE off, and the knob rules until it is let go
 
 inline constexpr unsigned kMixerSlot = 0;   // the slot whose mixer the mixer lanes and slews write (pattern.h: "slot 0's mixer")
 inline constexpr unsigned kKnobs = 32;      // parameter ids 0..31 of a unit can be a lane's or a slew's target
@@ -625,7 +624,6 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   std::uint32_t line_n_ = 0;
   bool line_vowel_ = false;
   bool line_glide_ = false;
-  bool line_live_ = false;  // kPerfTractLive was set at the last block: the line let go of the mouth the block it came up, not at the next step
   float line_vowel_value_ = 0.0f;
   float line_glide_value_ = 0.0f;
   bool line_gld_pending_ = false;
