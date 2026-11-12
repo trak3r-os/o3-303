@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The snapshots (PERFORM's row 2) against the real app (docs/M3B-PLAN.md R2; the RANDOM popup went with H4): a tap recalls, Shift + a pad stores, the encoder morphs
+// The snapshots (PERFORM SETUP's row 2) against the real app (docs/M3B-PLAN.md R2; the RANDOM popup went with H4): a tap recalls, Shift + a pad stores, the encoder morphs
 // from the previous snapshot to the last one recalled through the sequencer's slew, and the blend ends up stored in the engine. The bank itself is tested alone (snapshot_test.cpp).
 #include <doctest/doctest.h>
 
@@ -23,14 +23,29 @@ float cutoff(Hands& t) { return t.param(kVoice, AcidVoice::Cutoff); }
 
 namespace {
 
-constexpr unsigned kSnapRow = 1;  // PERFORM's row 2: snapshots 1..8
+constexpr unsigned kSnapRow = 1;  // PERFORM SETUP's row 2 (H1): snapshots 1..8
 unsigned snap_pad(unsigned slot) { return app::pad_at(kSnapRow, slot); }
+
+// A tap on a snapshot pad: the recall. The caller is on PERFORM; the pad is on PERFORM SETUP, and the Performance button comes back to PERFORM (the morph's encoder stays).
+void recall(Hands& t, unsigned slot) {
+  t.to_setup();
+  t.pad(snap_pad(slot), 10);
+  t.to_perform();
+}
+
+// The recall without the way back: the glide takes 30 ms, and a test that counts the slews reads them before the Performance button's tap is over.
+void recall_stay(Hands& t, unsigned slot) {
+  t.to_setup();
+  t.pad(snap_pad(slot), 10);
+}
 
 // Shift + a pad: the store.
 void store(Hands& t, unsigned slot) {
+  t.to_setup();
   t.press(Button::Shift);
   t.pad(snap_pad(slot), 10);
   t.release(Button::Shift);
+  t.to_perform();
 }
 
 }  // namespace
@@ -39,7 +54,7 @@ TEST_CASE("snapshots: store two sounds, recall them, morph between them; the eng
   Hands t;
   app_snapshots().clear();  // a new project starts with eight factory snapshots (REVIEW I4); this case wants empty pads
   const float c0 = cutoff(t);
-  t.to_perform();  // the snapshots are PERFORM's row 2
+  t.to_perform();  // the snapshots are PERFORM SETUP's row 2 (H1)
   store(t, 0);     // store this sound on pad 1
   t.turn(30);      // CUTOFF is the latched knob
   const float c1 = cutoff(t);
@@ -49,14 +64,14 @@ TEST_CASE("snapshots: store two sounds, recall them, morph between them; the eng
   t.wait(50);
 
   // An empty pad recalls nothing and says so.
-  t.pad(snap_pad(4), 10);
+  recall(t, 4);
   t.wait(200);
   CHECK(cutoff(t) == doctest::Approx(c1));
 
-  t.pad(snap_pad(0), 10);  // snapshot 1: the cutoff glides back and the engine stores it
+  recall(t, 0);  // snapshot 1: the cutoff glides back and the engine stores it
   t.wait(300);
   CHECK(cutoff(t) == doctest::Approx(c0).epsilon(0.001));
-  t.pad(snap_pad(1), 10);  // snapshot 2; the morph now runs from snapshot 1 to snapshot 2
+  recall(t, 1);  // snapshot 2; the morph now runs from snapshot 1 to snapshot 2
   t.wait(300);
   CHECK(cutoff(t) == doctest::Approx(c1).epsilon(0.001));
   CHECK(t.param(kDist, Distortion::Drive) == doctest::Approx(drive1));
@@ -127,13 +142,13 @@ TEST_CASE("snapshots: a new project's eight factory snapshots (REVIEW I4) recall
   // FISH (slot 7) recalled: RANGE is FISH, and the engine holds the stored values.
   t.to_perform();
   CHECK(t.param(kVoice, AcidVoice::Range) == doctest::Approx(0.0f));
-  t.pad(snap_pad(6), 10);
+  recall(t, 6);
   t.wait(400);
   CHECK(t.param(kVoice, AcidVoice::Range) == doctest::Approx(1.0f));
   CHECK(cutoff(t) == doctest::Approx(snaps.stored(6, 0)).epsilon(0.001));
   CHECK(t.param(kVoice, AcidVoice::SubOsc) == doctest::Approx(snaps.stored(6, 26)));
   // SCREAMER (slot 3): the resonance and the distortion come with it.
-  t.pad(snap_pad(2), 10);
+  recall(t, 2);
   t.wait(400);
   CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(snaps.stored(2, 1)).epsilon(0.001));
   CHECK(t.param(kDist, Distortion::Active) == doctest::Approx(1.0f));
@@ -167,7 +182,7 @@ TEST_CASE("snapshots: the growl's VOWEL, FMT Q, GRL MIX and CMB MIX are stored a
     REQUIRE(changed[k] != doctest::Approx(stored[k]));
   }
   t.to_perform();
-  t.pad(snap_pad(0), 10);  // the recall glides all four back
+  recall(t, 0);  // the recall glides all four back
   t.wait(300);
   float back[4];
   now(back);
@@ -186,7 +201,7 @@ TEST_CASE("snapshots: before a recall the encoder is the knob's, and leaving PER
   store(t, 2);
   t.turn(-30);
   t.wait(50);
-  t.pad(snap_pad(2), 10);  // recall it at once, then leave before the slew has settled
+  recall(t, 2);  // recall it at once, then leave before the slew has settled
   t.to_home();
   t.wait(300);
   CHECK(cutoff(t) == doctest::Approx(c1).epsilon(0.001));
@@ -218,7 +233,7 @@ TEST_CASE("snapshots: the eleven mods and the growl's FMT MIX, CMB TUNE and CMB 
   set_all(false);
   t.tap(Button::Note);  // STOCK on (MODS off)
   REQUIRE(t.param(kVoice, AcidVoice::Stock) >= 0.5f);
-  t.pad(snap_pad(0), 10);
+  recall(t, 0);
   t.wait(300);
   for (const Mod& m : mods) {
     INFO("voice id " << m.id);
@@ -239,11 +254,12 @@ TEST_CASE("snapshots: a recall does not write a mod or a new growl knob that the
   // Seventeen of the 22 older targets glide (counted on this build: the others are the four switches, WAVE, the distortion's ACTIVE and MODEL and the delay's MODE, which are written, and
   // one that no glide starts here).
   constexpr unsigned kOlderGliding = 17;
-  t.pad(snap_pad(0), 10);
+  recall_stay(t, 0);
   t.wait(10);
   CHECK(seq.slewing() > 0u);  // the recall did glide the older ones
   CHECK(seq.slewing() <= kOlderGliding);  // and none of the fourteen new targets
   t.wait(400);
+  t.to_perform();
   // A snapshot with a mod and a growl knob that differ: those two glide with the older ones, and the new values land exactly.
   (void)t.h->engine().set_param(kVoice, AcidVoice::AccDecay, 900.0f);
   (void)t.h->engine().set_param(kGrowl, Growl::CombTune, 5.0f);
@@ -252,7 +268,7 @@ TEST_CASE("snapshots: a recall does not write a mod or a new growl knob that the
   (void)t.h->engine().set_param(kVoice, AcidVoice::AccDecay, 180.0f);
   (void)t.h->engine().set_param(kGrowl, Growl::CombTune, 0.0f);
   t.wait(20);
-  t.pad(snap_pad(1), 10);
+  recall_stay(t, 1);
   t.wait(10);
   CHECK(seq.slewing() == kOlderGliding + 2u);
   t.wait(400);
@@ -301,9 +317,9 @@ TEST_CASE("snapshots: B5a, a snapshot takes the wobble's five settings and its l
   latch();                                  // off, with B set
   REQUIRE_FALSE(wob().on);
   t.to_perform();
-  t.pad(snap_pad(0), 10);                   // A, then B: the morph runs from A (position 0) to B (32)
+  recall(t, 0);                   // A, then B: the morph runs from A (position 0) to B (32)
   t.wait(300);
-  t.pad(snap_pad(1), 10);
+  recall(t, 1);
   t.wait(300);
   CHECK(wob().on);                          // the latch came back with the recall
   CHECK(wob().rate == b.rate);

@@ -61,8 +61,18 @@ class LiveActions {
   // The action is latched, by its own pad or by a colour button that carries it.
   bool latched(PerfAction a) const noexcept;
   bool wobble_on() const noexcept { return is_on(PerfAction::Wobble); }
-  // The wobble's rate (a seq::WobbleRate) until the action lets go (PERFORM's row 3); the 303 screen sets it through the sequencer itself.
-  void wobble_rate(o3sdk::app::Context& ctx, int rate) noexcept;
+
+  // ---- PERFORM's rate pads (H1). Row 2 (kRepeatPads): a pad is the beat freeze in a mode at a rate: FRZ 1/4, RPT 1/8..1/64, BLD, STOP, REV. Row 3 (kWobblePadRates): a pad runs the wobble at a rate.
+  // The gestures are an action pad's (a press holds, Shift + a press latches, a tap on a latched one lets it go, ALL OFF lets every latch go). Of a row's pads the last one pressed wins, and when it
+  // goes the one below it takes over. The freeze unit has one owner at a time (FreezeOwner): a pad of another action does nothing while it owns the unit. Pad effects are not recorded.
+  void repeat_press(o3sdk::app::Context& ctx, unsigned col, bool shift) noexcept;
+  void repeat_release(o3sdk::app::Context& ctx, unsigned col) noexcept;
+  void wobble_press(o3sdk::app::Context& ctx, unsigned col, bool shift) noexcept;
+  void wobble_release(o3sdk::app::Context& ctx, unsigned col) noexcept;
+  const PadGroup& repeat() const noexcept { return rpt_; }
+  const PadGroup& wobble_pads() const noexcept { return wob_; }
+  // The action that has the beat freeze now (a PerfAction), -1 when none.
+  int freeze_owner() const noexcept { return freeze_owner_.owner(); }
 
   // ---- The keyboard. TRNSP (UX-303 6.2): the keys transpose the running pattern, the 303's track mode; off (the default) they play the voice, stopped
   // or playing. The live transposition is in semitones (-48..48 with OCT UP on top of it), set by a key and ended with the run.
@@ -105,6 +115,10 @@ class LiveActions {
   std::uint16_t pad_latched_ = 0;
   std::uint16_t applied_ = 0;
   FreezeOwner freeze_owner_;  // which of FREEZE, ROLL, STOP and REV has the beat freeze now (M3c R)
+  PadGroup rpt_;              // PERFORM's row 2 (a column per kRepeatPads), held and latched (H1)
+  PadGroup wob_;              // PERFORM's row 3 (a column per kWobblePadRates)
+  int rpt_col_ = -1;          // the row-2 column whose rate the freeze unit has now (-1: none owns it)
+  int wob_col_ = -1;          // the row-3 column whose rate is the sequencer's override now
   std::uint8_t seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
   bool trnsp_ = false;
   float ladder_slew_ms_ = kLadderSlewMs;

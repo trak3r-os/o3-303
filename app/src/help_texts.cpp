@@ -2,6 +2,7 @@
 #include "help_texts.h"
 
 #include <o3_303/pad_map.h>
+#include <o3_303/perform.h>
 #include <o3_303/pattern.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/app/text_entry.h>
@@ -196,12 +197,20 @@ constexpr const char* kPalettePads[] = {"A", "E", "I", "O", "U", "-"};
 constexpr const char* kGldLinePads[] = {"GLD", "LINE"};
 
 constexpr HelpPadGroup kPerformGroups[] = {
-    {"ACTIONS", "HOLD A PAD FOR ITS ACTION. SHIFT: LATCH", Color::Accent},
+    {"LINE + TONE", "HOLD A PAD FOR ITS ACTION. SHIFT: LATCH", Color::Accent},
     {"ALL OFF", "LETS EVERY LATCHED ACTION GO", Color::Rec},
+    {"REPEAT", "FREEZE, ROLLS, BUILDS, STOPS, REVERSE", Color::Vol},
+    {"WOBBLE", "RUNS THE WOBBLE AT THAT RATE. SHIFT: LATCH", Color::Fx},
+    {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
+};
+// PERFORM SETUP: the same pads, and the snapshots and variations on row 2 in place of REPEAT.
+constexpr HelpPadGroup kPerformSetupGroups[] = {
+    kPerformGroups[0],
+    kPerformGroups[1],
     {"SNAPSHOTS", "TAP: RECALL, THEN MORPH. SHIFT: STORE", Color::Sel},
     {"VARIATIONS", "RANDOM, VARY, UNDO, REDO", Color::Vol},
-    {"LADDER", "12 PLACES. F KEY + TAP: ASSIGN A KNOB", Color::Fx},
-    {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
+    kPerformGroups[3],
+    kPerformGroups[4],
 };
 constexpr HelpPadGroup kKnobsGroups[] = {
     {"ROWS 1-2", "TAP: JUMP THE KNOB, ENCODER FOLLOWS", Color::Accent},
@@ -257,7 +266,7 @@ constexpr Text kTexts[kIdCount] = {
      "HOLD PATTERN: THE 48 PADS ARE THE PATTERNS. REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Perform
     {"PERFORM",
-     "PLAY WITHOUT A MENU: THE 48 PADS ARE LIVE. ROW 1 ACTIONS, ROW 2 SNAPSHOTS AND VARIATIONS, ROW 3 A LADDER (CUTOFF, OR WHAT YOU ASSIGN), ROW 4 KEYS. THE PATTERN KEEPS PLAYING.",
+     "PLAY WITHOUT A MENU: THE 48 PADS ARE LIVE. ROW 1 LINE AND TONE ACTIONS, ROW 2 REPEAT AND FREEZE, ROW 3 WOBBLE RATES, ROW 4 KEYS. THE PATTERN KEEPS PLAYING.",
      SOUND_KEYS,
      {},
      "KNOB; MORPH AFTER A RECALL",
@@ -265,7 +274,7 @@ constexpr Text kTexts[kIdCount] = {
      kPerformButtons.n,
      kPerformGroups,
      count_of(sizeof kPerformGroups / sizeof kPerformGroups[0]),
-     "WOBBLE ON: ROW 3 PICKS ITS RATE. A LATCHED ACTION STAYS ON WHEN YOU LEAVE THE SCREEN."},
+     "PAD EFFECTS ARE NOT RECORDED. A LATCHED ACTION STAYS ON WHEN YOU LEAVE THE SCREEN."},
     // Knobs
     {"PERFORM KNOBS",
      "F1-F4 ARE FOUR SETS OF FOUR KNOBS, ONE PER ROW OF PADS, LOWEST AT THE LEFT. F5-F8 ARE THE ROWS: TAP ONE FOR THE ENCODER. HOLD ONE AND PRESS UP OR DOWN TO PICK ITS KNOB.",
@@ -279,15 +288,15 @@ constexpr Text kTexts[kIdCount] = {
      "A TAP LATCHES A ROW. ROWS 3-4 ARE HOME'S FILT. REC SKIPS WOB AND SWITCH KNOBS."},
     // PerformSetup
     {"PERFORM SETUP",
-     "WHAT THE FOUR COLOUR BUTTONS DO (F1-F4), WHAT FILL PLAYS (F5), THE FREEZE LENGTH (F6), THE ROLL MODE (F7) AND THE STOP TIME (F8). THE PADS STAY PERFORM'S.",
+     "WHAT THE FOUR COLOUR BUTTONS DO (F1-F4), WHAT FILL PLAYS (F5), THE FREEZE LENGTH (F6), THE ROLL MODE (F7) AND THE STOP TIME (F8). ROW 2 OF THE PADS IS THE SNAPSHOTS.",
      {"NOTE BUTTON'S ACTION", "INSTR BUTTON'S ACTION", "VOL BUTTON'S ACTION", "FX BUTTON'S ACTION", "WHAT FILL PLAYS", "FREEZE LENGTH", "ROLL RATE OR BUILD", "STOP TIME"},
      {},
      "VALUE; SHIFT = COARSE",
      kPerformSetupButtons.row,
      kPerformSetupButtons.n,
-     kPerformGroups,
-     count_of(sizeof kPerformGroups / sizeof kPerformGroups[0]),
-     "WOBBLE ON: ROW 3 PICKS ITS RATE. A LATCHED ACTION STAYS ON WHEN YOU LEAVE THE SCREEN."},
+     kPerformSetupGroups,
+     count_of(sizeof kPerformSetupGroups / sizeof kPerformSetupGroups[0]),
+     "PAD EFFECTS ARE NOT RECORDED. A LATCHED ACTION STAYS ON WHEN YOU LEAVE THE SCREEN."},
     // Voice
     {"VOICE",
      "THE WHOLE SOUND IN VIEW. THE EIGHT KNOBS ARE THE VOICE: TAP AN F KEY TO LATCH IT, THEN TURN. PARAMS GOES TO THE NEXT PAGE. SHIFT + F KEY: MIDI LEARN.",
@@ -446,8 +455,11 @@ constexpr const char* kSlotNumbers[48] = {"00", "01", "02", "03", "04", "05", "0
                                           "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
                                           "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47"};
 
-// Row 1 of PERFORM, columns 1..11: the order of the pads (perform.h kPerformActionOrder), the short names the screen's lamps carry; column 12 is ALL OFF.
-constexpr const char* kActionPads[11] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "ROLL", "STOP", "REV", "WOB"};
+// Row 1 of PERFORM, columns 1..7 (perform.h kPerformActionOrder; the four dark pads after them are for the punches), column 12 is ALL OFF.
+constexpr const char* kActionPads[kLineActionCount] = {"MUTE", "ACC", "SLD", "OCT-", "OCT+", "FILL", "THRW"};
+// Row 2 (kRepeatPads), row 3 (kWobblePadRates): the labels the pads carry, five characters at most.
+constexpr const char* kRepeatLabels[kRepeatPadCount] = {"FRZ", "RPT8", "RPT16", "RPT32", "RPT64", "BLD B", "BLD R", "STP.5", "STP 2", "REV"};
+constexpr const char* kWobbleLabels[kWobblePadCount] = {"1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/8D", "1/16D", "1/2", "1/1"};
 constexpr const char* kVariationPads[4] = {"RAND", "VARY", "UNDO", "REDO"};
 constexpr const char* kLadderPads[app::kPadCols] = {"MIN", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "MAX"};
 constexpr const char* kPerformKeyPads[app::kPadCols] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -590,20 +602,24 @@ void fill_tract_steps_pads(Help& h) noexcept {
   h.group_count = count_of(sizeof kTractStepsGroups / sizeof kTractStepsGroups[0]);
 }
 
-void fill_perform_pads(Help& h, bool knobs) noexcept {
+void fill_perform_pads(Help& h, bool knobs, bool setup) noexcept {
   if (knobs) {
     for (unsigned row = 0; row < 4; ++row) {
       app::help_pads(h, row, 0, row, 11, row < 2 ? 1 : 2, kLadderPads);
     }
     return;
   }
-  app::help_pads(h, 0, 0, 0, 10, 1, kActionPads);
+  app::help_pads(h, 0, 0, 0, kLineActionCount - 1, 1, kActionPads);
   app::help_pads(h, 0, 11, 0, 11, 2);
   h.pad_label[app::pad_at(0, 11)] = "OFF";
-  app::help_pads(h, 1, 0, 1, 7, 3, kStepNumbers);  // the snapshots 1..8
-  app::help_pads(h, 1, 8, 1, 11, 4, kVariationPads);
-  app::help_pads(h, 2, 0, 2, 11, 5, kLadderPads);
-  app::help_pads(h, 3, 0, 3, 11, 6, kPerformKeyPads);
+  if (setup) {
+    app::help_pads(h, 1, 0, 1, 7, 3, kStepNumbers);  // the snapshots 1..8
+    app::help_pads(h, 1, 8, 1, 11, 4, kVariationPads);
+  } else {
+    app::help_pads(h, 1, 0, 1, kRepeatPadCount - 1, 3, kRepeatLabels);
+  }
+  app::help_pads(h, 2, 0, 2, kWobblePadCount - 1, setup ? 5 : 4, kWobbleLabels);
+  app::help_pads(h, 3, 0, 3, 11, setup ? 6 : 5, kPerformKeyPads);
 }
 
 void fill_library_pads(Help& h) noexcept { app::help_pads(h, 0, 0, kRows - 1, kCols - 1, 1, kSlotNumbers); }

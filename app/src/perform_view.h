@@ -35,8 +35,8 @@ struct PerformView {
   bool knobs = false;
   char row_knob[4][16] = {};
   char row_value[4][12] = {};
-  char ladder_caption[24] = "";  // what row 3 is: the latched knob's name, or "WOBBLE RATE"
-  char keys_caption[16] = "";    // what row 4 does: "PLAY VOICE" or "TRANSPOSE"
+  char row_name[4][12] = {};      // the four rows' names ("LINE+TONE", "REPEAT" or "SNAPSHOTS" on PERFORM SETUP, "WOBBLE", "KEYS")
+  char row_caption[4][16] = {};   // under each name what the row is now ("BEAT FREEZE", "PLAY VOICE" or "TRANSPOSE"); "" for none
   PerformChip chip[kPerfButtons];  // filled by PerformScreen::fill_chips(), for the drawings that show them
 };
 

@@ -4,15 +4,16 @@
 // PERFORM (docs/UX-303.md 5.3) and PERFORM SETUP (5.4): twenty minutes of play without a menu. The 48 pads are live controls and the screen is a
 // 1:1 mirror of them, one lamp over each pad:
 //
-//   row 1   the eleven live actions (held while the pad is down; Shift latches it) and ALL OFF
-//   row 2   snapshots 1..8 (a tap recalls and the encoder becomes MORPH; Shift stores), then NEW, VARY, UNDO, REDO
-//   row 3   the ladder: twelve places of the knob it holds (CUTOFF, HOME's FILT row 3; while WOBBLE is on: the wobble's rate)
+//   row 1   the line and the tone: MUTE, ACC, SLD, OCT-, OCT+, FILL, THROW (held while the pad is down; Shift latches it) and ALL OFF
+//   row 2   the beat freeze: FRZ 1/4, RPT 8..64 (rolls), BLD BT and BLD BAR (build-ups), STP 1/2 and STP 2 (tape stops), REV (same gestures; the last one pressed wins)
+//   row 3   the wobble's rate (a pad runs the wobble at that rate while it is down or latched)
 //   row 4   the keys: one octave, C..B, playing the voice or transposing the pattern
+// PERFORM SETUP carries the same map with row 2 the snapshots: 1..8 (a tap recalls and the encoder becomes MORPH; Shift stores), then RANDOM, VARY, UNDO, REDO.
 //
 // The four colour buttons do their assigned actions too. Perform again opens KNOBS (docs/UX-303.md 5.3b, issue #2): the same four rows of pads, every one a ladder of a knob (rows 3 and 4
 // are HOME's FILT rows): F1..F4 are the four sets of rows (SET 1..4, live, factory-filled: FILTER, MODDED, GROWL, FX), F5..F8 the four rows' knobs (a tap latches the encoder on one, a held one
 // with Up / Down gives its row another knob, with Shift + Up / Down the first of another family; Shift + F1..F4 put a set back to its factory knobs), the four colour buttons as on PERFORM. Perform once more opens PERFORM SETUP (5.4): eight knobs, F1..F4 the buttons' assignments, F5 what
-// FILL plays, F6 the freeze's length, F7 ROLL (rate and accelerate in one list), F8 STOP's time; no Shift row; the pads stay PERFORM's.
+// FILL plays, F6 the freeze's length, F7 ROLL (rate and accelerate in one list), F8 STOP's time; no Shift row; the pads are PERFORM's with the snapshots on row 2.
 //
 // The view logic is apart from the drawing: fill_view() makes a PerformView (what each lamp says and how bright it is), the LEDs are its levels
 // and draw_view() draws it, so the skin can replace the drawing and not the logic. The actions, the snapshots and the keyboard's transposition
@@ -94,7 +95,6 @@ class PerformScreen final : public o3sdk::app::Screen {
   void turn_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void snapshot_pad(o3sdk::app::Context& ctx, unsigned slot, bool shift) noexcept;
   void variation(o3sdk::app::Context& ctx, PerformRole role) noexcept;  // NEW, VARY, UNDO, REDO
-  void ladder_press(o3sdk::app::Context& ctx, unsigned col) noexcept;
   void knobs_press(o3sdk::app::Context& ctx, unsigned row, unsigned col) noexcept;  // KNOBS: a tap on place `col` of row `row` (0..3); the encoder goes to that row's knob (Q1-A)
   void knobs_shift_key(o3sdk::app::Context& ctx, unsigned k) noexcept;              // KNOBS with Shift: F1..F4 put set 1..4 back to its factory knobs, F7 REDO, F8 UNDO
   void knobs_set(o3sdk::app::Context& ctx, unsigned set) noexcept;                  // KNOBS: make a set the one in use (set index 0..4)
@@ -112,6 +112,8 @@ class PerformScreen final : public o3sdk::app::Screen {
   }
   PageKeys& keys() noexcept { return page_ == PerformPage::Setup ? setup_keys_ : (page_ == PerformPage::Knobs ? knobs_keys_ : rig_->sound_keys); }
   unsigned sel() const noexcept { return rig_->bank->selected(); }
+  // What a pad does on the page showing: PERFORM SETUP's map has the snapshots on row 2 (perform_setup_pad).
+  PerformPad role(unsigned pad) const noexcept { return page_ == PerformPage::Setup ? perform_setup_pad(pad) : perform_pad(pad); }
 
   // ---- view
   void fill_view(o3sdk::app::Context& ctx, PerformView& view) const noexcept;

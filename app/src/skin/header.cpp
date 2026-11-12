@@ -26,7 +26,7 @@ constexpr int kRuleY = 9;
 constexpr int kRowY[3] = {27, 41, 55};
 
 // The PERFORM slots' captions: the actions' chips, cut to the 28 px a slot has (kPerfActionChips has "THROW" and "FREEZE").
-constexpr const char* kSlotCaps[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV"};
+constexpr const char* kSlotCaps[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV", "OCT-"};
 constexpr int kSlotCx[4] = {512, 540, 568, 596};
 
 bool starts_with(const char* s, const char* prefix) noexcept {

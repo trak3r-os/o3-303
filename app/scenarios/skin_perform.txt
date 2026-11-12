@@ -4,12 +4,11 @@
 #
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_perform.txt --out <dir>
 #
-# 01 idle: the ladder of F1 CUTOFF as a bar of blue caps with the knob's place in green, the snapshots all empty, the naturals of the keys grey; 02 MUTE and ACC held on their pads and the Instr button held
-# (the chip filled): green caps, the PERFORM LEDs; 03 FREEZE, ROLL and SLD latched with Shift, and the Vol button latched (the rings, the ringed chip); 04 a snapshot recalled: MORPH 1>2 in the ENC
-# window, the lit slot; 05 the ladder on F2 RESO after a tap, the bar; 06 WOBBLE latched: row 3 is WOBBLE RATE, the rate that runs in green; 07 TRNSP on while the pattern plays and a key tapped: the
-# caption TRANSPOSE and the lit key; 08 PERFORM SETUP (row 1 as a reminder, the panel's text, its eight knobs); 09 PERFORM again with Shift held: the Shift row of REDO and UNDO as action keys;
-# 10 the worst case: all eleven actions on (the twelfth pad is ALL OFF: four by the colour buttons, latched, with their four chips filled and ringed, seven latched on their pads, with the rings), and a toast in the PAGE window
-# (an empty snapshot slot);
+# 01 idle (H1): row 1 the line and tone actions and ALL OFF, row 2 the beat freeze at a rate (REPEAT), row 3 the wobble's rates, the naturals of the keys grey; 02 MUTE and ACC held on their pads and the Instr button held
+# (the chip filled): green caps, the PERFORM LEDs; 03 FRZ, RPT 32 and SLD latched with Shift, and the Vol button latched (the rings, the ringed chip); 04 PERFORM SETUP: a snapshot recalled, MORPH 1>2 in the ENC
+# window, the lit slot (the snapshots moved there); 05 a wobble pad held: its rate runs in green; 06 the 1/4T wobble pad latched; 07 TRNSP on while the pattern plays and a key tapped: the
+# caption TRANSPOSE and the lit key; 08 PERFORM SETUP (the snapshots, the panel's text, its eight knobs); 09 PERFORM again with Shift held: the Shift row of REDO and UNDO as action keys;
+# 10 the worst case: the actions the pads and the buttons can have on together (four by the colour buttons, latched, with their four chips filled and ringed, the others latched on their pads, with the rings);
 # help_* the kit's HELP over the skinned PERFORM (Shift + Config): the BUTTONS page and the PADS page, readable in the obsidian tokens. The scenarios test checks that HELP is open at a help_* snap and
 # holds these frames to the kit's 1,800 words, not to the skin's budgets.
 wait 300
@@ -40,17 +39,21 @@ release instr
 padup 1
 padup 0
 wait 200
-# FREEZE, ROLL and SLD ALL latched with Shift; Shift + the Vol button latches that button's action.
+# FRZ, RPT 32 (a roll) and SLD ALL latched with Shift; Shift + the Vol button latches that button's action.
 press shift
-pad 6
-pad 7
+pad 12
+pad 15
 pad 2
 tap vol
 release shift
 wait 400
 snap 03_actions_latched
-# ALL OFF lets them go. Snapshots: store the sound on 1 (Shift + pad), turn CUTOFF up and store it on 2, recall 1, then 2, and the encoder is the morph from 1 to 2, turned half way back.
+# ALL OFF lets them go. Snapshots (PERFORM SETUP's row 2, H1): store the sound on 1 (Shift + pad), turn CUTOFF up and store it on 2, recall 1, then 2, and the encoder is the morph from 1 to 2, turned half way back.
 pad 11
+press shift
+tap performance
+release shift
+wait 100
 press shift
 pad 12
 release shift
@@ -65,20 +68,21 @@ wait 300
 turn -16
 wait 300
 snap 04_snapshot_morph
-# An F key gives the encoder back to the knob; F2 RESO is the ladder's knob now, a pad of row 3 jumps there.
+# An F key gives the encoder back to the knob; back on PERFORM a wobble pad is held (row 3, 1/8) and then 1/4T is latched with Shift.
+tap performance
+wait 100
 tap f2
-pad 32
-wait 300
-snap 05_ladder_reso
-# WOBBLE latched with Shift: row 3 is the wobble's rates, a tap picks one.
-press shift
-pad 10
-release shift
-pad 28
+paddown 25
 wait 400
-snap 06_wobble_rate
+snap 05_wobble_rate_held
+padup 25
 press shift
-pad 10
+pad 28
+release shift
+wait 400
+snap 06_wobble_latched
+press shift
+pad 28
 release shift
 wait 100
 # TRNSP (pad 22 on HOME, pressed once at the start) is on and the pattern plays: the keys transpose, the bottom row's seventh key is a fifth up.
@@ -101,7 +105,7 @@ wait 100
 snap 09_shift_row
 release shift
 # The worst case for the queue and the list: the four colour buttons latched first (MUTE, ACC ALL, FILL, FREEZE: Shift + a button on an action that is already latched lets it go, so the order
-# matters), then the seven other actions latched on their pads, so all eleven are on; and a toast.
+# matters), then the other line actions and a wobble rate latched on their pads (the freeze unit is the Fx button's, so the row-2 pads wait).
 press shift
 tap note
 tap instr
@@ -109,15 +113,12 @@ tap vol
 tap fx
 pad 2
 pad 3
-pad 5
-pad 7
-pad 8
-pad 9
-pad 10
+pad 4
+pad 6
+pad 27
 release shift
-pad 14
 wait 100
-snap 10_all_latched_toast
+snap 10_all_latched
 pad 11
 wait 100
 # HELP over the skinned PERFORM: Shift + Config opens it (its BUTTONS page, then its PADS page).

@@ -33,7 +33,7 @@ constexpr std::uint64_t kToastMs = 1400;
 constexpr unsigned kVaryPct = 25;  // VARY is MUTATE at 25 % (UX-303 section 7)
 
 // The lamps' labels: the actions in the order of the PerfAction enum (the pads are in the mockup's order, perform.h), and the keys.
-constexpr const char* kActionLabels[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV"};
+constexpr const char* kActionLabels[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV", "OCT-"};
 constexpr const char* kNoteLabels[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 // The drawing's geometry: a label column, then twelve lamps a row, four rows, one lamp over each pad.
@@ -218,14 +218,19 @@ void PerformScreen::input(app::Context& ctx, const Input& in) noexcept {
 
 void PerformScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
   const unsigned pad = in.pad();
-  const PerformPad pp = perform_pad(pad);
+  const PerformPad pp = role(pad);
   const std::uint64_t bit = static_cast<std::uint64_t>(1) << pad;
-  if (!in.pad_press()) {  // a release: ends what the press began (on the page that began it: KNOBS' pads have nothing to end)
+  if (!in.pad_press()) {  // a release: ends what the press began (on the page that began it: KNOBS' pads have nothing to end; only the roles below hold, and they are the same on every page)
     if ((perf_down_ & bit) != 0u) {
       perf_down_ &= ~bit;
-      if (pp.role == PerformRole::Action) {
-        live_->action_release(ctx, static_cast<PerfAction>(pp.index));
-      } else if (pp.role == PerformRole::Key) {
+      const PerformPad began = perform_pad(pad);
+      if (began.role == PerformRole::Action) {
+        live_->action_release(ctx, static_cast<PerfAction>(began.index));
+      } else if (began.role == PerformRole::Repeat) {
+        live_->repeat_release(ctx, began.index);
+      } else if (began.role == PerformRole::WobRate) {
+        live_->wobble_release(ctx, began.index);
+      } else if (began.role == PerformRole::Key) {
         key_release(ctx, pad);
       }
     }
@@ -237,7 +242,9 @@ void PerformScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
     ctx.redraw();
     return;
   }
-  perf_down_ |= bit;
+  if (pp.role == PerformRole::Action || pp.role == PerformRole::Repeat || pp.role == PerformRole::WobRate || pp.role == PerformRole::Key) {
+    perf_down_ |= bit;
+  }
   switch (pp.role) {
     case PerformRole::Action:
       live_->action_press(ctx, static_cast<PerfAction>(pp.index), in.shift);
@@ -255,12 +262,11 @@ void PerformScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
     case PerformRole::Redo:
       variation(ctx, pp.role);
       break;
-    case PerformRole::Ladder:
-      if (live_->wobble_on()) {  // WOBBLE on: row 3 is the wobble's rate; column 12 has none
-        live_->wobble_rate(ctx, perform_wobble_rate(pad));
-      } else {
-        ladder_press(ctx, pp.index);
-      }
+    case PerformRole::Repeat:
+      live_->repeat_press(ctx, pp.index, in.shift);
+      break;
+    case PerformRole::WobRate:
+      live_->wobble_press(ctx, pp.index, in.shift);
       break;
     case PerformRole::Key:
       key_press(ctx, pad);
@@ -306,30 +312,7 @@ void PerformScreen::variation(app::Context& ctx, PerformRole role) noexcept {
   }
 }
 
-// Row 3: a ladder row (ladder_rows.h): twelve places on the knob it holds (CUTOFF, HOME's FILT row 3, until assigned with an F key held), by its normalised
-// position, so a log cutoff is a log ladder; the first pad is the minimum and the last the maximum. A tap jumps there through a slew (LADDER SLEW, 30 ms by default: so a jump does
-// not click and a p-lock or a motion point on the step wins over it); a switch (the wave) is set at once. With REC while the pattern plays the jump is written under the playhead like a turn.
-// With an F key held the tap only assigns the row that key's knob (again: back to CUTOFF) and the value does not move.
-void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
-  Wiring& w = rig_->wiring;
-  if (rig_->sound_keys.held() != 0u) {
-    if (ladder_assign(w, *controls_, kLadderHome3, rig_->sound_keys.focused()) == LadderAssign::NoLane) {
-      toast(ctx, "THAT KNOB HAS NO LADDER", true);
-    }
-    ctx.redraw();
-    return;
-  }
-  const Entry entry = ladder_entry(*controls_, w, kLadderHome3);
-  const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), entry, col);
-  if (t.lanes_full) {
-    toast(ctx, kLanesUsedToast, true);
-  }
-  if (t.not_recorded) {
-    toast(ctx, kNotRecordedToast, true);
-  }
-}
-
-// KNOBS: row `row` (0..3, top to bottom) is a ladder row of its own (kKnobsRowId: rows 3 and 4 are HOME's FILT rows). A tap on place `col` jumps its knob there as PERFORM's row 3 does (a slew, a switch at
+// KNOBS: row `row` (0..3, top to bottom) is a ladder row of its own (kKnobsRowId: rows 3 and 4 are HOME's FILT rows). A tap on place `col` jumps its knob there as HOME's FILT row 3 does (a slew, a switch at
 // once, REC writes the jump, a mod switches MODS on) and gives the encoder that row's knob (Q1-A: the latch moves to F5..F8; with an F key held the latch stays where it is).
 void PerformScreen::knobs_press(app::Context& ctx, unsigned row, unsigned col) noexcept {
   if (row >= kKnobsRows) {
@@ -444,7 +427,7 @@ void PerformScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   if (in.delta() == 0) {
     return;
   }
-  if (page_ != PerformPage::Setup && morph_) {  // a snapshot was recalled: the encoder is the morph until an F key is tapped
+  if (morph_) {  // a snapshot was recalled: the encoder is the morph until an F key is tapped
     LiveActions::Message msg;
     if (!live_->snap_turn(ctx, in.delta(), in.shift, msg)) {
       toast(ctx, msg.text, msg.off);
@@ -575,12 +558,12 @@ void PerformScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
     h.fkey_shift[6] = "REDO";
     h.fkey_shift[7] = "UNDO";
   }
-  help_texts::fill_perform_pads(h, page_ == PerformPage::Knobs);
+  help_texts::fill_perform_pads(h, page_ == PerformPage::Knobs, page_ == PerformPage::Setup);
   if (page_ == PerformPage::Knobs) {
     return;
   }
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {  // the keys outside the scale the keyboard is locked to do nothing (key_press()) and are dark (leds())
-    if (perform_pad(pad).role != PerformRole::Key) {
+    if (role(pad).role != PerformRole::Key) {
       continue;
     }
     const int note = key_note(pad, home_->octave());
@@ -639,25 +622,17 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
     fill_knobs_view(ctx, view);
     return;
   }
-  const dsp::Engine& e = ctx.engine();
   const SnapBank& snaps = rig_->wiring.snaps;
   const bool wobble = live_->wobble_on();
   const bool transposing = playing_ && live_->trnsp();
-  // Row 3's knob (CUTOFF unless an F key assigned another) and where it stands.
-  const Entry knob = ladder_entry(*controls_, rig_->wiring, kLadderHome3);
-  const bool assigning = rig_->sound_keys.held() != 0u && app::PadLeds::blink(ctx.now(), 250);  // an F key is down: the row blinks, a tap assigns
-  const core::ParamDesc* kd = controls_->desc(e, knob);
-  std::uint8_t knob_level[kLadderSteps];  // the row's twelve lamps (a list has a pad a value)
-  KnobSpan knob_span;
-  const KnobSpan* sp = controls_->live_span(e, knob, knob_span) ? &knob_span : nullptr;
-  ladder_levels(kd, kd != nullptr ? controls_->shown(e, knob) : 0.0f, assigning, knob_level, sp);
   const int wobble_now = rig_->seq->wobble_rate_now();
   const bool scale_shown = home_->scale_shown();
+  const int owner = live_->freeze_owner();
 
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
     PadLamp& lamp = view.lamp[pad];
     lamp = PadLamp{};
-    const PerformPad pp = perform_pad(pad);
+    const PerformPad pp = role(pad);
     switch (pp.role) {
       case PerformRole::Action: {
         const PerfAction a = static_cast<PerfAction>(pp.index);
@@ -693,22 +668,20 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
         cut("REDO", 7, lamp.label, sizeof lamp.label);
         lamp.level = rig_->bank->can_redo() ? app::kLedDim : app::kLedOff;
         break;
-      case PerformRole::Ladder: {
-        const unsigned col = pp.index;
-        if (wobble) {  // the rate picker: the rate the wobble runs at now at full level
-          const int rate = perform_wobble_rate(pad);
-          if (rate >= 0) {
-            cut(seq::kWobbleRateNames[rate], 7, lamp.label, sizeof lamp.label);
-            lamp.level = rate == wobble_now ? app::kLedOn : app::kLedDim;
-          }
-        } else {  // a bar from the first pad to the position, the position itself at full level; each lamp says the value it jumps to
-          if (kd != nullptr && col < ladder_places(*kd)) {
-            char text[core::kParamTextChars + 1];
-            (void)core::param_format(*kd, ladder_value(*kd, col, sp), text, sizeof text);
-            cut(text, 5, lamp.label, sizeof lamp.label);
-          }
-          lamp.level = knob_level[col];
-        }
+      case PerformRole::Repeat: {  // the beat freeze's pads: on while down or latched; dark while another action has the unit (its press does nothing then)
+        const RepeatPad& rp = kRepeatPads[pp.index];
+        cut(rp.label, 7, lamp.label, sizeof lamp.label);
+        const bool active = (live_->repeat().active() >> pp.index & 1u) != 0u;
+        lamp.level = active ? app::kLedOn : (owner >= 0 && owner != static_cast<int>(rp.action) ? app::kLedOff : app::kLedDim);
+        lamp.latched = (live_->repeat().latched() >> pp.index & 1u) != 0u;
+        break;
+      }
+      case PerformRole::WobRate: {  // the wobble's rates: the one running at full level
+        const unsigned rate = kWobblePadRates[pp.index];
+        cut(seq::kWobbleRateNames[rate], 7, lamp.label, sizeof lamp.label);
+        const bool active = (live_->wobble_pads().active() >> pp.index & 1u) != 0u;
+        lamp.level = active || (wobble && static_cast<int>(rate) == wobble_now) ? app::kLedOn : app::kLedDim;
+        lamp.latched = (live_->wobble_pads().latched() >> pp.index & 1u) != 0u;
         break;
       }
       case PerformRole::Key: {
@@ -734,18 +707,21 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
         break;
     }
   }
-  if (wobble) {
-    cut("WOBBLE RATE", 15, view.ladder_caption, sizeof view.ladder_caption);
-  } else {
-    ladder_caption(e, *controls_, rig_->wiring, kLadderHome3, view.ladder_caption, sizeof view.ladder_caption);
-  }
-  cut(transposing ? "TRANSPOSE" : "PLAY VOICE", 15, view.keys_caption, sizeof view.keys_caption);
+  const bool setup = page_ == PerformPage::Setup;
+  cut("LINE+TONE", 11, view.row_name[0], sizeof view.row_name[0]);
+  cut(setup ? "SNAPSHOTS" : "REPEAT", 11, view.row_name[1], sizeof view.row_name[1]);
+  cut("WOBBLE", 11, view.row_name[2], sizeof view.row_name[2]);
+  cut("KEYS", 11, view.row_name[3], sizeof view.row_name[3]);
+  cut(setup ? "SETUP" : "", 15, view.row_caption[0], sizeof view.row_caption[0]);
+  cut(setup ? "" : "BEAT FREEZE", 15, view.row_caption[1], sizeof view.row_caption[1]);
+  cut("RATE", 15, view.row_caption[2], sizeof view.row_caption[2]);
+  cut(transposing ? "TRANSPOSE" : "PLAY VOICE", 15, view.row_caption[3], sizeof view.row_caption[3]);
 }
 
 // "F1 CUTOFF", or "MORPH 1>2 50%" after a recall.
 void PerformScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
-  if (page_ != PerformPage::Setup && morph_) {
+  if (morph_) {
     const SnapBank& snaps = rig_->wiring.snaps;
     char num[8];
     append(out, cap, "MORPH ");
@@ -784,7 +760,7 @@ void PerformScreen::fill_status(app::Context& ctx, frame::StatusView& status) co
   status.no_autosave = !rig_->project.autosave;
 }
 
-// ROW 1 ACTIONS (SHIFT = LATCH) . ROW 2 SNAPSHOTS (SHIFT = STORE) . ROW 3 LADDER CUTOFF . ROW 4 KEYS  (WOBBLE on: ROW 3 WOBBLE RATE)
+// ROW 1 LINE + TONE (SHIFT = LATCH) . ROW 2 REPEAT . ROW 3 WOBBLE RATE . ROW 4 KEYS  (PERFORM SETUP: ROW 2 SNAPSHOTS (SHIFT = STORE))
 void PerformScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
   if (page_ == PerformPage::Knobs) {  // ROW 1 ENV MOD . ROW 2 DECAY . ROW 3 CUTOFF . ROW 4 RESO
@@ -796,14 +772,9 @@ void PerformScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const 
     }
     return;
   }
-  append(out, cap, "ROW 1 ACTIONS (SHIFT = LATCH) . ROW 2 SNAPSHOTS (SHIFT = STORE) . ROW 3 ");
-  if (live_->wobble_on()) {
-    append(out, cap, "WOBBLE RATE");
-  } else {
-    append(out, cap, "LADDER ");
-    append(out, cap, ladder_short_name(ctx.engine(), *controls_, rig_->wiring, kLadderHome3));
-  }
-  append(out, cap, " . ROW 4 KEYS");
+  append(out, cap, "ROW 1 LINE + TONE (SHIFT = LATCH) . ROW 2 ");
+  append(out, cap, page_ == PerformPage::Setup ? "SNAPSHOTS (SHIFT = STORE)" : "REPEAT");
+  append(out, cap, " . ROW 3 WOBBLE RATE . ROW 4 KEYS");
 }
 
 // The four colour buttons and what each does now (the PERF page assigns them): an Accent chip while held, a Sel chip while latched, else an outline.
@@ -884,7 +855,7 @@ bool PerformScreen::fill_knob_row(app::Context& ctx, view::Knob (&knobs)[view::k
     if (kn.blank) {
       continue;
     }
-    kn.focus = !(morph_ && page_ != PerformPage::Setup) && k == pk.focus();
+    kn.focus = !morph_ && k == pk.focus();
     kn.held = (pk.held() >> k & 1u) != 0u;
   }
   return false;
@@ -941,12 +912,10 @@ void PerformScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect&
 
   PerformView view;
   fill_view(ctx, view);
-  const bool setup = page_ == PerformPage::Setup;
-  const unsigned rows = setup ? 1u : 4u;  // PERFORM SETUP keeps a reminder of row 1 over an empty panel
+  const unsigned rows = 4u;
   draw_view(r, area, view, rows);
-  static constexpr const char* kRowNames[4] = {"ACTIONS", "SNAPS", "LADDER", "KEYS"};
   static constexpr const char* kKnobRowNames[4] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
-  const char* captions[4] = {"", "", view.ladder_caption, view.keys_caption};
+  const char* captions[4] = {view.row_caption[0], view.row_caption[1], view.row_caption[2], view.row_caption[3]};
   char knob_caption[4][32] = {};  // KNOBS: each row's knob and where it stands
   if (view.knobs) {
     for (unsigned row = 0; row < 4u; ++row) {
@@ -958,14 +927,8 @@ void PerformScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Rect&
   }
   for (unsigned row = 0; row < rows; ++row) {
     const int y = area.y + kGridTop + static_cast<int>(row) * kRowPitch;
-    r.text(area.x + kLabelX, y + 8, view.knobs ? kKnobRowNames[row] : kRowNames[row], Color::Text, Face::Label);
+    r.text(area.x + kLabelX, y + 8, view.knobs ? kKnobRowNames[row] : view.row_name[row], Color::Text, Face::Label);
     r.text(area.x + kLabelX, y + 30, captions[row], Color::TextDim, Face::Micro);
-  }
-  if (setup) {
-    r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 8, "PERFORM SETUP", Color::Text, Face::Data);
-    r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 40, "F1-F4 SET WHAT EACH COLOUR BUTTON DOES   F5 WHAT FILL PLAYS   F6-F8 FREEZE, ROLL, STOP", Color::TextDim,
-           Face::Label);
-    r.text(area.x + kLabelX, area.y + kGridTop + kRowPitch + 64, "THE PADS ARE PERFORM'S", Color::TextDim, Face::Label);
   }
   draw_colour_buttons(ctx, r, Rect{area.x, area.y + kButtonsY, area.w, 22});
 

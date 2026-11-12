@@ -35,7 +35,23 @@ constexpr unsigned kRow3 = 2;
 constexpr unsigned kRow4 = 3;
 
 unsigned pp(unsigned row, unsigned col) { return app::pad_at(row, col); }
-unsigned action_pad(PerfAction a) { return pp(kRow1, perform_action_pad(a)); }
+// The pad of an action: row 1's own, and for the freeze family and the wobble the pad of row 2 or 3 that is it at a rate (H1): FRZ, RPT 8, STP 1/2, REV, and the wobble's 1/4.
+unsigned action_pad(PerfAction a) {
+  switch (a) {
+    case PerfAction::Freeze:
+      return pp(kRow2, 0);
+    case PerfAction::Roll:
+      return pp(kRow2, 1);
+    case PerfAction::Stop:
+      return pp(kRow2, 7);
+    case PerfAction::Reverse:
+      return pp(kRow2, 9);
+    case PerfAction::Wobble:
+      return pp(kRow3, 0);
+    default:
+      return pp(kRow1, perform_action_pad(a));
+  }
+}
 unsigned all_off_pad() { return pp(kRow1, 11); }
 
 seq::Sequencer& seqr() { return app_sequencer(); }
@@ -227,14 +243,19 @@ TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift la
   t.action_release(Button::Note);
   CHECK(seqr().perf() == 0);
   t.shift_tap(Button::Fx);
-  CHECK(freeze_active(t) == 1.0f);
-  CHECK(lamp(t, action_pad(PerfAction::Freeze)) == app::kLedOn);
+  CHECK(freeze_active(t) == 1.0f);  // (the rate pads of row 2 light for their own press only)
   t.pad(all_off_pad(), 10);  // D27: also the colour buttons' latches
   CHECK(freeze_active(t) == 0.0f);
   t.shift_tap(Button::Fx);
   CHECK(freeze_active(t) == 1.0f);
-  t.pad(action_pad(PerfAction::Freeze), 10);  // the pad of a latched action lets it go whoever latched it
+  t.shift_tap(Button::Fx);  // the same key again lets it go (the freeze has no pad of its own on row 1: its pads are row 2's rates)
   CHECK(freeze_active(t) == 0.0f);
+  t.pad(action_pad(PerfAction::Mute), 10);  // the pad of an action a button latched lets it go, whoever latched it
+  CHECK(seqr().perf() == 0);
+  t.shift_tap(Button::Note);
+  CHECK(seqr().perf() == seq::kPerfMute);
+  t.pad(action_pad(PerfAction::Mute), 10);
+  CHECK(seqr().perf() == 0);
   // A latch stays on across the change of screen, and its pad is lit on return.
   t.shift_tap(Button::Note);
   t.to_home();
@@ -317,36 +338,32 @@ TEST_CASE("PERFORM SETUP's F5..F8 (5.4): FILL, the freeze's length, ROLL as one 
   t.tap(Button::F7);
   t.release(Button::Shift);
   CHECK(same_pattern(t.pat(), fresh));
-  // The pads stay PERFORM's: ROLL held on its pad rolls at the mode set here.
+  // Row 1 and the keys stay PERFORM's here (row 2 is the snapshots); the freeze rates of PERFORM's row 2 are what F6..F8 set.
+  t.to_perform();
   t.down(action_pad(PerfAction::Roll));
   CHECK(t.param(kFreeze, Freeze::Mode) == doctest::Approx(1.0f));
   t.up(action_pad(PerfAction::Roll));
 }
 
-// ROLL held on its pad for `hold_ms` with the pattern playing, after PERFORM SETUP's F7 was turned by `f7_turn` from its default (1/16): the audio and the
-// frames of the press and the release.
+// A roll pad of row 2 (column 2: RPT 16, column 3: RPT 32) held for `hold_ms` with the pattern playing: the audio and the frames of the press and the release.
 struct RollRun {
   std::vector<std::int16_t> audio;
   std::size_t press = 0;
   std::size_t release = 0;
 };
 
-RollRun roll_run(int f7_turn, unsigned hold_ms) {
+RollRun roll_run(unsigned col, unsigned hold_ms) {
   Hands t;
   t.h->record(true);
-  t.to_perform();
-  t.to_setup();    // SETUP
-  t.tap(Button::F7);
-  t.turn(f7_turn);
   t.to_perform();
   t.tap(Button::Play);
   t.wait(1500);
   RollRun r;
   r.press = t.h->audio().size() / 2u;
-  t.down(action_pad(PerfAction::Roll));
+  t.down(pp(kRow2, col));
   t.wait(hold_ms);
   r.release = t.h->audio().size() / 2u;
-  t.up(action_pad(PerfAction::Roll));
+  t.up(pp(kRow2, col));
   t.wait(300);
   r.audio = t.h->audio();
   return r;
@@ -365,17 +382,17 @@ bool repeats_at(const std::vector<std::int16_t>& a, std::size_t from, std::size_
   return true;
 }
 
-TEST_CASE("ROLL repeats at the rate PERFORM SETUP's F7 set: 1/16 by default, 1/32 after one place up, the loop each rate's note value") {
+TEST_CASE("ROLL repeats at the rate of its pad (H1): RPT 16 loops 1/16, RPT 32 loops 1/32, the loop each rate's note value") {
   // 125 BPM: the loop of a rate is Freeze::roll_frames (1/16 is 5,292 frames, 1/32 half of it). The loop starts after the entry crossfade; the
   // check is on the middle of the hold, where the audio of one loop is the audio of the next.
   const std::size_t l16 = Freeze::roll_frames(Freeze::kRoll16, 125'000, 131072);
   const std::size_t l32 = Freeze::roll_frames(Freeze::kRoll32, 125'000, 131072);
   REQUIRE(l32 * 2u == doctest::Approx(static_cast<double>(l16)).epsilon(0.001));
-  const RollRun a = roll_run(0, 900);
+  const RollRun a = roll_run(2, 900);  // RPT 16
   const std::size_t from = a.press + 4000, to = a.release - l16 - 400;
   CHECK(repeats_at(a.audio, from, to, l16));
   CHECK_FALSE(repeats_at(a.audio, from, to, l32));
-  const RollRun b = roll_run(1, 900);  // 1/32
+  const RollRun b = roll_run(3, 900);  // RPT 32
   CHECK(repeats_at(b.audio, b.press + 4000, b.release - l32 - 400, l32));
   CHECK_FALSE(repeats_at(b.audio, b.press + 4000, b.release - l32 - 400, l32 + 1u));
 }
@@ -384,15 +401,20 @@ TEST_CASE("row 2: Shift + a snapshot pad stores the sound, a tap recalls it and 
   Hands t;
   app_snapshots().clear();  // a new project starts with eight factory snapshots (REVIEW I4); this case wants empty pads
   t.to_perform();
+  t.to_setup();  // H1: the snapshots are PERFORM SETUP's row 2
   CHECK(lamp(t, pp(kRow2, 0)) == app::kLedOff);  // empty
   const float c0 = cutoff(t);
   shift_pad(t, pp(kRow2, 0));  // store 1: the sound as it is
   CHECK(lamp(t, pp(kRow2, 0)) == app::kLedDim);
-  t.turn(10);  // CUTOFF is the latched knob
+  t.to_perform();  // CUTOFF is the latched knob of PERFORM's first page
+  t.turn(10);
+  t.to_setup();
   const float c1 = cutoff(t);
   CHECK(c1 > c0);
   shift_pad(t, pp(kRow2, 1));  // store 2
+  t.to_perform();
   t.turn(10);
+  t.to_setup();
   const float live = cutoff(t);
   CHECK(live > c1);
 
@@ -415,11 +437,11 @@ TEST_CASE("row 2: Shift + a snapshot pad stores the sound, a tap recalls it and 
   t.turn(-16);
   t.wait(150);
   CHECK(cutoff(t) == doctest::Approx(live).epsilon(0.01));
-  // An F key gives the encoder back to the knob: the next turn moves the cutoff itself, not a morph.
+  // An F key gives the encoder back: the next turn is the setup page's (F1's assignment), not a morph, so the cutoff stays.
   t.tap(Button::F1);
   const float before = cutoff(t);
   t.turn(-5);
-  CHECK(cutoff(t) < before);
+  CHECK(cutoff(t) == before);
   // A recall of 2 and the morph from 1 to 2.
   t.pad(pp(kRow2, 1), 10);
   t.wait(150);
@@ -429,6 +451,7 @@ TEST_CASE("row 2: Shift + a snapshot pad stores the sound, a tap recalls it and 
 TEST_CASE("row 2: NEW and VARY change the pattern shown and UNDO and REDO walk it back and forth; their LEDs say what there is to undo") {
   Hands t;
   t.to_perform();
+  t.to_setup();
   const Pattern first = t.pat();
   CHECK(lamp(t, pp(kRow2, 8)) == app::kLedDim);   // NEW
   CHECK(lamp(t, pp(kRow2, 9)) == app::kLedDim);   // VARY
@@ -458,10 +481,12 @@ TEST_CASE("row 2: NEW and VARY change the pattern shown and UNDO and REDO walk i
 TEST_CASE("the Shift row: F8 is UNDO and F7 REDO, the other keys do nothing (no popup)") {
   Hands t;
   t.to_perform();
+  t.to_setup();
   const Pattern first = t.pat();
-  t.pad(pp(kRow2, 8), 10);  // NEW
+  t.pad(pp(kRow2, 8), 10);  // NEW (on SETUP)
   const Pattern fresh = t.pat();
   CHECK_FALSE(same_pattern(fresh, first));
+  t.to_perform();
   t.shift_tap(Button::F1);  // empty on PERFORM: today's RANDOM popup is the 303 screen's
   t.shift_tap(Button::F3);
   CHECK(same_pattern(t.pat(), fresh));
@@ -480,120 +505,45 @@ TEST_CASE("the Shift row: F8 is UNDO and F7 REDO, the other keys do nothing (no 
   t.release(Button::Shift);
 }
 
-static void assign_row3(Hands& t, Button f) {  // F key held + a tap on row 3: the row holds that key's knob
-  t.press(f);
-  t.wait(30);
-  t.pad(pp(kRow3, 0), 10);
-  t.release(f);
-  t.wait(30);
-}
-
-TEST_CASE("row 3: twelve places of the knob it holds (CUTOFF) through a slew; F2 held + a tap makes it RESO; the LEDs are a bar to where it stands") {
-  Hands t;
-  t.to_perform();
-  const core::ParamDesc* dc = t.h->engine().param_desc(kVoice, AcidVoice::Cutoff);
-  REQUIRE(dc != nullptr);
-  const KnobSpan span{AcidVoice::kCutoffLiveLoHz, AcidVoice::kCutoffLiveHiHz};
-  const auto live_cutoff = [&](unsigned col) { return ladder_value(*dc, col, &span); };
-  t.pad(pp(kRow3, 11), 10);
-  t.wait(100);
-  CHECK(cutoff(t) == doctest::Approx(AcidVoice::kCutoffLiveHiHz).epsilon(0.001));  // F1: the ladder covers the live range
-  CHECK(lamp(t, pp(kRow3, 11)) == app::kLedOn);
-  CHECK(lamp(t, pp(kRow3, 10)) == app::kLedMid);
-  CHECK(lamp(t, pp(kRow3, 0)) == app::kLedMid);
-  t.pad(pp(kRow3, 0), 10);
-  t.wait(100);
-  CHECK(cutoff(t) == doctest::Approx(AcidVoice::kCutoffLiveLoHz).epsilon(0.001));
-  CHECK(lamp(t, pp(kRow3, 0)) == app::kLedOn);
-  CHECK(lamp(t, pp(kRow3, 1)) == app::kLedOff);
-  // A tap of a ladder pad is a slew, not a jump, and the knob reads the goal at once.
-  t.pad(pp(kRow3, 7), 1);
-  t.wait(5);
-  CHECK(seqr().slewing() >= 1);
-  t.wait(80);
-  CHECK(seqr().slewing() == 0);
-  CHECK(cutoff(t) == doctest::Approx(live_cutoff(7)).epsilon(0.001));
-  // F2 latched changes nothing (KN1: the row no longer follows); F2 held + a tap gives the row RESO.
-  t.tap(Button::F2);
-  t.pad(pp(kRow3, 4), 10);
-  t.wait(100);
-  CHECK(cutoff(t) == doctest::Approx(live_cutoff(4)).epsilon(0.001));
-  assign_row3(t, Button::F2);
-  const core::ParamDesc* dr = t.h->engine().param_desc(kVoice, AcidVoice::Reso);
-  REQUIRE(dr != nullptr);
-  t.pad(pp(kRow3, 9), 10);
-  t.wait(100);
-  CHECK(t.param(kVoice, AcidVoice::Reso) == doctest::Approx(core::param_denorm(*dr, ladder_norm(9))).epsilon(0.001));
-  CHECK(cutoff(t) == doctest::Approx(live_cutoff(4)).epsilon(0.001));  // the cutoff stayed
-  CHECK(lamp(t, pp(kRow3, 9)) == app::kLedOn);
-  // A switch (F6, the wave) has a pad a value (SAW, SQR) and is set at once; the dark pads past them do nothing.
-  assign_row3(t, Button::F6);
-  const core::ParamDesc* dw = t.h->engine().param_desc(kVoice, AcidVoice::Wave);
-  REQUIRE(dw != nullptr);
-  t.pad(pp(kRow3, 11), 10);  // dark
-  t.wait(20);
-  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->min));
-  t.pad(pp(kRow3, 1), 10);
-  t.wait(20);
-  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->max));
-  t.pad(pp(kRow3, 0), 10);
-  t.wait(20);
-  CHECK(t.param(kVoice, AcidVoice::Wave) == doctest::Approx(dw->min));
-}
-
-TEST_CASE("row 3 while the pattern plays and Rec is on: a ladder jump is written as motion on the knob's lane") {
-  Hands t;
-  t.to_perform();
-  CHECK_FALSE(seq::lane_has_motion(t.pat(), 0));
-  t.tap(Button::Play);
-  t.wait(300);
-  t.pad(pp(kRow3, 7), 10);  // not recording: nothing written
-  t.wait(300);
-  CHECK_FALSE(seq::lane_has_motion(t.pat(), 0));
-  t.tap(Button::Rec);  // Rec is the 303 screen's mode, and the same here
-  t.pad(pp(kRow3, 3), 10);
-  t.wait(300);
-  CHECK(seq::lane_has_motion(t.pat(), 0));
-  CHECK_FALSE(seq::lane_has_motion(t.pat(), 1));
-  assign_row3(t, Button::F2);
-  t.pad(pp(kRow3, 11), 10);  // RESO is lane 1
-  t.wait(300);
-  CHECK(seq::lane_has_motion(t.pat(), 1));
-  t.tap(Button::Play);
-}
-
-TEST_CASE("WOBBLE on: row 3 is the wobble's rates (columns 1..11), the keys stay; ALL OFF ends the rate override with the action") {
+TEST_CASE("row 3 (H1): a pad runs the wobble at its rate, Shift latches it, the last pad pressed wins and the one below takes over; ALL OFF ends the override") {
   Hands t;
   t.to_perform();
   t.tap(Button::Play);
   t.wait(200);
-  shift_pad(t, action_pad(PerfAction::Wobble));
+  CHECK_FALSE(seqr().wobble().on);
+  CHECK(seqr().wobble_rate_now() == seq::kWobbleRateNone);
+  const float c = cutoff(t);
+  t.down(pp(kRow3, 0));  // 1/4
   t.wait(40);
   CHECK(seqr().wobble().on);
-  CHECK(seqr().wobble_rate_now() == seq::kWobble1_8);
+  CHECK(seqr().wobble_rate_now() == seq::kWobble1_4);
   t.wait(100);
-  CHECK(lamp(t, pp(kRow3, seq::kWobble1_8)) == app::kLedOn);
-  CHECK(lamp(t, pp(kRow3, 0)) == app::kLedDim);
+  CHECK(lamp(t, pp(kRow3, 0)) == app::kLedOn);
+  CHECK(lamp(t, pp(kRow3, 1)) == app::kLedDim);
   CHECK(lamp(t, pp(kRow3, 11)) == app::kLedOff);  // the eleven rates only
-  const float c = cutoff(t);
-  t.pad(pp(kRow3, 2), 10);  // 1/4
+  t.down(pp(kRow3, 3));  // 1/32 on top
   t.wait(30);
-  CHECK(seqr().wobble().override_rate == seq::kWobble1_4);
+  CHECK(seqr().wobble_rate_now() == seq::kWobble1_32);
+  t.up(pp(kRow3, 3));  // the one below takes over
+  t.wait(30);
   CHECK(seqr().wobble_rate_now() == seq::kWobble1_4);
+  t.up(pp(kRow3, 0));
+  t.wait(30);
+  CHECK_FALSE(seqr().wobble().on);
+  CHECK(seqr().wobble().override_rate == seq::kWobbleRateNone);
   CHECK(cutoff(t) == c);  // not a ladder: the knob did not move
-  t.pad(pp(kRow3, 11), 10);  // no rate there
+  // Shift + a pad latches; ALL OFF lets it go; row 4 is still the keys.
+  shift_pad(t, pp(kRow3, 2));  // 1/16
   t.wait(30);
-  CHECK(seqr().wobble_rate_now() == seq::kWobble1_4);
+  CHECK(seqr().wobble().on);
+  CHECK(seqr().wobble_rate_now() == seq::kWobble1_16);
   t.wait(100);
   CHECK(lamp(t, pp(kRow3, 2)) == app::kLedOn);
-  // Row 4 is still the keys.
   CHECK(lamp(t, pp(kRow4, 3)) == app::kLedDim);  // Eb: in the default Penta Min (a scale shown lights its notes)
   t.pad(all_off_pad(), 10);
   t.wait(30);
   CHECK_FALSE(seqr().wobble().on);
   CHECK(seqr().wobble().override_rate == seq::kWobbleRateNone);
-  t.wait(100);
-  CHECK(lamp(t, pp(kRow3, 0)) != app::kLedDim);  // the ladder again (the rates' dim first pad is gone; the bar is at the cutoff's place)
   t.tap(Button::Play);
 }
 
@@ -765,18 +715,16 @@ TEST_CASE("every frame of PERFORM, its setup page and the 303 screen fits well u
   t.tap(Button::Play);
   t.wait(100);
   t.tap(Button::Rec);  // REC joins the status line's chips
-  for (unsigned col = 0; col < kPerfActionCount; ++col) {  // all eleven actions latched
+  for (unsigned col = 0; col < kLineActionCount; ++col) {  // every action of row 1 latched, then a rate of row 2 and one of row 3
     shift_pad(t, pp(kRow1, col));
   }
-  t.pad(pp(kRow2, 8), 10);  // NEW: a toast
-  shift_pad(t, pp(kRow2, 0));
-  t.pad(pp(kRow2, 0), 10);
-  t.press(Button::Shift);  // the Shift row, with the toast still up
+  shift_pad(t, pp(kRow2, 1));
+  shift_pad(t, pp(kRow3, 0));
+  t.press(Button::Shift);  // the Shift row
   t.wait(100);
   t.release(Button::Shift);
-  t.pad(pp(kRow2, 8), 10);
-  t.wait(100);
   t.to_setup();    // SETUP
+  t.pad(pp(kRow2, 8), 10);  // NEW: a toast
   t.wait(100);
   t.to_perform();
   t.to_home();  // the 303 screen's strip with its chips and the "+N"

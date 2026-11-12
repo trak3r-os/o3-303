@@ -94,25 +94,21 @@ snap 10_theme_white
 tap config
 turn 1
 tap config
-# KN1: PERFORM's row 3 is CUTOFF (HOME's FILT row 3) whatever F key was tapped last: F4 (DECAY) latched, the caption still says CUTOFF; F5 held and a tap on row 3 assigns ACCENT (caption ACCENT).
+# KN1: PERFORM's row 3 is the wobble's rates (H1), whatever F key was tapped last: F4 (DECAY) latched, a wobble pad (1/4T, pad 28) held shows its rate and the knobs stay where they were; the ladders are KNOBS'.
 tap performance 5
 tap f4
 wait 100
-snap 11_ladder_stays_cutoff
-press f5
-pad 28
+snap 11_perform_row3_is_wobble_rates
+paddown 28
 wait 300
-snap 12_ladder_assigning
-release f5
+snap 12_wobble_rate_held
+padup 28
 wait 100
-snap 13_ladder_holds_accent
-# Again with the same knob: back to CUTOFF, with F3 (ENV MOD) latched: no "LATCHED:" or ">" caption any more.
-press f5
-pad 28
-release f5
+snap 13_wobble_rate_let_go
+# Back to F3 (ENV MOD) latched.
 tap f3
 wait 100
-snap 14_ladder_cutoff_again
+snap 14_f3_latched
 # KN2: Left and Right move the latch (F3 -> F5 here), Up and Down move the latched knob by 1/20: the ENC window and the knob row follow.
 tap right
 tap right

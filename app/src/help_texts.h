@@ -100,8 +100,9 @@ void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noe
 void fill_tract_pads(o3sdk::app::Help& h) noexcept;
 // TRACT's STEPS layer (E2a): rows 1 and 2 are the pattern's steps (columns 1-8; the rest do nothing), rows 3 and 4 as fill_tract_pads(); sets the group texts too.
 void fill_tract_steps_pads(o3sdk::app::Help& h) noexcept;
-// PERFORM and PERFORM SETUP: row 1 the eleven live actions and ALL OFF, row 2 the snapshots and the variations, row 3 the ladder, row 4 the keys. `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
-void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false) noexcept;
+// PERFORM: row 1 the line and tone actions and ALL OFF, row 2 the beat freeze's rates, row 3 the wobble's rates, row 4 the keys. `setup` (PERFORM SETUP): row 2 is the snapshots and the variations
+// (the groups come with the screen's Text). `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
+void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false, bool setup = false) noexcept;
 // FILE LIBRARY: the 48 pads are slots 00..47 of the bank.
 void fill_library_pads(o3sdk::app::Help& h) noexcept;
 // FILE PROJECTS: the pads of the visible list rows (the first `rows` pads).

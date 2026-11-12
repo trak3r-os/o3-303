@@ -1,10 +1,12 @@
-# Snapshots and the morph (docs/M3B-PLAN.md R2), on PERFORM's row 2 (docs/UX-303.md 5.3): eight pads, a tap recalls, Shift + a pad stores, the encoder
+# Snapshots and the morph (docs/M3B-PLAN.md R2), on PERFORM SETUP's row 2 (H1; Shift + Perform, docs/UX-303.md 5.4): eight pads, a tap recalls, Shift + a pad stores, the encoder
 # morphs from the previous snapshot to the one recalled last, through the sequencer's slew. RAM only. The sounds are made on INSTRUMENT.
 wait 300
 tap play
 wait 300
 # Sound 1: the sound as it is, stored on pad 1 of row 2 (Shift + pad 12).
+press shift
 tap performance
+release shift
 wait 100
 # A new project starts with eight factory snapshots (REVIEW I4): row 2 shows eight dim lamps, and Shift + a pad overwrites one.
 snap 01_snapshots_factory
@@ -30,7 +32,9 @@ tap f3
 turn 15
 tap f6
 turn 1
+press shift
 tap performance
+release shift
 press shift
 pad 13 60
 release shift
@@ -64,7 +68,8 @@ turn 32
 turn -32
 wait 400
 wav snapshots
-# An F key gives the encoder back to the knob.
+# Back on PERFORM, an F key gives the encoder back to the knob.
+tap performance
 tap f1
 wait 100
 snap 11_encoder_is_the_knob_again
@@ -83,7 +88,9 @@ tap f6
 turn 30
 wait 100
 snap 13_growl_on
+press shift
 tap performance
+release shift
 press shift
 pad 14 60
 release shift
@@ -92,7 +99,9 @@ pad 12 60
 wait 300
 tap sampleplay 184   # Sample Play opens GROWL (E1a): the one tap takes the 186 ms the two did
 snap 14_recall_1_growl_off
+press shift
 tap performance
+release shift
 record on
 wait 300
 pad 14 60

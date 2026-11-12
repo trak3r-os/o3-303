@@ -152,20 +152,19 @@ void draw_perform(ui::Renderer& r, const PerformView& v, bool setup, const frame
   fill_frow(frow, knobs, shift_row);
   draw_frow(panel, frow);
 
-  const unsigned rows = setup ? 1u : kRows;  // PERFORM SETUP keeps a reminder of row 1 over an empty panel
+  const unsigned rows = kRows;
   queue_lamps(panel, v, rows);
   for (unsigned i = 0; i < kPerfButtons; ++i) {
     queue_chip(panel, i, v.chip[i]);
   }
 
-  // The row names, and under each what the row is now (the ladder's knob or WOBBLE RATE, what the keys do).
-  static constexpr const char* kRowNames[kRows] = {"ACTIONS", "SNAPSHOTS", "LADDER", "KEYS"};
+  // The row names, and under each what the row is now (the screen fills them: SNAPSHOTS in place of REPEAT on SETUP, what the keys do).
+  char name[kRows][kRowCaptionChars + 1];
   char caption[kRows][kRowCaptionChars + 1];
   for (unsigned row = 0; row < kRows; ++row) {
-    caption[row][0] = '\0';
+    cut_to(name[row], sizeof name[row], v.row_name[row], kRowCaptionChars);
+    cut_to(caption[row], sizeof caption[row], v.row_caption[row], kRowCaptionChars);
   }
-  cut_to(caption[2], sizeof caption[2], v.ladder_caption, kRowCaptionChars);
-  cut_to(caption[3], sizeof caption[3], v.keys_caption, kRowCaptionChars);
   char knob_name[kRows][kRowCaptionChars + 1];  // the panel keeps the text's pointer until it draws: one buffer a row
   char knob_value[kRows][kRowCaptionChars + 1];
   for (unsigned row = 0; row < rows; ++row) {
@@ -179,18 +178,13 @@ void draw_perform(ui::Renderer& r, const PerformView& v, bool setup, const frame
       panel.text(kLabelX, y + 33, knob_value[row], Color::Text, Face::Micro);
       continue;
     }
-    panel.text(kLabelX, y + 5, kRowNames[row], Color::ChromeDim, Face::Label);
+    panel.text(kLabelX, y + 5, name[row], Color::ChromeDim, Face::Label);
     if (caption[row][0] != '\0') {
       panel.text(kLabelX, y + 25, caption[row], Color::TextDim, Face::Micro);
     }
   }
-  if (setup) {
-    const int y = kRowY0 + kRowPitch;
-    panel.text(kLabelX + 4, y + 6, "PERFORM SETUP", Color::Text, Face::Data);
-    panel.text(kLabelX + 4, y + 38, "F1-F4 SET WHAT EACH COLOUR BUTTON DOES   F5 WHAT FILL PLAYS   F6-F8 FREEZE, ROLL, STOP", Color::TextDim, Face::Label);
-    panel.text(kLabelX + 4, y + 62, "THE PADS ARE PERFORM'S", Color::TextDim, Face::Label);
-  }
-  panel.text(kChipX, kHintY, "SHIFT + BUTTON OR PAD = LATCH", Color::TextDim, Face::Micro);
+  // The hint under the lamps: the gestures, and on SETUP what the F keys set (the colour buttons' and the Fill's choices are made there).
+  panel.text(kChipX, kHintY, setup ? "F1-F4 BUTTONS . F5 FILL . F6-F8 FREEZE, ROLL, STOP . ROW 2 SNAPSHOTS" : "SHIFT + BUTTON OR PAD = LATCH", Color::TextDim, Face::Micro);
 
   ui::plot::Canvas canvas(r);
   canvas.open();

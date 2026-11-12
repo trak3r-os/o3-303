@@ -226,7 +226,7 @@ TEST_CASE("pages: PERFORM SETUP's page (the four assignments, FILL, the freeze's
   rig.controls.set(rig.engine, vol, 2.0f);
   CHECK(rig.text(vol) == "SLD ALL");
   rig.controls.set(rig.engine, vol, 99.0f);  // clamped to the last action
-  CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::Reverse));
+  CHECK(static_cast<unsigned>(rig.wiring.perf[2]) == kPerfActionCount - 1u);
   // F5: what FILL plays, through the sequencer.
   const Entry fill = rig.entry(page_at(kPagePerfSetup), 4);
   CHECK(rig.text(fill) == "MUTATE");

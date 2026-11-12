@@ -47,6 +47,10 @@ void LiveActions::init(Rig& rig) noexcept {
   pad_latched_ = 0;
   applied_ = 0;
   freeze_owner_.reset();
+  rpt_.reset();
+  wob_.reset();
+  rpt_col_ = -1;
+  wob_col_ = -1;
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     seen_[b] = rig.wiring.perf[b];
   }
@@ -85,6 +89,8 @@ void LiveActions::leave(app::Context& ctx) noexcept {
   button_held_ = 0;
   button_pending_ = 0;  // the release that follows is no tap
   pad_held_ = 0;
+  rpt_.release_held();
+  wob_.release_held();
   apply(ctx);
 }
 
@@ -132,6 +138,14 @@ bool LiveActions::latched(PerfAction a) const noexcept {
   if ((pad_latched_ & perf_bit(a)) != 0u) {
     return true;
   }
+  if (a == PerfAction::Wobble && wob_.latched() != 0u) {
+    return true;
+  }
+  for (unsigned c = 0; c < kRepeatPadCount; ++c) {
+    if ((rpt_.latched() >> c & 1u) != 0u && kRepeatPads[c].action == a) {
+      return true;
+    }
+  }
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     if ((button_latched_ >> b & 1u) != 0u && rig_->wiring.perf[b] == static_cast<std::uint8_t>(a)) {
       return true;
@@ -142,6 +156,14 @@ bool LiveActions::latched(PerfAction a) const noexcept {
 
 void LiveActions::unlatch(PerfAction a) noexcept {
   pad_latched_ = static_cast<std::uint16_t>(pad_latched_ & ~perf_bit(a));
+  if (a == PerfAction::Wobble) {
+    wob_.clear_latched();
+  }
+  for (unsigned c = 0; c < kRepeatPadCount; ++c) {
+    if (kRepeatPads[c].action == a && (rpt_.latched() >> c & 1u) != 0u) {
+      rpt_.press(c, false);  // a latched column's press lets it go
+    }
+  }
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     if (rig_->wiring.perf[b] == static_cast<std::uint8_t>(a)) {
       button_latched_ &= ~(1u << b);
@@ -176,21 +198,61 @@ void LiveActions::toggle_latch(app::Context& ctx, PerfAction a) noexcept { actio
 void LiveActions::all_off(app::Context& ctx) noexcept {
   pad_latched_ = 0;
   button_latched_ = 0;
+  rpt_.clear_latched();
+  wob_.clear_latched();
   rig_->seq->wobble_rate_override(seq::kWobbleRateNone);
   apply(ctx);
 }
 
-void LiveActions::wobble_rate(app::Context& ctx, int rate) noexcept {
-  if (rate >= 0) {
-    rig_->seq->wobble_rate_override(rate);
+void LiveActions::repeat_press(app::Context& ctx, unsigned col, bool shift) noexcept {
+  if (col < kRepeatPadCount) {
+    rpt_.press(col, shift);
+    apply(ctx);
   }
-  ctx.redraw();
+}
+
+void LiveActions::repeat_release(app::Context& ctx, unsigned col) noexcept {
+  if (col < kRepeatPadCount) {
+    rpt_.release(col);
+    apply(ctx);
+  }
+}
+
+void LiveActions::wobble_press(app::Context& ctx, unsigned col, bool shift) noexcept {
+  if (col < kWobblePadCount) {
+    wob_.press(col, shift);
+    apply(ctx);
+  }
+}
+
+void LiveActions::wobble_release(app::Context& ctx, unsigned col) noexcept {
+  if (col < kWobblePadCount) {
+    wob_.release(col);
+    apply(ctx);
+  }
 }
 
 // What the buttons and pads held or latched say, put on the sequencer's flags, the delay send, the live transpose and the freeze. An action two
 // of them carry is on while either is. The freeze is only written when it changes (a command to the engine each time would be noise).
 void LiveActions::apply(app::Context& ctx) noexcept {
-  const std::uint16_t on = live_actions_on(rig_->wiring.perf, button_held_, button_latched_, pad_held_, pad_latched_);
+  // The rate pads are actions too: an active column of row 2 is its action on, any active column of row 3 is the wobble.
+  std::uint16_t held = pad_held_;
+  std::uint16_t latched_bits = pad_latched_;
+  for (unsigned c = 0; c < kRepeatPadCount; ++c) {
+    if ((rpt_.held() >> c & 1u) != 0u) {
+      held = static_cast<std::uint16_t>(held | perf_bit(kRepeatPads[c].action));
+    }
+    if ((rpt_.latched() >> c & 1u) != 0u) {
+      latched_bits = static_cast<std::uint16_t>(latched_bits | perf_bit(kRepeatPads[c].action));
+    }
+  }
+  if (wob_.held() != 0u) {
+    held = static_cast<std::uint16_t>(held | perf_bit(PerfAction::Wobble));
+  }
+  if (wob_.latched() != 0u) {
+    latched_bits = static_cast<std::uint16_t>(latched_bits | perf_bit(PerfAction::Wobble));
+  }
+  const std::uint16_t on = live_actions_on(rig_->wiring.perf, button_held_, button_latched_, held, latched_bits);
   const auto is_set = [&](PerfAction a) { return (on & perf_bit(a)) != 0u; };
   seq::Sequencer& sequencer = *rig_->seq;
   sequencer.set_perf_flag(seq::kPerfMute, is_set(PerfAction::Mute));
@@ -201,21 +263,55 @@ void LiveActions::apply(app::Context& ctx) noexcept {
   controls_->apply_send(ctx.engine());
   const std::uint16_t changed = static_cast<std::uint16_t>(on ^ applied_);
   applied_ = on;
-  if ((changed & perf_bit(PerfAction::OctUp)) != 0u) {
+  if ((changed & (perf_bit(PerfAction::OctUp) | perf_bit(PerfAction::OctDown))) != 0u) {
     push_live_transpose();
   }
   // FREEZE, ROLL, STOP and REV are the modes of the one freeze unit: the one that went on first has it until it goes off (perform.h FreezeOwner). It
   // writes the Mode, then Active; the release writes Active only and leaves the Mode: nothing touches the unit while it leaves, so nothing can click,
   // and the next entry writes its own Mode first. FREEZE alone is what it was (its Mode write is FREEZE, the unit's default).
   const FreezeCmd fc = freeze_owner_.step(on, changed);
+  // A row-2 pad also carries the unit's rate for the action it is: the pad nearest the top of the stack among those of the owner. The rate is
+  // written before the Mode and Active so the entry latches it, and it is not put back on the release (a STOP's release ramp is the unit's).
+  const int own = freeze_owner_.owner();
+  unsigned own_mask = 0;
+  for (unsigned c = 0; c < kRepeatPadCount; ++c) {
+    if (own >= 0 && static_cast<int>(kRepeatPads[c].action) == own) {
+      own_mask |= 1u << c;
+    }
+  }
+  const int col = rpt_.top(own_mask);
+  if (col >= 0 && (fc.set_mode || col != rpt_col_)) {
+    dsp::Engine& e = ctx.engine();
+    const RepeatPad& rp = kRepeatPads[col];
+    switch (rp.action) {
+      case PerfAction::Freeze:
+        set_freeze_length(e, *rig_, static_cast<Freeze::LengthValue>(rp.value));
+        break;
+      case PerfAction::Roll:
+        (void)e.set_param(rig_->wiring.freeze, Freeze::RollRate, static_cast<float>(rp.value));
+        (void)e.set_param(rig_->wiring.freeze, Freeze::Accelerate, static_cast<float>(rp.accel));
+        break;
+      case PerfAction::Stop:
+        (void)e.set_param(rig_->wiring.freeze, Freeze::StopTime, static_cast<float>(rp.value));
+        break;
+      default:
+        break;
+    }
+  }
+  rpt_col_ = own >= 0 ? col : -1;
   if (fc.set_mode) {
     set_freeze_mode(ctx.engine(), *rig_, static_cast<Freeze::ModeValue>(fc.mode));
   }
   if (fc.set_active) {
     set_freeze(ctx.engine(), *rig_, fc.active);
   }
-  // WOBBLE: the LFO runs while the action is on, at the WOBBLE page's settings; a pad picks its rate; the release switches it off and gives the
-  // pattern's rate back.
+  // WOBBLE: the LFO runs while the action is on, at the WOBBLE page's settings; a pad of row 3 picks its rate (the last pressed wins); the release
+  // switches it off and gives the pattern's rate back.
+  const int wc = wob_.top();
+  if (wc != wob_col_) {
+    wob_col_ = wc;
+    sequencer.wobble_rate_override(wc >= 0 ? static_cast<int>(kWobblePadRates[wc]) : seq::kWobbleRateNone);
+  }
   if ((changed & perf_bit(PerfAction::Wobble)) != 0u) {
     controls_->apply_wobble(is_set(PerfAction::Wobble));
     if (!is_set(PerfAction::Wobble)) {
@@ -227,6 +323,14 @@ void LiveActions::apply(app::Context& ctx) noexcept {
 
 // A button PERFORM SETUP gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a
 // held one goes on, now with the new action.
+// The row-2 pads' unit values are the unit's enums (perform.h kRepeatPads holds the raw numbers so it need not include the unit).
+static_assert(static_cast<unsigned>(Freeze::Quarter) == 0u && static_cast<unsigned>(Freeze::kRoll8) == 0u && static_cast<unsigned>(Freeze::kRoll16) == 1u &&
+                  static_cast<unsigned>(Freeze::kRoll32) == 2u && static_cast<unsigned>(Freeze::kRoll64) == 3u,
+              "kRepeatPads: the Length and Roll Rate values");
+static_assert(static_cast<unsigned>(Freeze::kAccelOff) == 0u && static_cast<unsigned>(Freeze::kAccelBeat) == 1u && static_cast<unsigned>(Freeze::kAccelBar) == 2u &&
+                  static_cast<unsigned>(Freeze::kStopHalf) == 2u && static_cast<unsigned>(Freeze::kStopTwo) == 4u,
+              "kRepeatPads: the Accelerate and Stop Time values");
+
 void LiveActions::sync_assignments(app::Context& ctx) noexcept {
   bool changed = false;
   for (unsigned b = 0; b < kPerfButtons; ++b) {
@@ -248,9 +352,9 @@ void LiveActions::set_live_transpose(int semitones) noexcept {
   push_live_transpose();
 }
 
-// The live transposition the sequencer plays: the keyboard's (live_trn_) and an octave up while an OCT UP action is on.
+// The live transposition the sequencer plays: the keyboard's (live_trn_), an octave up while an OCT UP action is on and an octave down while OCT DOWN is.
 void LiveActions::push_live_transpose() noexcept {
-  int t = live_trn_ + (is_on(PerfAction::OctUp) ? kOctave : 0);
+  int t = live_trn_ + (is_on(PerfAction::OctUp) ? kOctave : 0) - (is_on(PerfAction::OctDown) ? kOctave : 0);
   t = t < -kLiveTransposeMax ? -kLiveTransposeMax : (t > kLiveTransposeMax ? kLiveTransposeMax : t);
   rig_->seq->set_live_transpose(t);
 }

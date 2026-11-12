@@ -26,7 +26,7 @@ std::string text_of(std::uint8_t cond) {
 
 TEST_CASE("perform: the defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (C4)") {
   CHECK(kPerfButtons == 4);
-  CHECK(kPerfActionCount == 11);
+  CHECK(kPerfActionCount == 12);
   CHECK(kDefaultPerf[0] == static_cast<std::uint8_t>(PerfAction::Mute));
   CHECK(kDefaultPerf[1] == static_cast<std::uint8_t>(PerfAction::AccAll));
   CHECK(kDefaultPerf[2] == static_cast<std::uint8_t>(PerfAction::Fill));
@@ -64,7 +64,7 @@ TEST_CASE("perform: an action is on while a button that carries it is held or la
     CHECK((all & b) == 0);
     all = static_cast<std::uint16_t>(all | b);
   }
-  CHECK(all == 0x7FF);
+  CHECK(all == 0xFFF);
 }
 
 TEST_CASE("perform: the ladder has 12 places from the knob's minimum to its maximum, and a position finds its pad") {
@@ -183,15 +183,27 @@ TEST_CASE("perform: M3c's actions WOBBLE, ROLL, STOP, REV follow the old seven, 
   CHECK(perf_bit(PerfAction::Reverse) == 0x400);
 }
 
-TEST_CASE("perform: the WOBBLE picker is the bottom row's first eleven pads, column c = rate c") {
+TEST_CASE("perform: the wobble's rate pads are row 3's first eleven pads, in the order of kWobblePadRates (E2c: PERFORM and WOBBLE share it)") {
+  static_assert(kWobblePadCount == 11);
+  bool seen[seq::kWobbleRateCount] = {};
   for (unsigned col = 0; col < 12; ++col) {
-    CHECK(wobble_pad_rate(36 + col) == (col < 11 ? static_cast<int>(col) : -1));
+    const int rate = perform_wobble_rate(o3sdk::app::pad_at(2, col));
+    CHECK(rate == (col < 11 ? static_cast<int>(kWobblePadRates[col]) : -1));
+    if (rate >= 0) {
+      REQUIRE(static_cast<unsigned>(rate) < seq::kWobbleRateCount);
+      CHECK_FALSE(seen[rate]);  // each rate once
+      seen[rate] = true;
+    }
   }
-  CHECK(wobble_pad_rate(35) == -1);  // the row above
-  CHECK(wobble_pad_rate(0) == -1);
-  CHECK(wobble_pad_rate(48) == -1);  // past the panel
-  CHECK(wobble_pad_rate(36 + 4) == seq::kWobble1_8);
-  CHECK(wobble_pad_rate(36 + 10) == seq::kWobble1_16D);
+  for (bool s : seen) {
+    CHECK(s);  // and every rate of the sequencer has a pad
+  }
+  CHECK(perform_wobble_rate(o3sdk::app::pad_at(1, 0)) == -1);  // row 2
+  CHECK(perform_wobble_rate(o3sdk::app::pad_at(3, 0)) == -1);  // row 4 is the keys
+  CHECK(perform_wobble_rate(0) == -1);
+  CHECK(perform_wobble_rate(o3sdk::app::pad_at(2, 0)) == seq::kWobble1_4);
+  CHECK(perform_wobble_rate(o3sdk::app::pad_at(2, 7)) == seq::kWobble1_8D);
+  CHECK(perform_wobble_rate(o3sdk::app::pad_at(2, 10)) == seq::kWobble1_1);
 }
 
 TEST_CASE("perform: the freeze family has one owner; Mode then Active at the entry, Active off at the owner's release (M3c R)") {
@@ -261,54 +273,136 @@ unsigned pad_of(unsigned row, unsigned col) { return o3sdk::app::pad_at(row, col
 
 }  // namespace
 
-TEST_CASE("perform map: row 1 is the eleven actions in the mockup's order and ALL OFF") {
-  // MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE, ROLL, STOP, REV, WOBBLE: not the enum's order (WOBBLE is the 8th there).
-  const PerfAction expect[kPerfActionCount] = {PerfAction::Mute,  PerfAction::AccAll, PerfAction::SlideAll, PerfAction::OctUp, PerfAction::Fill,    PerfAction::Throw,
-                                               PerfAction::Freeze, PerfAction::Roll,   PerfAction::Stop,     PerfAction::Reverse, PerfAction::Wobble};
-  for (unsigned col = 0; col < kPerfActionCount; ++col) {
+TEST_CASE("perform map: row 1 is the line and tone actions, ALL OFF at the end, and four dark pads for the punches") {
+  const PerfAction expect[kLineActionCount] = {PerfAction::Mute, PerfAction::AccAll, PerfAction::SlideAll, PerfAction::OctDown, PerfAction::OctUp, PerfAction::Fill, PerfAction::Throw};
+  for (unsigned col = 0; col < kLineActionCount; ++col) {
     const PerformPad pp = perform_pad(pad_of(0, col));
     CHECK(pp.role == PerformRole::Action);
     CHECK(pp.index == static_cast<std::uint8_t>(expect[col]));
     CHECK(perform_action_pad(expect[col]) == col);  // the inverse
   }
   CHECK(perform_pad(pad_of(0, 11)).role == PerformRole::AllOff);
-  // Every action is on exactly one pad.
-  unsigned seen = 0;
-  for (unsigned col = 0; col < kPerfActionCount; ++col) {
-    seen |= 1u << perform_pad(pad_of(0, col)).index;
+  for (unsigned col = kLineActionCount; col < 11; ++col) {
+    CHECK(perform_pad(pad_of(0, col)).role == PerformRole::None);
   }
-  CHECK(seen == kAllActionsMask);
+  // The four sounds are on the colour keys, not on pads: no pad is MODS, GROWL, TRACT or WOBBLE's own action but the wobble's rate row; Freeze, Roll, Stop and Reverse have pads on row 2.
+  CHECK(perform_action_pad(PerfAction::Wobble) == o3sdk::app::kPadCount);
+  CHECK(perform_action_pad(PerfAction::Freeze) == o3sdk::app::kPadCount);
 }
 
-TEST_CASE("perform map: row 2 is snapshots 1..8, NEW, VARY, UNDO, REDO; row 3 the ladder; row 4 the keys") {
-  for (unsigned col = 0; col < 8; ++col) {
+TEST_CASE("perform map: row 2 is the beat freeze's ten pads, row 3 the wobble's eleven rates, row 4 the keys") {
+  for (unsigned col = 0; col < kRepeatPadCount; ++col) {
     const PerformPad pp = perform_pad(pad_of(1, col));
-    CHECK(pp.role == PerformRole::Snapshot);
+    CHECK(pp.role == PerformRole::Repeat);
     CHECK(pp.index == col);
   }
-  CHECK(perform_pad(pad_of(1, 8)).role == PerformRole::New);
-  CHECK(perform_pad(pad_of(1, 9)).role == PerformRole::Vary);
-  CHECK(perform_pad(pad_of(1, 10)).role == PerformRole::Undo);
-  CHECK(perform_pad(pad_of(1, 11)).role == PerformRole::Redo);
-  for (unsigned col = 0; col < 12; ++col) {
-    CHECK(perform_pad(pad_of(2, col)).role == PerformRole::Ladder);
+  CHECK(perform_pad(pad_of(1, 10)).role == PerformRole::None);
+  CHECK(perform_pad(pad_of(1, 11)).role == PerformRole::None);
+  CHECK(kRepeatPads[0].action == PerfAction::Freeze);
+  CHECK(kRepeatPads[1].action == PerfAction::Roll);
+  CHECK(kRepeatPads[4].action == PerfAction::Roll);
+  CHECK(kRepeatPads[4].value == 3);
+  CHECK(kRepeatPads[5].accel == 1);  // BLD BT
+  CHECK(kRepeatPads[6].accel == 2);  // BLD BAR
+  CHECK(kRepeatPads[7].action == PerfAction::Stop);
+  CHECK(kRepeatPads[9].action == PerfAction::Reverse);
+  for (unsigned col = 0; col < kWobblePadCount; ++col) {
+    CHECK(perform_pad(pad_of(2, col)).role == PerformRole::WobRate);
     CHECK(perform_pad(pad_of(2, col)).index == col);
+  }
+  CHECK(perform_pad(pad_of(2, 11)).role == PerformRole::None);
+  for (unsigned col = 0; col < 12; ++col) {
     CHECK(perform_pad(pad_of(3, col)).role == PerformRole::Key);
     CHECK(perform_pad(pad_of(3, col)).index == col);
   }
   CHECK(perform_pad(o3sdk::app::kPadCount).role == PerformRole::None);  // a pad past the panel is nothing
 }
 
-TEST_CASE("perform map: the wobble's rates are row 3's columns 1..11, not the bottom row's") {
-  for (unsigned col = 0; col < 11; ++col) {
-    CHECK(perform_wobble_rate(pad_of(2, col)) == static_cast<int>(col));
-    CHECK(wobble_pad_rate(pad_of(3, col)) == static_cast<int>(col));  // the 303 screen's picker is unchanged
-    CHECK(perform_wobble_rate(pad_of(3, col)) == -1);
-    CHECK(wobble_pad_rate(pad_of(2, col)) == -1);
+TEST_CASE("perform map: PERFORM SETUP's row 2 is snapshots 1..8, RANDOM, VARY, UNDO, REDO; the other rows are PERFORM's") {
+  for (unsigned col = 0; col < 8; ++col) {
+    const PerformPad pp = perform_setup_pad(pad_of(1, col));
+    CHECK(pp.role == PerformRole::Snapshot);
+    CHECK(pp.index == col);
   }
+  CHECK(perform_setup_pad(pad_of(1, 8)).role == PerformRole::New);
+  CHECK(perform_setup_pad(pad_of(1, 9)).role == PerformRole::Vary);
+  CHECK(perform_setup_pad(pad_of(1, 10)).role == PerformRole::Undo);
+  CHECK(perform_setup_pad(pad_of(1, 11)).role == PerformRole::Redo);
+  for (unsigned pad = 0; pad < o3sdk::app::kPadCount; ++pad) {
+    if (o3sdk::app::pad_row(pad) != 1u) {
+      CHECK(perform_setup_pad(pad).role == perform_pad(pad).role);
+      CHECK(perform_setup_pad(pad).index == perform_pad(pad).index);
+    }
+  }
+}
+
+TEST_CASE("perform map: the wobble's rates are row 3 in the order 1/4 1/8 1/16 1/32 1/4T 1/8T 1/16T 1/8D 1/16D 1/2 1/1") {
+  const int expect[11] = {seq::kWobble1_4, seq::kWobble1_8, seq::kWobble1_16, seq::kWobble1_32, seq::kWobble1_4T, seq::kWobble1_8T,
+                          seq::kWobble1_16T, seq::kWobble1_8D, seq::kWobble1_16D, seq::kWobble1_2, seq::kWobble1_1};
+  unsigned seen = 0;
+  for (unsigned col = 0; col < 11; ++col) {
+    CHECK(perform_wobble_rate(pad_of(2, col)) == expect[col]);
+    CHECK(perform_wobble_rate(pad_of(3, col)) == -1);
+    seen |= 1u << expect[col];
+  }
+  CHECK(seen == (1u << seq::kWobbleRateCount) - 1u);  // every rate on one pad
   CHECK(perform_wobble_rate(pad_of(2, 11)) == -1);  // column 12 has none
   CHECK(perform_wobble_rate(pad_of(0, 3)) == -1);
   CHECK(perform_wobble_rate(o3sdk::app::kPadCount) == -1);
+}
+
+TEST_CASE("perform: PadStack keeps the order of presses; the last one is on top and a repeated one moves up") {
+  PadStack s;
+  CHECK(s.top_in(0xFFFFu) == -1);
+  s.push(2);
+  s.push(5);
+  s.push(7);
+  CHECK(s.top_in(0xFFFFu) == 7);
+  CHECK(s.top_in(~(1u << 7)) == 5);
+  CHECK(s.top_in(1u << 2) == 2);
+  s.push(2);  // moves up, no duplicate
+  CHECK(s.size() == 3);
+  CHECK(s.top_in(0xFFFFu) == 2);
+  s.remove(2);
+  CHECK(s.top_in(0xFFFFu) == 7);
+  CHECK(!s.contains(2));
+  s.push(99);  // past the capacity of a column: ignored
+  CHECK(s.size() == 2);
+  s.clear();
+  CHECK(s.size() == 0);
+}
+
+TEST_CASE("perform: PadGroup holds on a press, latches with Shift, and a tap on a latched column lets it go") {
+  PadGroup g;
+  g.press(3, false);
+  CHECK(g.held() == (1u << 3));
+  CHECK(g.top() == 3);
+  g.press(6, false);
+  CHECK(g.top() == 6);  // the last press wins
+  g.release(6);
+  CHECK(g.top() == 3);  // the one below takes over
+  g.release(3);
+  CHECK(g.active() == 0);
+  CHECK(g.top() == -1);
+  // Shift latches; the release of the pad changes nothing.
+  g.press(4, true);
+  g.release(4);
+  CHECK(g.latched() == (1u << 4));
+  CHECK(g.top() == 4);
+  g.press(1, false);  // held on top of a latched one
+  CHECK(g.top() == 1);
+  g.release_held();
+  CHECK(g.top() == 4);
+  g.press(4, false);  // a tap on a latched column lets it go
+  CHECK(g.latched() == 0);
+  CHECK(g.top() == -1);
+  g.press(2, true);
+  g.press(9, true);
+  g.clear_latched();  // ALL OFF
+  CHECK(g.active() == 0);
+  CHECK(g.top() == -1);
+  g.press(12, false);  // past the row: nothing
+  CHECK(g.active() == 0);
 }
 
 TEST_CASE("perform map: an action is on while a colour button or its own pad is held or latched") {
@@ -319,6 +413,6 @@ TEST_CASE("perform map: an action is on while a colour button or its own pad is 
   // The pad and the button are one action: one bit.
   CHECK(live_actions_on(assign, 1u << 0, 0, perf_bit(PerfAction::Mute), 0) == perf_bit(PerfAction::Mute));
   CHECK(live_actions_on(assign, 1u << 3, 0, 0, perf_bit(PerfAction::Stop)) == (perf_bit(PerfAction::Freeze) | perf_bit(PerfAction::Stop)));
-  // A bit above the eleven actions is no action.
+  // A bit above the actions is no action.
   CHECK(live_actions_on(assign, 0, 0, 0xFFFFu, 0) == kAllActionsMask);
 }

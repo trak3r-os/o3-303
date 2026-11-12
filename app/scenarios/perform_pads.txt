@@ -1,8 +1,8 @@
-# PERFORM (docs/UX-303.md 5.3, 6.3): the Perform button opens it and the 48 pads are live, one lamp over each pad on the screen. Row 1: the eleven
-# live actions (held while the pad is down; Shift latches; ALL OFF lets the latched ones go); row 2: snapshots 1..8 (a tap recalls and the encoder
-# becomes MORPH, Shift stores) then NEW, VARY, UNDO, REDO; row 3: the ladder of the latched sound knob (the wobble's rate while WOBBLE is on);
-# row 4: the keys (here first transposing the running pattern, TRNSP being on, then, after TRNSP off on the 303 screen, playing the voice). Shift + Perform is
-# PERFORM SETUP (5.4). Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
+# PERFORM (docs/UX-303.md 5.3, 6.3; H1): the Perform button opens it and the 48 pads are live, one lamp over each pad on the screen. Row 1: the line and tone
+# actions MUTE ACC SLD OCT- OCT+ FILL THRW (pads 0..6; held while the pad is down; Shift latches) and ALL OFF (pad 11); row 2: the beat freeze at a rate, FRZ, RPT 8 to 64, BLD BT, BLD BAR,
+# STP 1/2, STP 2, REV (pads 12..21); row 3: the wobble at a rate (pads 24..34: 1/4 1/8 1/16 1/32 1/4T 1/8T 1/16T 1/8D 1/16D 1/2 1/1); row 4: the keys (here first transposing the running pattern,
+# TRNSP being on, then, after TRNSP off on the 303 screen, playing the voice). Of a row the last pad pressed wins. Pad effects are not recorded. The snapshots and NEW, VARY, UNDO, REDO are
+# PERFORM SETUP's row 2 (Shift + Perform; 5.4), and the ladders of the sound knobs are on KNOBS and HOME's FILT. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
 wait 148
 pad 22
 tap performance
@@ -16,25 +16,36 @@ wait 300
 snap 02_mute_held
 padup 0
 wait 200
-# FREEZE (pad 6) and WOBBLE (pad 10) latched with Shift: Accent frames, chips; row 3 is now the wobble's rates and a tap picks one.
+# FRZ (pad 12, the beat freeze at 1/4) and the 1/8 wobble (pad 25) latched with Shift: Accent frames, chips. A tap on another wobble pad picks its rate.
 press shift
-pad 6
-pad 10
+pad 12
+pad 25
 release shift
 wait 500
 snap 03_frz_wob_latched
 pad 28
 wait 400
-snap 04_wobble_rate_1_8
+snap 04_wobble_rate_1_4t
+# A roll held: RPT 32 (pad 15) takes the freeze unit from FRZ while it is down, and FRZ comes back at the release (the last pressed wins, the one below takes over).
+paddown 15
+wait 300
+snap 04b_roll_held
+padup 15
+wait 200
 # Shift + the pad of a latched action lets it go; ALL OFF lets every latched action go.
 press shift
-pad 10
+pad 12
 release shift
 wait 100
 pad 11
 wait 300
 snap 05_all_off
-# Snapshots: store the sound on 1, turn CUTOFF up and store it on 2 (Shift + the pad); an empty slot says so.
+# Snapshots (PERFORM SETUP's row 2): store the sound on 1, turn CUTOFF up and store it on 2 (Shift + the pad); an empty slot says so.
+press shift
+tap performance
+release shift
+wait 100
+snap 05b_setup_snapshots
 press shift
 pad 12
 release shift
@@ -58,12 +69,7 @@ snap 09_morph_half_way
 turn -16
 wait 300
 snap 09b_morph_start_is_the_sound_before
-# The ladder follows the latched sound knob: F2 is RESO, row 3 shows the value each pad jumps to and a bar to where it stands.
-tap f2
-pad 32
-wait 300
-snap 10_ladder_reso
-# NEW and VARY change the pattern shown, UNDO and REDO walk back and forth.
+# NEW and VARY change the pattern shown, UNDO and REDO walk back and forth (PERFORM SETUP's pads 20..23).
 pad 20
 wait 200
 snap 11_new_line
@@ -72,6 +78,11 @@ wait 200
 snap 12_undo
 pad 23
 wait 200
+tap performance
+wait 100
+# An F key gives the encoder back to the knob.
+tap f2
+wait 100
 # The keys transpose the running pattern (TRNSP); the bottom left C is no transposition.
 pad 43
 wait 500
@@ -89,11 +100,11 @@ press shift
 wait 100
 snap 15_shift_row
 release shift
-# The 303 screen's TRNSP pad (row 2, column 11), toggled off, puts the keyboard on the voice: PERFORM's key row plays it.
-# A latched action stays on when the screen changes, with its chip: ROLL and FREEZE latched here are chips on the 303 screen too.
+# The 303 screen's TRNSP pad (row 2, column 11, pad 22), toggled off, puts the keyboard on the voice: PERFORM's key row plays it.
+# A latched action stays on when the screen changes, with its chip: RPT 32 (ROLL) and FRZ (FREEZE) latched here are chips on the 303 screen too.
 press shift
-pad 7
-pad 6
+pad 15
+pad 12
 release shift
 tap pattern
 wait 300
@@ -120,12 +131,9 @@ pad 3
 pad 4
 pad 5
 pad 6
-pad 7
-pad 8
-pad 9
-pad 10
+pad 15
+pad 25
 release shift
-pad 12
 wait 200
 snap 18_all_latched_perform
 tap pattern

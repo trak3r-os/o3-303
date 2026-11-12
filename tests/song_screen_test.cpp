@@ -801,8 +801,8 @@ TEST_CASE("song screen: UNDO from HOME and PERFORM hands the song back to the se
       o.t.tap(Button::Pattern);  // HOME's Shift + F8
       o.t.shift_tap(Button::F8);
     } else {
-      o.t.tap(Button::Performance);  // PERFORM's UNDO pad (row 2, column 10)
-      o.t.pad(app::pad_at(1, 10), 10);
+      o.t.tap(Button::Performance);  // PERFORM's Shift + F8 is UNDO (H1: the pads of PERFORM no longer carry it)
+      o.t.shift_tap(Button::F8);
     }
     CHECK(o.song().length == 1u);
     o.t.tap(Button::Play, 10);

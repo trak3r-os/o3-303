@@ -32,7 +32,23 @@ using o3sdk::app::kLedOff;
 using o3sdk::app::kLedOn;
 
 // The pad of an action, and the pads of the other roles, as perform_screen_test.cpp names them.
-unsigned action_pad(PerfAction a) { return app::pad_at(0, perform_action_pad(a)); }
+// (H1: the freeze family and the wobble are pads of rows 2 and 3 at a rate: FRZ, RPT 8, STP 1/2, REV and the wobble's 1/4.)
+unsigned action_pad(PerfAction a) {
+  switch (a) {
+    case PerfAction::Freeze:
+      return app::pad_at(1, 0);
+    case PerfAction::Roll:
+      return app::pad_at(1, 1);
+    case PerfAction::Stop:
+      return app::pad_at(1, 7);
+    case PerfAction::Reverse:
+      return app::pad_at(1, 9);
+    case PerfAction::Wobble:
+      return app::pad_at(2, 0);
+    default:
+      return app::pad_at(0, perform_action_pad(a));
+  }
+}
 
 // PERFORM, on the skin, with the last frame's view: the LEDs follow the screen by a frame, so every check waits one out first.
 struct OnPerform {
@@ -46,9 +62,8 @@ struct OnPerform {
     s = static_cast<PerformScreen*>(t.h->runtime().context().screen());
     REQUIRE(std::strcmp(t.title(), "PERFORM") == 0);
   }
-  // Every lamp of the frame just drawn is its pad's LED (in the view), the sprite queued for it is tinted for that LED's tone, and the frame was queued whole. `setup`: PERFORM SETUP, whose
-  // glass shows row 1 only.
-  void mirrors(bool setup = false) {
+  // Every lamp of the frame just drawn is its pad's LED (in the view), the sprite queued for it is tinted for that LED's tone, and the frame was queued whole.
+  void mirrors() {
     t.wait(60);
     const PerformView& v = s->last_view();
     for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
@@ -56,7 +71,7 @@ struct OnPerform {
       CHECK(lamp_tone(v.lamp[pad].level) == lamp_tone(t.led(pad)));
     }
     // The queue: one Lamp sprite for each pad drawn, at the pad's cap box, in the tint of the tone of the pad's LED.
-    const unsigned drawn = setup ? app::kPadCols : app::kPadCount;
+    const unsigned drawn = app::kPadCount;
     unsigned seen[app::kPadCount] = {};
     unsigned lamps = 0;
     const skin::Panel& q = skin::panel();
@@ -140,7 +155,7 @@ TEST_CASE("skin perform: the 48 caps are one over each pad, in the glass, apart 
   }
 }
 
-TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in every state of PERFORM, and SETUP shows row 1") {
+TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in every state of PERFORM and PERFORM SETUP") {
   OnPerform o;
   o.mirrors();  // idle: the ladder of F1 CUTOFF, the snapshots empty, the naturals dim
 
@@ -164,11 +179,32 @@ TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in ever
   o.mirrors();
   CHECK_FALSE(o.s->last_view().lamp[action_pad(PerfAction::Freeze)].latched);
 
-  // Snapshots: stored (Shift + pad), recalled (the lit slot, the morph).
+  // The repeat pads' state: the one held is lit, a pad of an action that does not own the freeze is dark, the wobble's rate pad lights while it runs.
+  o.t.down(app::pad_at(1, 2));  // RPT 16
+  o.mirrors();
+  CHECK(o.s->last_view().lamp[app::pad_at(1, 2)].level == kLedOn);
+  o.t.up(app::pad_at(1, 2));
+  o.t.press(Button::Shift);
+  o.t.pad(action_pad(PerfAction::Wobble), 10);
+  o.t.release(Button::Shift);
+  o.t.pad(app::pad_at(2, 4), 10);  // a tap on another rate: the latched one is still the latch
+  o.mirrors();
+  CHECK(std::strcmp(o.s->last_view().row_caption[2], "RATE") == 0);
+  CHECK(o.s->last_view().lamp[action_pad(PerfAction::Wobble)].latched);
+  o.t.pad(app::pad_at(0, 11), 10);  // ALL OFF
+  o.mirrors();
+
+  // PERFORM SETUP: the snapshots on row 2 stored (Shift + pad), recalled (the lit slot, the morph); the rest of the map is PERFORM's.
+  o.t.to_setup();
+  o.t.wait(60);
+  CHECK(std::strcmp(o.t.title(), "PERFORM SETUP") == 0);
+  CHECK(std::strcmp(o.s->last_view().row_name[1], "SNAPSHOTS") == 0);
   o.t.press(Button::Shift);
   o.t.pad(app::pad_at(1, 0), 10);
   o.t.release(Button::Shift);
-  o.t.turn(20);
+  o.t.to_perform();
+  o.t.turn(20);  // the sound moves (the latched knob is F1's CUTOFF) before the second snapshot
+  o.t.to_setup();
   o.t.press(Button::Shift);
   o.t.pad(app::pad_at(1, 1), 10);
   o.t.release(Button::Shift);
@@ -178,39 +214,7 @@ TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in ever
   CHECK(o.s->morphing());
   o.t.turn(-8);
   o.mirrors();
-
-  // The ladder holds a knob (RESO, assigned with F2 held: KN1 ended the follow mode); a tap moves its place.
-  o.t.press(Button::F2);
-  o.t.wait(30);
-  o.t.pad(app::pad_at(2, 5), 10);
-  o.t.release(Button::F2);
-  o.t.wait(30);
-  o.t.pad(app::pad_at(2, 8), 10);
-  o.t.wait(300);  // the jump is a slew
-  o.mirrors();
-  unsigned place = 12;  // a bar of mid lamps up to the knob's place, which is on, and off after it
-  for (unsigned c = 0; c < 12; ++c) {
-    if (o.s->last_view().lamp[app::pad_at(2, c)].level == kLedOn) {
-      place = c;
-    }
-  }
-  REQUIRE(place < 12);
-  CHECK(place > 3);
-  for (unsigned c = 0; c < 12; ++c) {
-    const std::uint8_t level = o.s->last_view().lamp[app::pad_at(2, c)].level;
-    CHECK(level == (c < place ? kLedMid : (c == place ? kLedOn : kLedOff)));
-  }
-
-  // WOBBLE: row 3 is the rate picker.
-  o.t.press(Button::Shift);
-  o.t.pad(action_pad(PerfAction::Wobble), 10);
-  o.t.release(Button::Shift);
-  o.t.pad(app::pad_at(2, 4), 10);
-  o.mirrors();
-  CHECK(std::strcmp(o.s->last_view().ladder_caption, "WOBBLE RATE") == 0);
-  o.t.press(Button::Shift);
-  o.t.pad(action_pad(PerfAction::Wobble), 10);
-  o.t.release(Button::Shift);
+  o.t.to_perform();
 
   // The keys play the voice (a held key is lit), then transpose the running pattern.
   o.t.down(app::pad_at(3, 0));
@@ -224,14 +228,14 @@ TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in ever
   o.t.to_perform();
   o.t.pad(app::pad_at(3, 7), 10);
   o.mirrors();
-  CHECK(std::strcmp(o.s->last_view().keys_caption, "TRANSPOSE") == 0);
+  CHECK(std::strcmp(o.s->last_view().row_caption[3], "TRANSPOSE") == 0);
   CHECK(o.s->last_view().lamp[app::pad_at(3, 7)].level == kLedOn);
 
-  // PERFORM SETUP: the pads stay PERFORM's, and so do the LEDs; the glass shows row 1 of them as a reminder.
+  // PERFORM SETUP: the glass draws all four rows as well.
   o.t.to_setup();
   o.t.wait(60);
   CHECK(std::strcmp(o.t.title(), "PERFORM SETUP") == 0);
-  o.mirrors(true);
+  o.mirrors();
 }
 
 TEST_CASE("skin perform: the chips say what each colour button does, held and latched") {
@@ -279,23 +283,23 @@ TEST_CASE("skin perform: the Shift row is REDO and UNDO as action keys, and SETU
 
 TEST_CASE("skin perform: the worst frame (every action on, every button latched, a toast) fits the queue with room to spare") {
   OnPerform o;
+  o.t.pad(app::pad_at(0, 11), 10);  // ALL OFF: a toast that is still up when the frame is read
   o.t.press(Button::Shift);
   for (Button b : {Button::Note, Button::Instr, Button::Vol, Button::Fx}) {  // the buttons first: Shift + a button on an action already latched lets it go
     o.t.tap(b, 10);
   }
-  for (unsigned pad : {2u, 3u, 5u, 7u, 8u, 9u, 10u}) {
+  for (unsigned pad : {2u, 3u, 4u, 6u, app::pad_at(2, 3)}) {  // the line actions the buttons do not carry, and a wobble rate
     o.t.pad(pad, 10);
   }
   o.t.release(Button::Shift);
-  o.t.pad(app::pad_at(1, 2), 10);  // an empty snapshot slot: a toast
   o.mirrors();
   const PerformView& v = o.s->last_view();
   unsigned latched = 0;
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
     latched += v.lamp[pad].latched ? 1u : 0u;
   }
-  CHECK(latched == 11u);  // a button's latch rings its action's lamp too
-  for (unsigned pad = 0; pad < 11; ++pad) {
+  CHECK(latched == 8u);  // a button's latch rings its action's lamp too: the seven line pads and the wobble rate
+  for (unsigned pad = 0; pad < kLineActionCount; ++pad) {
     CHECK_MESSAGE(v.lamp[pad].level == kLedOn, "action pad " << pad);
   }
   for (unsigned b = 0; b < kPerfButtons; ++b) {

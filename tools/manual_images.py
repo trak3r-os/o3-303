@@ -57,7 +57,7 @@ IMAGES = [
     ("perform", "skin_perform", "01_idle", "full"),
     ("perform-latched", "skin_perform", "03_actions_latched", "screen"),
     ("perform-morph", "skin_perform", "04_snapshot_morph", "screen"),
-    ("perform-wobble", "skin_perform", "06_wobble_rate", "screen"),
+    ("perform-wobble", "skin_perform", "06_wobble_latched", "screen"),
     ("perform-setup", "skin_perform", "08_setup", "screen"),
     ("instrument-voice", "skin_instrument", "01_voice", "screen"),
     ("instrument-fx", "skin_instrument", "02_fx", "screen"),

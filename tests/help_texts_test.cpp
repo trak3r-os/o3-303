@@ -65,6 +65,8 @@ void check_pads_grouped(const Help& h, std::uint64_t used, const std::string& wh
 }
 
 constexpr std::uint64_t kAllPads = (std::uint64_t{1} << app::kPadCount) - 1u;
+constexpr std::uint64_t kPerformDark = (std::uint64_t{0xF} << 7) | (std::uint64_t{1} << 35);  // PERFORM SETUP: the H2 punch pads (row 1 columns 8..11) and row 3's last pad
+constexpr std::uint64_t kPerformPads = kAllPads - kPerformDark - (std::uint64_t{0x3} << 22);  // PERFORM: and row 2's last two pads
 constexpr std::uint64_t kTractPads = std::uint64_t{0x1F} << 36;  // TRACT: the live vowels A E I O U, the bottom row's first five; the rest of the grid is dark and has no group
 constexpr std::uint64_t kRefusedKeyPads = (std::uint64_t{1} << 23) | (std::uint64_t{1} << 33);  // '+' and '@' on the name keyboard
 
@@ -223,27 +225,46 @@ TEST_CASE("help pads: PERFORM's rows, FILE LIBRARY's slots, the list's rows and 
         used |= std::uint64_t{1} << pad;
       }
     }
-    CHECK(used == kAllPads);
+    CHECK(used == kAllPads - ((std::uint64_t{0xF} << 7) | (std::uint64_t{0x3} << 22) | (std::uint64_t{1} << 35)));  // the dark pads: row 1 columns 8..11 (H2), row 2 columns 11 and 12, row 3 column 12
     check_pads_grouped(h, used, "perform pads");
-    CHECK(h.group_count == 6);
-    // Row 1 follows the order of the pads (perform.h): MUTE first, WOBBLE eleventh, ALL OFF last.
-    for (unsigned col = 0; col < kPerfActionCount; ++col) {
+    for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
+      if ((used >> pad & 1u) == 0u) {
+        CHECK_MESSAGE(h.pad_group[pad] == 0u, "pad " << pad << " is dark and has no group");
+      }
+    }
+    CHECK(h.group_count == 5);
+    // Row 1: the line and tone actions in the order of the pads (perform.h), ALL OFF last; row 2 the repeats; row 3 the wobble rates; row 4 the keys.
+    for (unsigned col = 0; col < kLineActionCount; ++col) {
       CHECK(h.pad_group[col] == 1);
       CHECK(h.pad_label[col] != nullptr);
     }
     CHECK(std::strcmp(h.pad_label[0], "MUTE") == 0);
-    CHECK(std::strcmp(h.pad_label[10], "WOB") == 0);
+    CHECK(std::strcmp(h.pad_label[3], "OCT-") == 0);
     CHECK(h.pad_group[11] == 2);
     CHECK(std::strcmp(h.pad_label[11], "OFF") == 0);
-    CHECK(std::strcmp(h.pad_label[12], "1") == 0);  // the snapshots
+    CHECK(std::strcmp(h.pad_label[12], "FRZ") == 0);
+    CHECK(h.pad_group[12] == 3);
+    CHECK(h.pad_group[21] == 3);
+    CHECK(std::strcmp(h.pad_label[21], "REV") == 0);
+    CHECK(h.pad_group[24] == 4);
+    CHECK(h.pad_group[34] == 4);
+    CHECK(h.pad_group[36] == 5);
+    CHECK(std::strcmp(h.pad_label[36], "C") == 0);
+    CHECK(std::strcmp(h.pad_label[47], "B") == 0);
+  }
+  {
+    Help h;  // PERFORM SETUP: row 2 is the snapshots, and RANDOM, VARY, UNDO and REDO
+    fill(h, text(Id::PerformSetup));
+    fill_perform_pads(h, false, true);
+    check_help(h, "perform setup pads");
+    CHECK(h.group_count == 6);
+    CHECK(std::strcmp(h.pad_label[12], "1") == 0);
     CHECK(std::strcmp(h.pad_label[19], "8") == 0);
     CHECK(h.pad_group[19] == 3);
     CHECK(std::strcmp(h.pad_label[20], "RAND") == 0);
     CHECK(h.pad_group[23] == 4);
     CHECK(h.pad_group[24] == 5);
     CHECK(h.pad_group[36] == 6);
-    CHECK(std::strcmp(h.pad_label[36], "C") == 0);
-    CHECK(std::strcmp(h.pad_label[47], "B") == 0);
   }
   {
     Help h;
@@ -375,11 +396,11 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   tap(h, app::Button::Pattern);
   check_screen(h, Id::Home, sound, kAllPads, "STEPS");
   tap(h, app::Button::Performance);
-  check_screen(h, Id::Perform, sound, kAllPads, "PERFORM");
+  check_screen(h, Id::Perform, sound, kPerformPads, "PERFORM");
   tap(h, app::Button::Performance);
   check_screen(h, Id::Knobs, sound, kAllPads, "PERFORM KNOBS");
   shift_tap(h, app::Button::Performance);  // R8 (the review's S1): Shift + Performance is PERFORM SETUP
-  check_screen(h, Id::PerformSetup, page_mask(page_at(kPagePerfSetup)), kAllPads, "PERFORM SETUP");
+  check_screen(h, Id::PerformSetup, page_mask(page_at(kPagePerfSetup)), kAllPads - kPerformDark, "PERFORM SETUP");
   tap(h, app::Button::Params);
   {
     app::Context& ctx = h.runtime().context();

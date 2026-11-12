@@ -556,15 +556,15 @@ TEST_CASE("Params ends the momentary live actions held on PERFORM and leaves the
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
   t.release(Button::Fx);
 
-  t.to_perform();  // held on PERFORM's own pad
-  t.down(app::pad_at(0, perform_action_pad(PerfAction::Freeze)));
+  t.to_perform();  // held on PERFORM's own pad (FRZ, row 2)
+  t.down(app::pad_at(1, 0));
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
   t.tap(Button::Params);
   t.wait(20);
   CHECK(on_instrument(t));
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
-  t.up(app::pad_at(0, perform_action_pad(PerfAction::Freeze)));
+  t.up(app::pad_at(1, 0));
 
   t.to_perform();
   t.shift_tap(Button::Fx);  // latched: it stays on across the change

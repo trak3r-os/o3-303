@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The ladder rows (docs/BACKLOG.md item 8, B4): HOME's FILT rows 3 and 4 and PERFORM's row 3 are one kind of row. A row follows the latched knob or holds a
+// The ladder rows (docs/BACKLOG.md item 8, B4): HOME's FILT rows 3 and 4 and PERFORM KNOBS' rows 3 and 4 are one kind of row. A row follows the latched knob or holds a
 // knob of its own; hold an F key and tap a pad of the row to assign it (the tap moves nothing), again to put it back to its default; Shift + FILT resets
 // the HOME rows; a tap jumps the row's knob and, with REC on while the pattern plays, writes the jump as motion.
 #include <doctest/doctest.h>
@@ -24,7 +24,7 @@ namespace {
 
 const unsigned kFiltPad = role_pad(PadRole::Filt);
 
-unsigned row_pad(unsigned row, unsigned col) { return app::pad_at(row, col); }  // row 2: HOME's / PERFORM's row 3, row 3: HOME's row 4
+unsigned row_pad(unsigned row, unsigned col) { return app::pad_at(row, col); }  // row 2: HOME's / PERFORM KNOBS' row 3, row 3: HOME's row 4
 
 float goal(Hands& t, unsigned id, unsigned col) {
   const core::ParamDesc* d = t.h->engine().param_desc(kVoice, static_cast<std::uint16_t>(id));
@@ -73,7 +73,7 @@ TEST_CASE("ladder rows: assign, assign again (back to the default), no lane, res
   CHECK(ladder_assign(w, c, kLadderHome4, tempo) == LadderAssign::NoLane);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
 
-  // KN1: PERFORM's row 3 is HOME's row 3, so no row follows it.
+  // KN1: PERFORM KNOBS' row 3 is HOME's row 3, so no row follows it.
   CHECK(ladder_entry(c, w, kLadderHome3).id == AcidVoice::Cutoff);
 
   // Shift + FILT: both HOME rows, and only them.
@@ -218,108 +218,20 @@ TEST_CASE("HOME: REC while the pattern plays writes a tap of a held knob's row a
   t.tap(Button::Play);
 }
 
-TEST_CASE("PERFORM row 3 (KN1): CUTOFF whatever F key is latched; an F key held + a tap holds another knob, and again CUTOFF") {
-  Hands t;
-  t.to_perform();
-  t.wait(60);
-  const unsigned r3 = 2;
-  // A latched F4 (DECAY) no longer steers the row: it drives CUTOFF, as HOME's row 3 does.
-  t.tap(Button::F4);
-  const float decay0 = val(t, AcidVoice::Decay);
-  t.pad(row_pad(r3, 3), 10);
-  t.wait(100);
-  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(goal(t, AcidVoice::Cutoff, 3)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::Decay) == decay0);
-  const float cutoff = val(t, AcidVoice::Cutoff);
-  const float accent0 = val(t, AcidVoice::Accent);
-  // Hold F5 (ACCENT) and tap a pad: the row holds ACCENT, nothing moves.
-  assign(t, Button::F5, row_pad(r3, 9));
-  CHECK(val(t, AcidVoice::Accent) == accent0);
-  CHECK(val(t, AcidVoice::Cutoff) == cutoff);
-  t.tap(Button::F4);
-  t.pad(row_pad(r3, 8), 10);
-  t.wait(100);
-  CHECK(val(t, AcidVoice::Accent) == doctest::Approx(goal(t, AcidVoice::Accent, 8)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::Decay) == decay0);
-  // Again with ACCENT held: back to CUTOFF (not to the latch).
-  assign(t, Button::F5, row_pad(r3, 9));
-  t.tap(Button::F4);
-  t.pad(row_pad(r3, 1), 10);
-  t.wait(100);
-  CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(goal(t, AcidVoice::Cutoff, 1)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::Decay) == decay0);
-}
-
-TEST_CASE("PERFORM row 3 (KN1) is HOME's row 3: one assignment shows on both screens") {
-  Hands t;
-  t.to_perform();
-  t.wait(60);
-  assign(t, Button::F4, row_pad(2, 0));  // DECAY on PERFORM's row 3
-  t.to_home();
-  t.wait(60);
+TEST_CASE("PERFORM KNOBS row 3 is HOME's row 3: one assignment shows on both screens (PERFORM page 1's row 3 is the wobble rates since H1)") {
+  Hands t;  // it starts on HOME
   home_filt(t);
+  assign(t, Button::F4, row_pad(2, 0));  // DECAY on HOME's row 3
+  t.to_perform();
+  t.to_perform();  // PERFORM KNOBS
+  t.wait(60);
+  REQUIRE(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
   const float decay0 = val(t, AcidVoice::Decay);
   const float cut0 = val(t, AcidVoice::Cutoff);
-  t.pad(row_pad(2, 11), 10);  // HOME's row 3 now drives DECAY too
+  t.pad(row_pad(2, 11), 10);  // KNOBS' row 3 drives DECAY too
   t.wait(100);
   CHECK(val(t, AcidVoice::Decay) != decay0);
   CHECK(val(t, AcidVoice::Cutoff) == cut0);
-}
-
-TEST_CASE("PERFORM row 3: a held knob survives leaving PERFORM; a switch is set at once; the row blinks while an F key is held") {
-  Hands t;
-  t.to_perform();
-  t.wait(60);
-  const unsigned r3 = 2;
-  assign(t, Button::F6, row_pad(r3, 0));  // the wave
-  t.to_home();
-  t.wait(60);
-  t.to_perform();
-  t.wait(60);
-  t.tap(Button::F1);  // the latch is CUTOFF: the row ignores it
-  t.pad(row_pad(r3, 1), 10);
-  t.wait(30);
-  CHECK(val(t, AcidVoice::Wave) == doctest::Approx(1.0f));
-  CHECK(app_sequencer().slewing() == 0);
-  t.press(Button::F2);
-  bool lit = false;
-  bool dark = false;
-  for (unsigned i = 0; i < 40; ++i) {
-    t.wait(20);
-    (t.led(row_pad(r3, 0)) == app::kLedOn ? lit : dark) = true;
-  }
-  t.release(Button::F2);
-  CHECK(lit);
-  CHECK(dark);
-}
-
-TEST_CASE("PERFORM row 3: REC while the pattern plays writes the jump as motion, CUTOFF or the knob held") {
-  Hands t;
-  t.to_perform();
-  t.wait(60);
-  const unsigned r3 = 2;
-  t.tap(Button::Play);
-  t.wait(300);
-  t.tap(Button::Rec);
-  t.wait(100);
-  t.tap(Button::F2);  // the latch (RESO) is not the row's knob: CUTOFF is
-  t.pad(row_pad(r3, 7), 10);
-  t.wait(300);
-  const int cutoff = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Cutoff);
-  REQUIRE(cutoff >= 0);
-  CHECK(seq::lane_has_motion(t.pat(), static_cast<unsigned>(cutoff)));
-  const int decay_before = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Decay);
-  if (decay_before >= 0) {
-    CHECK_FALSE(seq::lane_has_motion(t.pat(), static_cast<unsigned>(decay_before)));
-  }
-  assign(t, Button::F4, row_pad(r3, 0));  // holds DECAY
-  t.tap(Button::F2);
-  t.pad(row_pad(r3, 10), 10);
-  t.wait(300);
-  const int decay = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::Decay);
-  REQUIRE(decay >= 0);
-  CHECK(seq::lane_has_motion(t.pat(), static_cast<unsigned>(decay)));
-  t.tap(Button::Play);
 }
 
 TEST_CASE("ladder rows: a list or a short whole-number knob has a pad a value, a continuous knob twelve steps of its curve") {
