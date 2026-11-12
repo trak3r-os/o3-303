@@ -342,7 +342,7 @@ constexpr Text kTexts[kIdCount] = {
      kTractButtons.n,
      kTractGroups,
      count_of(sizeof kTractGroups / sizeof kTractGroups[0]),
-     "ROWS 1-2: THE STEPS (LINE LAYER: THE LINE). ROW 3: PALETTE. ROW 4: LIVE VOWELS. SAMPLE EDIT: NEXT LAYER."},
+     "ROWS 1-2: STEPS (LINE LAYER: THE LINE). ROW 3: PALETTE. ROW 4: LIVE VOWELS. SAMPLE EDIT: LAYER."},
     // Growl
     {"GROWL",
      "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE LEVEL. INSTR: ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",

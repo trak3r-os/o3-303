@@ -211,6 +211,65 @@ TEST_CASE("skin instrument: a step lights ACCENT and SLIDE as its gate says and 
   CHECK(skin::step_leds(cell(true, true, false), true).accent);
 }
 
+TEST_CASE("skin instrument: TRACT's strip rows are its mouth (E2b): TONGUE and LIPS are LEDs lit by a lock, the vowel is a glyph tinted by GLD and by a VOWEL lock") {
+  InstrumentCell c;
+  const skin::StepLeds none = skin::tract_leds(c);
+  CHECK_FALSE(none.accent);
+  CHECK_FALSE(none.slide);
+  CHECK(none.step == skin::StripLed::Off);
+  c.tongue = true;
+  CHECK(skin::tract_leds(c).slide);
+  CHECK(skin::tract_leds(c).step == skin::StripLed::Off);
+  c.lips = true;
+  CHECK(skin::tract_leds(c).step == skin::StripLed::Lit);
+  CHECK_FALSE(skin::tract_leds(c).accent);  // the ACCENT row is no LED there
+  const char* const letters = "-AEIOU";
+  for (std::uint8_t v = 0; v < 6; ++v) {
+    c.vowel = v;
+    CHECK(skin::vowel_glyph(c)[0] == letters[v]);
+    CHECK(skin::vowel_glyph(c)[1] == '\0');
+  }
+  c.vowel = 200;  // out of range: "-", never an out-of-bounds read
+  CHECK(skin::vowel_glyph(c)[0] == '-');
+  c.vowel = 1;
+  CHECK(skin::vowel_ink(c) == ui::Color::Text);
+  c.glide = true;
+  CHECK(skin::vowel_ink(c) == ui::Color::Accent);
+  c.vowel_lock = true;
+  CHECK(skin::vowel_ink(c) == ui::Color::Vol);
+}
+
+TEST_CASE("skin instrument: TRACT's ACCENT row holds no LED sprite and a vowel glyph per vowel step, at no more shapes than a line of dashes (E2b)") {
+  OnInstrument o(Where::Tract);
+  const unsigned shapes_dash = o.q().shapes();
+  const unsigned texts_dash = o.q().texts();
+  CHECK(o.sprites(skin::Layer::Led, skin_assets::Id::Led) > 0u);  // the SLIDE and STEP rows are there
+  const int accent_y = skin::led_centre(skin::StripRow::Accent, 0).y - 8;
+  auto accent_row_leds = [&o, accent_y]() {
+    unsigned n = 0;
+    for (unsigned i = 0; i < o.q().shapes(); ++i) {
+      skin::Panel::SpriteInfo sp;
+      n += o.q().sprite_at(i, sp) && sp.layer == skin::Layer::Led && sp.y == accent_y ? 1u : 0u;
+    }
+    return n;
+  };
+  CHECK(accent_row_leds() == 0u);
+  CHECK(o.texts_in(accent_y, accent_y + 1, ui::Color::Text) == 0u);  // "-" steps say nothing
+  // Sixteen vowel steps, the first four with GLD.
+  for (unsigned k = 0; k < 16; ++k) {
+    REQUIRE(bank().set_tract_step(o.t.selected(), k, static_cast<std::uint8_t>(1u + k % 5u), k < 4u));
+  }
+  o.t.wait(60);
+  o.s = static_cast<InstrumentScreen*>(o.t.h->runtime().context().screen());
+  CHECK(accent_row_leds() == 0u);
+  CHECK(o.texts_in(accent_y, accent_y + 1, ui::Color::Accent) == 4u);
+  CHECK(o.texts_in(accent_y, accent_y + 1, ui::Color::Text) == 12u);
+  CHECK(o.q().shapes() == shapes_dash);  // the glyphs are texts: the shapes do not grow
+  CHECK(o.q().texts() == texts_dash + 16u);
+  MESSAGE("TRACT, 16 vowel steps vs a line of dashes: shapes " << shapes_dash << " -> " << o.q().shapes() << ", texts " << texts_dash << " -> " << o.q().texts() << " of " << skin::Panel::kTexts);
+  o.intact();
+}
+
 TEST_CASE("skin instrument: an LED's tint says its row and its state, and the key's tint alternates by groups of four") {
   const skin::StepLeds off = skin::step_leds(cell(false, false, false), false);
   const skin::StepLeds dim = skin::step_leds(cell(true, false, false), false);
@@ -698,7 +757,8 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
     }
     // TRACT's pads are its own (the line, the palette, the live vowels): the 16 held pads are not 16 held steps there, one ring at least
     CHECK_MESSAGE(rings >= (w == Where::Tract ? 1u : 16u), where_name(w));
-    CHECK_MESSAGE(leds_on >= 32u + 15u, where_name(w));  // ACCENT and SLIDE of the 16 and the dim STEP of the 15 off the playhead (the playhead's is lit: also counted, so 48)
+    // ACCENT and SLIDE of the 16 and the dim STEP of the 15 off the playhead (the playhead's is lit: also counted, so 48); TRACT's rows are its mouth (E2b): the vowel glyph, the TONGUE and LIPS locks, none lit here
+    CHECK_MESSAGE(leds_on >= (w == Where::Tract ? 0u : 32u + 15u), where_name(w));
     CHECK_MESSAGE(message == 1u, where_name(w) << ": the toast is in the PAGE window (this counts the accent-coloured LEARN wait in the PAGE window, which an armed knob has: WOBBLE's keys arm too since D1)");
     CHECK_MESSAGE(q.dropped() == 0u, where_name(w));
     MESSAGE("worst frame, " << where_name(w) << ": " << q.shapes() << " shapes of " << skin::Panel::kShapes << ", " << q.texts() << " texts of " << skin::Panel::kTexts);

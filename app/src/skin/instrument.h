@@ -38,6 +38,13 @@ struct StepLeds {
 };
 StepLeds step_leds(const InstrumentCell& c, bool playhead) noexcept;
 
+// The TRACT page's strip (E2b) keeps the three rows and the STEP-grid but says the mouth: the ACCENT row is the step's vowel glyph (`vowel_glyph`, drawn as text, no LED), the SLIDE row the TONGUE
+// LED (lit = the step locks TONGUE) and the STEP row the LIPS LED (lit = it locks LIPS). `tract_leds` gives the two LEDs in the same StepLeds (`accent` unused, false); the playhead is the note and the number's green, as everywhere.
+StepLeds tract_leds(const InstrumentCell& c) noexcept;
+// The glyph of the vowel row: "-" for a step that follows the knob, else A E I O U (a literal, valid for the program) and its tint: the lock's teal (a VOWEL lock of the step) over GLD's amber over the plain text.
+const char* vowel_glyph(const InstrumentCell& c) noexcept;
+ui::Color vowel_ink(const InstrumentCell& c) noexcept;
+
 // The colour of the LED of `row` for these lights: amber, green and red when lit, dim red for a STEP on a note, the socket's own dark red when off.
 ui::Rgb led_tint(StripRow row, const StepLeds& leds) noexcept;
 

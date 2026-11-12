@@ -367,6 +367,37 @@ void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept
   }
 }
 
+void fill_tract_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept {
+  view.tract = true;
+  const unsigned len = p.length != 0u ? p.length : kDefaultLength;
+  // The three lock lanes of the strip, found once for the page: -1 when the pattern has none.
+  const int lane_of[3] = {seq::find_lane(p, kLaneTract, static_cast<std::uint8_t>(TractFx::Vowel)), seq::find_lane(p, kLaneTract, static_cast<std::uint8_t>(TractFx::Tongue)),
+                          seq::find_lane(p, kLaneTract, static_cast<std::uint8_t>(TractFx::Lips))};
+  for (unsigned k = 0; k < view.cells; ++k) {
+    const unsigned s = first + k;
+    InstrumentCell& c = view.cell[k];
+    const std::uint8_t step = p.tract.step[tract_line_step_of(s, p.tract, len)];
+    c.vowel = tract_vowel(step);
+    c.glide = c.vowel != kTractFollow && tract_glide(step);
+    bool lock[3];
+    for (unsigned i = 0; i < 3u; ++i) {
+      lock[i] = lane_of[i] >= 0 && step_lock_point(p, static_cast<unsigned>(lane_of[i]), s) != kNoLock;
+    }
+    c.vowel_lock = lock[0];
+    c.tongue = lock[1];
+    c.lips = lock[2];
+    unsigned n = 0;
+    c.gate[n++] = c.vowel != kTractFollow ? kTractVowelLetter[c.vowel - kTractA] : '-';
+    if (c.glide) {
+      c.gate[n++] = '~';
+    }
+    if (c.vowel_lock) {
+      c.gate[n++] = '*';
+    }
+    c.gate[n] = '\0';
+  }
+}
+
 const InstrumentGroup& instrument_group() noexcept { return kInstrumentGroup; }
 const InstrumentGroup& modded_group() noexcept { return kModdedGroup; }
 const InstrumentGroup& growl_group() noexcept { return kGrowlGroup; }
@@ -1240,6 +1271,9 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   const seq::Bank& bank = *rig_->bank;
   view.marks = home_->drawer(ctx);
   fill_cells(bank.pattern(bank.selected()), static_cast<unsigned>(view.marks.page) * 16u, view);
+  if (tract_page()) {
+    fill_tract_cells(bank.pattern(bank.selected()), static_cast<unsigned>(view.marks.page) * 16u, view);
+  }
 }
 
 app::Chrome InstrumentScreen::chrome(const app::Context& ctx) const noexcept { return skin::active(ctx) ? app::Chrome::None : app::Chrome::Full; }

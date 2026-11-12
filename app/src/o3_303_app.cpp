@@ -468,6 +468,7 @@ class O3_303App final : public app::App {
   o3_303::seq::Sequencer& sequencer() noexcept { return sequencer_; }
   o3_303::SnapBank& snapshots() noexcept { return rig_.wiring.snaps; }
   o3_303::ProjectService& project() noexcept { return project_; }
+  o3_303::HomeMap& home_map() noexcept { return main_.home_map(); }
 
  private:
   o3_303::AcidVoice voice_;
@@ -518,5 +519,6 @@ seq::Sequencer& app_sequencer() noexcept { return static_cast<O3_303App&>(o3sdk_
 SnapBank& app_snapshots() noexcept { return static_cast<O3_303App&>(o3sdk_app()).snapshots(); }
 
 ProjectService& app_project() noexcept { return static_cast<O3_303App&>(o3sdk_app()).project(); }
+HomeMap& app_home_map() noexcept { return static_cast<O3_303App&>(o3sdk_app()).home_map(); }
 
 }  // namespace o3_303

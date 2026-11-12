@@ -40,7 +40,7 @@ using o3_303::app_sequencer;
 namespace {
 
 unsigned vowel_pad(unsigned v) { return app::pad_at(3, v); }
-o3_303::HomeMap& home_of(Hands& t) { return static_cast<o3_303::MainScreen*>(t.h->runtime().context().screen())->home_map(); }
+o3_303::HomeMap& home_of(Hands&) { return o3_303::app_home_map(); }  // the shared home map: valid on every screen of the HOME class (a cast of screen() to MainScreen is only so on HOME)
 
 }  // namespace
 
@@ -435,7 +435,7 @@ namespace {
 
 std::string toast_now(Hands& t) {
   o3_303::frame::StatusView sv;
-  home_of(t).status(sv);
+  home_of(t).status(sv);  // the home map the screens share: the toast an INSTRUMENT-class screen raised
   return sv.toast;
 }
 
@@ -513,7 +513,7 @@ TEST_CASE("tract page STEPS: a tap selects a pattern step, the palette writes th
   t.pad(pal_pad(10));
   t.up(5);
   CHECK(o3_303::tract_glide(step_of(5)));
-  t.pad(9);
+  t.pad(app::pad_at(1, 1));  // step 9, a "-" step
   t.pad(pal_pad(10));
   CHECK(step_of(9) == 0u);
   CHECK(toast_now(t) == "GLD NEEDS A VOWEL");
@@ -580,4 +580,57 @@ TEST_CASE("tract page STEPS: a held step with F2 or F3 turned locks TONGUE and L
   CHECK(step_of(1) == 0u);
   CHECK_FALSE(o3_303::seq::lane_has_motion(t.pat(), static_cast<unsigned>(tongue)));
   CHECK_FALSE(o3_303::seq::lane_has_motion(t.pat(), static_cast<unsigned>(lips)));
+}
+
+TEST_CASE("tract page strip: fill_tract_cells gives each step's vowel, GLD and its VOWEL, TONGUE and LIPS locks, the gate text says them, and only the TRACT page fills it (E2b)") {
+  Hands t;
+  t.to_tract();
+  REQUIRE(bank().set_tract_step(t.selected(), 0, 1, false));  // A
+  REQUIRE(bank().set_tract_step(t.selected(), 1, 4, true));   // O, GLD
+  REQUIRE(bank().set_tract_step(t.selected(), 5, 0, true));   // "-" with GLD: it plays no vowel, so no glide
+  t.down(3);
+  t.tap(Button::F2);  // TONGUE
+  t.turn(3);
+  t.tap(Button::F3);  // LIPS
+  t.turn(-3);
+  t.up(3);
+  const unsigned sel = t.selected();
+  // A VOWEL lock of step 1 as the knob's ladder or MIDI learn puts it (a held step's F1 turn on the STEPS layer is a line write): the lane of TractFx::Vowel.
+  CHECK(bank().lock_step(sel, o3_303::kLaneTract, static_cast<std::uint8_t>(TractFx::Vowel), 1, 40) >= 0);
+  o3_303::InstrumentView v;
+  o3_303::fill_cells(t.pat(), 0, v);
+  o3_303::fill_tract_cells(t.pat(), 0, v);
+  CHECK(v.tract);
+  REQUIRE(v.cells >= 8u);
+  CHECK(v.cell[0].vowel == 1u);
+  CHECK_FALSE(v.cell[0].glide);
+  CHECK(std::strcmp(v.cell[0].gate, "A") == 0);
+  CHECK(v.cell[1].vowel == 4u);
+  CHECK(v.cell[1].glide);
+  CHECK(v.cell[1].vowel_lock);
+  CHECK(std::strcmp(v.cell[1].gate, "O~*") == 0);
+  CHECK(v.cell[3].tongue);
+  CHECK(v.cell[3].lips);
+  CHECK_FALSE(v.cell[3].vowel_lock);
+  CHECK(std::strcmp(v.cell[3].gate, "-") == 0);
+  CHECK_FALSE(v.cell[5].glide);
+  CHECK(std::strcmp(v.cell[5].gate, "-") == 0);
+  CHECK_FALSE(v.cell[2].tongue);
+  CHECK_FALSE(v.cell[2].lips);
+  // A fixed line of 4 wraps under the pattern's steps: step 4 shows the line's step 0.
+  CHECK(bank().set_tract_length(sel, 4));
+  o3_303::fill_cells(t.pat(), 0, v);
+  o3_303::fill_tract_cells(t.pat(), 0, v);
+  CHECK(v.cell[4].vowel == 1u);
+  CHECK(v.cell[5].vowel == 4u);
+  // fill_view: TRACT sets the flag, GROWL does not.
+  app::Context& ctx = t.h->runtime().context();
+  o3_303::InstrumentView on;
+  static_cast<o3_303::InstrumentScreen*>(ctx.screen())->fill_view(ctx, on);
+  CHECK(on.tract);
+  t.to_growl();
+  t.wait(60);
+  o3_303::InstrumentView off;
+  static_cast<o3_303::InstrumentScreen*>(t.h->runtime().context().screen())->fill_view(t.h->runtime().context(), off);
+  CHECK_FALSE(off.tract);
 }

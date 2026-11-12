@@ -69,6 +69,9 @@ const InstrumentGroup& wobble_group() noexcept;
 // The drawer's cells of the page of 16 steps that starts at step `first` of `p`: the note ("C2", "D#3", "--" a rest, "~" a tie) and the gate glyph
 // ("." rest, "-" note, "A", "S", "AS", "~" tie); `view.cells` is how many are inside the pattern.
 void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept;
+// TRACT's strip (E2b): on the cells fill_cells() made, the mouth of each step of the same page: the line vowel under the step (`tract_line_step_of`: its own length wraps), GLD, and
+// whether the pattern locks VOWEL, TONGUE or LIPS (kLaneTract lanes 0, 1, 2) on it; the gate text becomes "A", "A~" (GLD), "A*" (a VOWEL lock) or "-" (none), and `view.tract` is set.
+void fill_tract_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept;
 // The read-out sections page `page` of `group` shows, each line "value" + unit as the knob row shows it; the wobble line is ON or OFF. A page the group does not have shows none.
 void fill_sections(const o3sdk::dsp::Engine& e, const Controls& controls, bool wobble_on, const InstrumentGroup& group, unsigned page, InstrumentView& view) noexcept;
 // The knob `kn` as the lock of the held step `step` (0-based): "LOCK 5", the lock's text and position, in Accent. The label is kept in `view`.

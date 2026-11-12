@@ -24,10 +24,16 @@ struct InstrumentSection {
 // One step of the drawer's two lines (and, on the skin, of its LEDs and key).
 struct InstrumentCell {
   char note[5] = "";  // "C2", "D#3", "--" a rest, "~" a tie
-  char gate[3] = "";  // ".", "-", "A", "S", "AS", "~"
+  char gate[4] = "";  // ".", "-", "A", "S", "AS", "~"; on the TRACT page the step's vowel letter ("-" none) and "~" for GLD, "*" for a VOWEL lock ("A~*")
   bool accent = false;  // the gate glyph says A: the skin's ACCENT LED
   bool slide = false;   // ... S: its SLIDE LED
   bool on = false;      // a note or a tie (not a rest): its STEP LED
+  // The TRACT page's strip (E2b; filled by fill_tract_cells(), zero elsewhere): the mouth of the step.
+  std::uint8_t vowel = 0;   // the line's vowel under the step: 0 "-" (follows the knob), 1..5 = A E I O U
+  bool glide = false;       // GLD on a vowel step (the mouth glides to the next one)
+  bool vowel_lock = false;  // a VOWEL lock of the step (the lane lock of F1 on a held step)
+  bool tongue = false;      // a TONGUE lock of the step: the skin's SLIDE row LED
+  bool lips = false;        // a LIPS lock of the step: the skin's STEP row LED
 };
 
 // What the Shift row says of a knob (MIDI learn, UX-303 5.5): nothing while Shift is up; "-" for a knob that is not a unit parameter (and for an empty box); LEARN; LEARN waiting for its controller.
@@ -40,6 +46,7 @@ struct InstrumentView {
   InstrumentSection section[kMaxSections];
   unsigned sections = 0;
   InstrumentCell cell[16];  // the page of 16 steps shown
+  bool tract = false;       // TRACT: the strip shows the mouth (vowel glyph, TONGUE and LIPS LEDs) where the others show ACCENT, SLIDE and STEP (E2b)
   unsigned cells = 0;       // how many of them are inside the pattern
   view::Marks marks;        // the cursor, the playhead and the held steps of the page
   char lock_label[16] = "";  // "LOCK 5": the label of the knob the encoder locks on a held step

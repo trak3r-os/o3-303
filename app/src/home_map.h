@@ -300,4 +300,7 @@ class HomeMap {
   mutable help_texts::KeyNames help_names_ = {};
 };
 
+// The running app's home map (the one every screen of the HOME class shares), for the tests: a toast raised on INSTRUMENT is read from it (defined in o3_303_app.cpp).
+HomeMap& app_home_map() noexcept;
+
 }  // namespace o3_303

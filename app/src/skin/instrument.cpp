@@ -174,9 +174,9 @@ void queue_leds(Panel& p, const InstrumentView& v, unsigned playhead_k) noexcept
   constexpr StripRow kRows[3] = {StripRow::Accent, StripRow::Slide, StripRow::Step};
   for (unsigned t = 0; t < kTones; ++t) {
     for (unsigned k = 0; k < v.cells; ++k) {
-      const StepLeds l = step_leds(v.cell[k], k == playhead_k);
+      const StepLeds l = v.tract ? tract_leds(v.cell[k]) : step_leds(v.cell[k], k == playhead_k);
       for (const StripRow row : kRows) {
-        if (tone_of(row, l) != static_cast<Tone>(t)) {
+        if ((v.tract && row == StripRow::Accent) || tone_of(row, l) != static_cast<Tone>(t)) {  // TRACT: the ACCENT row is the vowel glyph, text and no LED
           continue;
         }
         const Pt c = led_centre(row, k);
@@ -222,11 +222,12 @@ void queue_strip_text(Panel& p, const InstrumentView& v, unsigned cursor_k, unsi
   const bool note_owned = v.marks.row == DrawerRow::Note;
   const bool gate_owned = v.marks.row == DrawerRow::Gate;
   static constexpr const char* kCaption[4] = {"NOTE", "ACCENT", "SLIDE", "STEP"};
+  static constexpr const char* kTractCaption[4] = {"NOTE", "VOWEL", "TONGUE", "LIPS"};
   const int cy[4] = {kNoteY + 10, kLedY[0], kLedY[1], kLedY[2]};
   for (int i = 0; i < 4; ++i) {
     const bool owned = i == 0 ? note_owned : gate_owned;  // the colour button that owns the row gives its colour: NOTE teal, GATE amber
     const bool heard = (i == 1 && v.heard_accent) || (i == 2 && v.heard_slide);  // the latched mod is heard on accents (A) or slides (S): that row's caption lights
-    p.text(kCaptionX, cy[i] - 6, kCaption[i], owned || heard ? (i == 0 ? Color::Vol : Color::Accent) : Color::ChromeDim, Face::Micro);
+    p.text(kCaptionX, cy[i] - 6, v.tract ? kTractCaption[i] : kCaption[i], owned || heard ? (i == 0 ? Color::Vol : Color::Accent) : Color::ChromeDim, Face::Micro);
   }
   for (unsigned k = 0; k < v.cells; ++k) {
     const InstrumentCell& c = v.cell[k];
@@ -235,6 +236,9 @@ void queue_strip_text(Panel& p, const InstrumentView& v, unsigned cursor_k, unsi
     const int cx = step_cx(k);
     p.text(cx - len_of(c.note) * char_w(Face::Data) / 2, kNoteY, c.note, ink, Face::Data);
     view::fmt_uint(static_cast<unsigned>(v.marks.page * 16) + k + 1u, numbers[k]);
+    if (v.tract && c.vowel != 0u) {  // a "-" step says nothing: the row stays empty, so a line of a few vowels costs a few texts
+      p.text(cx - char_w(Face::Label) / 2, kLedY[0] - 8, vowel_glyph(c), vowel_ink(c), Face::Label);
+    }
     const bool special = k == playhead_k || k == cursor_k;
     p.text(cx - len_of(numbers[k]) * char_w(Face::Micro) / 2, kNumberY, numbers[k], special ? ink : (k % 4u == 0u ? Color::ChromeText : Color::ChromeDim), Face::Micro);
   }
@@ -270,6 +274,15 @@ Pt led_centre(StripRow row, unsigned k) noexcept { return Pt{step_cx(k), kLedY[s
 StepLeds step_leds(const InstrumentCell& c, bool playhead) noexcept {
   return StepLeds{c.accent, c.slide, playhead ? StripLed::Lit : (c.on ? StripLed::Dim : StripLed::Off)};
 }
+
+StepLeds tract_leds(const InstrumentCell& c) noexcept { return StepLeds{false, c.tongue, c.lips ? StripLed::Lit : StripLed::Off}; }
+
+const char* vowel_glyph(const InstrumentCell& c) noexcept {
+  static constexpr const char* kGlyph[6] = {"-", "A", "E", "I", "O", "U"};
+  return kGlyph[c.vowel < 6u ? c.vowel : 0u];
+}
+
+Color vowel_ink(const InstrumentCell& c) noexcept { return c.vowel_lock ? Color::Vol : (c.glide ? Color::Accent : Color::Text); }
 
 ui::Rgb led_tint(StripRow row, const StepLeds& leds) noexcept { return kToneColour[tone_of(row, leds)]; }
 
