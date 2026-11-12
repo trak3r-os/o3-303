@@ -153,8 +153,13 @@ struct Hands {
   // PERFORM SETUP from anywhere: Shift + Performance (R8); Performance then leaves it for the page it came from.
   void to_setup() { shift_tap(Button::Performance); }
   void to_home() { tap(Button::Pattern); }
-  // HOME's Shift row (UX-303 5.1), at once: F1 NEW, F2 VARY, F3 RHYTHM, F4 NOTES, F5 REVERSE, F6 CLEAR, F7 REDO, F8 UNDO.
-  void new_line() { shift_tap(Button::F1); }
+  // A fresh line from HOME: PATTERN SETUP's Shift + F6 RANDOM (the generator's line, G1), then back on HOME. HOME's own Shift row is F1 CLEAR, F2 VARY,
+  // F3 RHYTHM, F4 NOTES, F5 NOTE, F6 SCALE, F7 REDO, F8 UNDO.
+  void new_line() {
+    tap(Button::Pattern);
+    shift_tap(Button::F6);
+    tap(Button::Pattern);
+  }
   // PATTERN SETUP's F1 LENGTH (from HOME: Pattern, a tap): `steps` detents, one step of length each (I1: 1..64), then back on HOME. length_to() starts from
   // the default 16; length_jump() is Shift + turn (8, 16, 32, 64 stops).
   void length_steps(int steps) {

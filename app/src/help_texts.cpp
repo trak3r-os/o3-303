@@ -457,7 +457,7 @@ constexpr const char* kSlotNumbers[48] = {"00", "01", "02", "03", "04", "05", "0
 
 // Row 1 of PERFORM, columns 1..11: the order of the pads (perform.h kPerformActionOrder), the short names the screen's lamps carry; column 12 is ALL OFF.
 constexpr const char* kActionPads[11] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "ROLL", "STOP", "REV", "WOB"};
-constexpr const char* kVariationPads[4] = {"NEW", "VARY", "UNDO", "REDO"};
+constexpr const char* kVariationPads[4] = {"RAND", "VARY", "UNDO", "REDO"};
 constexpr const char* kLadderPads[app::kPadCols] = {"MIN", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "MAX"};
 constexpr const char* kPerformKeyPads[app::kPadCols] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 constexpr const char* kModifierPads[2][4] = {{"ACC", "SLIDE", "TIE", "REST"}, {"OCT-", "OCT+", "TRNSP", "FILT"}};

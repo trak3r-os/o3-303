@@ -46,25 +46,27 @@ constexpr int kPadsY = kGlassBottom - frame::kPadsLineH - 2;   // the PADS line:
 constexpr int kSkinHeroH = 208;
 
 // The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters).
-constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
-// PATTERN SETUP's: F5 is ROOT (the generator's root, on the encoder until an F key is pressed), F6 is free, F7 and F8 are REDO and UNDO as on HOME.
-constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "ROOT", "-", "REDO", "UNDO"};
+// F5 NOTE and F6 SCALE give the encoder the generator's root and scale (G1); NEW and REVERSE moved to PATTERN SETUP's row (RANDOM, REVERSE).
+constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"CLEAR", "VARY", "RHYTHM", "NOTES", "NOTE", "SCALE", "REDO", "UNDO"};
+// PATTERN SETUP's: F5 REVERSE and F6 RANDOM (the F row's names are cut to eight characters), F7 and F8 are REDO and UNDO as on HOME.
+constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "REVERSE", "RANDOM", "REDO", "UNDO"};
 // What each Shift key does, in a few words under it on the obsidian skin's F row (the classic strip has no room). "" none.
-constexpr const char* kHomeKeyHints[app::kFKeyCount] = {"new line", "25 %", "same notes", "same beat", "backwards", "empty line", "step fwd", "step back"};
-constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "key of scale", "", "step fwd", "step back"};
-constexpr unsigned kToolNew = 0;
+constexpr const char* kHomeKeyHints[app::kFKeyCount] = {"empty line", "25 %", "same notes", "same beat", "root, turn", "scale, turn", "step fwd", "step back"};
+constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "backwards", "new line", "step fwd", "step back"};
+constexpr unsigned kToolClear = 0;
 constexpr unsigned kToolVary = 1;
 constexpr unsigned kToolRhythm = 2;
 constexpr unsigned kToolNotes = 3;
-constexpr unsigned kToolReverse = 4;
-constexpr unsigned kToolClear = 5;
+constexpr unsigned kToolNote = 4;   // the encoder is the generator's root
+constexpr unsigned kToolScale = 5;  // the encoder is the generator's scale
 constexpr unsigned kToolRedo = 6;
 constexpr unsigned kVaryPct = 25;  // VARY: today's MUTATE at 25 % (UX-303 7)
 constexpr unsigned kToolCopyPat = 0;
 constexpr unsigned kToolPastePat = 1;
 constexpr unsigned kToolDupNext = 2;
 constexpr unsigned kToolClearLocks = 3;
-constexpr unsigned kToolRoot = 4;
+constexpr unsigned kToolReverse = 4;
+constexpr unsigned kToolRandom = 5;
 constexpr unsigned kToolUndo = 7;
 
 // `s` cut to `max` characters into `out` (cap > max).
@@ -133,7 +135,7 @@ void MainScreen::init(Rig& rig) noexcept {
   win_lo_ = 0;
   win_hi_ = 0;
   tool_mask_ = 0;
-  root_enc_ = false;  // ROOT lasts until an F key is pressed or the screen is left
+  enc_owner_ = EncOwner::None;  // NOTE and SCALE last until an F key is pressed or the screen is left
 }
 
 const char* MainScreen::title() const noexcept {
@@ -156,6 +158,7 @@ void MainScreen::leave(app::Context& ctx) noexcept {
   live_->snap_finish(ctx, true);
   live_->leave(ctx);  // the actions held end with the screen (their releases would reach another one)
   tool_mask_ = 0;
+  enc_owner_ = EncOwner::None;
 }
 
 // A seed that differs from press to press and from boot to boot: the sequence of the last one and the time of this press.
@@ -181,27 +184,31 @@ void MainScreen::input(app::Context& ctx, const Input& in) noexcept {
   }
 }
 
-// PATTERN SETUP, F5 (SCALE) held: a tap of a key of the bottom row (C to B, pads 36..47) is the generator's root, without the encoder. The press
-// is the whole gesture (the key's release reaches the home map and finds no note to end); the held key's release gives the latch back.
+// PATTERN SETUP, F5 (SCALE) held, or HOME, Shift + F5 (NOTE) held: a tap of a key of the bottom row (C to B, pads 36..47) is the generator's root, without the encoder.
+// The press is the whole gesture (the key's release reaches the home map and finds no note to end); the held key's release gives the latch back.
 bool MainScreen::root_tap(app::Context& ctx, const Input& in) noexcept {
   const unsigned pad = in.pad();
-  if (!setup_ || !in.pad_press() || pad < 36u || pad >= 48u) {
+  if (!in.pad_press() || pad < 36u || pad >= 48u) {
     return false;
   }
-  const PageKeys& fk = fkeys();
-  const Page& pg = fk.page();
-  bool scale_held = false;
-  for (unsigned k = 0; k < kKeys; ++k) {
-    scale_held = scale_held || (pg.entry[k].item == Item::Scale && (fk.held() >> k & 1u) != 0u);
+  bool root_held = !setup_ && (tool_mask_ >> kToolNote & 1u) != 0u;  // HOME: Shift + F5 is down
+  if (setup_) {
+    const PageKeys& fk = fkeys();
+    const Page& pg = fk.page();
+    for (unsigned k = 0; k < kKeys; ++k) {
+      root_held = root_held || (pg.entry[k].item == Item::Scale && (fk.held() >> k & 1u) != 0u);
+    }
   }
-  if (!scale_held) {
+  if (!root_held) {
     return false;
   }
   rig_->wiring.gen.root = static_cast<std::uint8_t>(pad - 36u);
   char text[12] = "ROOT ";
   (void)root_name(pad - 36u, text + 5, sizeof text - 5u);
   toast(ctx, text);
-  fkeys().mark_turned();
+  if (setup_) {
+    fkeys().mark_turned();
+  }
   ctx.redraw();
   return true;
 }
@@ -215,9 +222,13 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     fkeys().mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
     return;
   }
-  if (root_owns()) {  // Shift + F5 gave the encoder the root
-    seq::GenParams& g = rig_->wiring.gen;
-    g.root = static_cast<std::uint8_t>(root_step(g.root, in.delta()));
+  if (enc_owns()) {  // HOME's Shift + F5 gave the encoder the root, Shift + F6 the scale (no wrap, as the SETUP knob)
+    if (enc_owner_ == EncOwner::Root) {
+      seq::GenParams& g = rig_->wiring.gen;
+      g.root = static_cast<std::uint8_t>(root_step(g.root, in.delta()));
+    } else {
+      controls_->step(ctx.engine(), Entry{Item::Scale, 0, nullptr}, in.delta(), in.shift);
+    }
     ctx.redraw();
     return;
   }
@@ -244,16 +255,13 @@ void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
   home_tool(ctx, index);
 }
 
-// HOME's Shift row (UX-303 5.1 and 7): NEW VARY RHYTHM NOTES REVERSE CLEAR REDO UNDO. Each edit is one UNDO step of the pattern shown (Bank::edit); one that
-// changes nothing (REVERSE of a palindrome, NOTES of a line with nothing sounding, CLEAR of an empty one) says so and leaves no step. RHYTHM of an empty line
+// HOME's Shift row (UX-303 5.1 and 7, G1): CLEAR VARY RHYTHM NOTES NOTE SCALE REDO UNDO (NOTE and SCALE hand the encoder to the generator's root and scale). Each edit is one UNDO step of the pattern shown (Bank::edit); one that
+// changes nothing (NOTES of a line with nothing sounding, CLEAR of an empty one) says so and leaves no step. RHYTHM of an empty line
 // draws a one-pitch line and is a step: RHYTHM then NOTES starts a line from nothing.
 void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   const seq::GenParams& gen = rig_->wiring.gen;
   switch (index) {
-    case kToolNew:  // a new line over the length with the project's generator settings and a new seed
-      toast(ctx, bank.random_fill(sel(), gen, next_seed(ctx)) ? "NEW LINE" : "NO CHANGE", false);
-      break;
     case kToolVary:
       toast(ctx, bank.mutate(sel(), gen, next_seed(ctx), kVaryPct) ? "VARIED" : "NO CHANGE", false);
       break;
@@ -263,11 +271,13 @@ void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
     case kToolNotes:  // the rhythm and the flags stay, the pitches are drawn again in the scale
       toast(ctx, bank.regen_notes(sel(), gen, next_seed(ctx)) ? "NEW NOTES" : "NO CHANGE", false);
       break;
-    case kToolReverse:
-      toast(ctx, bank.reverse(sel()) ? "REVERSED" : "NO CHANGE", false);
-      break;
     case kToolClear:
       toast(ctx, bank.clear_pattern(sel()) ? "PATTERN CLEARED" : "NO CHANGE", false);
+      break;
+    case kToolNote:  // the encoder is the generator's root (C to B, no wrap) until an F key is pressed
+    case kToolScale:  // ... or its scale
+      home_.release_row();  // a latched row had the encoder: it passes to NOTE or SCALE (a held step still keeps the turn, as for any knob)
+      enc_owner_ = index == kToolNote ? EncOwner::Root : EncOwner::Scale;
       break;
     case kToolRedo:
       toast(ctx, undo_step(*rig_, true) ? "REDO" : "NOTHING TO REDO");
@@ -286,7 +296,7 @@ void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
 void MainScreen::setup_toggle(app::Context& ctx) noexcept {
   fkeys().release_all();
   setup_ = !setup_;
-  root_enc_ = false;
+  enc_owner_ = EncOwner::None;
   fkeys().release_all();
   ctx.redraw();
 }
@@ -312,7 +322,7 @@ void MainScreen::duplicate_to_next(app::Context& ctx) noexcept {
   toast(ctx, text);
 }
 
-// Shift + F1..F5 on PATTERN SETUP (F6 is free; F7 REDO and F8 UNDO are HOME's).
+// Shift + F1..F6 on PATTERN SETUP (F7 REDO and F8 UNDO are HOME's).
 void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   switch (index) {
@@ -329,9 +339,11 @@ void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
     case kToolClearLocks:  // every lane of this pattern, the notes stay: one UNDO
       toast(ctx, bank.clear_motion(sel()) ? "LOCKS CLEARED" : "NO LOCKS TO CLEAR");
       break;
-    case kToolRoot:  // the encoder is the generator's root (C to B, no wrap) until an F key is pressed
-      home_.release_row();  // a latched row had the encoder: ROOT takes it (a held step still keeps the turn, as for any knob)
-      root_enc_ = true;
+    case kToolReverse:
+      toast(ctx, bank.reverse(sel()) ? "REVERSED" : "NO CHANGE", false);
+      break;
+    case kToolRandom:  // a new line over the length with the project's generator settings and a new seed
+      toast(ctx, bank.random_fill(sel(), rig_->wiring.gen, next_seed(ctx)) ? "RANDOMIZED" : "NO CHANGE", false);
       break;
     default:
       break;
@@ -359,7 +371,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       }
       if (fkeys().page().entry[k].item != Item::Blank) {
         home_.release_row();  // an F key gives the encoder back to the knob (UX-303 2.3); an empty box does nothing
-        root_enc_ = false;    // ... and ROOT's owner gives it back to SCALE
+        enc_owner_ = EncOwner::None;  // ... and NOTE's or SCALE's owner gives it back to the knob
       }
       (void)fkeys().input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
@@ -377,7 +389,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   }
   if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows), Pattern
     if (home_.row() != DrawerRow::None) {
-      root_enc_ = false;  // a drawer row latched: it owns the encoder, not ROOT
+      enc_owner_ = EncOwner::None;  // a drawer row latched: it owns the encoder, not NOTE or SCALE
     }
     return;
   }
@@ -405,7 +417,7 @@ void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
 bool MainScreen::tool_dim(unsigned k) const noexcept {
   const seq::Bank& bank = *rig_->bank;
   if (setup_) {
-    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k == kToolRedo ? !bank.can_redo() : k > kToolRoot));
+    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k == kToolRedo && !bank.can_redo()));
   }
   return (k == kToolRedo && !bank.can_redo()) || (k == kToolUndo && !bank.can_undo());
 }
@@ -428,8 +440,18 @@ void MainScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
 // What the encoder moves, as the status line says it ("ENC > F1 CUTOFF"): a row of the drawer, or the F key latched (or held).
 void MainScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
-  if (root_owns()) {
-    append(out, cap, "ROOT");
+  if (enc_owns()) {
+    if (enc_owner_ == EncOwner::Root) {
+      append(out, cap, "ROOT ");
+      char rn[4];
+      (void)root_name(rig_->wiring.gen.root, rn, sizeof rn);
+      append(out, cap, rn);
+    } else {
+      char sn[24];
+      append(out, cap, "SCALE ");
+      scale_value_text(rig_->wiring.gen.scale, false, sn, sizeof sn, -1);
+      append(out, cap, sn);
+    }
   } else if (home_.row() != DrawerRow::None) {
     home_.row_text(ctx, out, cap);
   } else {
@@ -557,19 +579,9 @@ void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kK
     if (kn.blank) {
       continue;
     }
-    kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus();
-    if (setup_ && pg.entry[k].item == Item::Scale) {  // SCALE shows its root beside the name; ROOT takes the box while the encoder has it
-      char rn[4];
-      const unsigned root = rig_->wiring.gen.root;
-      (void)root_name(root, rn, sizeof rn);
-      if (root_owns()) {
-        kn.label = "ROOT";
-        cut(rn, sizeof kn.value - 1u, kn.value, sizeof kn.value);
-        kn.unit = "";
-        kn.norm = static_cast<float>(root < 11u ? root : 11u) / 11.0f;
-      } else {
-        scale_value_text(rig_->wiring.gen.scale, false, kn.value, sizeof kn.value, static_cast<int>(root));
-      }
+    kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus() && !enc_owns();  // NOTE and SCALE took the encoder: no knob is focused
+    if (setup_ && pg.entry[k].item == Item::Scale) {  // SCALE shows its root beside the name
+      scale_value_text(rig_->wiring.gen.scale, false, kn.value, sizeof kn.value, static_cast<int>(rig_->wiring.gen.root));
     }
     kn.held = (fk.held() >> k & 1u) != 0u;
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent

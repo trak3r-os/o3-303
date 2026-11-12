@@ -55,8 +55,12 @@ class MainScreen final : public o3sdk::app::Screen {
 
   // PATTERN SETUP (UX-303 5.2) is the second page of this screen: a tap of Pattern flips it and HOME.
   bool setup() const noexcept { return setup_; }
-  // The encoder is ROOT's: Shift + F5 set it and no drawer row or held step has taken it since (what the strip and the F5 box say).
-  bool root_owns() const noexcept { return setup_ && root_enc_ && home_.row() == DrawerRow::None && !home_.any_step_held(); }
+  // Who owns the encoder besides the F keys: HOME's Shift + F5 (NOTE, the generator's root) or Shift + F6 (SCALE) gave it away, until an F key, a drawer row, the Pattern
+  // button or leaving the screen takes it back (G1).
+  enum class EncOwner : std::uint8_t { None, Root, Scale };
+  // True while that gift stands: no drawer row has latched and no step is held since (what the status line says).
+  bool enc_owns() const noexcept { return !setup_ && enc_owner_ != EncOwner::None && home_.row() == DrawerRow::None && !home_.any_step_held(); }
+  EncOwner enc_owner() const noexcept { return enc_owner_; }
   bool pattern_overlay() const noexcept { return home_.overlay(); }
   int cursor() const noexcept { return home_.cursor(); }
   // The home map the screen forwards to: another home-map screen (INSTRUMENT) uses the same one, so the cursor, the octave, Rec and FILT are shared.
@@ -118,7 +122,7 @@ class MainScreen final : public o3sdk::app::Screen {
   PageKeys setup_keys_;  // PATTERN SETUP's F keys (setup_page()): one page, key 0 (LENGTH) latched
 
   // Modes.
-  bool root_enc_ = false;  // Shift + F5 on PATTERN SETUP: the encoder is the generator root until an F key is pressed (main thread only)
+  EncOwner enc_owner_ = EncOwner::None;  // HOME's Shift + F5 / F6: the encoder is the generator's root or scale until an F key is pressed (main thread only)
   bool setup_ = false;   // PATTERN SETUP is shown (a tap of Pattern); every other piece of the screen is shared with HOME
 
   // The pitch window keeps what it has shown for the pattern, so it does not jump while notes are entered.

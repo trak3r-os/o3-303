@@ -1,5 +1,5 @@
-# HOME's Shift row, tool by tool (UX-303 5.1 and 7): NEW VARY RHYTHM NOTES REVERSE CLEAR REDO UNDO, each at the press of Shift + F and one UNDO step, on the factory
-# line. Shift stays down; the knob strip stays up under the labels. The latch of F1 CUTOFF is not touched by any of them.
+# HOME's Shift row, tool by tool (UX-303 5.1 and 7, G1): CLEAR VARY RHYTHM NOTES, then REDO and UNDO, each at the press of Shift + F and one UNDO step, on the factory
+# line (NOTE and SCALE are home_note_scale.txt; REVERSE and RANDOM live on PATTERN SETUP, pattern_setup.txt). Shift stays down; the knob strip stays up under the labels. The latch of F1 CUTOFF is not touched by any of them.
 wait 300
 snap 01_factory_line
 press shift
@@ -12,24 +12,24 @@ snap 03_notes_keeps_the_rhythm
 tap f2
 wait 50
 snap 04_vary
-tap f5
-wait 50
-snap 05_reverse
 tap f1
 wait 50
-snap 06_new
-tap f6
-wait 50
-snap 07_clear
+snap 05_clear
 tap f8
 wait 50
-snap 08_undo_clear
-tap f8
-wait 50
-snap 09_undo_new
+snap 06_undo_clear
 tap f7
 wait 50
-snap 10_redo_new
+snap 07_redo_clear
+tap f8
+wait 50
+snap 08_undo_clear_again
+tap f8
+wait 50
+snap 09_undo_vary
+tap f7
+wait 50
+snap 10_redo_vary
 release shift
 wait 50
 snap 11_labels_gone_knob_still_cutoff

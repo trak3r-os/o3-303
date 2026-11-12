@@ -383,11 +383,11 @@ TEST_CASE("the Shift row does not take the encoder from a latched row; an F key 
   t.pad(step_pad_of(4));
   t.tap(Button::Note);
   REQUIRE(home.row() == DrawerRow::Note);
-  t.shift_tap(Button::F5);  // REVERSE: an edit of the pattern, not an owner of the encoder
+  t.shift_tap(Button::F4);  // NOTES: an edit of the pattern, not an owner of the encoder
   CHECK(home.row() == DrawerRow::Note);
-  const Pattern reversed = t.pat();
+  const Pattern redrawn = t.pat();
   t.turn(1);
-  CHECK(t.pat().steps[4].note == reversed.steps[4].note + 1);  // the row still has the turn
+  CHECK(t.pat().steps[4].note == redrawn.steps[4].note + 1);  // the row still has the turn
   t.tap(Button::Fx);
   REQUIRE(home.row() == DrawerRow::Lock);
   t.tap(Button::F2);  // an F key: the knob has the encoder, the row is let go
@@ -396,7 +396,7 @@ TEST_CASE("the Shift row does not take the encoder from a latched row; an F key 
   t.turn(3);
   CHECK(t.param(kVoice, AcidVoice::Reso) != reso);
   for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == reversed.steps[i].note + (i == 4 ? 1 : 0));  // no note moved by it
+    CHECK(t.pat().steps[i].note == redrawn.steps[i].note + (i == 4 ? 1 : 0));  // no note moved by it
   }
 }
 

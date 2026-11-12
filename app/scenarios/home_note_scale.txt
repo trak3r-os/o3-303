@@ -1,0 +1,31 @@
+# G1: HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale (no wrap), until a plain F key, a drawer-row latch or leaving the screen takes it back.
+# 01 HOME with F1 CUTOFF latched; 02 Shift held (the labels CLEAR VARY RHYTHM NOTES NOTE SCALE REDO UNDO); 03 NOTE tapped and the encoder turned twice: the strip says ROOT D and the
+# keys light D; 04 SCALE tapped, three detents up: the strip says SCALE and the keys follow the scale; 05 a plain F key (F2) takes the encoder back: a detent moves that knob, not the scale;
+# 06 NOTE once more, then a tap of key F (bottom row) with Shift + F5 held sets the root without the encoder.
+wait 300
+snap 01_home
+press shift
+wait 100
+snap 02_shift_row
+tap f5
+release shift
+turn 2
+wait 100
+snap 03_note_root_d
+press shift
+tap f6
+release shift
+turn 3
+wait 100
+snap 04_scale_owner
+tap f2
+turn 1
+wait 100
+snap 05_plain_key_takes_the_encoder_back
+press shift
+press f5
+pad 41
+release f5
+release shift
+wait 100
+snap 06_root_by_key_f

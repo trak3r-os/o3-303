@@ -130,7 +130,7 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   }
   t.tap(Button::Left);  // wraps to step 32: page 2
   t.wait(30);
-  t.shift_tap(Button::F6);  // CLEAR (clears everything: only to compare the pads of page 2 with the pattern)
+  t.shift_tap(Button::F1);  // CLEAR (clears everything: only to compare the pads of page 2 with the pattern)
   CHECK(pattern_is_empty(t.pat()));
   t.shift_tap(Button::F8);  // UNDO
   t.wait(30);

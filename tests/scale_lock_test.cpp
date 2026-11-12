@@ -55,6 +55,23 @@ TEST_CASE("with Major chosen and KEYS: ALL the scale only lights the keys: every
   }
 }
 
+TEST_CASE("G1: a root tap on HOME (Shift + F5 held, a key of the bottom row) moves the root and the scale lights follow it") {
+  Hands t;
+  choose_scale(t, 3);  // Major, back on HOME
+  t.press(Button::Shift);
+  t.press(Button::F5);  // NOTE
+  t.pad(key_pad(38));   // D
+  t.release(Button::F5);
+  t.release(Button::Shift);
+  t.wait(40);
+  CHECK(t.led(key_pad(38)) == app::kLedOn);   // D, the root
+  CHECK(t.led(key_pad(36)) == app::kLedMid);  // C is not in D major, but it is the note of the step under the cursor (mid)
+  CHECK(t.led(key_pad(37)) == app::kLedMid);  // C#, the leading note of D major
+  CHECK(t.led(key_pad(40)) == app::kLedMid);  // E
+  CHECK(t.led(key_pad(41)) == app::kLedOff);  // F is not in D major
+  CHECK(t.led(key_pad(42)) == app::kLedMid);  // F#
+}
+
 TEST_CASE("KEYS: IN SCALE with Major: the pads of C D E F G A B play and the others are dark and do nothing") {
   Hands t;
   keys_in_scale(t, true);

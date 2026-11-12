@@ -6,13 +6,11 @@ tap pattern
 press shift
 tap f3
 release shift
-tap pattern
 press shift
-wait 63    # NEW's seed follows the time of its press: these waits keep the take the WAV of this scenario was made with
-tap f1     # Shift + F1 NEW (HOME's Shift row, at once)
+wait 63    # RANDOM's seed follows the time of its press: these waits keep the take the WAV of this scenario was made with
+tap f6     # Shift + F6 RANDOM (PATTERN SETUP's Shift row, at once)
 release shift
 wait 61
-tap pattern
 press shift
 tap f3
 release shift

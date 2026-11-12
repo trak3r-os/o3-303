@@ -5,8 +5,8 @@
 #   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/skin_home.txt --out <dir>
 #
 # 01 stopped: the header with PATTERN A01 and TEMPO 125.0, the LEDs dark but KEYS (the keyboard plays the voice), and the F row with F1 CUTOFF latched (lit LED, red readout);
-# 02 playing: PLAY green and the playhead; 03 a toast in the PAGE window (NEW, with Shift); 04 TRNSP on and the octave up; 05 REC lit; 06 PATTERN SETUP (the generator line over
-# the glass, the knobs of its page); 06b Shift on it (its row of action keys, the free ones empty boxes); 07 F3 held (the amber rim) with F1 still latched; 07b a p-lock written
+# 02 playing: PLAY green and the playhead; 03 a toast in the PAGE window (VARIED, Shift + F2); 04 TRNSP on and the octave up; 05 REC lit; 06 PATTERN SETUP (the generator line over
+# the glass, the knobs of its page); 06b Shift on it (its row of action keys); 07 F3 held (the amber rim) with F1 still latched; 07b a p-lock written
 # on step 5 (LOCK 5 in the accent colour, amber LED); 07c the WAVE switch latched and turned to SQR; 08 Shift held on HOME (the Shift row as action keys, REDO dim, the red
 # banner); 09 Pattern held (the 48 patterns in the glass).
 wait 300
@@ -28,7 +28,7 @@ snap 02_playing
 tap play
 wait 100
 press shift
-tap f1
+tap f2
 release shift
 wait 100
 snap 03_toast

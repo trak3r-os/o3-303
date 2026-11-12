@@ -26,18 +26,20 @@ TEST_CASE("the first UNDO does not empty the factory line; the edits after it ca
 TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO walk them (UX-303 5.1)") {
   Hands t;
   const Pattern first = bank().pattern(0);
-  t.shift_tap(Button::F1);  // NEW: the line is made at once, no popup
+  t.new_line();  // RANDOM (PATTERN SETUP's Shift + F6): the line is made at once, no popup
   const Pattern fresh = t.pat();
   bool differs = false;
   for (unsigned i = 0; i < 16; ++i) {
     differs = differs || fresh.steps[i].note != first.steps[i].note || fresh.steps[i].flags != first.steps[i].flags;
   }
   CHECK(differs);
+  t.tap(Button::Pattern);  // PATTERN SETUP
   t.shift_tap(Button::F5);  // REVERSE
+  t.tap(Button::Pattern);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == fresh.steps[15 - i].note);
   }
-  t.shift_tap(Button::F6);  // CLEAR
+  t.shift_tap(Button::F1);  // CLEAR
   CHECK(pattern_is_empty(t.pat()));
   t.shift_tap(Button::F8);  // UNDO
   CHECK_FALSE(pattern_is_empty(t.pat()));
@@ -68,38 +70,38 @@ TEST_CASE("Shift shows the Shift row on the soft keys at once, a turn does not t
   };
   CHECK(label(0).empty());  // no labels: the knob strip's boxes carry the F-numbers and names
   t.press(Button::Shift);
-  CHECK(label(0) == "NEW");  // at once: no 600 ms wait
+  CHECK(label(0) == "CLEAR");  // at once: no 600 ms wait
   CHECK(label(1) == "VARY");
   CHECK(label(2) == "RHYTHM");
   CHECK(label(3) == "NOTES");
-  CHECK(label(4) == "REVERSE");
-  CHECK(label(5) == "CLEAR");
+  CHECK(label(4) == "NOTE");
+  CHECK(label(5) == "SCALE");
   CHECK(label(6) == "REDO");
   CHECK(label(7) == "UNDO");
   t.turn(3);  // a coarse step
-  CHECK(label(0) == "NEW");
+  CHECK(label(0) == "CLEAR");
   t.release(Button::Shift);
   CHECK(label(0).empty());
 
   // The tools work from the press of Shift.
   t.press(Button::Shift);
-  t.tap(Button::F6);  // CLEAR at once
+  t.tap(Button::F1);  // CLEAR at once
   t.release(Button::Shift);
   CHECK(pattern_is_empty(t.pat()));
 }
 
-TEST_CASE("NEW is not the same line after every boot") {
+TEST_CASE("RANDOM is not the same line after every boot") {
   Pattern first;
   {
     Hands t;
-    t.shift_tap(Button::F1);
+    t.new_line();
     first = t.pat();
   }
   Pattern second;
   {
     Hands t;
     t.wait(37);  // a hand does not press at the same moment twice
-    t.shift_tap(Button::F1);
+    t.new_line();
     second = t.pat();
   }
   bool differs = false;

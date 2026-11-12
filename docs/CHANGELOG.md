@@ -14,6 +14,11 @@ hear says so in plain words.
 - **WOBBLE learns MIDI (D1).** On the WOBBLE page, Shift + F1 to F5 and Shift + F8 arm RATE, SHAPE, DEPTH, TARGET, RESET and WOB for MIDI learn, like any other knob; the Shift row
   no longer says NOT LEARNABLE. MIDI Pickup applies (the controller acts once it has reached the value shown). The bindings are kept with the other MIDI bindings.
 
+- **HOME and PATTERN SETUP Shift rows (G1).** HOME's Shift row is now CLEAR, VARY, RHYTHM, NOTES, NOTE, SCALE, REDO, UNDO: Shift + F5 NOTE and Shift + F6 SCALE give the
+  encoder the generator's root and scale (the info line says ROOT or SCALE; a plain F key, a drawer row or leaving HOME gives it back), and the root tap on the bottom row of pads
+  now works while Shift + F5 is held. NEW moved to PATTERN SETUP and is called RANDOM (Shift + F6), beside REVERSE (Shift + F5); CLEAR moved to HOME's Shift + F1. PATTERN SETUP's
+  Shift + F5 ROOT is gone (HOME's NOTE does it). The Shift + F-key combos are the only change: no file or sound differs.
+
 ### What plays or sounds different
 
 - **TRACT and GROWL have a GAIN stage, and GROWL's Mix crossfades at equal power (B1).** Both units gain a level control on the wet sound (-12 to +18 dB, before the Mix), set by a

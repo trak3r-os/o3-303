@@ -12,15 +12,23 @@ press shift
 snap 04_setup_shift_row
 release shift
 tap pattern
-# NEW, REVERSE, CLEAR, then UNDO twice and REDO once: the pattern walks back and forward one step at a time.
+# RANDOM and REVERSE (PATTERN SETUP's Shift row), CLEAR (HOME's), then UNDO twice and REDO once: the pattern walks back and forward one step at a time.
+tap pattern
+press shift
+tap f6
+release shift
+tap pattern
+wait 50
+snap 04b_random_has_ties
+tap pattern
+press shift
+tap f5
+release shift
+tap pattern
 press shift
 tap f1
 wait 50
-snap 04b_new_has_ties
-tap f5
-tap f6
-wait 50
-snap 05_new_reverse_clear
+snap 05_random_reverse_clear
 tap f8
 snap 06_undo_clear
 tap f8

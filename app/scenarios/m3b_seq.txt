@@ -4,9 +4,9 @@
 # PERFORM) held for one pass in each of the four variants, chosen on PERFORM SETUP's F5. The probability steps draw from the sequencer's fixed seed,
 # so every run plays the same notes.
 wait 300
-# Clear the pattern (the CLEAR tool, Shift + F6) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
+# Clear the pattern (the CLEAR tool, Shift + F1) and write the line: REC, then a key a step; ACC (pad 8) or SLIDE (pad 9) held for the steps that have it.
 press shift
-tap f6
+tap f1
 release shift
 tap rec
 paddown 8

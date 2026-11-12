@@ -1,5 +1,5 @@
 # PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH walks 1 to 64 a step a detent (Shift + turn jumps 8, 16, 32, 64; a longer line repeats the bar before, a shorter one cuts),
-# one gesture is one UNDO; F5 SCALE lights the keys; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, ROOT, REDO and UNDO.
+# one gesture is one UNDO; F5 SCALE lights the keys; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, REDO and UNDO; HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale (G1).
 wait 300
 tap pattern
 wait 100
@@ -95,15 +95,16 @@ wait 100
 snap 17_home_scale_short
 padup 4
 tap play
-# B2: SETUP's Shift + F5 is ROOT, the encoder is the generator's root (here D) and the strip says so; the F5 box shows the key beside the scale.
-tap pattern
-wait 100
+# G1: HOME's Shift + F5 is NOTE, the encoder is the generator's root (here D) and the strip says so; the SETUP F5 box shows the key beside the scale.
 press shift
 tap f5
 release shift
 turn 2
 wait 100
-snap 18_setup_root
+snap 18_home_note_root
+tap f5
+tap pattern
+wait 100
 tap f5
 wait 100
 snap 19_setup_scale_with_root
@@ -141,3 +142,22 @@ snap 24_setup_root_by_key
 tap pattern
 wait 200
 snap 25_home_root_f
+# G1: SETUP's Shift + F5 REVERSE and Shift + F6 RANDOM (one UNDO step each, the toasts say so), then HOME's Shift + F6 SCALE: the encoder is the generator's scale and the strip says so.
+tap pattern
+press shift
+tap f5
+wait 50
+snap 26_setup_reverse
+tap f6
+wait 50
+snap 27_setup_random
+release shift
+tap pattern
+wait 200
+snap 28_home_random_line
+press shift
+tap f6
+release shift
+turn 1
+wait 100
+snap 29_home_scale_owner

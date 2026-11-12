@@ -304,18 +304,18 @@ The encoder stays on the row until you tap an F key, which gives it back to the 
 
 Hold **Shift** on HOME and the F keys become tools for the whole pattern. Each one is one UNDO step.
 
-![HOME with Shift held: the F row shows NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR, REDO and UNDO, and a red banner SHIFT > PATTERN TOOLS, ALL UNDO](manual/img/home-shift-row.png)
+![HOME with Shift held: the F row shows CLEAR, VARY, RHYTHM, NOTES, NOTE, SCALE, REDO and UNDO, and a red banner SHIFT > PATTERN TOOLS, ALL UNDO](manual/img/home-shift-row.png)
 
 *Shift held on HOME: the pattern tools. REDO is grey because there is nothing to redo.*
 
 | Shift + | Does |
 |---|---|
-| F1 NEW | A new line from the generator (its settings are on PATTERN SETUP): it leans on the root and its octave, with a fifth or a minor third or seventh for colour, repeats its first half with a part changed (a quarter of the line from 32 steps), glides its slides toward a note of another pitch and puts its accents off the beat and on the octave jumps. NOTES draws the pitches the same way |
+| F1 CLEAR | Empties the pattern |
 | F2 VARY | Changes about a quarter of the line |
 | F3 RHYTHM | New rests, accents and slides; the notes stay |
 | F4 NOTES | New notes in the scale; the rhythm stays |
-| F5 REVERSE | The line backwards |
-| F6 CLEAR | Empties the pattern |
+| F5 NOTE | The encoder owns the generator's root (C to B, no wrap) until you press a plain F key, latch a drawer row or leave HOME; the info line says "ROOT D". While F5 is held, a key of the bottom row of pads (C to B) sets the root too |
+| F6 SCALE | The encoder owns the generator's scale until the same things release it; the info line says "SCALE" and its name |
 | F7 REDO | Steps forward again |
 | F8 UNDO | Steps back |
 
@@ -371,14 +371,14 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F3 GATE | How long the notes are | 5 to 100 % (50 % at first) |
 | F4 TRANSP | This pattern's transpose | -24 to +24 semitones |
 | F5 SCALE | The scale. The keys of HOME and PERFORM light it, and every key still plays; Config's KEYS: IN SCALE makes the others do nothing | No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more (Penta Min at first) |
-| F6 DENSITY | How many steps NEW fills | 0 to 100 % (75 %) |
-| F7 ACC % | How many accents NEW draws | 0 to 100 % (25 %) |
-| F8 SLD % | How many slides NEW draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
+| F6 DENSITY | How many steps RANDOM fills | 0 to 100 % (75 %) |
+| F7 ACC % | How many accents RANDOM draws | 0 to 100 % (25 %) |
+| F8 SLD % | How many slides RANDOM draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
 
-The info line always shows the scale on F5 with its root ("D MAJOR"; "No scale" and "Chromatic" have no root), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). NEW, NOTES and VARY keep to the scale. If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. To set the root without the encoder, hold F5 and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
+The info line always shows the scale on F5 with its root ("D MAJOR"; "No scale" and "Chromatic" have no root), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). RANDOM, NOTES and VARY keep to the scale. If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. To set the root without the encoder, hold Shift and F5 (NOTE) and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
-pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F7 REDO, F8 UNDO.
+pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 REVERSE (the line backwards), F6 RANDOM (a new line from the generator: it leans on the root and its octave, with a fifth or a minor third or seventh for colour, repeats its first half with a part changed (a quarter of the line from 32 steps), glides its slides toward a note of another pitch and puts its accents off the beat and on the octave jumps; the toast says RANDOMIZED), F7 REDO, F8 UNDO. HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale.
 
 A pattern can be any length from 1 to 64 steps: a line of 7 or 12 steps makes a polymeter against a 16-step one. Turning LENGTH up repeats the bar before the new steps (16 to 32 doubles the line, with its motion), turning it down cuts the steps past the end; one gesture of turns is one UNDO. Under swing, the last step of an odd length has no partner and is not swung. The library's 7- and 12-step lines keep their length.
 
@@ -806,8 +806,8 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 
 - **UNDO and REDO.** Shift + F8 is UNDO and Shift + F7 is REDO wherever you edit: HOME, PATTERN SETUP, PERFORM and SONG. The history holds the last 32 changes
   to the patterns and the song. Turning the encoder on one step is one change, not forty.
-- **The pattern tools** (Shift on HOME): NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR. Each one is a single undo, so press NEW five times and
-  UNDO back to the one you liked. PERFORM's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live.
+- **The pattern tools** (Shift on HOME: CLEAR, VARY, RHYTHM, NOTES; on PATTERN SETUP: REVERSE, RANDOM). Each one is a single undo, so press RANDOM five times and
+  UNDO back to the one you liked. PERFORM's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live (its NEW draws the same line as RANDOM).
 - **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo (a load while the
   transport runs keeps it) or the sound a LOAD BOTH or LOAD SOUND sets: the screen starts on LOAD LINE, which leaves the sound alone, and Shift + F3
   brings back the sound a load replaced (section 5, FILE LIBRARY).

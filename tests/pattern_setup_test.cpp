@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // PATTERN SETUP (docs/UX-303.md 5.2, slice H2) end to end: a tap of Pattern opens it and a tap closes it, F1 LENGTH is one undo each way, F5 SCALE locks
-// the keyboard, F6..F8 are the generator's settings (project-wide), the Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, UNDO) replaces the
-// bridges of H1 (Pattern held + Insert / Delete), and every one of today's functions stays reachable.
+// the keyboard, F6..F8 are the generator's settings (project-wide), the Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, UNDO)
+// replaces the bridges of H1 (Pattern held + Insert / Delete), and every one of today's functions stays reachable. HOME's NOTE and SCALE (G1) are here too.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -229,7 +229,7 @@ TEST_CASE("F6 DENSITY, F7 ACC % and F8 SLD % are the generator's settings, for e
   t.tap(Button::F8);
   t.turn(-100);  // and none slides
   t.tap(Button::Pattern);
-  const auto generate = [&] { t.new_line(); };  // HOME's Shift + F1 NEW, with the project's generator settings
+  const auto generate = [&] { t.new_line(); };  // SETUP's Shift + F6 RANDOM, with the project's generator settings
   generate();
   for (unsigned i = 0; i < 16; ++i) {
     CHECK((t.pat().steps[i].flags & kStepRest) == 0u);
@@ -319,14 +319,12 @@ TEST_CASE("CLEAR LOCKS clears every lane of this pattern and keeps the notes, in
   CHECK_FALSE(bank().can_undo());
 }
 
-TEST_CASE("the free keys of SETUP's Shift row do nothing, and the bridges of H1 are gone: Pattern + Insert / Delete / Copy change no pattern") {
+TEST_CASE("REDO with nothing to redo does nothing, and the bridges of H1 are gone: Pattern + Insert / Delete / Copy change no pattern") {
   Hands t;
   make_locks(t);
   const Pattern before = t.pat();
   bank().clear_history();
   open_setup(t);
-  t.shift_tap(Button::F5);
-  t.shift_tap(Button::F6);
   t.shift_tap(Button::F7);
   CHECK_FALSE(bank().can_undo());
   CHECK(t.pat().length == before.length);
@@ -354,49 +352,51 @@ TEST_CASE("the free keys of SETUP's Shift row do nothing, and the bridges of H1 
   }
 }
 
-TEST_CASE("ROOT and the drawer rows share one encoder: a row latched before Shift + F5 gives way to ROOT, and a row latched after it takes it") {
+TEST_CASE("NOTE and the drawer rows share one encoder: a row latched before Shift + F5 gives way to NOTE, and a row latched after it takes it") {
   Hands t;
   open_setup(t);
   t.tap(Button::F5);
   t.turn(-40);
   t.turn(3);  // Major
+  t.tap(Button::Pattern);  // HOME
   const auto root_on = [&](unsigned note) {
-    t.tap(Button::Pattern);
     t.wait(40);
-    const bool on = t.led(key_pad(note)) == app::kLedOn;
-    t.tap(Button::Pattern);
-    t.wait(40);
-    return on;
+    return t.led(key_pad(note)) == app::kLedOn;
   };
   t.pad(step_pad_of(1));
   t.tap(Button::Instr);  // the GATE row owns the encoder
-  t.shift_tap(Button::F5);  // ROOT takes it back
+  t.shift_tap(Button::F5);  // NOTE takes it back
   const std::uint8_t gate = t.pat().steps[1].flags;
   t.turn(2);
   CHECK(t.pat().steps[1].flags == gate);  // the row did not move
   CHECK(root_on(38));
-  t.shift_tap(Button::F5);  // ROOT again, then a row latches: the row owns the turn
+  t.shift_tap(Button::F5);  // NOTE again, then a row latches: the row owns the turn
   t.tap(Button::Instr);
   t.turn(2);
   CHECK(t.pat().steps[1].flags != gate);
   CHECK(root_on(38));  // the root stayed
 }
 
-TEST_CASE("ROOT does not outlive the screen: leaving SETUP for MASTER and coming back gives the encoder to the page") {
+TEST_CASE("NOTE and SCALE do not outlive the screen: leaving HOME for MASTER and coming back gives the encoder to the page") {
   Hands t;
-  open_setup(t);
-  t.shift_tap(Button::F5);  // ROOT
+  t.shift_tap(Button::F5);  // NOTE
   t.tap(Button::Master);
   t.wait(40);
   t.tap(Button::Pattern);  // back: HOME
   t.wait(40);
-  t.tap(Button::Pattern);  // SETUP
+  REQUIRE(std::strcmp(t.title(), "STEPS") == 0);
+  const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
+  t.turn(2);  // the page's own knob (F1 CUTOFF), not the root
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff);
+  CHECK(t.led(key_pad(38)) != app::kLedOn);  // D did not become the root
+  MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
+  t.shift_tap(Button::F6);  // SCALE
+  CHECK(home->enc_owner() == MainScreen::EncOwner::Scale);
+  t.tap(Button::Master);
   t.wait(40);
-  REQUIRE(std::strcmp(t.title(), "PATTERN SETUP") == 0);
-  t.turn(2);  // the page's own knob (LENGTH), not ROOT
   t.tap(Button::Pattern);
   t.wait(40);
-  CHECK(t.led(key_pad(38)) != app::kLedOn);  // D did not become the root
+  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
 }
 
 TEST_CASE("a lock on HOME works while the encoder owns a SETUP knob only through HOME: a held step + turn on SETUP changes no lock") {
@@ -510,35 +510,31 @@ TEST_CASE("Master's tap latches TEMPO; leaving the screen and coming back gives 
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff);       // the page's F1 CUTOFF
 }
 
-TEST_CASE("Shift + F5 gives the encoder the generator's root (C to B, no wrap); F5 gives it back to SCALE; the scale shows its root") {
+TEST_CASE("HOME's Shift + F5 NOTE gives the encoder the generator's root (C to B, no wrap); an F key gives it back; SCALE shows its root") {
   Hands t;
   open_setup(t);
   t.tap(Button::F5);
   t.turn(-40);
   t.turn(3);  // Major
+  t.tap(Button::Pattern);  // HOME
   // The root is read off the keys of HOME: the root's pad is full, the others of the scale mid.
   const auto root_on = [&](unsigned note) {
-    t.tap(Button::Pattern);  // HOME
     t.wait(40);
-    const bool on = t.led(key_pad(note)) == app::kLedOn;
-    t.tap(Button::Pattern);  // back to SETUP: the encoder is SCALE's again until Shift + F5
-    t.wait(40);
-    return on;
+    return t.led(key_pad(note)) == app::kLedOn;
   };
   CHECK(root_on(36));  // C by default
-  t.shift_tap(Button::F5);  // ROOT
+  t.shift_tap(Button::F5);  // NOTE
   t.turn(2);
   CHECK(root_on(38));  // D
-  t.shift_tap(Button::F5);
   t.turn(-9);
   CHECK(root_on(36));  // no wrap below C
-  t.shift_tap(Button::F5);
   t.turn(40);
   CHECK(root_on(47));  // B, and none above it
-  t.shift_tap(Button::F5);
   t.turn(1);
   CHECK(root_on(47));
-  t.tap(Button::F5);  // F5 alone: the encoder is SCALE's
+  t.tap(Button::F5);  // F5 alone: the encoder is the F key's knob again
+  const MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
+  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
   t.turn(1);
   CHECK(root_on(47));  // the root stayed
   // The scale text carries the root beside the name.
@@ -554,7 +550,46 @@ TEST_CASE("Shift + F5 gives the encoder the generator's root (C to B, no wrap); 
   CHECK(std::strcmp(sc, "CHR") == 0);
 }
 
-TEST_CASE("PATTERN SETUP: F5 held and a tap of a bottom-row key sets the root; without F5 the key is no root; Shift + F5 stays the encoder's way (X4)") {
+TEST_CASE("HOME's Shift + F6 SCALE gives the encoder the generator's scale (no wrap); the status line says ROOT or SCALE; an F key gives it back") {
+  Hands t;
+  MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
+  // The scale is read off the keys of HOME: C major lights C (full), D E F G A B (mid) and leaves the sharps dark.
+  const auto major = [&] {
+    t.wait(40);
+    bool ok = t.led(key_pad(48)) == app::kLedOn && t.led(key_pad(50)) == app::kLedMid && t.led(key_pad(49)) == app::kLedOff;
+    return ok && t.led(key_pad(52)) == app::kLedMid && t.led(key_pad(51)) == app::kLedOff;
+  };
+  CHECK_FALSE(major());  // C minor pentatonic by default
+  t.shift_tap(Button::F6);  // SCALE
+  CHECK(home->enc_owner() == MainScreen::EncOwner::Scale);
+  t.turn(-40);  // No scale: the first, no wrap
+  CHECK_FALSE(home->scale_shown());
+  t.turn(-5);
+  CHECK_FALSE(home->scale_shown());
+  t.turn(3);  // Major (0 No scale, 1 Chromatic, 2 Minor, 3 Major)
+  CHECK(major());
+  // SCALE owns the encoder: the page's CUTOFF does not move.
+  const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
+  t.turn(1);
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) == cutoff);
+  t.turn(-1);
+  CHECK(major());
+  // NOTE then takes the encoder: the root, not the scale.
+  t.shift_tap(Button::F5);
+  CHECK(home->enc_owner() == MainScreen::EncOwner::Root);
+  t.turn(2);
+  CHECK_FALSE(major());  // the root moved to D: C is no longer the full key
+  CHECK(t.led(key_pad(50)) == app::kLedOn);
+  // An F key (a plain tap) gives the encoder back to the knob.
+  t.tap(Button::F2);
+  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
+  const float reso = t.param(kVoice, AcidVoice::Reso);
+  t.turn(3);
+  CHECK(t.param(kVoice, AcidVoice::Reso) != reso);
+  CHECK(t.led(key_pad(50)) == app::kLedOn);  // the root stayed
+}
+
+TEST_CASE("PATTERN SETUP: F5 held and a tap of a bottom-row key sets the root, and so does HOME's Shift + F5 held; without them the key is no root (X4, G1)") {
   Hands t;
   open_setup(t);
   t.tap(Button::F5);
@@ -592,12 +627,22 @@ TEST_CASE("PATTERN SETUP: F5 held and a tap of a bottom-row key sets the root; w
   t.release(Button::F1);
   t.wait(40);
   CHECK(root_on(47));
-  // The tap left F5 as it found it: the encoder is SCALE's, and Shift + F5 still hands it the root.
+  // The tap left F5 as it found it: the encoder is SCALE's (one more scale: the root stays).
   t.turn(1);
   CHECK(root_on(47));
-  t.shift_tap(Button::F5);
+  // HOME: Shift + F5 held and a tap of a bottom-row key is the root too (G1), and the encoder stays NOTE's.
+  t.tap(Button::Pattern);  // HOME
+  t.press(Button::Shift);
+  t.press(Button::F5);
+  t.pad(key_pad(41));  // F
+  t.release(Button::F5);
+  t.release(Button::Shift);
+  t.wait(40);
+  CHECK(t.led(key_pad(41)) == app::kLedOn);
+  CHECK(t.led(key_pad(47)) != app::kLedOn);
   t.turn(-2);
-  CHECK(root_on(45));  // A
+  t.wait(40);
+  CHECK(t.led(key_pad(39)) == app::kLedOn);  // D#: the encoder had NOTE
 }
 
 TEST_CASE("Left / Right with an F key held move that knob by 1/20 of its range and stop at the ends; without a key they move the cursor") {

@@ -230,6 +230,20 @@ TEST_CASE("frow: names are cut to the label line, the F-number to two characters
   CHECK(str(v.slot[1].readout) == "");
 }
 
+TEST_CASE("frow, G1: every label of HOME's and PATTERN SETUP's Shift row fits the label line whole") {
+  // The strings of main_screen.cpp's kHomeKeyLabels and kSetupKeyLabels; a longer one (RANDOMIZE) would be cut to kNameChars, so the key says RANDOM.
+  static constexpr const char* kLabels[] = {"CLEAR", "VARY", "RHYTHM", "NOTES", "NOTE", "SCALE", "REDO", "UNDO",
+                                            "COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "REVERSE", "RANDOM"};
+  for (const char* label : kLabels) {
+    view::Knob in[view::kKnobs];
+    in[0] = knob(label, "x", "", -1.0f);
+    FRowView v;
+    fill_frow(v, in, false);
+    CHECK(str(v.slot[0].name) == label);
+    CHECK(std::strlen(label) <= kNameChars);
+  }
+}
+
 TEST_CASE("frow: the states are copied: focus, held, locked and dim, and a switch is on from half way") {
   view::Knob in[view::kKnobs];
   in[0] = knob("CUTOFF", "350", "Hz", 0.5f);

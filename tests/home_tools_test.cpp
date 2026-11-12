@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// HOME's Shift row (UX-303 5.1 and 7, slice H4), against the real app: NEW VARY RHYTHM NOTES REVERSE CLEAR REDO UNDO at once, each edit one UNDO step; the
-// F keys' latch is the SOUND page's, shared with PERFORM and INSTRUMENT VOICE (D3); no F key does something its label does not say. The operations
-// themselves (regen_rhythm, regen_notes, reverse) are tested alone in app/seq/tests; PATTERN SETUP's Shift row is in pattern_setup_test.cpp.
+// HOME's Shift row (UX-303 5.1 and 7, slice H4, G1), against the real app: CLEAR VARY RHYTHM NOTES at once, each edit one UNDO step, NOTE and SCALE (the
+// encoder, in pattern_setup_test.cpp and scale_lock_test.cpp), REDO UNDO; the F keys' latch is the SOUND page's, shared with PERFORM and INSTRUMENT VOICE
+// (D3); no F key does something its label does not say. The operations themselves (regen_rhythm, regen_notes, reverse) are tested alone in app/seq/tests;
+// PATTERN SETUP's Shift row (REVERSE, RANDOM too) is in pattern_setup_test.cpp.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -56,7 +57,7 @@ Keys soft_keys(Hands& t) {
 }  // namespace
 
 TEST_CASE("each tool of the Shift row is one UNDO step: UNDO gives the pattern back exactly, REDO makes it again") {
-  for (unsigned k = 0; k < 6; ++k) {  // NEW VARY RHYTHM NOTES REVERSE CLEAR
+  for (unsigned k = 0; k < 4; ++k) {  // CLEAR VARY RHYTHM NOTES
     INFO("Shift + F" << k + 1);
     Hands t;
     line(t);
@@ -82,11 +83,10 @@ TEST_CASE("the Shift row works at the press of Shift: no wait, no still encoder"
   const Pattern before = t.pat();
   t.press(Button::Shift);
   t.turn(2);  // a coarse turn on the latched knob first
-  t.tap(Button::F5);  // REVERSE, at once
+  t.tap(Button::F1);  // CLEAR, at once
   t.release(Button::Shift);
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == before.steps[15 - i].note);
-  }
+  CHECK(pattern_is_empty(t.pat()));
+  CHECK_FALSE(same_pattern(t.pat(), before));
 }
 
 TEST_CASE("RHYTHM keeps every pitch and redraws the rest; NOTES keeps the rhythm and redraws the pitches") {
@@ -111,7 +111,7 @@ TEST_CASE("RHYTHM keeps every pitch and redraws the rest; NOTES keeps the rhythm
   CHECK(t.pat().length == 16);
 }
 
-TEST_CASE("NEW is a new line with the project's generator settings: density, accent and slide chance of PATTERN SETUP") {
+TEST_CASE("RANDOM (PATTERN SETUP's Shift + F6) is a new line with the project's generator settings: density, accent and slide chance") {
   Hands t;
   t.tap(Button::Pattern);  // PATTERN SETUP
   t.tap(Button::F6);
@@ -120,8 +120,8 @@ TEST_CASE("NEW is a new line with the project's generator settings: density, acc
   t.turn(100);  // every step accented
   t.tap(Button::F8);
   t.turn(-100);  // none slides
+  t.shift_tap(Button::F6);  // RANDOM, still on SETUP
   t.tap(Button::Pattern);
-  t.shift_tap(Button::F1);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK((t.pat().steps[i].flags & kStepRest) == 0u);
     CHECK((t.pat().steps[i].flags & kStepAccent) != 0u);
@@ -132,9 +132,9 @@ TEST_CASE("NEW is a new line with the project's generator settings: density, acc
 TEST_CASE("a tool that changes nothing leaves no UNDO step: CLEAR of an empty pattern, UNDO and REDO with nothing to walk") {
   Hands t;
   line(t);
-  t.shift_tap(Button::F6);  // CLEAR
+  t.shift_tap(Button::F1);  // CLEAR
   REQUIRE(pattern_is_empty(t.pat()));
-  t.shift_tap(Button::F6);  // CLEAR again: nothing changed
+  t.shift_tap(Button::F1);  // CLEAR again: nothing changed
   t.shift_tap(Button::F7);  // REDO with nothing to redo
   t.shift_tap(Button::F8);  // one UNDO is all there is
   CHECK_FALSE(pattern_is_empty(t.pat()));
@@ -196,7 +196,7 @@ TEST_CASE("the soft keys say what each F key does: HOME's row, SETUP's row, noth
     CHECK(l.empty());
   }
   t.press(Button::Shift);
-  static constexpr const char* kHome[app::kFKeyCount] = {"NEW", "VARY", "RHYTHM", "NOTES", "REVERSE", "CLEAR", "REDO", "UNDO"};
+  static constexpr const char* kHome[app::kFKeyCount] = {"CLEAR", "VARY", "RHYTHM", "NOTES", "NOTE", "SCALE", "REDO", "UNDO"};
   Keys k = soft_keys(t);
   for (unsigned i = 0; i < app::kFKeyCount; ++i) {
     CHECK(k.label[i] == kHome[i]);
@@ -204,28 +204,24 @@ TEST_CASE("the soft keys say what each F key does: HOME's row, SETUP's row, noth
   CHECK((k.dim & (1u << 6)) != 0u);  // REDO: nothing to redo
   CHECK((k.dim & (1u << 7)) != 0u);  // UNDO: nothing to undo
   CHECK((k.dim & 0x3Fu) == 0u);
-  t.tap(Button::F5);
+  t.tap(Button::F1);  // CLEAR
   k = soft_keys(t);
   CHECK((k.dim & (1u << 7)) == 0u);  // UNDO has a step now
   t.release(Button::Shift);
 
   t.tap(Button::Pattern);  // PATTERN SETUP
   t.press(Button::Shift);
-  static constexpr const char* kSetup[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "ROOT", "-", "REDO", "UNDO"};
+  static constexpr const char* kSetup[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "REVERSE", "RANDOM", "REDO", "UNDO"};
   k = soft_keys(t);
   for (unsigned i = 0; i < app::kFKeyCount; ++i) {
     CHECK(k.label[i] == kSetup[i]);
   }
-  CHECK((k.dim & 0x70u) == 0x60u);  // ROOT is lit, the free key is dark, REDO is dim (nothing to redo)
-  const Pattern before = t.pat();
-  const bool undo = bank().can_undo();
-  t.tap(app::fkey(5));  // "-": nothing happens
-  CHECK(same_pattern(t.pat(), before));
-  CHECK(bank().can_undo() == undo);
+  CHECK((k.dim & 0x7Fu) == 0x42u);  // only PASTE (no clip) and REDO (nothing to redo) are dim; every other key has something to do; UNDO has the CLEAR
+  CHECK((k.dim & (1u << 7)) == 0u);
   t.release(Button::Shift);
 }
 
-TEST_CASE("more tools that change nothing leave no step: REVERSE of a palindrome, NOTES of a line with nothing sounding") {
+TEST_CASE("more tools that change nothing leave no step: REVERSE (on SETUP) of a palindrome, NOTES of a line with nothing sounding") {
   Hands t;
   line(t);
   Pattern p = t.pat();
@@ -235,11 +231,13 @@ TEST_CASE("more tools that change nothing leave no step: REVERSE of a palindrome
   }
   bank().replace(t.selected(), p);
   bank().clear_history();
+  t.tap(Button::Pattern);  // PATTERN SETUP
   t.shift_tap(Button::F5);  // REVERSE
   CHECK(same_pattern(t.pat(), p));
   CHECK_FALSE(bank().can_undo());
+  t.tap(Button::Pattern);
 
-  t.shift_tap(Button::F6);  // CLEAR: one step, every step a rest
+  t.shift_tap(Button::F1);  // CLEAR: one step, every step a rest
   REQUIRE(pattern_is_empty(t.pat()));
   const Pattern empty = t.pat();
   t.shift_tap(Button::F4);  // NOTES: no step sounds, so no pitch is drawn
@@ -252,7 +250,7 @@ TEST_CASE("more tools that change nothing leave no step: REVERSE of a palindrome
 TEST_CASE("RHYTHM of an empty line draws a one-pitch line and is one UNDO step") {
   Hands t;
   line(t);
-  t.shift_tap(Button::F6);  // CLEAR
+  t.shift_tap(Button::F1);  // CLEAR
   bank().clear_history();
   t.shift_tap(Button::F3);  // RHYTHM
   CHECK_FALSE(pattern_is_empty(t.pat()));
@@ -268,12 +266,10 @@ TEST_CASE("Shift + F with a step pad held: the tool runs, the held step lets go 
   const Pattern before = t.pat();
   t.down(step_pad_of(4));
   t.press(Button::Shift);
-  t.tap(Button::F5);  // REVERSE
+  t.tap(Button::F1);  // CLEAR
   t.release(Button::Shift);
   t.up(step_pad_of(4));
-  for (unsigned i = 0; i < 16; ++i) {
-    CHECK(t.pat().steps[i].note == before.steps[15 - i].note);
-  }
+  CHECK(pattern_is_empty(t.pat()));
   CHECK(bank().can_undo());
   t.shift_tap(Button::F8);  // one step back, nothing else was written by the hold
   CHECK(same_pattern(t.pat(), before));
@@ -292,7 +288,7 @@ TEST_CASE("Shift + F with Rec on while the pattern plays: the tool runs and Rec 
   t.wait(200);
   MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
   REQUIRE(home->rec());
-  t.shift_tap(Button::F6);  // CLEAR while recording
+  t.shift_tap(Button::F1);  // CLEAR while recording
   CHECK(pattern_is_empty(t.pat()));
   CHECK(home->rec());
   t.shift_tap(Button::F8);  // UNDO

@@ -79,7 +79,7 @@ TEST_CASE("every frame of a session fits the display list") {
   t.select_pattern(5);
   t.tap(Button::Rec);
   t.pad(key_pad(50));
-  t.shift_tap(Button::F1);  // NEW (HOME's Shift row, at once)
+  t.shift_tap(Button::F2);  // VARY (HOME's Shift row, at once)
   t.tap(Button::Play);
   t.wait(1500);
   for (unsigned p = kInstVoice; p < instrument_group().count; ++p) {  // every page of INSTRUMENT, playing
@@ -128,7 +128,7 @@ TEST_CASE("worst cases for the display list: a full 64-step line, every ramp, al
   t.turn(3);
   t.length_to(64);  // PATTERN SETUP's LENGTH: 16 > 64
   REQUIRE(t.pat().length == 64);
-  t.shift_tap(Button::F1);  // NEW over the 64 steps
+  t.new_line();  // RANDOM over the 64 steps
   // Every step of the first page locked on a lane (the latched knob's: F1 CUTOFF), the cursor on the last step of the page.
   t.tap(Button::F1);
   for (unsigned k = 0; k < 16; ++k) {

@@ -237,7 +237,7 @@ TEST_CASE("help pads: PERFORM's rows, FILE LIBRARY's slots, the list's rows and 
     CHECK(std::strcmp(h.pad_label[12], "1") == 0);  // the snapshots
     CHECK(std::strcmp(h.pad_label[19], "8") == 0);
     CHECK(h.pad_group[19] == 3);
-    CHECK(std::strcmp(h.pad_label[20], "NEW") == 0);
+    CHECK(std::strcmp(h.pad_label[20], "RAND") == 0);
     CHECK(h.pad_group[23] == 4);
     CHECK(h.pad_group[24] == 5);
     CHECK(h.pad_group[36] == 6);
@@ -521,11 +521,12 @@ TEST_CASE("help texts: SONG says what its buttons, F keys and pads do") {
 TEST_CASE("help screens: the Shift row is the screen's own") {
   Hands t;
   sim::Harness& h = *t.h;
-  {  // HOME: NEW VARY RHYTHM NOTES REVERSE CLEAR REDO UNDO, "COPY PAT" .. on PATTERN SETUP with its free keys left out
+  {  // HOME: CLEAR VARY RHYTHM NOTES NOTE SCALE REDO UNDO, "COPY PAT" .. REVERSE RANDOM on PATTERN SETUP
     const Help& help = open_help(h);
     REQUIRE(help.fkey_shift[0] != nullptr);
-    CHECK(std::strcmp(help.fkey_shift[0], "NEW") == 0);
-    CHECK(std::strcmp(help.fkey_shift[4], "REVERSE") == 0);
+    CHECK(std::strcmp(help.fkey_shift[0], "CLEAR") == 0);
+    CHECK(std::strcmp(help.fkey_shift[4], "NOTE") == 0);
+    CHECK(std::strcmp(help.fkey_shift[5], "SCALE") == 0);
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }
@@ -534,8 +535,8 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     const Help& help = open_help(h);
     CHECK(std::strcmp(help.fkey_shift[0], "COPY PAT") == 0);
     CHECK(std::strcmp(help.fkey_shift[2], "DUP>NEXT") == 0);
-    CHECK(std::strcmp(help.fkey_shift[4], "ROOT") == 0);
-    CHECK(help.fkey_shift[5] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[4], "REVERSE") == 0);
+    CHECK(std::strcmp(help.fkey_shift[5], "RANDOM") == 0);
     CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);  // U4: REDO on Shift + F7 wherever you edit
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
