@@ -10,7 +10,7 @@
 
 TEST_CASE("o3_303: the app identifies itself") {
   CHECK(std::strcmp(o3sdk_app().info().name, "O3-303") == 0);
-  CHECK(std::strcmp(o3sdk_app().info().version, "0.6.1") == 0);
+  CHECK(std::strcmp(o3sdk_app().info().version, "0.7.0") == 0);
 }
 
 TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, and the LEDs say so (DESIGN-303 section 2)") {

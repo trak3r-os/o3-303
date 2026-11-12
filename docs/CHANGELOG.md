@@ -3,7 +3,12 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
-## Unreleased
+## v0.7.0 (2026-11-12), a pre-release
+
+TRACT, a talking mouth after the voice, with its page and its pattern line; PERFORM KNOBS with four sets of knobs; PERFORM's arrows; and a
+few sequencer and HOME gestures. It needs more testing: the host tests pass and its CPU was measured on a unit with the tract off and on
+(render 53.2 % running, 62.2 % at most with it on, 0 underruns, `docs/hw/2026-11-12-964cdbd.md`), but the tract's sound and the new knob sets
+still have to be tried by ear and by hand there.
 
 ### What you can do that you could not before
 
