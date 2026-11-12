@@ -110,7 +110,7 @@ void ladder_levels(const o3::core::ParamDesc* d, float value, bool blink, std::u
 }
 
 Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row) noexcept {
-  if (row >= kLadderRows || row == kLadderRetired) {
+  if (row >= kLadderRows) {
     return Entry{};
   }
   return controls.row_entry(wiring.ladder[row]);
@@ -146,7 +146,7 @@ void store_row(Wiring& wiring, unsigned row) noexcept {
 
 LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned row, const Entry& knob) noexcept {
   LaneRef ref{kLaneNone, 0};
-  if (row >= kLadderRows || row == kLadderRetired || !controls.row_ref(knob, ref)) {
+  if (row >= kLadderRows || !controls.row_ref(knob, ref)) {
     return LadderAssign::NoLane;
   }
   if (same(wiring.ladder[row], ref)) {
@@ -294,7 +294,7 @@ Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int de
 
 Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family) noexcept {
   const unsigned n = ladder_knob_count(controls);
-  if (row >= kLadderRows || row == kLadderRetired || n == 0u) {
+  if (row >= kLadderRows || n == 0u) {
     return Entry{};
   }
   unsigned fam[kWalkMax] = {};  // the family (walk page) of each place of the list
@@ -339,14 +339,14 @@ void ladder_caption(const o3::dsp::Engine& e, const Controls& controls, const Wi
     return;
   }
   out[0] = '\0';
-  if (row >= kLadderRows || row == kLadderRetired) {
+  if (row >= kLadderRows) {
     return;
   }
   copy_cut(controls.row_name(e, wiring.ladder[row]), out, cap, 0);
 }
 
 const char* ladder_short_name(const o3::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row) noexcept {
-  if (row >= kLadderRows || row == kLadderRetired) {
+  if (row >= kLadderRows) {
     return "";
   }
   return controls.row_name(e, wiring.ladder[row]);

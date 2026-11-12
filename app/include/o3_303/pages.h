@@ -130,13 +130,12 @@ const Entry& snap_target(unsigned index) noexcept;
 
 // The units and values the entries reach. The app fills it once at setup.
 // The ladder rows (backlog item 8, KN1): one kind of row: it holds a knob, stored as its lane target and parameter (not as an F key's number, so it survives a page change).
-// HOME's FILT rows hold CUTOFF and RESO by default; PERFORM's row 3 is HOME's FILT row 3 (kLadderHome3), no longer a row that follows the latch. Slot 2 of the table is retired:
-// it keeps its place in the PERF chunk (append-only: the older builds read it as "follows"), is written as {kLaneNone, 0} and ignored at load.
+// HOME's FILT rows hold CUTOFF and RESO by default; PERFORM's row 3 is HOME's FILT row 3 (kLadderHome3), no longer a row that follows the latch.
 // KNOBS (PERFORM's second page, issue #2) has four rows: its rows 3 and 4 are HOME's two (the same entries), rows 1 and 2 are kLadderKnobs1 and 2 (ENV MOD and DECAY).
-inline constexpr unsigned kLadderRows = 5;
-enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderRetired = 2, kLadderKnobs1 = 3, kLadderKnobs2 = 4 };
+inline constexpr unsigned kLadderRows = 4;
+enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderKnobs1 = 2, kLadderKnobs2 = 3 };
 // voice ids 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay
-inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneNone, 0}, {kLaneVoice, 2}, {kLaneVoice, 3}};
+inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneVoice, 2}, {kLaneVoice, 3}};
 
 // KNOBS' four live sets (KN3, REVIEW-KNOBS Q3-A): each set is four rows (top to bottom: KNOBS' rows 1 and 2, then HOME's FILT rows 3 and 4), each row a knob stored as its lane
 // target and parameter. Set 1 is the four rows the PERF chunk always had; the others are factory-filled and the player re-points any row of any set. The ids below are the units'
@@ -148,7 +147,7 @@ struct KnobSets {
   LaneRef row[kKnobSets][kKnobsPerSet];
 };
 // KN4 (Q3-B): knobs a row can hold that no motion lane drives: the wobble's RATE, SHAPE, DEPTH and TARGET and the MODS, GROWL, TRACT and WOB switches. A row stores them as a LaneRef whose target is
-// one of these (id 0), above kLaneTargetCount, so an older build (project.cpp lane_ref_ok) refuses them and loads that row's default. A tap sets the value at once and REC records nothing (the toast says so).
+// one of these (id 0), above kLaneTargetCount, (project.cpp lane_ref_ok validates them). A tap sets the value at once and REC records nothing (the toast says so).
 enum RowOnlyTarget : std::uint8_t {
   kRowWobRate = 16,
   kRowWobShape,
@@ -192,8 +191,8 @@ struct Wiring {
   std::int8_t wob_want = -1;  // B5a: the WOB latch a project load or a snapshot recall asks for (0 off, 1 on, -1 nothing): Controls::set(Item::WobOn) writes it, LiveActions::update takes it. Main loop only
   float growl_last_mix = 0.5f;  // B5a: GROWL's F8 gives Mix this back (Mix as a 0..1 fraction); the Mix F8 read from the engine when it last turned the growl off, 50 % at a boot, never stored. Main loop only
   float tract_last_mix = 0.5f;  // A1: what TractOn gives Mix back (0..1); 50 % at a boot, saved with the project (kAppTractLastMix). Main loop only
-  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3], kDefaultLadder[4]};  // what each ladder row holds (main loop; saved in the project's PERF chunk)
-  // KN3: the four sets and the one in use (0..3; main loop; saved in the PERF chunk). `ladder` is the live copy of the set in use (kKnobsRowId order: slots 3, 4, 0, 1): the writers in
+  LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3]};  // what each ladder row holds (main loop; saved in the project's PERF chunk)
+  // KN3: the four sets and the one in use (0..3; main loop; saved in the PERF chunk). `ladder` is the live copy of the set in use (kKnobsRowId order: slots 2, 3, 0, 1): the writers in
   // ladder_rows.cpp keep the two the same, so the HOME rows, the lane code and the tests read `ladder` as before and a set change swaps the four rows.
   KnobSets knob_sets = kKnobFactory;
   std::uint8_t knob_set = 0;

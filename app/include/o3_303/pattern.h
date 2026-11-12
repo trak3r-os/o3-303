@@ -255,11 +255,8 @@ struct alignas(4) Pattern {
   std::uint8_t gate;       // percent, 5..100
   std::uint8_t motion[kMotionLanes][kMaxSteps * kMotionPointsPerStep];
   LaneRef lanes[kMotionLanes];  // what each motion lane drives (kDefaultLanes in a fresh pattern)
-  TractLine tract;              // the TRACT vowel line (tract_line.h); last, so the PATS record is the bytes before it (kPatBytes)
+  TractLine tract;              // the TRACT vowel line (tract_line.h); last, so a Pattern ends with it
 };
-
-// The bytes of a pattern a PATS record holds (project.h): everything before the TRACT line, which has a chunk of its own (TRCT).
-inline constexpr std::size_t kPatBytes = offsetof(Pattern, tract);
 
 static_assert(std::is_trivial<Pattern>::value, "Pattern lives in an O3SDK_BIG array: it must stay trivial");
 static_assert(std::is_standard_layout<Pattern>::value, "Pattern's layout is read with offsetof and copied in words");

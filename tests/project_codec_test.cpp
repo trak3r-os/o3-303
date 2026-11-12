@@ -1537,9 +1537,6 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip; a damaged ro
     }
   }
   for (unsigned r = 0; r < kLadderRows; ++r) {  // the live rows are the set in use's
-    if (r == kLadderRetired) {
-      continue;
-    }
     const LaneRef want = b.rig.wiring.knob_sets.row[2][knob_row_pos(r)];
     CHECK(b.rig.wiring.ladder[r].target == want.target);
     CHECK(b.rig.wiring.ladder[r].id == want.id);

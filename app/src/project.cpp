@@ -195,7 +195,7 @@ float app_default(unsigned id) noexcept {
       return 0.0f;
     case kAppModsOn:
       return 1.0f;
-    case kAppTractLine:  // a project without the entry has the line off, unless a line holds vowels (apply() decides that one)
+    case kAppTractLine:  // a project whose SND has no entry for it has the line off
       return 0.0f;
     case kAppGrowlLastMix:
     case kAppTractLastMix:
@@ -420,7 +420,7 @@ bool lane_ref_ok(std::uint8_t target, std::uint8_t id) noexcept {
     case kLaneMixer:
       return id == kMixerLevel || id == kMixerSendA;
     default:
-      return row_only_target(target) && id == 0u;  // KN4: the wobble's settings and the switches; an older build refuses them and loads the row's default
+      return row_only_target(target) && id == 0u;  // KN4: the wobble's settings and the switches
   }
 }
 

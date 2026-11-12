@@ -7,7 +7,7 @@
 // at all (LINE on / off) is project-wide and lives in the SND chunk (kAppTractLine, project.cpp), not here.
 //
 // The line is the last member of Pattern, so a pattern copy, paste, DUP>NEXT, undo and the song carry it with the notes. The project file
-// stores it in a chunk of its own (TRCT), and the PATS records keep their size (kPatBytes in pattern.h).
+// stores it inside the PATS record of its pattern (project.h).
 //
 // Plain data and constexpr helpers; the editing entry points are the Bank's (bank.h: tract_step, set_tract_step, set_tract_length,
 // clear_tract), the playing side is the Sequencer's (sequencer.h: set_tract_line, tract_line_on, tract_playhead).

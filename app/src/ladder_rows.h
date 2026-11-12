@@ -40,7 +40,7 @@ unsigned ladder_pos(const o3sdk::core::ParamDesc& d, float value, const KnobSpan
 // the last; `blink` (the lit half of the blink while an F key is held: a tap assigns) draws every pad kLedOn. `d` null (a row that holds nothing): all dark.
 void ladder_levels(const o3sdk::core::ParamDesc* d, float value, bool blink, std::uint8_t (&out)[kLadderSteps], const KnobSpan* span = nullptr) noexcept;
 
-// The entry a row drives now: the knob it holds. Blank when that knob has no entry on any page (and for the retired slot, kLadderRetired).
+// The entry a row drives now: the knob it holds. Blank when that knob has no entry on any page.
 Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row) noexcept;
 
 // Hold an F key and tap a pad of the row: the row holds `knob`; again with the knob it holds, the row returns to its default.

@@ -67,11 +67,11 @@ enum AppValue : std::uint16_t {
   kAppWobbleDepth,
   kAppWobbleReset,
   kAppWobbleTarget,
-  kAppWobbleOn,  // B5a: the WOB latch (0 or 1); an older file lacks it and loads with it off
-  kAppModsOn,    // F13a: MODS heard (1) or off, the STOCK view (0); an older file lacks it and loads with the mods heard
-  kAppGrowlLastMix,  // F13a: GROWL F8's "last mix", percent (1..100); an older file lacks it and loads with 50
-  kAppTractLastMix,  // A1: TRACT's "last mix", percent (1..100); an older file lacks it and loads with 50
-  kAppTractLine,     // A1b: LINE on (1) or off (0), the TRACT line plays; an older file lacks it and loads with it off (on if a line holds vowels)
+  kAppWobbleOn,  // B5a: the WOB latch (0 or 1)
+  kAppModsOn,    // F13a: MODS heard (1) or off, the STOCK view (0)
+  kAppGrowlLastMix,  // F13a: GROWL F8's "last mix", percent (1..100)
+  kAppTractLastMix,  // A1: TRACT's "last mix", percent (1..100)
+  kAppTractLine,     // A1b: LINE on (1) or off (0), the TRACT line plays
   kAppValueCount,
 };
 

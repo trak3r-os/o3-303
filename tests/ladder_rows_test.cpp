@@ -62,7 +62,6 @@ TEST_CASE("ladder rows: assign, assign again (back to the default), no lane, res
   const Entry tempo{Item::Tempo, 0, nullptr};
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
-  CHECK(w.ladder[kLadderRetired].target == kLaneNone);
 
   CHECK(ladder_assign(w, c, kLadderHome3, decay) == LadderAssign::Held);
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Decay);
@@ -73,9 +72,7 @@ TEST_CASE("ladder rows: assign, assign again (back to the default), no lane, res
   CHECK(ladder_assign(w, c, kLadderHome4, tempo) == LadderAssign::NoLane);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
 
-  // KN1: PERFORM's row 3 is HOME's row 3, so no row follows any more; the retired slot holds nothing and takes nothing.
-  CHECK(ladder_assign(w, c, kLadderRetired, decay) == LadderAssign::NoLane);
-  CHECK(ladder_entry(c, w, kLadderRetired).item == Item::Blank);
+  // KN1: PERFORM's row 3 is HOME's row 3, so no row follows it.
   CHECK(ladder_entry(c, w, kLadderHome3).id == AcidVoice::Cutoff);
 
   // Shift + FILT: both HOME rows, and only them.
@@ -428,7 +425,7 @@ TEST_CASE("ladder rows: the LEDs of a list, of a bar, of a blink and of a row th
 }
 
 TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and DECAY") {
-  CHECK(kLadderRows == 5u);
+  CHECK(kLadderRows == 4u);
   Wiring w;
   CHECK(w.ladder[kLadderKnobs1].target == kLaneVoice);
   CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
@@ -436,7 +433,6 @@ TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and DECAY") {
   CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Decay);
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
-  CHECK(w.ladder[kLadderRetired].target == kLaneNone);
 }
 
 TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the set in use, an assignment writes through to its set, FACTORY puts a set back") {
@@ -488,7 +484,6 @@ TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the 
   CHECK(knob_set_is_factory(w, 0));
   CHECK(knob_row_pos(kLadderKnobs1) == 0u);
   CHECK(knob_row_pos(kLadderHome4) == 3u);
-  CHECK(knob_row_pos(kLadderRetired) == kKnobsRows);
 }
 
 TEST_CASE("KNOBS walk (KN3): the family comes out with the knob, and a family jump lands on the first knob of the next or previous family") {
@@ -513,7 +508,6 @@ TEST_CASE("KNOBS walk (KN3): the family comes out with the knob, and a family ju
   (void)ladder_walk_family(w, c, kLadderKnobs1, -1, &back);
   REQUIRE(back != nullptr);
   CHECK(std::strcmp(back, fam0) != 0);
-  (void)ladder_walk(w, c, kLadderRetired, 1, &fam);  // the retired slot: nothing is stored for it
   CHECK(w.knob_set == 0u);
 }
 
