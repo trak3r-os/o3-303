@@ -23,29 +23,29 @@ TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four but
   CHECK(sequencer.perf() == 0);
 
   // Momentary: the flag is on while the button is down.
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(sequencer.perf() == kMute);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   CHECK(sequencer.perf() == 0);
-  t.press(Button::Instr);
+  t.action_press(Button::Instr);
   CHECK(sequencer.perf() == kAcc);
-  t.release(Button::Instr);
-  t.press(Button::Vol);
+  t.action_release(Button::Instr);
+  t.action_press(Button::Vol);
   CHECK(sequencer.perf() == kSlide);
-  t.press(Button::Instr);
+  t.action_press(Button::Instr);
   CHECK(sequencer.perf() == (kSlide | kAcc));  // together
-  t.release(Button::Vol);
-  t.release(Button::Instr);
+  t.action_release(Button::Vol);
+  t.action_release(Button::Instr);
   CHECK(sequencer.perf() == 0);
 
   // DELAY THROW is the engine's send A, not a sequencer flag.
   const float base = t.h->engine().mix(0, dsp::MixField::SendA);
   CHECK(base == doctest::Approx(0.0f));
-  t.press(Button::Fx);
+  t.action_press(Button::Fx);
   t.wait(10);
   CHECK(sequencer.perf() == 0);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(1.0f));
-  t.release(Button::Fx);
+  t.action_release(Button::Fx);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(base));
 
@@ -64,12 +64,12 @@ TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four but
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(base));
 
   // A latch stays when the screen is left; a button held when it is left is let go (its release would reach another screen).
-  t.press(Button::Vol);
+  t.action_press(Button::Vol);
   CHECK(sequencer.perf() == (kAcc | kSlide));
   t.tap(Button::Params);  // INSTRUMENT (the File button is the 303 screen's and INSTRUMENT's)
   CHECK(std::strcmp(t.title(), "INSTRUMENT FX") == 0);
   CHECK(sequencer.perf() == kAcc);
-  t.release(Button::Vol);
+  t.action_release(Button::Vol);
   t.tap(Button::Pattern);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   CHECK(sequencer.perf() == kAcc);

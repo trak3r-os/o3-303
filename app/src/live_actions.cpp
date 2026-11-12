@@ -42,6 +42,7 @@ void LiveActions::init(Rig& rig) noexcept {
   controls_ = &rig.controls;
   button_held_ = 0;
   button_latched_ = 0;
+  button_pending_ = 0;
   pad_held_ = 0;
   pad_latched_ = 0;
   applied_ = 0;
@@ -82,6 +83,7 @@ void LiveActions::update(app::Context& ctx) noexcept {
 
 void LiveActions::leave(app::Context& ctx) noexcept {
   button_held_ = 0;
+  button_pending_ = 0;  // the release that follows is no tap
   pad_held_ = 0;
   apply(ctx);
 }
@@ -94,30 +96,33 @@ std::uint32_t LiveActions::next_seed(app::Context& ctx) noexcept {
 
 // ---- The four colour buttons (C4) -----------------------------------------------------------------------------------------------
 
-void LiveActions::button_press(app::Context& ctx, unsigned button, bool shift) noexcept {
+// Shift + a colour key (E1b): a tap (under kButtonTapMs) latches its action, or lets it go when it is latched (by this key or by a PERFORM pad); a hold is the action while it is down.
+void LiveActions::action_button_press(app::Context& ctx, unsigned button, std::uint64_t now_ms) noexcept {
   if (button >= kPerfButtons) {
     return;
   }
-  if (shift) {
-    // Shift + a button whose action is latched on a PERFORM pad lets the action go (as that pad would), whatever screen this is; else it
-    // latches or unlatches the button itself.
-    const unsigned a = rig_->wiring.perf[button];
-    if (a < kPerfActionCount && (pad_latched_ & perf_bit(static_cast<PerfAction>(a))) != 0u) {
-      unlatch(static_cast<PerfAction>(a));
-    } else {
-      button_latched_ ^= 1u << button;
-    }
+  const unsigned a = rig_->wiring.perf[button];
+  if (a < kPerfActionCount && latched(static_cast<PerfAction>(a))) {
+    unlatch(static_cast<PerfAction>(a));  // a latched action's key lets it go at once, and its release has nothing to give
   } else {
     button_held_ |= 1u << button;
+    button_pending_ |= 1u << button;
+    button_down_ms_[button] = static_cast<std::uint32_t>(now_ms);
   }
   apply(ctx);
 }
 
-void LiveActions::button_release(app::Context& ctx, unsigned button) noexcept {
+void LiveActions::action_button_release(app::Context& ctx, unsigned button, std::uint64_t now_ms) noexcept {
   if (button >= kPerfButtons) {
     return;
   }
-  button_held_ &= ~(1u << button);
+  const unsigned bit = 1u << button;
+  const bool tap = (button_pending_ & bit) != 0u && static_cast<std::uint32_t>(now_ms) - button_down_ms_[button] < kButtonTapMs;
+  button_pending_ &= ~bit;
+  button_held_ &= ~bit;
+  if (tap) {
+    button_latched_ |= bit;
+  }
   apply(ctx);
 }
 

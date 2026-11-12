@@ -697,9 +697,6 @@ void RecordScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     }
     return;
   }
-  if (b == Button::Note || b == Button::Instr || b == Button::Vol || b == Button::Fx) {
-    return;  // the colour buttons do nothing on RECORD (UX-303 2.3)
-  }
   (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, and the plain Rec (step record)
 }
 

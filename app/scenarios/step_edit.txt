@@ -2,10 +2,10 @@
 # The evidence here is the PLAYS row of the drawer and the STEP box (STEP n: ... x3, 1:2 ...), the toast (STEP n RATCHET xn, STEP n COND ...), INSTRUMENT
 # VOICE's knobs and the note and accent rows moving. Step pads: steps 1..8 are pads 0..7, steps 9..16 pads 12..19.
 wait 300
-# The Vol button puts the PLAYS row on the encoder (UX-303 2.3, D8). Hold step 4 and turn twice: its ratchet is x3; one back is x2. OCT+ and OCT- (pads 21
+# The Vol button with a step held puts the PLAYS row on the encoder (UX-303 2.3, D8). Hold step 4 and turn twice: its ratchet is x3; one back is x2. OCT+ and OCT- (pads 21
 # and 20) are the keyboard's octave only now, even with a step held: the old gesture (hold a step + OCT+) is cut (D24).
-tap vol
 paddown 3
+tap vol
 turn 2
 wait 100
 snap 01_ratchet_x3

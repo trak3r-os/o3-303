@@ -69,7 +69,7 @@ TEST_CASE("a controller learned on WOBBLE's DEPTH moves the setting and the knob
   Hands t(midi);
   app::Context& ctx = t.h->runtime().context();
   t.to_wobble();
-  t.tap(Button::F8);  // WOB on: a running wobble takes a change of the settings at once
+  t.tap(Button::Fx);  // WOB on: a running wobble takes a change of the settings at once
   t.wait(30);
   REQUIRE(app_sequencer().wobble().on);
   t.shift_tap(Button::F3);  // DEPTH
@@ -119,12 +119,12 @@ TEST_CASE("a controller learned on WOBBLE's RATE steps the rate through the list
   CHECK(std::strcmp(knob_of(t, 0).value, "1/1") == 0);
 }
 
-TEST_CASE("a controller learned on WOB latches and releases the wobble action like F8") {
+TEST_CASE("a controller learned on WOB latches and releases the wobble action like F8 and the FX key") {
   platform::host::FakeMidi midi;
   Hands t(midi);
   seq::Sequencer& s = app_sequencer();
   t.to_wobble();
-  t.shift_tap(Button::F8);
+  t.shift_tap(Button::F8);  // the learn well on the WOBBLE page (E1b kept it: the maintainer asked for the learn here)
   REQUIRE(t.h->runtime().context().midi().learning());
   midi.in(Port::Usb, 0xB0, 75, 0x7F);
   t.wait(30);
@@ -136,7 +136,7 @@ TEST_CASE("a controller learned on WOB latches and releases the wobble action li
   t.wait(60);
   CHECK(s.wobble().on);
   CHECK(t.param(kWobLearn, WobbleLearn::kWob) == doctest::Approx(1.0f));
-  t.tap(Button::F8);  // the panel's F8 lets it go; the engine's value follows
+  t.tap(Button::F8);  // the panel's F8 lets it go (the FX key does the same); the engine's value follows
   t.wait(60);
   CHECK_FALSE(s.wobble().on);
   CHECK(t.param(kWobLearn, WobbleLearn::kWob) == doctest::Approx(0.0f));

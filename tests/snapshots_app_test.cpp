@@ -216,7 +216,7 @@ TEST_CASE("snapshots: the eleven mods and the growl's FMT MIX, CMB TUNE and CMB 
   t.to_perform();
   store(t, 0);
   set_all(false);
-  t.shift_tap(Button::SampleLoad);  // STOCK on
+  t.tap(Button::Note);  // STOCK on (MODS off)
   REQUIRE(t.param(kVoice, AcidVoice::Stock) >= 0.5f);
   t.pad(snap_pad(0), 10);
   t.wait(300);

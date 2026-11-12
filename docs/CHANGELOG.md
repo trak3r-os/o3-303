@@ -16,6 +16,12 @@ hear says so in plain words.
   was TRACT then GROWL, Sample Editor WOBBLE and Sample Recorder RECORD). RECORD is now **Song** pressed again: Song opens SONG, a second press RECORD, and from RECORD a press goes back to
   SONG. TRACT has its own page and hint (F8 TRACT). The help texts and the manual say so.
 
+- **The colour buttons flip the sounds (E1b).** Note, Instr, Vol and Fx now work the same on every screen: a tap flips **MODS, GROWL, TRACT and WOBBLE** (the PAGE window says MODS ON, GROWL OFF and so on;
+  GROWL and TRACT go to zero mix and back to their last mix). **Shift + the button** runs the PERFORM action set on PERFORM SETUP F1 to F4 (MUTE, ACC ALL, FILL, FREEZE at first): a tap under 300 ms latches it,
+  a hold is momentary, and Shift + the button again lets a latched one go. On HOME, a drawer row (NOTE, GATE, PLAYS, LOCK) is a colour button with a step pad held. SONG's columns move to F5 PAT, F6 RPT,
+  F7 TRSP and F8 MUTE (before, the colour buttons). Before, on PERFORM the plain buttons were the actions and Shift only latched them.
+  The sound pages lose their on / off key in F8 (MODDED TONE's STOCK, GROWL's and TRACT's ON): the colour button is that key. **WOBBLE keeps F8 WOB** (same latch as Fx), so Shift + F8 still MIDI-learns it.
+
 - **TRACT is a fifth set on PERFORM KNOBS (F1).** A second tap on F3 flips SET 3 between GROWL and TRACT (VOWEL, TONGUE, LIPS and TRC MIX on the four rows of pads; the key and the
   toast say TRACT), so the mouth can be played from the pads. Shift + F3 puts the one that is up back to its factory knobs. The TRACT set is saved with the project (format 2.0).
 

@@ -32,38 +32,38 @@ TEST_CASE("the defaults: Note is MUTE, Instr ACC ALL, Vol FILL and Fx FREEZE, ea
   CHECK(s.perf() == 0);
   CHECK(freeze_active(t) == 0.0f);
 
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   CHECK(s.perf() == 0);
 
-  t.press(Button::Instr);
+  t.action_press(Button::Instr);
   CHECK(s.perf() == o3_303::seq::kPerfAccAll);
-  t.release(Button::Instr);
+  t.action_release(Button::Instr);
   CHECK(s.perf() == 0);
 
-  t.press(Button::Vol);
+  t.action_press(Button::Vol);
   CHECK(s.perf() == o3_303::seq::kPerfFill);
   CHECK(s.fill_held());
-  t.release(Button::Vol);
+  t.action_release(Button::Vol);
   CHECK(s.perf() == 0);
   CHECK_FALSE(s.fill_held());
 
-  t.press(Button::Fx);
+  t.action_press(Button::Fx);
   CHECK(freeze_active(t) == 1.0f);
   CHECK(s.perf() == 0);  // the freeze is a unit's parameter, not a sequencer flag
-  t.release(Button::Fx);
+  t.action_release(Button::Fx);
   CHECK(freeze_active(t) == 0.0f);
 
   // Together, and the old SLIDE ALL and THROW are not on any button by default.
-  t.press(Button::Note);
-  t.press(Button::Vol);
-  t.press(Button::Fx);
+  t.action_press(Button::Note);
+  t.action_press(Button::Vol);
+  t.action_press(Button::Fx);
   CHECK(s.perf() == (o3_303::seq::kPerfMute | o3_303::seq::kPerfFill));
   CHECK(freeze_active(t) == 1.0f);
-  t.release(Button::Fx);
-  t.release(Button::Vol);
-  t.release(Button::Note);
+  t.action_release(Button::Fx);
+  t.action_release(Button::Vol);
+  t.action_release(Button::Note);
   CHECK(s.perf() == 0);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.0f));
@@ -79,7 +79,7 @@ TEST_CASE("Shift + the button latches its action, Shift + it again lets go, and 
   CHECK(freeze_active(t) == 1.0f);
   t.shift_tap(Button::Note);
   CHECK(s.perf() == (o3_303::seq::kPerfFill | o3_303::seq::kPerfMute));
-  // A held press of a latched button, and its release, leave the latch.
+  // The plain key is the sound's now (E1b: Vol is TRACT), it leaves the latched action alone.
   t.tap(Button::Vol);
   CHECK(s.fill_held());
   t.shift_tap(Button::Vol);
@@ -96,33 +96,33 @@ TEST_CASE("an assignment on the PERF page gives a button another action; all sev
   // Vol = SLIDE ALL, Fx = THROW: the two the defaults left.
   t.assign_perf(Button::Vol, PerfAction::SlideAll);
   t.assign_perf(Button::Fx, PerfAction::Throw, true);
-  t.press(Button::Vol);
+  t.action_press(Button::Vol);
   CHECK(s.perf() == o3_303::seq::kPerfSlideAll);
   CHECK_FALSE(s.fill_held());
-  t.release(Button::Vol);
-  t.press(Button::Fx);
+  t.action_release(Button::Vol);
+  t.action_press(Button::Fx);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(1.0f));
   CHECK(freeze_active(t) == 0.0f);  // Fx is not the freeze any more
-  t.release(Button::Fx);
+  t.action_release(Button::Fx);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(0.0f));
   // Note = FREEZE, Instr = FILL: any action on any button.
   t.assign_perf(Button::Note, PerfAction::Freeze);
   t.assign_perf(Button::Instr, PerfAction::Fill, true);
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(freeze_active(t) == 1.0f);
   CHECK(s.perf() == 0);
-  t.release(Button::Note);
-  t.press(Button::Instr);
+  t.action_release(Button::Note);
+  t.action_press(Button::Instr);
   CHECK(s.fill_held());
-  t.release(Button::Instr);
+  t.action_release(Button::Instr);
   CHECK(s.perf() == 0);
   // Back to the defaults by the same page.
   t.assign_perf(Button::Note, PerfAction::Mute, true);
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
 }
 
 TEST_CASE("OCT UP is an octave on the running pattern while it is on, on top of the keyboard's transposition") {
@@ -130,9 +130,9 @@ TEST_CASE("OCT UP is an octave on the running pattern while it is on, on top of 
   o3_303::seq::Sequencer& s = app_sequencer();
   t.assign_perf(Button::Instr, PerfAction::OctUp, true);
   CHECK(s.live_transpose() == 0);
-  t.press(Button::Instr);
+  t.action_press(Button::Instr);
   CHECK(s.live_transpose() == 12);
-  t.release(Button::Instr);
+  t.action_release(Button::Instr);
   CHECK(s.live_transpose() == 0);
   // Latched while the keyboard transposes (TRNSP on, HOME's pad; PERFORM's row 4 is the keyboard here): 7 + 12.
   t.to_home();
@@ -161,12 +161,12 @@ TEST_CASE("two buttons with one action: it is on while either is; a button reass
   Hands t;
   o3_303::seq::Sequencer& s = app_sequencer();
   t.assign_perf(Button::Instr, PerfAction::Mute, true);  // Note and Instr are both MUTE
-  t.press(Button::Note);
-  t.press(Button::Instr);
+  t.action_press(Button::Note);
+  t.action_press(Button::Instr);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
-  t.release(Button::Instr);
+  t.action_release(Button::Instr);
   CHECK(s.perf() == 0);
 
   // A latched MUTE on Note, then Note is reassigned to FREEZE: the latch is gone, nothing is muted or frozen under the hand.
@@ -176,7 +176,8 @@ TEST_CASE("two buttons with one action: it is on while either is; a button reass
   t.wait(50);
   CHECK(s.perf() == 0);
   CHECK(freeze_active(t) == 0.0f);
-  t.tap(Button::Note);
+  t.action_press(Button::Note);
+  t.action_release(Button::Note);
   t.wait(5);
   CHECK(freeze_active(t) == 0.0f);
 
@@ -192,8 +193,8 @@ TEST_CASE("leaving PERFORM lets go of the held buttons and keeps the latches") {
   t.to_perform();
   o3_303::seq::Sequencer& s = app_sequencer();
   t.shift_tap(Button::Note);  // MUTE latched
-  t.press(Button::Vol);       // FILL held
-  t.press(Button::Fx);        // FREEZE held
+  t.action_press(Button::Vol);       // FILL held
+  t.action_press(Button::Fx);        // FREEZE held
   CHECK(s.fill_held());
   CHECK(freeze_active(t) == 1.0f);
   t.tap(Button::Params);  // INSTRUMENT
@@ -201,8 +202,8 @@ TEST_CASE("leaving PERFORM lets go of the held buttons and keeps the latches") {
   t.wait(10);
   CHECK(s.perf() == o3_303::seq::kPerfMute);
   CHECK(freeze_active(t) == 0.0f);
-  t.release(Button::Vol);
-  t.release(Button::Fx);
+  t.action_release(Button::Vol);
+  t.action_release(Button::Fx);
   t.to_perform();
   CHECK(s.perf() == o3_303::seq::kPerfMute);
   t.shift_tap(Button::Note);
@@ -219,8 +220,8 @@ TEST_CASE("the Song key does nothing (M3b's provisional freeze key is gone), and
   Hands again;
   CHECK(again.h->runtime().context().screen() != nullptr);
   again.to_perform();
-  again.press(Button::Fx);
+  again.action_press(Button::Fx);
   CHECK(freeze_active(again) == 1.0f);  // Fx is FREEZE again: setup() resets the app's wiring
-  again.release(Button::Fx);
+  again.action_release(Button::Fx);
   CHECK(s.live_transpose() == 0);
 }

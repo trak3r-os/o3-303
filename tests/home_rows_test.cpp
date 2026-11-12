@@ -68,35 +68,37 @@ std::uint8_t lock_of(Hands& t, unsigned id, unsigned s) {
 
 }  // namespace
 
-TEST_CASE("Note, Instr, Vol and Fx latch the NOTE, GATE, PLAYS and LOCK rows; an F key gives the encoder back; Shift + the button is the button alone") {
+TEST_CASE("Note, Instr, Vol and Fx with a step held latch the NOTE, GATE, PLAYS and LOCK rows; an F key gives the encoder back; without a step held or with Shift the key is a sound or a PERFORM action, not a row") {
   Hands t;
   HomeMap& home = home_of(t);
   CHECK(home.row() == DrawerRow::None);
-  t.tap(Button::Note);
+  t.row_key(Button::Note);
   CHECK(home.row() == DrawerRow::Note);
   CHECK(enc(t, home) == "NOTE");
-  t.tap(Button::Instr);
+  t.row_key(Button::Instr);
   CHECK(home.row() == DrawerRow::Gate);
   CHECK(enc(t, home) == "GATE");
-  t.tap(Button::Vol);
+  t.row_key(Button::Vol);
   CHECK(home.row() == DrawerRow::Plays);
   CHECK(enc(t, home) == "PLAYS");
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx);
   CHECK(home.row() == DrawerRow::Lock);
   CHECK(enc(t, home) == "LOCK CUTOFF");  // the latched knob at boot: F1 CUTOFF
-  t.tap(Button::Fx);                     // again: it stays
+  t.row_key(Button::Fx);                 // again: it stays
   CHECK(home.row() == DrawerRow::Lock);
   t.tap(Button::F2);
   CHECK(home.row() == DrawerRow::None);
-  // Shift + a button is the button alone (D22), a held button too: no live action starts on this screen.
+  // No step held: the key is the sound toggle (MODS, GROWL, TRACT, WOBBLE), the row stays out (E1b).
+  t.tap(Button::Fx);
+  CHECK(home.row() == DrawerRow::None);
+  t.tap(Button::Fx);
+  // Shift + the key is the PERFORM action of that key, a tap latches it; no row is latched either.
   t.shift_tap(Button::Vol);
-  CHECK(home.row() == DrawerRow::Plays);
-  t.shift_tap(Button::Fx);
-  CHECK(home.row() == DrawerRow::Lock);
-  CHECK(enc(t, home) == "LOCK RESO");  // the knob F2 latched
-  CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
+  CHECK(home.row() == DrawerRow::None);
+  t.shift_tap(Button::Vol);
   CHECK(app_sequencer().perf() == 0);
   // Shift + F is a tool, not a latch of a knob: the row stays.
+  t.row_key(Button::Fx);
   t.shift_tap(Button::F8);
   CHECK(home.row() == DrawerRow::Lock);
   t.tap(Button::F8);
@@ -107,8 +109,7 @@ TEST_CASE("the NOTE row: a turn is a semitone on the cursor step, Shift an octav
   Hands t;
   line(t);
   HomeMap& home = home_of(t);
-  t.pad(step_pad_of(4));  // the cursor on step 5 (C2 + 4 = 40)
-  t.tap(Button::Note);
+  t.row_key(Button::Note, 4);  // the cursor on step 5 (C2 + 4 = 40)
   t.turn(1);
   CHECK(t.pat().steps[4].note == 41);
   CHECK(toast_of(home) == "STEP 5 NOTE F2");
@@ -149,7 +150,7 @@ TEST_CASE("the GATE row walks REST, NOTE, ACC, SLD, ACC+SLD, TIE on the cursor s
   Pattern p = t.pat();
   p.steps[2].flags = with_ratchet(0, 2);
   bank().replace(t.selected(), p);
-  t.tap(Button::Instr);
+  t.row_key(Button::Instr, 2);
   t.turn(1);
   CHECK(seq::gate_list_index(t.pat().steps[2].flags) == seq::kGateAcc);
   CHECK((t.pat().steps[2].flags & kStepAccent) != 0);
@@ -176,8 +177,7 @@ TEST_CASE("the PLAYS row walks the list of D8: x1..x4, 75 / 50 / 25 %, the ratio
   Hands t;
   line(t);
   HomeMap& home = home_of(t);
-  t.pad(step_pad_of(3));
-  t.tap(Button::Vol);
+  t.row_key(Button::Vol, 3);
   t.turn(1);
   CHECK(seq::get_ratchet(t.pat(), 3) == 1);
   CHECK(toast_of(home) == "STEP 4 PLAYS x2");
@@ -216,8 +216,7 @@ TEST_CASE("the LOCK row locks the lock knob on the step, claims its lane, shows 
   line(t);
   HomeMap& home = home_of(t);
   t.tap(Button::F4);  // DECAY: the lock knob
-  t.pad(step_pad_of(5));
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 5);
   CHECK(enc(t, home) == "LOCK DECAY");
   CHECK(lock_of(t, AcidVoice::Decay, 5) == kNoLock);
   CHECK(box(t, home) == "STEP 6: F2");
@@ -254,8 +253,7 @@ TEST_CASE("a lock on a ninth parameter says 8 LANES USED, and removing a lock fr
     REQUIRE(bank().lock_step(t.selected(), kLaneDist, static_cast<std::uint8_t>(id), 2, 100) >= 0);
   }
   t.tap(Button::F1);  // CUTOFF
-  t.pad(step_pad_of(5));
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 5);
   t.turn(5);
   CHECK(toast_of(home) == kLanesUsedToast);
   CHECK(lock_of(t, AcidVoice::Cutoff, 5) == kNoLock);
@@ -276,8 +274,7 @@ TEST_CASE("a row turn on a held step edits that step and does not select it; the
   Hands t;
   line(t);
   HomeMap& home = home_of(t);
-  t.pad(step_pad_of(0));
-  t.tap(Button::Instr);
+  t.row_key(Button::Instr, 0);
   t.down(step_pad_of(6));
   t.turn(1);
   CHECK(home.drawer(t.h->runtime().context()).row == DrawerRow::Gate);
@@ -340,17 +337,16 @@ TEST_CASE("the rows work on PATTERN SETUP and on INSTRUMENT; the LOCK row keeps 
   // PATTERN SETUP: the same drawer, the same rows.
   t.tap(Button::Pattern);
   REQUIRE(std::strcmp(t.title(), "PATTERN SETUP") == 0);
-  t.pad(step_pad_of(1));
-  t.tap(Button::Instr);
+  t.row_key(Button::Instr, 1);
   t.turn(2);
   CHECK(seq::gate_list_index(t.pat().steps[1].flags) == seq::kGateSld);
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 1);
   CHECK(enc(t, home) == "LOCK DECAY");  // SETUP's own knobs (LENGTH ...) have no lane: the last sound knob
   t.turn(3);
   CHECK(lock_of(t, AcidVoice::Decay, 1) != kNoLock);
   t.tap(Button::F1);  // LENGTH: the knob has the encoder
   CHECK(home.row() == DrawerRow::None);
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 1);
   t.tap(Button::Pattern);  // HOME again: the row survives the flip, as SETUP and HOME are one screen
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   CHECK(home.row() == DrawerRow::Lock);
@@ -358,14 +354,13 @@ TEST_CASE("the rows work on PATTERN SETUP and on INSTRUMENT; the LOCK row keeps 
   t.to_instrument(kInstFx);
   CHECK(home.row() == DrawerRow::None);  // a screen shown again: the encoder is the knob's
   t.tap(Button::F1);                     // DRIVE
-  t.pad(step_pad_of(4));
-  t.tap(Button::Vol);
+  t.row_key(Button::Vol, 4);
   t.turn(2);
   CHECK(seq::get_ratchet(t.pat(), 4) == 2);
-  t.tap(Button::Note);
+  t.row_key(Button::Note, 4);
   t.turn(1);
   CHECK(t.pat().steps[4].note == 41);
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 4);
   CHECK(enc(t, home) == "LOCK DRIVE");
   t.turn(-2);
   const int lane = seq::find_lane(t.pat(), kLaneDist, Distortion::Drive);
@@ -380,15 +375,14 @@ TEST_CASE("the Shift row does not take the encoder from a latched row; an F key 
   Hands t;
   line(t);
   HomeMap& home = home_of(t);
-  t.pad(step_pad_of(4));
-  t.tap(Button::Note);
+  t.row_key(Button::Note, 4);
   REQUIRE(home.row() == DrawerRow::Note);
   t.shift_tap(Button::F4);  // NOTES: an edit of the pattern, not an owner of the encoder
   CHECK(home.row() == DrawerRow::Note);
   const Pattern redrawn = t.pat();
   t.turn(1);
   CHECK(t.pat().steps[4].note == redrawn.steps[4].note + 1);  // the row still has the turn
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 4);
   REQUIRE(home.row() == DrawerRow::Lock);
   t.tap(Button::F2);  // an F key: the knob has the encoder, the row is let go
   CHECK(home.row() == DrawerRow::None);
@@ -424,7 +418,7 @@ TEST_CASE("several held steps edited by one turn gesture are ONE undo step, and 
     return true;
   };
   // NOTE: forty detents over four steps (ten times the 32 entries a step each detent would take).
-  t.tap(Button::Note);
+  t.row_key(Button::Note, 0);
   hold4();
   for (int i = 0; i < 40; ++i) {
     t.turn(1);
@@ -435,7 +429,7 @@ TEST_CASE("several held steps edited by one turn gesture are ONE undo step, and 
   CHECK(bank().undo() == static_cast<int>(t.selected()));
   CHECK(same_as_earlier());
   // GATE.
-  t.tap(Button::Instr);
+  t.row_key(Button::Instr, 0);
   hold4();
   for (int i = 0; i < 3; ++i) {
     t.turn(1);
@@ -447,7 +441,7 @@ TEST_CASE("several held steps edited by one turn gesture are ONE undo step, and 
   CHECK(bank().undo() >= 0);
   CHECK(same_as_earlier());
   // PLAYS.
-  t.tap(Button::Vol);
+  t.row_key(Button::Vol, 0);
   hold4();
   for (int i = 0; i < 20; ++i) {
     t.turn(1);
@@ -458,7 +452,7 @@ TEST_CASE("several held steps edited by one turn gesture are ONE undo step, and 
   CHECK(same_as_earlier());
   // LOCK (the lane claim and four locks), by the row and by hold + turn of the knob.
   t.tap(Button::F4);
-  t.tap(Button::Fx);
+  t.row_key(Button::Fx, 0);
   hold4();
   for (int i = 0; i < 12; ++i) {
     t.turn(-1);
@@ -500,7 +494,7 @@ TEST_CASE("the NOTE row never moves a note further out of C1..C5 and never jumps
   p.steps[4].note = 72;
   p.steps[5].note = 24;
   bank().replace(t.selected(), p);
-  t.tap(Button::Note);
+  t.row_key(Button::Note, 0);
   const auto turn_step = [&](unsigned k, int d, bool shift = false) {
     t.pad(step_pad_of(k));  // the cursor
     if (shift) {

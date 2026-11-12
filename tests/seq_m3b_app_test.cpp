@@ -53,6 +53,16 @@ struct Hands {
     tap(b);
     release(Button::Shift);
   }
+  // A PERFORM action held (E1b): Shift + the colour key, Shift let go at once, the key kept down; `action_release` waits past the tap time and lets the key go.
+  void action_press(Button b) {
+    press(Button::Shift);
+    press(b);
+    release(Button::Shift);
+  }
+  void action_release(Button b) {
+    h->run_ms(310);
+    release(b);
+  }
 };
 
 // The M3b demo line: ratchets x2, x3, x4 (one accented), a slide into a ratcheted step and a ratcheted slide step, a condition of each kind
@@ -103,7 +113,7 @@ TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: 
   CHECK(e.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(1000.0f));
 }
 
-TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is PERFORM SETUP's F5; the demo line's FILL conditions follow it") {
+TEST_CASE("FILL is Shift + the Vol button (C4's default; E1b: Shift + a colour key runs its PERFORM action on every screen) and its variant is PERFORM SETUP's F5; the demo line's FILL conditions follow it") {
   Hands hands;
   seq::Sequencer& s = app_sequencer();
   load_demo_line();
@@ -125,29 +135,25 @@ TEST_CASE("FILL is the Vol button on PERFORM (C4's default) and its variant is P
   hands.h->turn(-3);
   hands.h->run_ms(2);
   CHECK(s.fill_variant() == seq::FillVariant::Mutate);
-  hands.tap(Button::Performance);  // PERFORM again: the Vol button is FILL there (on the 303 screen it is the PLAYS row)
+  hands.tap(Button::Performance);  // PERFORM again
 
   hands.tap(Button::Play);
   hands.h->run_ms(300);
   CHECK_FALSE(s.playhead().fill);
-  hands.press(Button::Vol);
+  hands.action_press(Button::Vol);
   CHECK(s.fill_held());
   hands.h->run_ms(400);  // a step is 120 ms at 125 BPM: the variant starts at the next one
   CHECK(s.playhead().fill);
-  hands.release(Button::Vol);
+  hands.action_release(Button::Vol);
   CHECK_FALSE(s.fill_held());
   hands.h->run_ms(400);
   CHECK_FALSE(s.playhead().fill);
   // Shift latches it; Shift again lets it go.
-  hands.press(Button::Shift);
-  hands.tap(Button::Vol);
-  hands.release(Button::Shift);
+  hands.shift_tap(Button::Vol);
   CHECK(s.fill_held());
   hands.h->run_ms(400);
   CHECK(s.playhead().fill);
-  hands.press(Button::Shift);
-  hands.tap(Button::Vol);
-  hands.release(Button::Shift);
+  hands.shift_tap(Button::Vol);
   CHECK_FALSE(s.fill_held());
   hands.tap(Button::Play);
 }

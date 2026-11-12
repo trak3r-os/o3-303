@@ -73,7 +73,7 @@ void append_uint(char* out, unsigned cap, std::uint32_t v) noexcept {
   append(out, cap, text);
 }
 
-// The colour of each column's button: Note teal, Instr amber, Vol purple, Fx cyan (the drawer rows' colours, UX-303 2.3).
+// The colour of each column chip: teal, amber, purple, cyan (the colours of the drawer rows, UX-303 2.3; F5 to F8 pick the column).
 constexpr Color kColumnColour[kSongColumns] = {Color::Vol, Color::Accent, Color::Fx, Color::Instr};
 constexpr const char* kColumnName[kSongColumns] = {"PATTERN", "REPEAT", "TRANSP", "MUTE"};
 
@@ -243,6 +243,10 @@ void fill_song_view(SongView& out, const SongInputs& in) noexcept {
   out.key[1].sw = in.loop ? 1 : 0;
   key(2, "CHAIN", "to song", "TO SONG", in.chain_length == 0u);
   key(3, "CLEAR", in.clear_armed ? "again?" : "tap twice", in.clear_armed ? "SURE?" : "TWICE", length == 0u, in.clear_armed);
+  static constexpr const char* kColumnKey[kSongColumns] = {"PAT", "RPT", "TRSP", "MUTE"};
+  for (unsigned c = 0; c < kSongColumns; ++c) {  // F5 to F8: the column the encoder turns, the picked one lit
+    key(4u + c, kColumnKey[c], "column", kColumnKey[c], length == 0u, out.column == c);
+  }
 }
 
 // ---- The list, both drawings --------------------------------------------------------------------------------------------------
@@ -264,7 +268,7 @@ void draw_song_list(ui::Renderer& r, const Rect& area, const SongView& v, int ro
     r.text(col_x[c] + (col_w[c] - r.text_width(s, face)) / 2, ui::caps_y(theme, face, y, h), s, ink, face);
   };
 
-  // The column chips, in the colour of the button that picks the column; the picked one is filled.
+  // The column chips; the picked one is filled.
   r.text(col_x[0] + (col_w[0] - r.text_width("ROW", Face::Label)) / 2, ui::caps_y(theme, Face::Label, area.y, kHeadH), "ROW", Color::TextDim, Face::Label);
   for (unsigned c = 0; c < kSongColumns; ++c) {
     const Rect chip{col_x[c + 1] + 3, area.y, col_w[c + 1] - 6, kHeadH};
@@ -449,22 +453,6 @@ void SongScreen::button(app::Context& ctx, const Input& in) noexcept {
     case Button::Right:
       move_cursor(ctx, static_cast<int>(kSongPageRows));
       break;
-    case Button::Note:
-      column_ = 0;
-      ctx.redraw();
-      break;
-    case Button::Instr:
-      column_ = 1;
-      ctx.redraw();
-      break;
-    case Button::Vol:
-      column_ = 2;
-      ctx.redraw();
-      break;
-    case Button::Fx:
-      column_ = 3;
-      ctx.redraw();
-      break;
     case Button::Insert:
       insert_row(ctx);
       break;
@@ -501,8 +489,12 @@ void SongScreen::fkey(app::Context& ctx, unsigned k, bool shift) noexcept {
     case 3:
       clear_song(ctx);
       break;
-    case 7:  // the old UNDO key: it answers for one release, and does nothing else
-      say(ctx, "UNDO IS SHIFT + F8", true);
+    case 4:  // the column the encoder turns: PATTERN, REPEAT, TRANSP, MUTE (the colour buttons are the four sounds now)
+    case 5:
+    case 6:
+    case 7:
+      column_ = k - 4u;
+      ctx.redraw();
       break;
     default:
       break;

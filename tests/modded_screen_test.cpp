@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MODDED (the Sample Loader button; docs/MODS-PLAN.md 4.1, 4.3, 5.3, 5.8, 5.10 to 5.12) and STOCK: the two pages and their keys, F8 as an action key, MIDI learn on the mods and "-" on
-// STOCK, the locks and a recorded turn on a mod and on a switch, Shift + Sample Loader flipping STOCK from every screen with the toast and the chip, a turn of a mod ending STOCK (and a
-// turn of DECAY, a lock or a controller not doing so), STOCK off after a boot, a load, NEW, REVERT and RESET PROJECT, WOBBLE's F8 and LiveActions::toggle_latch(), and the render with every
+// MODDED (the Sample Loader button; docs/MODS-PLAN.md 4.1, 4.3, 5.3, 5.8, 5.10 to 5.12) and STOCK: the two pages and their keys, the Note key flips MODS, MIDI learn on the mods and "-" on
+// STOCK, the locks and a recorded turn on a mod and on a switch, the Note key flipping STOCK from every screen with the toast and the chip, a turn of a mod ending STOCK (and a
+// turn of DECAY, a lock or a controller not doing so), STOCK off after a boot, a load, NEW, REVERT and RESET PROJECT, the Fx key and LiveActions::toggle_latch(), and the render with every
 // mod at an extreme and STOCK on being, bit for bit, a fresh project's (the A/B of mods_stock_ab).
 #include <doctest/doctest.h>
 
@@ -98,7 +98,7 @@ TEST_CASE("MODDED: the titles, the tabs and the eight keys of NOTES and TONE (do
     CHECK(notes.entry[k].item == Item::Voice);
     CHECK(notes.entry[k].id == kNotesIds[k]);
   }
-  CHECK(notes.entry[7].item == Item::Mods);  // F8: the action key
+  CHECK(notes.entry[7].item == Item::Blank);  // F8 is empty (E1b): the Note key flips MODS
   t.tap(Button::SampleLoad);
   CHECK(is_title(t, "MODDED TONE"));
   const Page& tone = screen_of(t).page_table();
@@ -107,7 +107,7 @@ TEST_CASE("MODDED: the titles, the tabs and the eight keys of NOTES and TONE (do
     CHECK(tone.entry[k].item == Item::Voice);
     CHECK(tone.entry[k].id == kToneIds[k]);
   }
-  CHECK(tone.entry[7].item == Item::Mods);
+  CHECK(tone.entry[7].item == Item::Blank);
 }
 
 TEST_CASE("MODDED: every key of NOTES and TONE reaches its parameter, and every label fits the strip's nine characters") {
@@ -203,35 +203,27 @@ TEST_CASE("learn_target: the eleven mods and DECAY are unit parameters; STOCK an
 
 // ---- F8 STOCK, and a mod's turn --------------------------------------------------------------------------------------------------------
 
-TEST_CASE("MODDED F8 is an action key: STOCK flips at the press, the key is lit while it is on, and the encoder and the latch stay where they were") {
+TEST_CASE("The Note key flips MODS on MODDED (E1b): STOCK flips at the press, F8 is empty, and the encoder and the latch stay where they were") {
   Hands t;
   t.to_modded();
   t.tap(Button::F3);  // ACC DECAY latched
   REQUIRE(screen_of(t).focus() == 2);
-  view::Knob k = knob_of(t, 7);
-  CHECK(std::strcmp(k.label, "MODS") == 0);
-  CHECK(k.norm < 0.0f);  // an action slot in the skin, no pointer
-  CHECK_FALSE(k.toggle);
-  CHECK(k.lit);
-  CHECK(std::strcmp(k.value, "ON") == 0);
-  t.press(Button::F8);
+  CHECK_FALSE(stock(t));
+  t.press(Button::Note);
   CHECK(stock(t));  // at the press, not at the release
-  t.release(Button::F8);
+  t.release(Button::Note);
   CHECK(stock(t));
   CHECK(screen_of(t).focus() == 2);
-  k = knob_of(t, 7);
-  CHECK_FALSE(k.lit);
-  CHECK(std::strcmp(k.value, "OFF") == 0);
   CHECK_FALSE(knob_of(t, 2).lit);
-  t.tap(Button::F8);
+  t.tap(Button::Note);
   CHECK_FALSE(stock(t));
-  CHECK(knob_of(t, 7).lit);
-  // The same key on TONE, and Shift + F8 is the Shift row (no STOCK).
+  // The same key on TONE; F8 is nothing there, and Shift + Note is the PERFORM action (no STOCK).
   t.tap(Button::SampleLoad);
+  t.tap(Button::Note);
+  CHECK(stock(t));
   t.tap(Button::F8);
   CHECK(stock(t));
-  CHECK_FALSE(knob_of(t, 7).lit);
-  t.shift_tap(Button::F8);
+  t.shift_tap(Button::Note);
   CHECK(stock(t));
 }
 
@@ -240,7 +232,7 @@ TEST_CASE("a turn of a mod ends STOCK with the words MODS ON; DECAY, a lock and 
   Hands t(midi);
   app::Context& ctx = t.h->runtime().context();
   t.to_modded();
-  t.tap(Button::F8);
+  t.tap(Button::Note);
   REQUIRE(stock(t));
 
   // DECAY is not a mod.
@@ -288,7 +280,7 @@ TEST_CASE("a turn of RANGE or SUSTAIN ends STOCK too: under STOCK they would be 
     Hands t;
     t.tap(Button::SampleLoad);  // MODDED
     t.tap(Button::SampleLoad);  // TONE
-    t.tap(Button::F8);          // STOCK on
+    t.tap(Button::Note);        // STOCK on
     REQUIRE(stock(t));
     t.tap(key);
     t.turn(1);
@@ -319,7 +311,7 @@ TEST_CASE("a turn of a mod with STOCK off leaves it off and says nothing; a turn
   const int lane = seq::find_lane(t.pat(), kLaneVoice, AcidVoice::AccDecay);
   REQUIRE(lane >= 0);
   CHECK(step_lock_point(t.pat(), static_cast<unsigned>(lane), 3) != kNoLock);
-  t.tap(Button::F8);  // STOCK on
+  t.tap(Button::Note);  // STOCK on
   REQUIRE(stock(t));
   t.down(step_pad_of(4));
   t.turn(2);
@@ -399,21 +391,21 @@ TEST_CASE("MODDED: a recorded turn of a mod goes to the lane that drives it") {
   t.tap(Button::Play);
 }
 
-// ---- Shift + Sample Loader --------------------------------------------------------------------------------------------------------------------
+// ---- The Note key --------------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("Shift + Sample Loader flips STOCK from every screen with no change of screen, with the words and the chip") {
+TEST_CASE("The Note key flips STOCK (MODS) from every screen with no change of screen, with the words and the chip") {
   Hands t;
   const auto go = [&](const char* title, auto enter) {
     t.to_home();
     enter();
     REQUIRE_MESSAGE(is_title(t, title), title);
-    t.shift_tap(Button::SampleLoad);
+    t.tap(Button::Note);
     CHECK_MESSAGE(is_title(t, title), title << ": the screen stays");
     CHECK_MESSAGE(stock(t), title);
     const Status on = status_on_home(t);  // the chip and the words are every screen's (the status line of the home map is one of them)
     CHECK_MESSAGE(on.chip, title);
     CHECK_MESSAGE(on.said == "MODS OFF", title);
-    t.shift_tap(Button::SampleLoad);  // HOME: and back off
+    t.tap(Button::Note);  // HOME: and back off
     CHECK_FALSE(stock(t));
     const Status off = status_on_home(t);
     CHECK_FALSE(off.chip);
@@ -434,7 +426,7 @@ TEST_CASE("Shift + Sample Loader flips STOCK from every screen with no change of
     t.tap(Button::Pattern);
   }
   REQUIRE(is_title(t, "STEPS"));
-  t.shift_tap(Button::SampleLoad);
+  t.tap(Button::Note);
   CHECK(is_title(t, "STEPS"));
   CHECK(stock(t));
 }
@@ -505,7 +497,7 @@ TEST_CASE("STOCK is off at boot, after a NEW, REVERT and RESET PROJECT, and a LO
   REQUIRE(app_project().list_valid());
 
   const auto stock_on = [&] {
-    s.shift_tap(app::Button::SampleLoad);
+    s.tap(app::Button::Note);
     REQUIRE(s.stock());
     REQUIRE(s.chip());
   };
@@ -526,7 +518,7 @@ TEST_CASE("STOCK is off at boot, after a NEW, REVERT and RESET PROJECT, and a LO
   CHECK(s.stock());
   CHECK(s.chip());
   CHECK(s.param(AcidVoice::AccDecay) == doctest::Approx(900.0f));
-  s.shift_tap(app::Button::SampleLoad);  // the mods heard again, and saved so
+  s.tap(app::Button::Note);  // the mods heard again, and saved so
   CHECK_FALSE(s.stock());
   app_project().save();
   REQUIRE(s.settled());
@@ -597,60 +589,52 @@ TEST_CASE("a new project starts with eight factory snapshots: a boot, NEW and RE
   CHECK(all_used());
 }
 
-// ---- WOBBLE's F8 and LiveActions::toggle_latch() -----------------------------------------------------------------------------------------
+// ---- the Fx key and LiveActions::toggle_latch() -----------------------------------------------------------------------------------------
 
-TEST_CASE("WOBBLE F8 latches and releases PERFORM's WOB action: a colour button's latch is cleared, a screen change keeps it, ALL OFF lets it go") {
+TEST_CASE("the Fx key flips WOB (PERFORM's WOB action, latched): a screen change keeps it, a Shift + Fx hold ends with the release, ALL OFF lets it go; F8 of the page is the same latch") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  // WOB on the Fx button, latched with Shift on PERFORM.
-  t.assign_perf(Button::Fx, PerfAction::Wobble, true);
-  t.shift_tap(Button::Fx);
-  t.wait(30);
-  REQUIRE(s.wobble().on);
+  t.assign_perf(Button::Fx, PerfAction::Wobble);
   t.to_wobble();
-  view::Knob k = knob_of(t, 7);
-  CHECK(std::strcmp(k.label, "WOB") == 0);
-  CHECK(k.norm < 0.0f);
-  CHECK(k.lit);  // lit while the action is latched, whoever latched it
-  CHECK(std::strcmp(k.value, "ON") == 0);
-  t.tap(Button::F8);  // off, and the button's latch is cleared with it
-  t.wait(30);
-  CHECK_FALSE(s.wobble().on);
-  CHECK_FALSE(knob_of(t, 7).lit);
-  t.to_perform();
-  t.press(Button::Fx);  // the button's own hold now does what a hold does, and nothing stays after it
+  t.tap(Button::Fx);  // on, whatever the screen
   t.wait(30);
   CHECK(s.wobble().on);
-  t.release(Button::Fx);
-  t.wait(30);
-  CHECK_FALSE(s.wobble().on);
-
-  // F8 on: it stays across a screen change (D4).
-  t.to_wobble();
-  t.tap(Button::F8);
-  t.wait(30);
-  CHECK(s.wobble().on);
-  CHECK(knob_of(t, 7).lit);
   t.to_home();
   t.wait(30);
-  CHECK(s.wobble().on);
+  CHECK(s.wobble().on);  // it stays across a screen change (D4)
   t.to_wobble();
-  CHECK(knob_of(t, 7).lit);
+  t.tap(Button::Fx);  // off
+  t.wait(30);
+  CHECK_FALSE(s.wobble().on);
+  t.action_press(Button::Fx);  // Shift + the key held does what a hold does, and nothing stays after it
+  t.wait(30);
+  CHECK(s.wobble().on);
+  t.action_release(Button::Fx);
+  t.wait(30);
+  CHECK_FALSE(s.wobble().on);
 
   // ALL OFF lets it go (D27): PERFORM's last pad of row 1.
+  t.tap(Button::Fx);
+  t.wait(30);
+  REQUIRE(s.wobble().on);
   t.to_perform();
   t.pad(app::pad_at(0, 11));
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
+
+  // F8 of the page is the same latch (the MIDI learn well) and never latches the encoder.
   t.to_wobble();
-  CHECK_FALSE(knob_of(t, 7).lit);
-  // The shift row of F8 is '-' (the wobble is not learnable) and F8 never latches the encoder.
   t.tap(Button::F1);
   t.tap(Button::F8);
+  t.wait(30);
   CHECK(screen_of(t).focus() == 0);
+  CHECK(s.wobble().on);
+  t.tap(Button::F8);
+  t.wait(30);
+  CHECK_FALSE(s.wobble().on);
 }
 
-TEST_CASE("the classic status line carries a STOCK chip on HOME, PERFORM and MODDED while STOCK is on, and only then") {
+TEST_CASE("the classic status line draws the MOD chip as a filled chip while the mods are on and as an outline while STOCK has them out, on HOME, PERFORM and MODDED") {
   Hands t;
   t.skin_off();
   const auto words = [&] {
@@ -662,10 +646,10 @@ TEST_CASE("the classic status line carries a STOCK chip on HOME, PERFORM and MOD
     INFO(name);
     go();
     const std::size_t off = words();
-    t.shift_tap(Button::SampleLoad);
-    CHECK(words() > off);  // the chip's panel and text are drawn (MODDED latches FILTER FM, a mod with no heard-on line, so the hint is the same)
-    t.shift_tap(Button::SampleLoad);
-    CHECK(words() == off);  // and gone with it
+    t.tap(Button::Note);
+    CHECK(words() != off);  // the chip is an outline now, not a filled panel (MODDED latches FILTER FM, a mod with no heard-on line, so the hint is the same)
+    t.tap(Button::Note);
+    CHECK(words() == off);  // and filled again with it
   }
 }
 
@@ -702,10 +686,10 @@ std::vector<std::int16_t> render(How how, Extreme extreme) {
     case How::Fresh:
       break;
     case How::StockOnly:
-      t.shift_tap(Button::SampleLoad);
+      t.tap(Button::Note);
       break;
     case How::StockThenMods:
-      t.shift_tap(Button::SampleLoad);
+      t.tap(Button::Note);
       t.wait(10);
       mods();
       break;
@@ -751,49 +735,40 @@ std::string hint_of(Hands& t) {
 }
 }  // namespace
 
-TEST_CASE("B5a: the GROWL key toggles Mix between 0 and the last value (50 % to start), WOBBLE's and MODS' keys light while heard, the strip says OFF: F8, and the vowel target is refused with the growl off") {
+TEST_CASE("B5a, E1b: the Instr key toggles the growl's Mix between 0 and the last value (50 % to start), the Fx and Note keys flip WOB and MODS, and the strip says OFF: <key> while one is off") {
   Hands t;
   t.to_growl();
   CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.0f));
-  view::Knob k = knob_of(t, 7);
-  CHECK(std::strcmp(k.label, "GROWL") == 0);
-  CHECK_FALSE(k.lit);
-  CHECK(hint_of(t) == "GROWL OFF: F8");
-  t.tap(Button::F8);  // on: the 50 % it starts with
+  CHECK(hint_of(t) == "GROWL OFF: INSTR");
+  t.tap(Button::Instr);  // on: the 50 % it starts with
   CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.5f));
-  CHECK(knob_of(t, 7).lit);
-  CHECK(hint_of(t) != "GROWL OFF: F8");
+  CHECK(hint_of(t) != "GROWL OFF: INSTR");
   (void)t.h->engine().set_param(kGrowl, Growl::Mix, 0.8f);  // the key remembers what it turns off
-  t.tap(Button::F8);  // off
+  t.tap(Button::Instr);  // off
   CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.0f));
-  CHECK_FALSE(knob_of(t, 7).lit);
-  CHECK(hint_of(t) == "GROWL OFF: F8");
-  t.tap(Button::F8);  // on again: the last non-zero value the key saw going off (0.8)
+  CHECK(hint_of(t) == "GROWL OFF: INSTR");
+  t.tap(Button::Instr);  // on again: the last non-zero value the key saw going off (0.8)
   CHECK(t.param(kGrowl, Growl::Mix) == doctest::Approx(0.8f));
 
-  // WOBBLE: F8 is the latch, lit while it runs; the strip says so while it is off.
+  // WOBBLE: Fx is the latch; the strip says so while it is off.
   t.to_wobble();
-  CHECK(hint_of(t) == "WOB OFF: F8");
-  CHECK_FALSE(knob_of(t, 7).lit);
-  t.tap(Button::F8);
+  CHECK(hint_of(t) == "WOB OFF: FX");
+  t.tap(Button::Fx);
   t.wait(10);
   CHECK(app_sequencer().wobble().on);
-  CHECK(knob_of(t, 7).lit);
-  CHECK(hint_of(t) != "WOB OFF: F8");
-  t.tap(Button::F8);
+  CHECK(hint_of(t) != "WOB OFF: FX");
+  t.tap(Button::Fx);
   t.wait(10);
   CHECK_FALSE(app_sequencer().wobble().on);
 
-  // MODS: lit while the mods are heard (Stock off); Stock on lights nothing and the strip says MODS OFF: F8.
+  // MODS: Stock off is the mods heard; Stock on says MODS OFF: NOTE.
   t.to_modded();
   CHECK_FALSE(stock(t));
-  CHECK(knob_of(t, 7).lit);
-  CHECK(hint_of(t) != "MODS OFF: F8");
-  t.tap(Button::F8);
+  CHECK(hint_of(t) != "MODS OFF: NOTE");
+  t.tap(Button::Note);
   CHECK(stock(t));
-  CHECK_FALSE(knob_of(t, 7).lit);
-  CHECK(hint_of(t) == "MODS OFF: F8");
-  t.tap(Button::F8);
+  CHECK(hint_of(t) == "MODS OFF: NOTE");
+  t.tap(Button::Note);
   CHECK_FALSE(stock(t));
 }
 

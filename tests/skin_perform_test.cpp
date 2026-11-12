@@ -244,11 +244,11 @@ TEST_CASE("skin perform: the chips say what each colour button does, held and la
     CHECK(std::string(v.chip[b].action) == kPerfActionNames[kDefaultPerf[b]]);
     CHECK(v.chip[b].state == ChipState::Idle);
   }
-  o.t.press(Button::Instr);
+  o.t.action_press(Button::Instr);
   o.t.wait(60);
   CHECK(v.chip[1].state == ChipState::Held);
   CHECK(v.chip[0].state == ChipState::Idle);
-  o.t.release(Button::Instr);
+  o.t.action_release(Button::Instr);
   o.t.press(Button::Shift);
   o.t.tap(Button::Vol, 10);
   o.t.release(Button::Shift);

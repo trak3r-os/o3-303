@@ -5,11 +5,11 @@
 // song instead of the selected pattern when F1 says so. The song is the Bank's (seq::Song, one undo stack with the patterns [D9]) and travels with the project (project.h, the SONG chunk); the
 // Sequencer plays its own copy (sync_song() after every edit) and keeps its place in it when rows come and go (sequencer.h, "SG2").
 //
-//   Up / Down  the row           Left / Right  a page of rows (kSongPageRows)       Note / Instr / Vol / Fx  the column (PATTERN, REPEAT, TRANSP, MUTE)
+//   Up / Down  the row           Left / Right  a page of rows (kSongPageRows)
 //   encoder    the cell (Shift: pattern by 12, repeat by 4, transpose by an octave)
 //   a pad      sets the row's pattern (pad n is pattern n); on the END line it adds a row with that pattern, and the cursor stays on END, so a song is built by tapping pads
 //   Insert     a row above the cursor, a copy of it (on END: of the last row)           Delete  removes the row
-//   F1 PLAYS: PATTERN or SONG (Play starts at the cursor row)   F2 LOOP   F3 CHAIN (the chain made with Pattern held becomes the song)   F4 CLEAR (twice within 5 s)   F8: the toast "UNDO IS SHIFT + F8"
+//   F1 PLAYS: PATTERN or SONG (Play starts at the cursor row)   F2 LOOP   F3 CHAIN (the chain made with Pattern held becomes the song)   F4 CLEAR (twice within 5 s)   F5 PAT  F6 RPT  F7 TRSP  F8 MUTE: the column the encoder turns
 //   Shift row: F7 REDO, F8 UNDO (as on every screen that edits).
 //
 // What is shown is a SongView (song_view.h), filled by the pure fill_song_view(); the classic drawing is in song_screen.cpp, the obsidian skin's in skin/song.cpp. Main loop only.

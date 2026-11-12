@@ -142,7 +142,7 @@ constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr
 // The wobble's settings (M3c W); the order is WobbleField's. Rate and shape are the sequencer's own tables (seq/wobble.h).
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
 constexpr const char* kWobbleTargetNames[kWobbleTargetCount] = {"CUTOFF", "VOWEL", "MOUTH"};
-// WOBBLE's F8 key (Item::WobOn): the action's name and its two places; the value is the screen's (the latch), not a setting.
+// The sounds' on / off items (Item::Mods, GrowlOn, TractOn, WobOn): snapshot and MIDI-learn targets, and the Note, Instr, Vol and Fx keys' state (sound_buttons.h); WOBBLE's F8 is the WOB one, the others have no key on a page.
 constexpr core::ParamDesc kGrowlOn = {"GROWL", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kTractOn = {"TRACT", "", kOffOnNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kModsKey = {"MODS", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -195,27 +195,27 @@ const core::ParamDesc* wobble_learn_desc(std::uint16_t id) noexcept { return id 
 constexpr Page kFxPage = {"FX",
                           {dist(Distortion::Drive), dist(Distortion::Tone), dist(Distortion::Mix, "MIX"), app_item(Item::DistMode, "MODEL"), delay(units::Delay::Time, "DLY TIME"),
                            delay(units::Delay::Feedback, "DLY FB"), app_item(Item::SendA, "DLY SEND"), delay(units::Delay::Tone, "DLY TONE")}};
-// MODDED (5.3): NOTES is how each note moves (DECAY, the SOUND knob itself, sits beside ACC DECAY), TONE what the filter is fed and gives. F8 is the MODS action key on both pages (lit while the mods are heard; off is the stock voice).
+// MODDED (5.3): NOTES is how each note moves (DECAY, the SOUND knob itself, sits beside ACC DECAY), TONE what the filter is fed and gives. F8 is empty: the Note key flips MODS (sound_buttons.h; off is the stock voice).
 constexpr Page kNotesPage = {"NOTES",
                              {voice(AcidVoice::SoftAtk), voice(AcidVoice::Decay), voice(AcidVoice::AccDecay), voice(AcidVoice::AmpDecay), voice(AcidVoice::Slide), voice(AcidVoice::AccSweep),
-                              voice(AcidVoice::SwpSpeed), app_item(Item::Mods, "MODS")}};
+                              voice(AcidVoice::SwpSpeed), Entry{}}};
 constexpr Page kTonePage = {"TONE",
                             {voice(AcidVoice::Tracking), voice(AcidVoice::FilterFm), voice(AcidVoice::Overdrive), voice(AcidVoice::Muffler), voice(AcidVoice::SubOsc), voice(AcidVoice::Range), voice(AcidVoice::Sustain),
-                             app_item(Item::Mods, "MODS")}};
-// The growl in signal order: the formant, the comb, then the growl's mix. F8 is the GROWL key: Mix to 0 and back to its last non-zero value (B5a).
+                             Entry{}}};
+// The growl in signal order: the formant, the comb, then the growl's mix. F8 is empty: the Instr key flips GROWL (Mix to 0 and back to its last non-zero value, B5a).
 constexpr Page kGrowlPage = {"GROWL",
                              {growl(Growl::Vowel, "VOWEL"), growl(Growl::FormantQ, "FMT Q"), growl(Growl::FormantMix, "FMT MIX"), growl(Growl::CombTune, "CMB TUNE"),
-                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), app_item(Item::GrowlOn, "GROWL")}};
-// The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 and F7 are free; F8 is the WOB action key (5.5).
+                              growl(Growl::CombFeedback, "CMB FB"), growl(Growl::CombMix, "CMB MIX"), growl(Growl::Mix, "GRL MIX"), Entry{}}};
+// The wobble's five settings (the label is TARGET: the big knob row draws nine characters). F6 and F7 are free; F8 is the WOB key (5.5, MIDI-learnable there), the same latch as the Fx key.
 constexpr Page kWobblePage = {"WOBBLE",
                               {wobble(kWobbleRate, "RATE"), wobble(kWobbleShape, "SHAPE"), wobble(kWobbleDepth, "DEPTH"), wobble(kWobbleTarget, "TARGET"), wobble(kWobbleReset, "RESET"),
                                Entry{}, Entry{}, app_item(Item::WobOn, "WOB")}};
 
-// The tract in signal order: the mouth (VOWEL, TONGUE, LIPS), the resonance and glide, the room (SIZE), then the mix. F8 is the TRACT key: Mix to 0 and back to its last non-zero
-// value, like GROWL's (A2). F1 reads a letter (tract_vowels.h). The pads of the page are the live vowels (instrument_screen.cpp).
+// The tract in signal order: the mouth (VOWEL, TONGUE, LIPS), the resonance and glide, the room (SIZE), then the mix. F8 is empty: the Vol key flips TRACT (Mix to 0 and back to its last non-zero
+// value, like GROWL's, A2). F1 reads a letter (tract_vowels.h). The pads of the page are the live vowels (instrument_screen.cpp).
 constexpr Page kTractPage = {"TRACT",
                              {tract(TractFx::Vowel, "VOWEL"), tract(TractFx::Tongue, "TONGUE"), tract(TractFx::Lips, "LIPS"), tract(TractFx::Res, "RES"),
-                              tract(TractFx::Glide, "GLIDE"), tract(TractFx::Size, "SIZE"), tract(TractFx::Mix, "TRC MIX"), app_item(Item::TractOn, "TRACT")}};
+                              tract(TractFx::Glide, "GLIDE"), tract(TractFx::Size, "SIZE"), tract(TractFx::Mix, "TRC MIX"), Entry{}}};
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
 const Page& setup_page() noexcept { return kSetupPage; }

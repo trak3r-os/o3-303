@@ -42,7 +42,7 @@ TEST_CASE("hold a step + the PLAYS row moves its ratchet one hit up or down, x1 
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
-  t.tap(Button::Vol);  // the PLAYS row owns the encoder
+  t.row_key(Button::Vol, 0);  // the PLAYS row owns the encoder (step 0 held and let go: the cursor is on step 0, as before)
   t.down(step_pad_of(5));
   t.turn(1);
   CHECK(seq::get_ratchet(t.pat(), 5) == 1);
@@ -119,7 +119,7 @@ TEST_CASE("a ratchet edit is undoable, and a run of presses on one step is one u
   Hands t;
   set_layers(t);
   const Pattern before = t.pat();
-  t.tap(Button::Vol);
+  t.row_key(Button::Vol, 5);
   t.down(step_pad_of(5));
   t.turn(1);
   t.turn(1);

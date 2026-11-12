@@ -12,8 +12,9 @@
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)
 //   FILE          FILE PROJECTS (file_screen.h); again FILE LIBRARY, the generated lines (vault_screen.h); again PROJECTS; Shift + FILE: SAVE the project from every screen (project_service.h)
 //   SAMPLE REC    RECORD (record_screen.h): bar-aligned takes of the master to Samples/; Shift + REC arms and stops a take from every screen
-//   SAMPLE LOAD   MODDED, the 303 mods (NOTES; on it: TONE, and back; INSTRUMENT's screen class, instrument_screen.h); Shift + SAMPLE LOAD flips STOCK, all mods out, from every screen with no change of screen
-//   SAMPLE PLAY   GROWL (one page of INSTRUMENT's screen class); SAMPLE EDIT   WOBBLE (the same)
+//   SAMPLE LOAD   MODDED, the 303 mods (NOTES; on it: TONE, and back; INSTRUMENT's screen class, instrument_screen.h)
+//   SAMPLE PLAY   GROWL (one page of INSTRUMENT's screen class); SAMPLE EDIT   TRACT (the same); SAMPLE REC   WOBBLE (the same)
+//   NOTE INSTR VOL FX  flip MODS, GROWL, TRACT and WOBBLE from every screen (sound_buttons.h); with Shift the PERFORM action of the button: a tap latches, a hold is momentary (live_actions.h)
 //   SONG          SONG (song_screen.h): the saved chain of patterns, in the project; F1 chooses what Play plays; a song that ends with its loop off stops the transport from every screen
 //   CONFIG        o3sdk's system Config (FIRMWARE, MIDI, DISPLAY with the theme, INFO) and the app's page 303 (config_pages.h); the app never sees the key
 //
@@ -31,6 +32,7 @@
 #include "rig.h"
 #include "skin/skin.h"
 #include "song_screen.h"
+#include "sound_buttons.h"
 #include "vault_screen.h"
 #include "wobble_learn.h"
 
@@ -240,6 +242,14 @@ class O3_303App final : public app::App {
     ctx.show(main_);
   }
 
+  static bool is_colour(Button b) noexcept { return b == Button::Note || b == Button::Instr || b == Button::Vol || b == Button::Fx; }
+
+  // The screens that draw the home map and take its drawer rows: HOME, PATTERN SETUP and INSTRUMENT's class (MODDED, GROWL, TRACT, WOBBLE).
+  bool has_home_map(const app::Context& ctx) const noexcept {
+    const app::Screen* s = ctx.screen();
+    return s == &main_ || s == &instrument_ || s == &modded_ || s == &growl_screen_ || s == &tract_screen_ || s == &wobble_screen_;
+  }
+
   bool input(app::Context& ctx, const app::Input& in) noexcept override {
     dsp::Engine& e = ctx.engine();
     // F10: while the project loads at start-up, Play, the pads and the encoder wait: a press that played or edited first would make the load give way
@@ -263,6 +273,37 @@ class O3_303App final : public app::App {
     if (in.release(Button::Master)) {
       master_.master_release(ctx);
       return true;
+    }
+    // The four colour keys on every screen (E1b): a plain press flips the key's sound (MODS, GROWL, TRACT, WOBBLE: sound_buttons.h); Shift + the key is the PERFORM action assigned on PERFORM
+    // SETUP, a tap latches it and a hold is momentary (LiveActions). The exception: on a screen with the home map, a step held down and a plain press go to the screen, which opens the drawer row
+    // (NOTE, GATE, PLAYS, LOCK) for the held step. The release is routed by what its press was.
+    if (in.kind == core::InputKind::Button && is_colour(in.which())) {
+      const unsigned key = static_cast<unsigned>(in.which()) - static_cast<unsigned>(Button::Note);
+      const auto bit = static_cast<std::uint8_t>(1u << key);
+      if (in.type == app::Input::Type::Press) {
+        if (in.shift) {
+          live_.action_button_press(ctx, key, ctx.uptime_ms());
+          action_down_ |= bit;
+          ctx.redraw();
+          return true;
+        }
+        if (!has_home_map(ctx) || !main_.home_map().any_step_held()) {
+          o3_303::toggle_sound(rig_, ctx, static_cast<o3_303::Sound>(key));
+          sound_down_ |= bit;
+          return true;
+        }
+      } else if (in.type == app::Input::Type::Release) {
+        if ((action_down_ & bit) != 0u) {
+          action_down_ = static_cast<std::uint8_t>(action_down_ & ~bit);
+          live_.action_button_release(ctx, key, ctx.uptime_ms());
+          ctx.redraw();
+          return true;
+        }
+        if ((sound_down_ & bit) != 0u) {
+          sound_down_ = static_cast<std::uint8_t>(sound_down_ & ~bit);
+          return true;
+        }
+      }
     }
     if (in.press(Button::Play)) {
       if (in.shift) {
@@ -306,13 +347,11 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // One key per sound (E1a, docs/PADS-TRACT-PLAN.md E): Sample Loader opens MODDED NOTES, and on it flips to TONE and back; Shift + Sample Loader flips STOCK from every screen with no change of screen (until the
-    // colour keys take it, E1b). Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder WOBBLE, each with or without Shift and, on its own screen, nothing (one page each). Song opens SONG and, pressed
-    // again, RECORD (and from RECORD, SONG). The app takes these presses, so that no screen sees them. Shift + Rec is RECORD's F1 from every screen, with no change of screen (the plain Rec stays the home map's step record).
+    // One key per sound (E1a, docs/PADS-TRACT-PLAN.md E): Sample Loader opens MODDED NOTES, and on it flips to TONE and back. Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder WOBBLE,
+    // each with or without Shift and, on its own screen, nothing (one page each). The app takes these presses, so that no screen sees them. Shift + Rec is RECORD's F1 from every screen, with no change
+    // of screen (the plain Rec stays the home map's step record). RECORD opens with Song, pressed again.
     if (in.press(Button::SampleLoad)) {
-      if (in.shift) {
-        o3_303::toggle_stock(rig_, ctx);
-      } else if (ctx.screen() == &modded_) {
+      if (ctx.screen() == &modded_) {
         modded_.next_page();
         ctx.redraw();
       } else {
@@ -449,6 +488,8 @@ class O3_303App final : public app::App {
   o3_303::FileScreen& file_ = sdram_instance<o3_303::FileScreen, 0>();
   o3_303::ProjectService& project_ = sdram_instance<o3_303::ProjectService, 0>();
   o3_303::ConfigPages config_;
+  std::uint8_t sound_down_ = 0;   // the colour keys (a bit each: Note, Instr, Vol, Fx) whose press flipped a sound: their release is taken (E1b)
+  std::uint8_t action_down_ = 0;  // ... and those whose press was Shift + the key, a PERFORM action: the release ends it or makes the tap
   bool saving_ = false;                // a SAVE was on at the last pass
   bool save_asked_ = false;            // Shift + File was pressed and its answer (the toast) is still due
   std::uint32_t notice_at_press_ = 0;  // Rig::project.notice_seq at that press

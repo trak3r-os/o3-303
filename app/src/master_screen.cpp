@@ -504,9 +504,6 @@ void MasterScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     (void)keys_.input(ctx, in, *controls_);
     return;
   }
-  if (b == Button::Note || b == Button::Instr || b == Button::Vol || b == Button::Fx) {
-    return;  // the colour buttons do nothing on MASTER (UX-303 2.3)
-  }
   (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, Rec
 }
 

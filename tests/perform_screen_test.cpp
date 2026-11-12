@@ -201,17 +201,19 @@ TEST_CASE("leaving PERFORM: the momentary actions end, the latched ones stay on,
   CHECK(lamp(t, action_pad(PerfAction::Mute)) == app::kLedDim);
   t.pad(action_pad(PerfAction::Freeze), 10);
   CHECK(freeze_active(t) == 0.0f);
-  // A colour button held on PERFORM ends when the screen goes.
-  t.press(Button::Note);
+  // A colour button held (Shift + the key) on PERFORM ends when the screen goes.
+  t.action_press(Button::Note);
   CHECK(seqr().perf() == seq::kPerfMute);
   t.to_home();
   CHECK(seqr().perf() == 0);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   CHECK(seqr().perf() == 0);
-  // On the 303 screen the same buttons are the drawer's rows (H3): no action starts, held or with Shift.
+  // On the 303 screen (E1b) a plain press is the key's sound, not an action; Shift + the key is the action there too, on every screen.
   t.press(Button::Note);
   CHECK(seqr().perf() == 0);
   t.release(Button::Note);
+  t.shift_tap(Button::Fx);
+  CHECK(freeze_active(t) == 1.0f);
   t.shift_tap(Button::Fx);
   CHECK(freeze_active(t) == 0.0f);
 }
@@ -219,10 +221,10 @@ TEST_CASE("leaving PERFORM: the momentary actions end, the latched ones stay on,
 TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift latches, and ALL OFF unlatches them too") {
   Hands t;
   t.to_perform();
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(seqr().perf() == seq::kPerfMute);
   CHECK(lamp(t, action_pad(PerfAction::Mute)) == app::kLedOn);  // the pad of the action mirrors the button
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   CHECK(seqr().perf() == 0);
   t.shift_tap(Button::Fx);
   CHECK(freeze_active(t) == 1.0f);
@@ -251,9 +253,9 @@ TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM'
   CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
   t.tap(Button::F1);
   t.turn(1);  // MUTE -> ACC ALL
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(seqr().perf() == seq::kPerfAccAll);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   t.down(action_pad(PerfAction::Mute));  // the pads are PERFORM's here too
   CHECK(seqr().perf() == seq::kPerfMute);
   t.up(action_pad(PerfAction::Mute));
@@ -265,8 +267,9 @@ TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM'
   CHECK(cutoff(t) != before);
   t.to_setup();    // SETUP again: it comes back as it was left, latch and all
   t.turn(1);
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   CHECK(seqr().perf() == seq::kPerfSlideAll);  // ACC ALL -> SLD ALL
+  t.action_release(Button::Note);
 }
 
 TEST_CASE("PERFORM SETUP's F5..F8 (5.4): FILL, the freeze's length, ROLL as one list (rate and accelerate), STOP's time; no Shift row") {

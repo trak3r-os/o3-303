@@ -90,6 +90,22 @@ struct Hands {
     tap(b);
     release(Button::Shift);
   }
+  // A drawer-row key (E1b): the colour key latches NOTE, GATE, PLAYS or LOCK only with a step held, so hold step `k`, tap the key and let the step go (the cursor is then on step `k`).
+  void row_key(Button b, unsigned k = 0) {
+    down(step_pad(k));
+    tap(b);
+    up(step_pad(k));
+  }
+  // A PERFORM action held (E1b): Shift + the colour key, Shift let go at once, the key kept down; `action_release` waits past the tap time (a shorter press latches) and lets the key go.
+  void action_press(Button b) {
+    press(Button::Shift);
+    press(b);
+    release(Button::Shift);
+  }
+  void action_release(Button b) {
+    h->run_ms(310);
+    release(b);
+  }
   void turn(int d) {
     h->turn(d);
     h->run_ms(2);

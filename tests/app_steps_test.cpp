@@ -116,7 +116,7 @@ TEST_CASE("hold a step + a key sets that step's note and leaves the cursor where
 TEST_CASE("hold a step + ACC / SLIDE / TIE / REST toggles that attribute on it, the PLAYS row is its ratchet, and the step is not selected") {
   Hands t;
   const Pattern before = bank().pattern(0);
-  t.tap(Button::Vol);      // the PLAYS row owns the encoder (H3: the old OCT+ gesture is cut)
+  t.row_key(Button::Vol, 3);  // the PLAYS row owns the encoder (H3: the old OCT+ gesture is cut)
   t.down(step_pad_of(3));  // step 4: C3, plain
   t.pad(kAccPad);
   t.pad(kSlidePad);
@@ -273,7 +273,7 @@ TEST_CASE("Copy, Shift + Copy, Insert, Delete work on steps; Pattern + Insert du
 TEST_CASE("Delete clears the step whole: a rest with no ratchet, no condition and no locks; held steps too") {
   Hands t;
   // Step 4: a ratchet, a condition and a lock on it.
-  t.tap(Button::Vol);
+  t.row_key(Button::Vol, 3);
   t.down(step_pad_of(3));
   t.turn(1);          // hold a step + the PLAYS row: the ratchet
   t.tap(Button::F1);  // the encoder is the knob's again

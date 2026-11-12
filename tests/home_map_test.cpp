@@ -314,7 +314,7 @@ TEST_CASE("Rec playing: REST and TIE are punched in at the playhead's step, like
 TEST_CASE("a latched WOBBLE does not turn HOME's key row into the rate picker: a bottom-row pad plays the voice") {
   Hands t;
   t.assign_perf(Button::Note, PerfAction::Wobble, true);
-  t.shift_tap(Button::Note);  // WOBBLE latched on PERFORM, where the colour buttons are the live actions; it stays on across the change
+  t.shift_tap(Button::Note);  // WOBBLE latched by the Shift + Note action; it stays on across the change
   t.to_home();
   t.wait(50);
   t.h->record(true);

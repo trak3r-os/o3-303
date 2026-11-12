@@ -533,16 +533,7 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     return;
   }
   const Button b = in.which();
-  const bool colour = b == Button::Note || b == Button::Instr || b == Button::Vol || b == Button::Fx;
-  if (colour) {  // the four assignable buttons: the live actions (HOME, SETUP and INSTRUMENT have the drawer rows on them)
-    const unsigned index = static_cast<unsigned>(b) - static_cast<unsigned>(Button::Note);
-    if (in.type == Input::Type::Press) {
-      live_->button_press(ctx, index, in.shift);
-    } else if (in.type == Input::Type::Release) {
-      live_->button_release(ctx, index);
-    }
-    return;
-  }
+  // The four colour buttons never get here: the app takes them (sound_buttons.h, live_actions.h).
   if (b == Button::Rec && in.type == Input::Type::Press) {  // Rec while playing records the ladder and the encoder as motion, as on the 303 screen
     home_->toggle_rec(ctx);
   }

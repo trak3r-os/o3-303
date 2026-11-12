@@ -127,7 +127,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Config** | The unit's settings. **Shift + Config**: HELP for the screen you are on |
 | **Play** | Play and stop. **Shift + Play**: restart from step 1 |
 | **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records knob and ladder moves. **Shift + Rec**: arm or stop an audio take, from any screen |
-| **Note, Instr, Vol, Fx** | The four colour buttons. HOME: they give the encoder one row of the step (NOTE, GATE, PLAYS, LOCK). PERFORM: four live actions. SONG: they pick a column |
+| **Note, Instr, Vol, Fx** | The four colour buttons, on every screen. A tap flips a sound: **Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE**. **Shift + the button**: the PERFORM action set on PERFORM SETUP (MUTE, ACC ALL, FILL, FREEZE at first): a tap latches it, a hold is momentary. With a step pad held on HOME they give the encoder one row of that step (NOTE, GATE, PLAYS, LOCK) |
 | **Copy, Insert, Delete** | Step editing on HOME (copy, make a tie, clear; Shift + Insert pushes the steps right) |
 | **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range |
 | **F1 to F8** | The eight keys under the screen. Their names are always on the screen, just above them |
@@ -146,7 +146,7 @@ With the OBSIDIAN look (section 13), the top of the screen is a 303-style panel 
 - **TRANSPORT**: PLAY (green while it plays; it reads SONG while Play plays the song), REC (write mode), TAKE (an audio take is armed
   or recording).
 - **KEYBOARD**: KEYS (the keys play the voice) or TRNSP (the keys transpose the line), and the two octaves the keys play (OCT 2-3).
-- **PERFORM**: four lights for the live actions (at first, the colour buttons' MUTE, ACC, FILL and FRZ); a lit one is on.
+- **PERFORM**: four lights for the live actions (at first, the colour buttons' Shift actions MUTE, ACC, FILL and FRZ); a lit one is on.
 - **PAGE**: the screen's name, or a short message for a moment ("SAVED", "NEW LINE").
 - **ENC**: what the encoder turns now ("F1 CUTOFF"). With Shift held on HOME and PATTERN SETUP it also gives the value ("CUTOFF 456 Hz"), because the Shift row hides the knobs.
 
@@ -277,7 +277,7 @@ With REC on, hold ACC or SLIDE while you play a key and the note is written with
 
 #### The step rows and the colour buttons
 
-The four colour buttons give the encoder one row of the cursor step (or of every step pad you hold):
+Hold a step pad (or several) and tap a colour button: the encoder gets one row of the held step (or of every step pad you hold). With no step pad held the same buttons flip a sound (MODS, GROWL, TRACT, WOBBLE: Note, Instr, Vol, Fx), so a drawer row is always a step held and a tap:
 
 | Button | Row | What the encoder walks through |
 |---|---|---|
@@ -407,8 +407,8 @@ it goes off.
 
 *Four actions latched. The header's PERFORM lights show what is on.*
 
-**The colour buttons** are four more actions, held or latched with Shift. At first: Note is MUTE, Instr is ACC ALL, Vol is FILL, Fx is
-FREEZE. PERFORM SETUP changes them.
+**The colour buttons** are four more actions, held or latched with **Shift + the button**. At first: Note is MUTE, Instr is ACC ALL, Vol is FILL, Fx is
+FREEZE. PERFORM SETUP changes them. A tap under 300 ms latches the action (Shift + the button again lets it go), a hold is momentary. A plain tap of the same button flips a sound instead: Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE (the PAGE window says MODS ON, GROWL OFF and so on).
 
 **Snapshots** keep the sound (the voice, the distortion, the delay, the growl, the level and the delay send). **Shift + a snapshot pad**
 stores the sound as it is. A tap recalls it, and then the encoder morphs between the snapshot you came from and the one you recalled (the
@@ -455,7 +455,7 @@ Set 4 was FX before: DRIVE and DLY SEND stay, and the wobble's own settings come
 
 **Rec** records the taps while the line plays. Each knob a row holds takes a lane of the pattern the first time it is tapped with REC on, so the limit of eight lanes applies: a ninth knob says "8 LANES USED: CLEAR LOCKS (SETUP)" and its tap still sounds. Rows 3 and 4 write the lanes HOME's FILT does. **The wobble's settings and the four switches have no lane**: a tap sets them at once, but REC does not record them, and the toast says REC DOES NOT RECORD IT (record a wobble with the WOBBLE action, or the knob it moves, instead).
 
-The colour buttons are PERFORM's four actions here too. HELP (Shift + Config) shows the page's pad map.
+Shift + a colour button is PERFORM's action here too; a plain tap flips a sound. HELP (Shift + Config) shows the page's pad map.
 
 ### PERFORM SETUP
 
@@ -539,8 +539,8 @@ speeds' time constants, the height of the accent's sweep); the ranges and the st
 
 MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen mods to their stock values, so you hear the plain 303, and on again, to what you had.
 
-- **On and off:** F8 MODS on either MODDED page, or **Shift + Sample Load** from any screen, with no change of screen. The status line
-  says MODS ON or MODS OFF, and MODS OFF: F8 while they are off. While they are off, the header shows a STOCK chip (CLASSIC) or the words STOCK . MODS OFF (OBSIDIAN). A project saved with MODS off opens with them off.
+- **On and off:** the **Note** button, from any screen, with no change of screen. The status line
+  says MODS ON or MODS OFF. Four small chips, MOD GRL TRC WOB, show which of the four sounds (MODS, GROWL, TRACT, WOBBLE) are on: under the logo in OBSIDIAN (each in its button's colour while on, dim while off), after SONG on the status line in CLASSIC (filled while on, an outline while off). While the mods are off MOD is dark. A project saved with MODS off opens with them off.
 - **Your settings are kept.** MODS changes what you hear, not the values. Turning it off brings each mod back as it was.
 - **What ends the plain 303:** a turn of the encoder on one of the mods (MODS goes on first, and the status line says MODS ON, so the change
   is heard), and a LOAD, NEW, REVERT or RESET PROJECT, or the load at start-up, when the project was saved with MODS on (see below).
@@ -599,7 +599,7 @@ Like the other knobs, a growl knob can be locked per step and recorded as motion
 ### WOBBLE
 
 Press **Sample Rec**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The wobble runs while PERFORM's WOB
-action is on. F8 latches that action here, the same as WOB on PERFORM, and ALL OFF on PERFORM lets it go.
+action is on. F8 (or the Fx button, on every screen) latches that action here, the same as WOB on PERFORM, and ALL OFF on PERFORM lets it go.
 
 ![WOBBLE: F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET, F6 and F7 empty, F8 WOB](manual/img/wobble.png)
 
@@ -654,8 +654,7 @@ Press **Song**. A song is a list of rows, each a pattern played a number of time
 
 - **The pads** are the 48 patterns. On a row, a tap sets that row's pattern. On the **+** line at the end, a tap adds a row. So: go to
   the + line and tap pads in order to build a song.
-- **The colour buttons** pick the column the encoder changes: Note PATTERN, Instr REPEAT (x1 to x16), Vol TRANSP (-12 to +12), Fx MUTE (a
-  muted row is skipped).
+- **F5 to F8** pick the column the encoder changes: F5 PAT, F6 RPT (x1 to x16), F7 TRSP (-12 to +12), F8 MUTE (a muted row is skipped). The colour buttons keep their sounds here.
 - **Up, Down**: the row. **Left, Right**: a page up or down. **Insert**: add a row above, a copy of this one. **Delete**: remove the row.
 
 | Key | What |
@@ -1002,7 +1001,7 @@ button.
 | CARD IN USE | A firmware update is using the card. Wait until it ends |
 | CARD IS FULL | Make room on the card (on a computer), then SAVE. DELETE frees no space: its files stay on the card (section 8) |
 | SAVE FAILED: ... | The save did not reach the card; the reason follows. The status line keeps SAVE FAILED in red until a save works |
-| NO AUTOSAVE (a chip in the header) | Autosave is suspended for as long as it shows: no project is on the card (no card at start-up, a card change, or one of the AUTOSAVE OFF messages below). Nothing is kept until you SAVE or LOAD a project. In OBSIDIAN the chip takes the tagline's place while it shows |
+| NO AUTOSAVE (a chip in the header) | Autosave is suspended for as long as it shows: no project is on the card (no card at start-up, a card change, or one of the AUTOSAVE OFF messages below). Nothing is kept until you SAVE or LOAD a project. In OBSIDIAN the logo takes the amber tint while it shows |
 | CARD CHANGED: SAVE TO KEEP THE PROJECT | A card went out or in. Autosave is off until you SAVE or LOAD |
 | AUTOSAVE OFF: PLAYING BEFORE THE LOAD | You played before the project loaded at start-up (section 8). LOAD it, or SAVE AS |
 | AUTOSAVE OFF: EDITED BEFORE THE LOAD | You edited before the project loaded at start-up (section 8). LOAD it, or SAVE AS |
@@ -1030,7 +1029,7 @@ header says STOCK, the mods are off on purpose: Shift + Sample Load turns them b
 **The keys do nothing, or some are dark.** Dark keys are outside the scale (HOME's Shift + F6); they play unless Config's KEYS is IN SCALE. TRNSP on (row 2, column 11) makes the keys
 transpose while the line plays instead of playing the voice. FILT on (row 2, column 12) turns rows 3 and 4 into the filter ladders.
 
-**The encoder changes the wrong thing.** Look at the ENC window. A colour button may hold a row: tap an F key to give the encoder back to
+**The encoder changes the wrong thing.** Look at the ENC window. A drawer row (a step held and a colour button) may hold the encoder: tap an F key to give it back to
 the knob.
 
 ---

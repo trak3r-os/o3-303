@@ -95,8 +95,8 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
     std::size_t max_label;
   };
   const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0, 8}, {&kFxPage, 0, 9},
-                         {&kNotesPage, 0, 9},           {&kTonePage, 0, 9},
-                         {&kTractPage, 0, 9},     {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
+                         {&kNotesPage, 1u << 7, 9},     {&kTonePage, 1u << 7, 9},
+                         {&kTractPage, 1u << 7, 9},     {&kGrowlPage, 1u << 7, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
   for (const Shown& sh : shown) {
     for (unsigned k = 0; k < kKeys; ++k) {
       const Entry e = rig.entry(*sh.page, k);
@@ -119,9 +119,9 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
   CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kFxPage, 5)), "DLY FB") == 0);
   CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kFxPage, 6)), "DLY SEND") == 0);
   CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kFxPage, 7)), "DLY TONE") == 0);
-  // MODDED: F8 is the MODS action key on both pages.
-  CHECK(rig.entry(kNotesPage, 7).item == Item::Mods);
-  CHECK(rig.entry(kTonePage, 7).item == Item::Mods);
+  // MODDED: F8 is empty on both pages (the Note key flips MODS, E1b).
+  CHECK(rig.entry(kNotesPage, 7).item == Item::Blank);
+  CHECK(rig.entry(kTonePage, 7).item == Item::Blank);
 }
 
 TEST_CASE("pages: the entries a motion lane can drive are the voice's, the distortion's, the delay's, VOLUME and DLY SEND (C2)") {
@@ -661,7 +661,7 @@ TEST_CASE("pages: GROWL is the growl's parameters (and lane targets), WOBBLE the
   CHECK(back.id == Growl::Vowel);
   CHECK(std::strcmp(rig.controls.lane_name(rig.engine, ref), "VOWEL") == 0);
 
-  // WOBBLE, in the order the screen shows: F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET (F6 and F7 are free, F8 is the WOB action key);
+  // WOBBLE, in the order the screen shows: F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET (F6 and F7 are free, F8 is the WOB key, learnable there, and the Fx key is the same latch);
   // defaults 1/8, sine, 50 %, the voice's Cutoff, reset on.
   CHECK(rig.entry(kWobblePage, 5).item == Item::Blank);
   CHECK(rig.entry(kWobblePage, 6).item == Item::Blank);
@@ -886,12 +886,13 @@ TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule
       }
     }
   }
-  CHECK(actions >= 2);   // MODDED's F8 on NOTES and TONE
+  CHECK(actions == 1);   // WOBBLE's F8 only (E1b): the colour keys flip the other sounds
   CHECK(switches >= 1);  // the voice's WAVE at least
-  CHECK(kind(kNotesPage, 7) == KeyKind::Action);
-  CHECK(kind(kTonePage, 7) == KeyKind::Action);
+  CHECK(kind(kNotesPage, 7) == KeyKind::Blank);
+  CHECK(kind(kTonePage, 7) == KeyKind::Blank);
   CHECK(kind(kWobblePage, 7) == KeyKind::Action);
   CHECK(kind(kWobblePage, 5) == KeyKind::Blank);
+  CHECK(rig.controls.kind(rig.engine, Entry{Item::Mods, 0, nullptr}) == KeyKind::Action);  // the items stay actions for the rows that name them
   // WAVE is a switch wherever it is; CUTOFF is a knob; a list of more than two places (the delay's or the shape's) is a knob.
   const Entry wave{Item::Voice, AcidVoice::Wave, nullptr};
   const Entry cutoff{Item::Voice, AcidVoice::Cutoff, nullptr};
@@ -899,7 +900,7 @@ TEST_CASE("pages, U6: a key is a knob, a switch, an action or blank, by one rule
   CHECK(rig.controls.kind(rig.engine, cutoff) == KeyKind::Knob);
 }
 
-TEST_CASE("pages: the TRACT page (A2): seven knobs and the on / off key, VOWEL's read-out, F8 with the last mix, the vowel table") {
+TEST_CASE("pages: the TRACT page (A2): seven knobs, VOWEL's read-out, the on / off item with the last mix, the vowel table") {
   Rig rig;
   // F1 VOWEL, F2 TONGUE, F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX are the unit's parameters; F8 is the app's on / off key.
   const unsigned ids[7] = {TractFx::Vowel, TractFx::Tongue, TractFx::Lips, TractFx::Res, TractFx::Glide, TractFx::Size, TractFx::Mix};
@@ -913,8 +914,9 @@ TEST_CASE("pages: the TRACT page (A2): seven knobs and the on / off key, VOWEL's
     CHECK(ref.target == kLaneTract);
     CHECK(ref.id == ids[k]);
   }
-  CHECK(rig.entry(kTractPage, 7).item == Item::TractOn);
-  CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(kTractPage, 7)), "TRACT") == 0);
+  CHECK(rig.entry(kTractPage, 7).item == Item::Blank);  // F8 is empty: the Vol key flips the tract (E1b)
+  const Entry on{Item::TractOn, 0, nullptr};
+  CHECK(std::strcmp(rig.controls.label(rig.engine, on), "TRACT") == 0);
 
   // VOWEL's read-out: a letter alone on a vowel's own point, else the nearest letter and the position in percent.
   const Entry vowel = rig.entry(kTractPage, 0);
@@ -955,8 +957,7 @@ TEST_CASE("pages: the TRACT page (A2): seven knobs and the on / off key, VOWEL's
   CHECK(tract_vowel_text(0.5f, buf, 1) == 0);             // a buffer of one holds only the terminator
   CHECK(buf[0] == '\0');
 
-  // F8: Mix 0 is the bypass. On gives Mix back its last value (50 % at a boot), off remembers it and goes to 0.
-  const Entry on = rig.entry(kTractPage, 7);
+  // The on / off item (the Vol key, snapshots, MIDI learn): Mix 0 is the bypass. On gives Mix back its last value (50 % at a boot), off remembers it and goes to 0.
   CHECK(rig.engine.param(rig.wiring.tract, TractFx::Mix) == 0.0f);  // silent at boot
   CHECK(rig.controls.get(rig.engine, on) == 0.0f);
   rig.controls.set(rig.engine, on, 1.0f);

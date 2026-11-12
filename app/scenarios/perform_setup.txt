@@ -58,7 +58,9 @@ tap performance
 wait 100
 tap play
 wait 1500
+press shift
 press note
+release shift
 wait 700
 snap 12_roll_thirty_second_held
 release note
@@ -70,7 +72,9 @@ tap f7
 turn 3
 tap performance
 wait 100
+press shift
 press note
+release shift
 wait 2200
 snap 13_roll_build_bar_held
 release note

@@ -46,9 +46,9 @@ paddown 30
 wait 50
 snap 09_a_pad_held
 padup 30
-# Master pressed again on MASTER puts the encoder back on TEMPO; the colour buttons do nothing.
+# Master pressed again on MASTER puts the encoder back on TEMPO; the colour buttons are the sounds' switches here too (Note is MODS: MODS OFF on the status line).
 tap master
-press note
+tap note
 wait 100
-snap 10_colour_button_does_nothing
-release note
+snap 10_note_is_mods
+tap note

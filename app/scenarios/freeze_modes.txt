@@ -27,21 +27,27 @@ wait 248
 tap play
 wait 2100
 # ROLL held for two beats and a half with BLD BEAT.
+press shift
 press note
+release shift
 wait 1300
 snap 02_roll_held
 wait 1000
 release note
 wait 1200
 # STOP held for a bar: the tape stop in 1/2 bar, silence, and the spin-up at the release.
+press shift
 press instr
+release shift
 wait 1100
 snap 03_stop_held
 wait 900
 release instr
 wait 1500
 # REV held for a beat and a half.
+press shift
 press vol
+release shift
 wait 700
 snap 04_rev_held
 wait 400

@@ -96,17 +96,18 @@ TEST_CASE("help texts: MODDED's summary says what ends STOCK and what does not (
 
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
   // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD four (ARM BARS SAVE DISCARD),
-  // GROWL seven, WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE six (F1..F5 and F8 STOCK); MODDED NOTES names all eight (the rest are empty wells).
-  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::ModdedNotes, Id::Library}) {
+  // GROWL and TRACT seven (the sound's on / off is a colour key now), WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE five; MODDED NOTES names seven (the rest are empty wells).
+  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
       CHECK_MESSAGE(text(id).fkey[k] != nullptr, text(id).name << " F" << k + 1);
     }
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    CHECK_MESSAGE((text(Id::Tract).fkey[k] != nullptr) == (k < 8), "TRACT F" << k + 1);
-    CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 8), "GROWL F" << k + 1);
+    CHECK_MESSAGE((text(Id::Tract).fkey[k] != nullptr) == (k < 7), "TRACT F" << k + 1);
+    CHECK_MESSAGE((text(Id::Growl).fkey[k] != nullptr) == (k < 7), "GROWL F" << k + 1);
     CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
-    CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5 || k == 7), "MODDED TONE F" << k + 1);
+    CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5), "MODDED TONE F" << k + 1);
+    CHECK_MESSAGE((text(Id::ModdedNotes).fkey[k] != nullptr) == (k < 7), "MODDED NOTES F" << k + 1);
   }
   CHECK(text(Id::Master).fkey[3] != nullptr);
   CHECK(text(Id::Master).fkey[4] != nullptr);  // DLY MODE (S0 of docs/MODS-PLAN.md)
@@ -114,7 +115,7 @@ TEST_CASE("help texts: the F keys' texts are where there is something to add") {
   CHECK(text(Id::Record).fkey[3] != nullptr);
   CHECK(text(Id::Record).fkey[4] == nullptr);
   CHECK(text(Id::Song).fkey[3] != nullptr);  // CLEAR moved from F7 to F4 (U7)
-  CHECK(text(Id::Song).fkey[7] == nullptr);  // and plain F8 is no UNDO any more (U4)
+  CHECK(text(Id::Song).fkey[7] != nullptr);  // plain F8 is the MUTE column (E1b), UNDO is Shift + F8 (U4)
   CHECK(text(Id::File).fkey[6] == nullptr);  // F7 is empty on FILE
 }
 
@@ -420,7 +421,7 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   tap(h, app::Button::Master);
   check_screen(h, Id::Master, 0x1Fu, kAllPads, "MASTER");  // the knob row of MASTER: F1 TEMPO, F2 TAP, F3 NUDGE, F4 MASTER, F5 DLY MODE (master_screen.cpp kPage and the two action boxes)
   tap(h, app::Button::Song);
-  check_screen(h, Id::Song, 0x0Fu, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F4 CLEAR (song_screen.cpp song_knobs)
+  check_screen(h, Id::Song, 0xFFu, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F4 CLEAR, F5 to F8 the columns PAT RPT TRSP MUTE (song_screen.cpp song_knobs)
   tap(h, app::Button::Song);
   check_screen(h, Id::Record, 0x0Fu, kAllPads, "RECORD");  // Song again (E1a): F1 ARM / STOP, F2 BARS, F3 SAVE, F4 DISCARD; F5 to F8 have no box (record_screen.cpp)
   tap(h, app::Button::File);
@@ -428,7 +429,7 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
 }
 
-TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift flips STOCK on every screen; Sample Playback, Editor and Recorder open GROWL, TRACT and WOBBLE from every screen but their own; Song opens SONG, again RECORD") {
+TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift the same on every screen; Sample Playback, Editor and Recorder open GROWL, TRACT and WOBBLE from every screen but their own; Song opens SONG, again RECORD") {
   const auto find = [](const Text& t, app::Button b) -> const HelpButton* {
     for (unsigned k = 0; k < t.button_count; ++k) {
       if (t.buttons[k].button == b) {
@@ -450,7 +451,7 @@ TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shi
     REQUIRE_MESSAGE(load != nullptr, t.name << ": Sample Loader is not listed");
     const bool on_modded = id == Id::ModdedNotes || id == Id::ModdedTone;
     CHECK_MESSAGE(std::strcmp(load->text, on_modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED") == 0, t.name);
-    CHECK_MESSAGE(std::strcmp(load->shift, "MODS: HEARD / PLAIN 303") == 0, t.name << ": Shift + Sample Loader");
+    CHECK_MESSAGE(std::strcmp(load->shift, on_modded ? "SAME: NEXT PAGE" : "SAME: OPEN MODDED") == 0, t.name << ": Shift + Sample Loader");
     for (const One& o : ones) {
       const HelpButton* hb = find(t, o.button);
       if (id == o.own) {
@@ -500,14 +501,12 @@ TEST_CASE("help texts: SONG says what its buttons, F keys and pads do") {
   CHECK(says(app::Button::Left, "PAGE"));
   CHECK(says(app::Button::Insert, "ADD"));
   CHECK(says(app::Button::Delete, "REMOVE"));
-  CHECK(says(app::Button::Note, "PATTERN"));
-  CHECK(says(app::Button::Instr, "REPEAT"));
-  CHECK(says(app::Button::Vol, "TRANSPOSE"));
-  CHECK(says(app::Button::Fx, "MUTE"));
+  CHECK(says(app::Button::Note, "MODS"));  // the four colour buttons are the sounds now (E1b)
+  CHECK(says(app::Button::Fx, "WOBBLE"));
   CHECK(t.fkey[0] != nullptr);
   CHECK(std::strcmp(t.fkey[3], "PRESS TWICE") == 0);  // CLEAR
-  CHECK(t.fkey[4] == nullptr);
-  CHECK(t.fkey[7] == nullptr);  // the plain F8 UNDO is gone
+  CHECK(std::strstr(t.fkey[4], "PATTERN") != nullptr);  // F5 to F8 pick the column
+  CHECK(std::strstr(t.fkey[7], "MUTE") != nullptr);  // the plain F8 is the MUTE column, UNDO is Shift + F8
   CHECK(std::strcmp(t.fkey_shift[6], "REDO") == 0);
   CHECK(std::strcmp(t.fkey_shift[7], "UNDO") == 0);
   Help h;

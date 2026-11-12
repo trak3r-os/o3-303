@@ -88,8 +88,9 @@ wait 300
 snap 07_filt_ladders
 pad 23
 tap play
-pad 4
+paddown 4
 tap vol
+padup 4
 turn 1
 wait 100
 snap 08_plays_row

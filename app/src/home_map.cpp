@@ -1280,7 +1280,7 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
       case Button::Note:
       case Button::Instr:
       case Button::Vol:
-      case Button::Fx:  // (a row is latched at the press; the live actions of these buttons are PERFORM's)
+      case Button::Fx:  // (a row is latched at the press, with a step held; otherwise the app took the key: a sound, or with Shift a PERFORM action)
         break;
       case Button::Copy:
       case Button::Delete:
@@ -1329,7 +1329,7 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
       case Button::Vol:
         latch_row(ctx, DrawerRow::Plays);
         break;
-      case Button::Fx:  // Shift + the button is the same as the button alone (D22): Shift matters for the turn
+      case Button::Fx:  // only with a step held and no Shift (the app takes the rest: sound_buttons.h, live_actions.h)
         latch_row(ctx, DrawerRow::Lock);
         break;
       case Button::Copy:

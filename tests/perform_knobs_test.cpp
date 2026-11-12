@@ -102,11 +102,11 @@ TEST_CASE("PERFORM KNOBS: a pad of each row sets ENV MOD, DECAY, CUTOFF and RESO
   // The lamp of each row sits at the knob's pad.
   t.wait(40);
   CHECK(t.led(row_pad(0, 7)) > t.led(row_pad(0, 10)));
-  // The Note button is MUTE here, as on PERFORM: held, it mutes the sequencer and does not touch the rows.
+  // Shift + Note is MUTE here, as on every screen: held, it mutes the sequencer and does not touch the rows.
   const float decay = val(t, AcidVoice::Decay);
-  t.press(Button::Note);
+  t.action_press(Button::Note);
   t.wait(20);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   CHECK(val(t, AcidVoice::Decay) == decay);
   CHECK(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
 }
@@ -232,9 +232,7 @@ TEST_CASE("PERFORM KNOBS: F3 is GROWL and TRACT (F1): a second tap flips them, t
 
 TEST_CASE("PERFORM KNOBS: a tap on a row that holds a mod ends MODS OFF (STOCK), as the encoder does") {
   Hands t;
-  t.press(Button::Shift);  // Shift + Sample Loader: MODS OFF (STOCK on)
-  t.tap(Button::SampleLoad);
-  t.release(Button::Shift);
+  t.tap(Button::Note);  // the Note key: MODS OFF (STOCK on)
   t.wait(40);
   REQUIRE(val(t, AcidVoice::Stock) == 1.0f);
   to_knobs(t);

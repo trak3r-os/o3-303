@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The TRACT page (TRACT-KNOBS-PLAN A2, first part): Sample Playback opens it and flips to GROWL and back, F8 is the on / off key that remembers the last mix, the bottom row of pads
+// The TRACT page (TRACT-KNOBS-PLAN A2, first part): Sample Playback opens it and flips to GROWL and back, the VOL key is the on / off key that remembers the last mix, the bottom row of pads
 // holds the live vowels A E I O U (a tap writes the VOWEL knob), rows 1 to 3 are the line and its palette (A2 rest), the wobble's MOUTH target swings VOWEL, and the TARGET refusal with the tract off.
 // The pure parts (the read-out, the vowel table, the page entries) are in pages_test.cpp.
 #include <doctest/doctest.h>
@@ -61,19 +61,19 @@ TEST_CASE("tract page: Sample Editor opens TRACT (one page, again nothing); the 
   CHECK(std::strcmp(t.title(), "GROWL") == 0);
 }
 
-TEST_CASE("tract page: F8 is the on / off key (Mix 0 off, the last mix on), F7 is the mix, MIDI-learnable knobs F1 to F7") {
+TEST_CASE("tract page: the VOL key (Fx1) is the on / off key (Mix 0 off, the last mix on), F7 is the mix, MIDI-learnable knobs F1 to F7") {
   Hands t;
   t.to_tract();
   CHECK(t.param(kTract, TractFx::Mix) == 0.0f);  // silent at a boot
-  t.tap(Button::F8);
+  t.tap(Button::Vol);
   CHECK(t.param(kTract, TractFx::Mix) == doctest::Approx(0.5f));
   t.tap(Button::F7);  // F7 focuses the mix
   t.turn(4);
   const float mix = t.param(kTract, TractFx::Mix);
   CHECK(mix > 0.5f);
-  t.tap(Button::F8);  // off: Mix 0, the unit is a bit-exact bypass
+  t.tap(Button::Vol);  // off: Mix 0, the unit is a bit-exact bypass
   CHECK(t.param(kTract, TractFx::Mix) == 0.0f);
-  t.tap(Button::F8);  // on: the mix it had
+  t.tap(Button::Vol);  // on: the mix it had
   CHECK(t.param(kTract, TractFx::Mix) == doctest::Approx(mix));
   t.tap(Button::F1);
   t.turn(3);
@@ -338,7 +338,7 @@ TEST_CASE("tract page: the wobble's TARGET stops before MOUTH while the tract is
   Hands t;
   (void)t.h->engine().set_param(kGrowl, o3_303::Growl::Mix, 0.5f);  // VOWEL needs the growl
   t.to_wobble();
-  t.tap(Button::F8);  // WOB on: the sequencer takes the target at once
+  t.tap(Button::Fx);  // WOB on: the sequencer takes the target at once
   t.tap(Button::F4);  // the TARGET key
   t.turn(1);
   CHECK(app_sequencer().wobble().target.target == o3_303::kLaneGrowl);
@@ -385,30 +385,30 @@ std::string render(const std::string& setup) {
 
 }  // namespace
 
-TEST_CASE("tract page: F8 off is the dry chain bit for bit, whatever the knobs say (A2): the same factory line with and without a visit to the page") {
+TEST_CASE("tract page: the VOL key off is the dry chain bit for bit, whatever the knobs say (A2): the same factory line with and without a visit to the page") {
   const std::string dry = render("");
   REQUIRE(dry.size() > 44);
-  // Every knob moved, the vowels played, F8 on and off again, a visit to GROWL's page and back: Mix is 0 again, the tract is a bypass.
+  // Every knob moved, the vowels played, the VOL key on and off again, a visit to GROWL's page and back: Mix is 0 again, the tract is a bypass.
   const std::string visited = render(
-      "tap sampleedit\ntap f8\ntap f1\nturn 40\ntap f2\nturn -30\ntap f3\nturn 50\ntap f4\nturn 20\ntap f5\nturn 10\ntap f6\nturn 2\ntap f7\nturn 60\n"
-      "paddown 39\nwait 60\npadup 39\ntap sampleplay\ntap sampleedit\ntap f8\ntap pattern\n");
+      "tap sampleedit\ntap vol\ntap f1\nturn 40\ntap f2\nturn -30\ntap f3\nturn 50\ntap f4\nturn 20\ntap f5\nturn 10\ntap f6\nturn 2\ntap f7\nturn 60\n"
+      "paddown 39\nwait 60\npadup 39\ntap sampleplay\ntap sampleedit\ntap vol\ntap pattern\n");
   CHECK(visited.size() == dry.size());
   CHECK(visited == dry);
   // And the control: with the tract on (Mix 50 %, the vowel U) the line is not the dry one.
-  const std::string on = render("tap sampleedit\ntap f8\npaddown 40\nwait 60\npadup 40\ntap pattern\n");
+  const std::string on = render("tap sampleedit\ntap vol\npaddown 40\nwait 60\npadup 40\ntap pattern\n");
   CHECK(on.size() == dry.size());
   CHECK(on != dry);
 }
 
 TEST_CASE("tract page: the wobble on MOUTH changes the sound (the tract's vowel moves with the line), and it is the tract's, not the growl's") {
-  const std::string setup_tract = "tap sampleedit\ntap f8\ntap f7\nturn 50\npaddown 38\nwait 60\npadup 38\n";
+  const std::string setup_tract = "tap sampleedit\ntap vol\ntap f7\nturn 50\npaddown 38\nwait 60\npadup 38\n";
   const std::string still = render(setup_tract + "tap pattern\n");
   // WOBBLE: DEPTH 100 %, TARGET up from CUTOFF (the growl is off and the tract on: the turn goes past VOWEL to MOUTH), the latch on.
-  const std::string mouth = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap f4\nturn 1\ntap f8\ntap pattern\n");
+  const std::string mouth = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap f4\nturn 1\ntap fx\ntap pattern\n");
   CHECK(mouth.size() == still.size());
   CHECK(mouth != still);
   // The same wobble on CUTOFF (the default target) moves another thing: its take differs from the MOUTH one.
-  const std::string cutoff = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap f8\ntap pattern\n");
+  const std::string cutoff = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap fx\ntap pattern\n");
   CHECK(cutoff != mouth);
   CHECK(cutoff != still);
 }

@@ -78,8 +78,10 @@ wait 500
 snap 13_keys_transpose
 pad 36
 # The colour buttons are the four assigned actions: ACC ALL held on Instr.
+press shift
 press instr
-wait 300
+release shift
+wait 350
 snap 14_instr_acc_all_held
 release instr
 # Shift held: the Shift row, REDO and UNDO on F7 and F8, the others empty.

@@ -17,7 +17,7 @@
 namespace o3_303 {
 
 inline constexpr unsigned kSongPageRows = 10;  // lines a page of the list holds (Left / Right move by this many)
-inline constexpr unsigned kSongColumns = 4;    // PATTERN, REPEAT, TRANSP, MUTE: the Note, Instr, Vol and Fx buttons pick one
+inline constexpr unsigned kSongColumns = 4;    // PATTERN, REPEAT, TRANSP, MUTE: F5 to F8 pick one
 
 // A line of the list. A row of the song has its cells as text; the END line has `end` set and no cells.
 struct SongLine {
@@ -101,7 +101,7 @@ std::uint32_t song_steps(const seq::Song& song, const std::uint8_t* pattern_step
 // "12 BARS . 0:24" for `steps` sixteenth notes at `tempo_mbpm`: the bars to a tenth when they are not whole, the time to the second. "0 BARS" for no steps.
 unsigned song_duration_text(std::uint32_t steps, std::uint32_t tempo_mbpm, char* out, unsigned cap) noexcept;
 
-// The list in `area` (both drawings use it): the column chips in the colour of the button that picks each column (the picked one filled), then the page's lines, `row_h` pixels each, the cursor
+// The list in `area` (both drawings use it): the column chips (the picked one filled), then the page's lines, `row_h` pixels each, the cursor
 // row banded, the playing row with a green bar, the picked cell filled; what to do with an empty song or the page under it.
 void draw_song_list(o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area, const SongView& v, int row_h) noexcept;
 

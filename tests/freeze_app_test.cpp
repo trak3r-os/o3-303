@@ -56,6 +56,16 @@ struct Hands {
     tap(b);
     release(Button::Shift);
   }
+  // A PERFORM action held (E1b): Shift + the colour key, Shift let go at once, the key kept down; `action_release` waits past the tap time (a shorter press latches).
+  void action_press(Button b) {
+    press(Button::Shift);
+    press(b);
+    release(Button::Shift);
+  }
+  void action_release(Button b) {
+    h->run_ms(310);
+    release(b);
+  }
   void turn(int d) {
     h->turn(d);
     h->run_ms(2);
@@ -97,11 +107,11 @@ Run play_run(bool freeze, unsigned hold_ms = 900, Freeze::LengthValue length = F
   Run r;
   r.press_frame = t.frames();
   if (freeze) {
-    t.press(Button::Fx);
+    t.action_press(Button::Fx);  // Shift + Fx, Shift let go (6 ms), held past the tap time
     t.wait(hold_ms);
     t.release(Button::Fx);
   } else {
-    t.wait(2 + hold_ms + 2);  // a press and a release take 2 ms each
+    t.wait(6 + hold_ms + 2);  // the press takes 6 ms, the release 2
   }
   r.release_frame = t.frames();
   t.wait(1200);
@@ -165,15 +175,15 @@ TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the f
   CHECK(others == 0.0f);
 }
 
-TEST_CASE("freeze: off at boot with the unit's defaults; Fx is FREEZE on PERFORM: held = on, Shift + tap latches; the Song key does nothing now") {
+TEST_CASE("freeze: off at boot with the unit's defaults; Shift + Fx is FREEZE on every screen: held = on, Shift + tap latches; the Song key does nothing now") {
   Hands t;
   t.to_perform();
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   CHECK(t.param(kFreeze, Freeze::Length) == 1.0f);  // 1/8 of a bar
   CHECK(t.param(kFreeze, Freeze::Mix) == 1.0f);
-  t.press(Button::Fx);
+  t.action_press(Button::Fx);
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);
-  t.release(Button::Fx);
+  t.action_release(Button::Fx);
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   // The provisional Song key is gone (M3b ui-1): it opens SONG (SG2) and freezes nothing, with or without Shift; back on PERFORM for the rest.
   t.press(Button::Song);
@@ -242,7 +252,7 @@ TEST_CASE("freeze: a tempo change while frozen leaves the loop; the next entry t
   t.tap(Button::Play);
   t.wait(1500);
   const std::size_t n0 = t.frames();
-  t.press(Button::Fx);
+  t.action_press(Button::Fx);
   t.wait(400);
   (void)t.h->engine().set_tempo(200'000);  // from the main loop, as the encoder or a tap does
   t.wait(500);
@@ -252,7 +262,7 @@ TEST_CASE("freeze: a tempo change while frozen leaves the loop; the next entry t
   // At 125 BPM 1/8 is 10,584 frames; the loop went on at that length while the transport moved to 200 BPM.
   CHECK(repeats(t.h->audio(), n0 + 800, mid - 10584u - 400u, 10584));
   const std::size_t p2 = t.frames();
-  t.press(Button::Fx);
+  t.action_press(Button::Fx);
   t.wait(900);
   const std::size_t n2 = t.frames();
   t.release(Button::Fx);

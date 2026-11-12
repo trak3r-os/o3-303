@@ -275,7 +275,12 @@ TEST_CASE("song view: the F row") {
   CHECK(std::string(v.key[3].label) == "CLEAR");
   CHECK_FALSE(v.key[3].dim);
   CHECK_FALSE(v.key[3].hot);
-  for (int i = 4; i < 8; ++i) CHECK(v.key[i].label[0] == '\0');  // no hole is a tool: F5..F8 are empty
+  CHECK(std::string(v.key[4].label) == "PAT");  // F5..F8 pick the column the encoder turns
+  CHECK(v.key[4].hot);  // the PATTERN column is the picked one
+  CHECK(std::string(v.key[5].label) == "RPT");
+  CHECK_FALSE(v.key[5].hot);
+  CHECK(std::string(v.key[6].label) == "TRSP");
+  CHECK(std::string(v.key[7].label) == "MUTE");
 
   in.plays_song = true;
   in.loop = false;
@@ -390,13 +395,13 @@ TEST_CASE("song screen: the cursor, the pages and the columns") {
   CHECK(o.s->cursor() == 25u);  // clamps on END
 
   CHECK(o.s->column() == 0u);
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   CHECK(o.s->column() == 1u);
-  o.t.tap(Button::Vol, 10);
+  o.t.tap(Button::F7, 10);
   CHECK(o.s->column() == 2u);
-  o.t.tap(Button::Fx, 10);
+  o.t.tap(Button::F8, 10);
   CHECK(o.s->column() == 3u);
-  o.t.tap(Button::Note, 10);
+  o.t.tap(Button::F5, 10);
   CHECK(o.s->column() == 0u);
 }
 
@@ -415,7 +420,7 @@ TEST_CASE("song screen: the encoder edits the cell and keeps it in range") {
   o.shift_turn(-1);
   CHECK(o.song().rows[0].pattern == 35u);  // a row of 12 pads
 
-  o.t.tap(Button::Instr, 10);  // REPEAT
+  o.t.tap(Button::F6, 10);  // REPEAT
   o.turn(3);
   CHECK(o.song().rows[0].repeat == 4u);
   o.turn(-9);
@@ -425,7 +430,7 @@ TEST_CASE("song screen: the encoder edits the cell and keeps it in range") {
   o.shift_turn(-1);
   CHECK(o.song().rows[0].repeat == 12u);
 
-  o.t.tap(Button::Vol, 10);  // TRANSP
+  o.t.tap(Button::F7, 10);  // TRANSP
   o.turn(5);
   CHECK(o.song().rows[0].transpose == 5);
   o.turn(99);
@@ -435,7 +440,7 @@ TEST_CASE("song screen: the encoder edits the cell and keeps it in range") {
   o.shift_turn(1);
   CHECK(o.song().rows[0].transpose == 0);
 
-  o.t.tap(Button::Fx, 10);  // MUTE: right is muted, left is not
+  o.t.tap(Button::F8, 10);  // MUTE: right is muted, left is not
   o.turn(1);
   CHECK(seq::row_muted(o.song().rows[0]));
   o.turn(1);
@@ -454,7 +459,7 @@ TEST_CASE("song screen: a run of turns on one cell is one undo step") {
   OnSong o;
   o.pads({0});
   o.up();
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   o.turn(1);
   o.turn(1);
   o.turn(1);
@@ -472,7 +477,7 @@ TEST_CASE("song screen: Insert copies the row, Delete removes it, and both refus
   OnSong o;
   o.pads({0, 1, 2});
   o.up(2);  // row 2 (index 1)
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   o.turn(3);  // x4
   o.t.tap(Button::Insert, 10);
   REQUIRE(o.song().length == 4u);
@@ -671,14 +676,14 @@ TEST_CASE("song screen: F4 CLEAR wants a second press within five seconds") {
   CHECK(o.song().length == 0u);  // the next step back is the run of three pads, one step
 }
 
-TEST_CASE("song screen: a plain F8 undoes nothing and says where UNDO is (U4, one release)") {
+TEST_CASE("song screen: a plain F8 picks the MUTE column and undoes nothing; Shift + F8 is UNDO (E1b)") {
   OnSong o;
   o.pads({0});
   o.t.tap(Button::Insert, 10);
   REQUIRE(o.song().length == 2u);
   o.t.tap(Button::F8, 10);
   CHECK(o.song().length == 2u);
-  CHECK(std::string(o.s->toast()) == "UNDO IS SHIFT + F8");
+  CHECK(o.s->column() == 3u);
   o.t.shift_tap(Button::F8);
   CHECK(o.song().length == 1u);
 }
@@ -739,7 +744,7 @@ TEST_CASE("song screen: the position follows the rows while the song plays") {
   OnSong o;
   o.pads({0, 1, 2});  // A01 A02 A03
   o.up(2);
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   o.turn(3);  // row 2 plays 4 times (7.7 s), so it is the one playing for the whole test
   o.t.tap(Button::F1, 10);
   o.t.tap(Button::Play, 10);
@@ -816,12 +821,12 @@ TEST_CASE("song screen: a cell of the playing row is read at the next pass") {
   o.t.tap(Button::Play, 10);
   o.t.wait(300);
   REQUIRE(o.seq().song_position().row == 0);
-  o.t.tap(Button::Instr, 10);  // REPEAT x3: it plays 3 times now
+  o.t.tap(Button::F6, 10);  // REPEAT x3: it plays 3 times now
   o.turn(2);
   o.t.wait(2300);  // A01 once (1.92 s) and into its second play
   CHECK(o.seq().song_position().row == 0);
   CHECK(o.seq().song_position().repeat == 1u);
-  o.t.tap(Button::Fx, 10);  // MUTE: the row is skipped when its pattern ends
+  o.t.tap(Button::F8, 10);  // MUTE: the row is skipped when its pattern ends
   o.turn(1);
   o.t.wait(2000);
   CHECK(o.seq().song_position().row == 1);
@@ -877,7 +882,7 @@ TEST_CASE("song screen: UNDO and REDO of an Insert or a Delete move the position
   OnSong o;
   o.pads({0, 1, 2});
   o.up(2);
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   o.turn(3);
   o.t.tap(Button::F1, 10);
   o.t.tap(Button::Play, 10);
@@ -929,7 +934,7 @@ TEST_CASE("song screen: a song cleared or replaced under the position starts aga
   OnSong o;
   o.pads({0, 1, 2});
   o.up(2);
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   o.turn(3);
   o.t.tap(Button::F1, 10);
   o.t.tap(Button::Play, 10);
@@ -967,7 +972,7 @@ TEST_CASE("song screen: a run of pads on the END line is one undo step") {
   // Anything in between makes a new step: two pads, a cell edit, another pad.
   o.pads({3, 4});
   o.up(2);
-  o.t.tap(Button::Instr, 10);
+  o.t.tap(Button::F6, 10);
   o.turn(2);
   o.down(2);  // END
   o.pads({5});

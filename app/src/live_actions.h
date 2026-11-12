@@ -19,6 +19,8 @@
 
 namespace o3_303 {
 
+inline constexpr std::uint32_t kButtonTapMs = 300;  // a Shift + colour press shorter than this is a tap (it latches), a longer one a hold
+
 class LiveActions {
  public:
   // What a snapshot gesture says (the screen shows it as its toast); `off`: it says something did not happen.
@@ -35,9 +37,10 @@ class LiveActions {
   // A screen is left: the actions that were held end (their releases would reach another screen); the latched ones stay.
   void leave(o3sdk::app::Context& ctx) noexcept;
 
-  // ---- The four colour buttons (Note, Instr, Vol, Fx = 0..3): each does its assigned action (Wiring::perf) while held; Shift latches.
-  void button_press(o3sdk::app::Context& ctx, unsigned button, bool shift) noexcept;
-  void button_release(o3sdk::app::Context& ctx, unsigned button) noexcept;
+  // ---- The four colour buttons (Note, Instr, Vol, Fx = 0..3) with Shift (E1b; the plain press is the sound's, sound_buttons.h): each does its assigned action (Wiring::perf). A tap under
+  // kButtonTapMs latches it (a tap on a latched one lets it go); a hold is the action while the button is down. `now_ms` is Context::uptime_ms().
+  void action_button_press(o3sdk::app::Context& ctx, unsigned button, std::uint64_t now_ms) noexcept;
+  void action_button_release(o3sdk::app::Context& ctx, unsigned button, std::uint64_t now_ms) noexcept;
   unsigned buttons_held() const noexcept { return button_held_; }
   unsigned buttons_latched() const noexcept { return button_latched_; }
 
@@ -96,6 +99,8 @@ class LiveActions {
   // The four colour buttons (bit b = button b) and the pads (a bit per PerfAction), held and latched; the actions on now (applied).
   unsigned button_held_ = 0;
   unsigned button_latched_ = 0;
+  unsigned button_pending_ = 0;  // a button pressed with Shift whose release is still to come (a screen's leave() ends it: no tap)
+  std::uint32_t button_down_ms_[kPerfButtons] = {};  // Context::uptime_ms() at the press, wrapped to 32 bits: the difference is what is read
   std::uint16_t pad_held_ = 0;
   std::uint16_t pad_latched_ = 0;
   std::uint16_t applied_ = 0;

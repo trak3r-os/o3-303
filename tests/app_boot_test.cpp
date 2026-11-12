@@ -124,7 +124,7 @@ TEST_CASE("CONFIG opens the kit's system screen, and its DISPLAY section changes
 TEST_CASE("worst cases for the display list: a full 64-step line, every ramp, all the locks, 48 patterns and a chain of 16") {
   Hands t;
   // The generator at full density with every accent and slide chance, over 64 steps.
-  t.tap(Button::Vol);  // the PLAYS row on the encoder: x4 on the step in focus
+  t.row_key(Button::Vol);  // the PLAYS row on the encoder: x4 on the step in focus
   t.turn(3);
   t.length_to(64);  // PATTERN SETUP's LENGTH: 16 > 64
   REQUIRE(t.pat().length == 64);

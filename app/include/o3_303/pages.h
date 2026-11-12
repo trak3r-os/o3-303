@@ -55,7 +55,7 @@ enum class Item : std::uint8_t {
   AccPct,     // H2: the generator's accent chance (project-wide, UX-303 D1); PATTERN SETUP's F7
   SldPct,     // H2: the generator's slide chance, its own entry; SETUP's F8
   RollMode,   // P2: the roll rate and the accelerate as one list (1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR): PERFORM SETUP's F7 (UX-303 5.4)
-  Mods,       // B5a: the mods heard, the voice's Stock switch seen the other way round (1 = Stock off; docs/MODS-PLAN.md 5.11). An app item: no lane, no learn, no snapshot; MODDED's F8 and Shift + Sample Loader write it
+  Mods,       // B5a: the mods heard, the voice's Stock switch seen the other way round (1 = Stock off; docs/MODS-PLAN.md 5.11). An app item: no lane, no learn, no snapshot; MODDED's F8 and the Note key write it
   WobOn,      // MODS S2: the WOBBLE action as a key (WOBBLE's F8): the screen latches PERFORM's WOB action; the entry only gives the key its name and its ON / OFF. A snapshot target since B5a: set asks the latch (Wiring::wob_want)
   GrowlOn,    // B5a: GROWL's F8: the growl heard (Mix above 0); the screen flips Mix between 0 and Wiring::growl_last_mix
   Tract,      // A1: a parameter of the tract on slot 0's insert 2 after the growl (id = its parameter id)

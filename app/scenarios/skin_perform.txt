@@ -31,8 +31,10 @@ snap 01_idle
 # MUTE and ACC held on their pads, and the Instr button (ACC ALL by default) held: its chip is filled.
 paddown 0
 paddown 1
+press shift
 press instr
-wait 300
+release shift
+wait 350
 snap 02_actions_held
 release instr
 padup 1

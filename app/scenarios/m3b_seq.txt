@@ -41,10 +41,10 @@ snap 01_line_entered
 # Ratchets: the PLAYS row on the encoder (the Vol button; the list x1 x2 x3 x4 75% 50% 25% 1:2 2:2 1:4 2:4 3:4 4:4 FILL !FILL FIRST !FIRST); hold a step pad
 # and turn: steps 3 and 14 x2, step 7 x3, step 11 x4. (The step is held as long as it was when the gesture was OCT+ pads: the notes the held steps
 # sound are part of the WAV's history.)
-tap vol
 paddown 2
+tap vol
 turn 1
-wait 151
+wait 107
 padup 2
 paddown 6
 turn 2
@@ -88,7 +88,9 @@ tap play
 tap performance
 wait 3778
 snap 04_playing
+press shift
 press vol
+release shift
 wait 1920
 snap 05_fill_mutate
 release vol
@@ -100,7 +102,9 @@ tap f5 1
 turn 1
 tap performance 1
 wait 53
+press shift
 press vol
+release shift
 wait 1920
 release vol
 wait 1920
@@ -110,7 +114,9 @@ release shift
 turn 1
 tap performance 1
 wait 56
+press shift
 press vol
+release shift
 wait 1920
 snap 06_fill_ratchet
 release vol
@@ -121,7 +127,9 @@ release shift
 turn 1
 tap performance 1
 wait 56
+press shift
 press vol
+release shift
 wait 1920
 release vol
 wait 1920

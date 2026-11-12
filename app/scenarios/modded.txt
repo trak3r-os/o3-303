@@ -54,11 +54,9 @@ tap f1
 turn 1
 wait 100
 snap 11_a_turn_ends_stock
-# A lock does not end STOCK, and does not need it off: Shift + Sample Loader from HOME flips STOCK on again with no change of screen, a step is held and ACC DECAY (F3 of NOTES, which Sample Loader opens) is locked on it.
+# A lock does not end STOCK, and does not need it off: the Note key from HOME flips STOCK on again (MODS off) with no change of screen, a step is held and ACC DECAY (F3 of NOTES, which Sample Loader opens) is locked on it.
 tap pattern
-press shift
-tap sampleload
-release shift
+tap note
 wait 100
 snap 12_stock_from_home
 tap sampleload

@@ -50,12 +50,19 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM" : (w == Where::PerformSetup ? "LEAVE SETUP" : "OPEN PERFORM")), w == Where::PerformSetup ? nullptr : "PERFORM SETUP");
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
-  // One key per sound (E1a): Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder
-  // WOBBLE (one page each: again does nothing). With Shift they do the same (o3_303_app.cpp ignores Shift for the three): the Shift text says so (U8). Song opens SONG, again RECORD, and from RECORD SONG.
-  b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "MODS: HEARD / PLAIN 303");
+  // One key per sound (E1a): Sample Loader opens MODDED (again: its next page); Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder WOBBLE (one page each: again does nothing). With
+  // Shift they do the same (o3_303_app.cpp ignores Shift for the four): the Shift text says so (U8). Song opens SONG, again RECORD, and from RECORD SONG.
+  b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", w == Where::Modded ? "SAME: NEXT PAGE" : "SAME: OPEN MODDED");
   b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
   b.add(Button::SampleEdit, w == Where::Tract ? nullptr : "OPEN TRACT", w == Where::Tract ? nullptr : "SAME: OPEN TRACT");
   b.add(Button::SampleRec, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
+  // The four colour keys (E1b), the same on every screen: each flips its sound (sound_buttons.h), and with Shift runs the PERFORM action assigned on PERFORM SETUP (a tap latches it, a hold is momentary).
+  // On the screens with the drawer a step held down gives the plain press to the drawer row instead.
+  const bool drawer = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble;
+  b.add(Button::Note, drawer ? "MODS. STEP HELD: NOTE ROW" : "MODS ON / OFF", "NOTE ACTION. TAP: LATCH");
+  b.add(Button::Instr, drawer ? "GROWL. STEP HELD: GATE ROW" : "GROWL ON / OFF", "INSTR ACTION. TAP: LATCH");
+  b.add(Button::Vol, drawer ? "TRACT. STEP HELD: PLAYS ROW" : "TRACT ON / OFF", "VOL ACTION. TAP: LATCH");
+  b.add(Button::Fx, drawer ? "WOBBLE. STEP HELD: LOCK ROW" : "WOBBLE ON / OFF", "FX ACTION. TAP: LATCH");
   b.add(Button::Song, w == Where::Song ? "OPEN RECORD" : (w == Where::Record ? "OPEN SONG" : "OPEN SONG, AGAIN RECORD"));
 }
 
@@ -70,30 +77,13 @@ constexpr void add_edit(Buttons& b) noexcept {
   b.add(Button::Down, "NOTE DOWN; REST: WAKE FIRST", "NOTE DOWN AN OCTAVE");
 }
 
-// Note, Instr, Vol and Fx on the screens with the drawer: each gives the encoder one row of it.
-constexpr void add_rows(Buttons& b) noexcept {
-  b.add(Button::Note, "ENCODER ON THE NOTE ROW");
-  b.add(Button::Instr, "ENCODER ON THE GATE ROW");
-  b.add(Button::Vol, "ENCODER ON THE PLAYS ROW");
-  b.add(Button::Fx, "ENCODER ON THE LOCK ROW");
-}
-
-// PERFORM: the four colour buttons are live actions, the ones PERFORM SETUP assigned.
-constexpr void add_live(Buttons& b) noexcept {
-  b.add(Button::Note, "HOLD: NOTE ACTION (SETUP)", "LATCH IT");
-  b.add(Button::Instr, "HOLD: INSTR ACTION (SETUP)", "LATCH IT");
-  b.add(Button::Vol, "HOLD: VOL ACTION (SETUP)", "LATCH IT");
-  b.add(Button::Fx, "HOLD: FX ACTION (SETUP)", "LATCH IT");
-}
-
 constexpr Buttons make_home(Where w) noexcept {
   Buttons b;
   add_globals(b, w);
   add_edit(b);
-  add_rows(b);
   return b;
 }
-constexpr Buttons make_home_map_only(Where w) noexcept {  // MASTER and RECORD: the colour buttons do nothing
+constexpr Buttons make_home_map_only(Where w) noexcept {  // MASTER and RECORD: the home map's edit buttons, no drawer rows
   Buttons b;
   add_globals(b, w);
   add_edit(b);
@@ -102,7 +92,6 @@ constexpr Buttons make_home_map_only(Where w) noexcept {  // MASTER and RECORD: 
 constexpr Buttons make_perform(Where w) noexcept {
   Buttons b;
   add_globals(b, w);
-  add_live(b);
   if (w == Where::Perform) {  // KN2: the arrows pick the knob and move it
     b.add(Button::Left, "HELD F: -1/20. ELSE LATCH <");
     b.add(Button::Right, "HELD F: +1/20. ELSE LATCH >");
@@ -154,10 +143,6 @@ constexpr Buttons make_song() noexcept {
   b.add(Button::Right, "PAGE DOWN");
   b.add(Button::Insert, "ADD A ROW ABOVE: A COPY");
   b.add(Button::Delete, "REMOVE THE ROW");
-  b.add(Button::Note, "COLUMN: PATTERN");
-  b.add(Button::Instr, "COLUMN: REPEAT");
-  b.add(Button::Vol, "COLUMN: TRANSPOSE");
-  b.add(Button::Fx, "COLUMN: MUTE");
   return b;
 }
 
@@ -321,7 +306,7 @@ constexpr Text kTexts[kIdCount] = {
     // ModdedNotes
     {"MODDED NOTES",
      "THE 303 MODS FOR HOW A NOTE MOVES. TAP AN F KEY, THEN TURN: A TURN ENDS STOCK (NOT DECAY). A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK. SHIFT + F KEY: LEARN.",
-     {"NOTE FADE-IN, OFF = 303", "ENVELOPE DECAY", "ACCENT DECAY TIME", "NOTE AMP DECAY TIME", "SLIDE TIME", "SWEEP: OFF, NORMAL, HI RES", "SWEEP SPEED", "MODS: HEARD / PLAIN 303"},
+     {"NOTE FADE-IN, OFF = 303", "ENVELOPE DECAY", "ACCENT DECAY TIME", "NOTE AMP DECAY TIME", "SLIDE TIME", "SWEEP: OFF, NORMAL, HI RES", "SWEEP SPEED", NONE},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kModdedButtons.row,
@@ -332,7 +317,7 @@ constexpr Text kTexts[kIdCount] = {
     // ModdedTone
     {"MODDED TONE",
      "THE 303 MODS FOR WHAT THE FILTER IS FED AND GIVES. TAP AN F KEY, THEN TURN: A TURN ENDS STOCK. A CC, LANE, LOCK OR SNAPSHOT MOVES A MOD UNDER STOCK. SHIFT + F KEY: LEARN.",
-     {"FILTER FOLLOWS KEYS", "FILTER FM DEPTH", "DRIVE INTO FILTER", "MUFFLER: OFF, SOFT, HARD", "SUB OCTAVE LEVEL", NONE, NONE, "MODS: HEARD / PLAIN 303"},
+     {"FILTER FOLLOWS KEYS", "FILTER FM DEPTH", "DRIVE INTO FILTER", "MUFFLER: OFF, SOFT, HARD", "SUB OCTAVE LEVEL", NONE, NONE, NONE},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kModdedButtons.row,
@@ -342,8 +327,8 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Tract
     {"TRACT",
-     "A MOUTH AFTER THE GROWL: THE VOICE TALKS. VOWEL MORPHS A E I O U, TONGUE AND LIPS SHAPE IT, F8 THE TRACT ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F: LEARN, F4 LEN, F5 CLEAR, F6 NEW.",
-     {"VOWEL: A E I O U", "TONGUE: BACK TO FRONT", "LIPS: ROUND TO SPREAD", "RESONANCE OF THE MOUTH", "GLIDE TIME BETWEEN VOWELS", "SIZE OF THE MOUTH", "WET / DRY OF THE TRACT", "TRACT: MIX 0 / LAST VALUE"},
+     "A MOUTH AFTER THE GROWL: THE VOICE TALKS. VOWEL MORPHS A E I O U, TONGUE AND LIPS SHAPE IT. VOL: ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F: LEARN, F4 LEN, F5 CLEAR, F6 NEW.",
+     {"VOWEL: A E I O U", "TONGUE: BACK TO FRONT", "LIPS: ROUND TO SPREAD", "RESONANCE OF THE MOUTH", "GLIDE TIME BETWEEN VOWELS", "SIZE OF THE MOUTH", "WET / DRY OF THE TRACT", NONE},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kTractButtons.row,
@@ -353,8 +338,8 @@ constexpr Text kTexts[kIdCount] = {
      "ROWS 1-2: THE LINE. ROW 3: PALETTE. ROW 4: LIVE VOWELS. LEFT / RIGHT: CURSOR."},
     // Growl
     {"GROWL",
-     "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER, F8 THE GROWL ON / OFF. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
-     {"GROWL VOWEL", "GROWL FORMANT Q", "FORMANT MIX", "COMB TUNE, SEMITONES", "COMB FEEDBACK", "GROWL COMB MIX", "WET / DRY OF THE GROWL", "GROWL: MIX 0 / LAST VALUE"},
+     "THE GROWL: A VOWEL FILTER AND A TUNED COMB ON THE VOICE, SEVEN KNOBS IN SIGNAL ORDER. INSTR: ON / OFF. TAP AN F KEY TO LATCH IT, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
+     {"GROWL VOWEL", "GROWL FORMANT Q", "FORMANT MIX", "COMB TUNE, SEMITONES", "COMB FEEDBACK", "GROWL COMB MIX", "WET / DRY OF THE GROWL", NONE},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kGrowlButtons.row,
@@ -364,8 +349,8 @@ constexpr Text kTexts[kIdCount] = {
      "REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Wobble
     {"WOBBLE",
-     "THE WOBBLE: A SLOW LFO ON THE CUTOFF, THE GROWL VOWEL OR THE TRACT MOUTH (THE EFFECT MUST BE ON). F8 LATCHES IT. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
-     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF, VOWEL OR MOUTH", "RESTART ON EACH NOTE", NONE, NONE, "WOB ACTION ON / OFF"},
+     "THE WOBBLE: A SLOW LFO ON THE CUTOFF, THE GROWL VOWEL OR THE TRACT MOUTH (THE EFFECT MUST BE ON). F8 OR FX: ON / OFF. TAP AN F KEY, THEN TURN. SHIFT + F KEY: MIDI LEARN.",
+     {"WOBBLE RATE", "WOBBLE SHAPE", "WOBBLE DEPTH", "CUTOFF, VOWEL OR MOUTH", "RESTART ON EACH NOTE", NONE, NONE, "WOB ON / OFF"},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kWobbleButtons.row,
@@ -431,7 +416,7 @@ constexpr Text kTexts[kIdCount] = {
     // Song
     {"SONG",
      "ROWS OF PATTERNS PLAYED IN ORDER, EACH AS MANY TIMES AS REPEAT SAYS, TRANSPOSED OR MUTED. F1 CHOOSES WHAT PLAY PLAYS: THE SONG FROM THE CURSOR ROW, OR THE PATTERN.",
-     {"PLAY: SONG OR PATTERN", "LOOP ON / OFF", "CHAIN BECOMES THE SONG", "PRESS TWICE", NONE, NONE, NONE, NONE},
+     {"PLAY: SONG OR PATTERN", "LOOP ON / OFF", "CHAIN BECOMES THE SONG", "PRESS TWICE", "COLUMN: PATTERN", "COLUMN: REPEAT", "COLUMN: TRANSPOSE", "COLUMN: MUTE"},
      {NONE, NONE, NONE, NONE, NONE, NONE, "REDO", "UNDO"},
      "CELL; SHIFT = COARSE",
      kSongButtons.row,

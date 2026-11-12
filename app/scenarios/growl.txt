@@ -34,7 +34,9 @@ wait 162
 tap play
 wait 2100
 # Fx held: the vowel wobbles at the set 1/8.
+press shift
 press fx
+release shift
 wait 2400
 snap 04_wobble_held
 # The wobble goes on at its set 1/8 (PERFORM's row 3 is the picker, and none is picked here), for as long as the picker used to take.

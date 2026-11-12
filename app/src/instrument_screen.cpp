@@ -2,6 +2,7 @@
 #include "instrument_screen.h"
 
 #include "help_texts.h"
+#include "sound_buttons.h"
 #include "skin/header.h"
 #include "skin/instrument.h"
 #include "skin/skin.h"
@@ -325,7 +326,7 @@ void draw_drawer(ui::Renderer& r, const Rect& area, const InstrumentView& view) 
   }
 }
 
-// The action keys (docs/MODS-PLAN.md 5.3, 5.5; Controls::kind says which entries are): a key that runs at its press and is lit while it is on, not a knob the encoder latches. F8 of MODDED is STOCK, F8 of WOBBLE the WOB action.
+// WOBBLE's F8 is the one action key left (E1b): the WOB latch, learnable there (Shift + F8) and toggled by a plain press like the Fx key; every other sound is the colour key's.
 bool is_action(const dsp::Engine& e, const Controls& controls, const Entry& entry) noexcept { return controls.kind(e, entry) == KeyKind::Action; }
 
 }  // namespace
@@ -822,8 +823,9 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
         ctx.redraw();
         return;
       }
-      if (is_action(ctx.engine(), *controls_, keys().page().entry[k])) {  // F8 STOCK / WOB: it runs at the press, and the encoder and the latch stay where they were
-        run_action(ctx, keys().page().entry[k]);
+      if (is_action(ctx.engine(), *controls_, keys().page().entry[k])) {  // F8 of WOBBLE: it runs at the press, and the encoder and the latch stay where they were
+        toggle_sound(*rig_, ctx, Sound::Wobble);
+        ctx.redraw();
         return;
       }
       if (keys().page().entry[k].item != Item::Blank) {
@@ -848,29 +850,6 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
     return;
   }
   (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows)
-}
-
-// An action key's press: STOCK flips the voice's switch (the same gesture as Shift + Sample Loader), WOB latches or releases PERFORM's WOB action (LiveActions::toggle_latch).
-void InstrumentScreen::run_action(app::Context& ctx, const Entry& entry) noexcept {
-  if (entry.item == Item::Mods) {
-    toggle_stock(*rig_, ctx);
-  } else if (entry.item == Item::GrowlOn || entry.item == Item::TractOn) {
-    controls_->set(ctx.engine(), entry, controls_->get(ctx.engine(), entry) >= 0.5f ? 0.0f : 1.0f);
-  } else {
-    live_->toggle_latch(ctx, PerfAction::Wobble);
-  }
-  ctx.redraw();
-}
-
-// Whether an action key is on now: STOCK's mirror, or the WOB action latched (a held one cannot be here: a screen change lets it go, and no colour button holds it on this screen).
-bool InstrumentScreen::action_on(const dsp::Engine& e, const Entry& entry) const noexcept {
-  if (entry.item == Item::Mods) {
-    return !rig_->wiring.stock;  // lit while the mods are heard
-  }
-  if (entry.item == Item::GrowlOn || entry.item == Item::TractOn) {
-    return controls_->get(e, entry) >= 0.5f;
-  }
-  return live_->latched(PerfAction::Wobble);
 }
 
 // ---- Soft keys and LEDs -----------------------------------------------------------------------------------------------------
@@ -1078,8 +1057,8 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
     if (kn.blank) {
       continue;
     }
-    if (is_action(e, *controls_, pg.entry[k])) {  // a key and not a knob (fill_knob gave it no travel: norm below 0 is the Action kind), its state ON / OFF as the hint, lit while on
-      kn.lit = action_on(e, pg.entry[k]);
+    if (is_action(e, *controls_, pg.entry[k])) {  // WOB: a key and not a knob (fill_knob gave it no travel), its state ON / OFF as the hint, lit while on
+      kn.lit = live_->latched(PerfAction::Wobble);
       cut(kn.lit ? "ON" : "OFF", sizeof kn.value - 1u, kn.value, sizeof kn.value);
       kn.unit = "";
       continue;
@@ -1098,14 +1077,14 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   if (ctx.panel().shift() && !page_learnable()) {  // a page of app values only has nothing to learn (U8a; WOBBLE has been learnable since D1)
     view.hint = "NOT LEARNABLE";
   } else if (group_ == &kTractGroup && controls_->get(e, Entry{Item::TractOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
-    view.hint = "TRACT OFF: F8";
+    view.hint = "TRACT OFF: VOL";
   } else if (group_ == &kGrowlGroup && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {
-    view.hint = "GROWL OFF: F8";
+    view.hint = "GROWL OFF: INSTR";
   } else if (group_ == &kWobbleGroup && !live_->wobble_on()) {
-    view.hint = "WOB OFF: F8";
+    view.hint = "WOB OFF: FX";
   } else if (group_ == &kModdedGroup && rig_->wiring.stock) {
-    view.hint = "MODS OFF: F8";
-  } else if (is_mod(pk.focused())) {  // the latched mod says when it is heard (an "OFF: F8" hint above has priority)
+    view.hint = "MODS OFF: NOTE";
+  } else if (is_mod(pk.focused())) {  // the latched mod says when it is heard (an "OFF:" hint above has priority)
     const help_texts::HeardOn h = help_texts::heard_on(pk.focused().id);
     const char* line = help_texts::heard_line(pk.focused().id, controls_->get(e, voice(AcidVoice::Accent)) <= 0.0f);
     if (line[0] != '\0') {
@@ -1182,7 +1161,7 @@ void InstrumentScreen::draw_classic(app::Context& ctx, ui::Renderer& r, const Re
   draw_big_knobs(r, area, view.knob);
   draw_sections(r, area, view);
   draw_drawer(r, area, view);
-  if (std::strstr(view.hint, "OFF: F8") != nullptr || view.heard) {  // an effect that is off says how to bring it back (B5a), the latched mod when it is heard (BACKLOG 14.3); the other hints are the skin's
+  if (std::strstr(view.hint, " OFF: ") != nullptr || view.heard) {  // an effect that is off says how to bring it back (B5a), the latched mod when it is heard (BACKLOG 14.3); the other hints are the skin's
     r.text(area.x + 8, area.y + drawer_y(area) - kHintH, view.hint, Color::Accent, Face::Label);
   }
 

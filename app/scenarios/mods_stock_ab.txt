@@ -7,10 +7,8 @@
 # A scenario's `wav` writes the audio from `record on`, so the A/B is two scenarios and not two takes of one.
 wait 300
 record on
-# STOCK on from HOME (Shift + Sample Loader), then MODDED NOTES and TONE: every mod is learned to a controller (20 to 30)
-press shift
-tap sampleload
-release shift
+# STOCK on from HOME (the Note key flips MODS off, E1b), then MODDED NOTES and TONE: every mod is learned to a controller (20 to 30)
+tap note
 wait 50
 tap sampleload
 press shift

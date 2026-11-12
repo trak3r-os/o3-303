@@ -55,14 +55,14 @@ TEST_CASE("sound: MUTE holds the notes back while the pattern runs; VOLUME is th
   const double playing = rms(std::vector<std::int16_t>(t.h->audio().begin() + static_cast<std::ptrdiff_t>(a0), t.h->audio().end()), 0);
   REQUIRE(playing > 0.03);  // 0.0386 measured (above 0.05 before the quieter feedback filter, see the first case)
 
-  t.tap(Button::Performance);  // PERFORM: the colour buttons are the live actions there (on HOME they are the drawer's rows)
-  t.press(Button::Note);       // MUTE
+  t.tap(Button::Performance);
+  t.action_press(Button::Note);  // Shift + Note, held: MUTE
   t.wait(1500);                // the echoes of the last notes die away
   const std::size_t m0 = t.h->audio().size();
   t.wait(1500);
   const double muted = rms(std::vector<std::int16_t>(t.h->audio().begin() + static_cast<std::ptrdiff_t>(m0), t.h->audio().end()), 0);
   CHECK(muted < playing * 0.15);
-  t.release(Button::Note);
+  t.action_release(Button::Note);
   t.wait(2000);
   const std::size_t b0 = t.h->audio().size();
   t.wait(1500);

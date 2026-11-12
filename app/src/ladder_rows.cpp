@@ -206,8 +206,11 @@ void ladder_reset_home(Wiring& wiring) noexcept {
 
 namespace {
 
-constexpr unsigned kWalkPageCount = 7;  // WOBBLE is the last (KN4; TRACT was before it, KN0): the walk's list only grows at its end
+constexpr unsigned kWalkPageCount = 8;  // the SOUNDS page is the last (E1b; WOBBLE before it, KN4; TRACT before that, KN0): the walk's list only grows at its end
 constexpr unsigned kWalkMax = 96;       // the list's most places the family jump looks at (the pages hold under 50 knobs)
+
+// The four sounds' switches: no page has them on a key since the colour keys flip them (E1b), and a ladder row can still hold them (KN4).
+constexpr Page kSoundsPage = {"SOUNDS", {Entry{Item::Mods, 0, "MODS"}, Entry{Item::GrowlOn, 0, "GROWL"}, Entry{Item::TractOn, 0, "TRACT"}, Entry{Item::WobOn, 0, "WOB"}, Entry{}, Entry{}, Entry{}, Entry{}}};
 
 const Page& walk_page(unsigned i) noexcept {
   switch (i) {
@@ -217,7 +220,8 @@ const Page& walk_page(unsigned i) noexcept {
     case 3: return kTonePage;
     case 4: return kGrowlPage;
     case 5: return kTractPage;
-    default: return kWobblePage;
+    case 6: return kWobblePage;
+    default: return kSoundsPage;
   }
 }
 

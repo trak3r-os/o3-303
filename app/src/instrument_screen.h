@@ -7,15 +7,14 @@
 //
 //   INSTRUMENT FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
 //   INSTRUMENT VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
-//   MODDED NOTES       SOFT ATK DECAY ACC DECAY AMP DECAY SLIDE ACC SWEEP SWP SPEED, and F8 STOCK (the 303 mods that move each note)
-//   MODDED TONE        TRACKING FILTER FM OVERDRIVE MUFFLER SUB OSC (what the filter is fed and gives), F8 STOCK
-//   TRACT              VOWEL TONGUE LIPS RES GLIDE SIZE TRC MIX, and F8 TRACT (on / off, an action key like GROWL's); the pads are the TRACT line (rows 1 and 2, 24 steps a page), the palette A E I O U - GLD LINE
+//   MODDED NOTES       SOFT ATK DECAY ACC DECAY AMP DECAY SLIDE ACC SWEEP SWP SPEED (the 303 mods that move each note)
+//   MODDED TONE        TRACKING FILTER FM OVERDRIVE MUFFLER SUB OSC (what the filter is fed and gives)
+//   TRACT              VOWEL TONGUE LIPS RES GLIDE SIZE TRC MIX, the sound's key is Vol; the pads are the TRACT line (rows 1 and 2, 24 steps a page), the palette A E I O U - GLD LINE
 //                      (row 3) and the live vowels (row 4); Shift + F4 LEN, F5 CLEAR, F6 NEW
-//   GROWL              VOWEL FMT Q FMT MIX CMB TUNE CMB FB CMB MIX GRL MIX (the growl's seven; F8 GROWL)
-//   WOBBLE             RATE SHAPE DEPTH TARGET RESET (the wobble's five settings), and F8 WOB
+//   GROWL              VOWEL FMT Q FMT MIX CMB TUNE CMB FB CMB MIX GRL MIX (the growl's seven; its key is Instr)
+//   WOBBLE             RATE SHAPE DEPTH TARGET RESET (the wobble's five settings) (its key is Fx)
 //
-// F8 of MODDED (STOCK) and of WOBBLE (WOB) is an action key and not a knob: it runs at its press, is lit while it is on and has no encoder latch. STOCK is the voice's switch over the mods and a
-// turn of any mod ends it (MODS-PLAN 5.11); WOB latches PERFORM's WOB action (LiveActions::toggle_latch).
+// The sound of a screen is the colour key's, from every screen (sound_buttons.h): Note MODS (STOCK is its off), Instr GROWL, Vol TRACT, Fx WOB. F8 of these pages is empty, except WOBBLE's: its F8 WOB flips the same latch and is the page's MIDI learn well for it (the maintainer asked for the learn there).
 // (DLY MODE, which no page of these has, is MASTER's F5.)
 //
 // The eight knobs of the page are drawn large, the sections of the other pages as read-outs, and under them the two lines of the drawer (NOTE and
@@ -133,8 +132,6 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   bool line_tool(o3sdk::app::Context& ctx, unsigned k) noexcept;  // Shift + F`k` of the TRACT page: LEN (F4), CLEAR (F5); false: not a tool key
   void line_arrow(o3sdk::app::Context& ctx, int direction) noexcept;
   std::uint64_t held_steps() const noexcept;               // the line steps held on the pads (bit n = step n)
-  void run_action(o3sdk::app::Context& ctx, const Entry& entry) noexcept;
-  bool action_on(const o3sdk::dsp::Engine& e, const Entry& entry) const noexcept;
   PageKeys& keys() noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
   const PageKeys& keys() const noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
 

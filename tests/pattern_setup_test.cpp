@@ -373,15 +373,14 @@ TEST_CASE("NOTE and the drawer rows share one encoder: a row latched before Shif
     t.wait(40);
     return t.led(key_pad(note)) == app::kLedOn;
   };
-  t.pad(step_pad_of(1));
-  t.tap(Button::Instr);  // the GATE row owns the encoder
+  t.row_key(Button::Instr, 1);  // the GATE row owns the encoder
   t.shift_tap(Button::F5);  // NOTE takes it back
   const std::uint8_t gate = t.pat().steps[1].flags;
   t.turn(2);
   CHECK(t.pat().steps[1].flags == gate);  // the row did not move
   CHECK(root_on(38));
   t.shift_tap(Button::F5);  // NOTE again, then a row latches: the row owns the turn
-  t.tap(Button::Instr);
+  t.row_key(Button::Instr, 1);
   t.turn(2);
   CHECK(t.pat().steps[1].flags != gate);
   CHECK(root_on(38));  // the root stayed
