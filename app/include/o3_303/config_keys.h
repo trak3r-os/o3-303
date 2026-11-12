@@ -18,6 +18,7 @@ inline constexpr std::uint16_t kResetProject = 5;  // an action
 // 6: reserved.
 inline constexpr std::uint16_t kSkin = 7;          // CLASSIC, OBSIDIAN: the look of the screens that have a skin (CLASSIC until SK8; docs/SKIN-PLAN.md)
 inline constexpr std::uint16_t kKeys = 8;          // ALL, IN SCALE: whether the keys outside the scale on F5 play (ALL, the default) or do nothing (S3 of docs/REVIEW-303.md)
+inline constexpr std::uint16_t kKnobSpeed = 9;     // X1, X2, X3, X4, X6, X8: how far a detent of the encoder moves a continuous knob (X1, the default; kKnobSpeedMult)
 
 // Keys 20..24 were the page "DEEP" (FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE): retired 2026-11-01 (docs/MODS-PLAN.md 7), never reused. A settings file that holds them loads with them dropped.
 // 20: retired (the growl's Formant Mix)   21: retired (Comb Tune)   22: retired (Comb Feedback)   23: retired (WobbleSettings::reset)   24: retired (the delay's Mode)
@@ -35,6 +36,10 @@ constexpr std::uint32_t autosave_period_ms(unsigned choice) noexcept {
 constexpr unsigned autosave_choice(std::uint32_t period_ms) noexcept {
   return period_ms == 0u ? kAutosaveOff : (period_ms <= 20'000u ? kAutosave10s : kAutosave30s);
 }
+
+// KNOB SPEED's places (the value is the index) and the factor each one is.
+inline constexpr unsigned kKnobSpeedChoices = 6;
+inline constexpr std::uint8_t kKnobSpeedMult[kKnobSpeedChoices] = {1, 2, 3, 4, 6, 8};
 
 inline constexpr float kLadderSlewMinMs = 10.0f;
 inline constexpr float kLadderSlewMaxMs = 100.0f;

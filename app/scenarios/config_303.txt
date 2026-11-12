@@ -1,4 +1,4 @@
-# The app's page of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT, SKIN, KEYS), kept in the kit's settings
+# The app's page of the system Config screen (docs/UX-303.md 5.12, docs/UX-PLAN.md C1): "303" (AUTOSAVE, KEYS AT BOOT, LADDER SLEW, PAD LEGEND, RESET PROJECT, SKIN, KEYS, KNOB SPEED), kept in the kit's settings
 # file and back after a reboot. (The page DEEP went with MODS-PLAN S0: the growl, the wobble's reset and the delay's mode are on GROWL, WOBBLE and MASTER, growl_wobble.txt and master.txt.)
 #
 #   mkdir <dir> <card> && build-host/app/o3_303_sim --scenario app/scenarios/config_303.txt --card <card> --out <dir>

@@ -9,6 +9,8 @@
 #include "../app/src/main_screen.h"
 
 #include <o3_303/app_access.h>
+#include <o3_303/config_keys.h>
+#include <o3_303/pages.h>
 #include <o3_303/step_model.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3_303/units/distortion/distortion.h>
@@ -113,6 +115,39 @@ TEST_CASE("B6 the encoder's speed moves a continuous knob further and an enum on
   t.turn(1);
   const float m1 = t.param(kDist, Distortion::Type);
   CHECK(m1 - m0 <= 2.0f);
+}
+
+TEST_CASE("Config KNOB SPEED multiplies a detent on a continuous knob, not an enum, and comes back after a restart of the page") {
+  Hands t;
+  app::Context& ctx = t.h->runtime().context();
+  ctx.set_enc_mode(0);  // the kit's acceleration off: the factor alone
+  t.tap(Button::F2);    // HOME F2 RESO: a linear 0..1 knob, so a detent is the same size anywhere
+  const auto detent = [&] {
+    const float a = t.param(kVoice, AcidVoice::Reso);
+    t.turn(1);
+    const float d = t.param(kVoice, AcidVoice::Reso) - a;
+    t.turn(-1);
+    return d;
+  };
+  CHECK(o3sdk_app().config_get(ctx, config::kKnobSpeed) == 0.0f);  // X1 at first
+  const float x1 = detent();
+  REQUIRE(x1 > 0.0f);
+  o3sdk_app().config_set(ctx, config::kKnobSpeed, 3.0f);  // X4
+  CHECK(o3sdk_app().config_get(ctx, config::kKnobSpeed) == 3.0f);
+  CHECK(detent() == doctest::Approx(4.0f * x1).epsilon(0.02));
+  o3sdk_app().config_set(ctx, config::kKnobSpeed, 5.0f);  // X8
+  CHECK(detent() == doctest::Approx(8.0f * x1).epsilon(0.02));
+  // Shift's coarse step and an enum are not multiplied.
+  t.wait(200);
+  t.to_instrument(kInstFx);
+  t.tap(Button::F4);
+  t.wait(200);
+  const float m0 = t.param(kDist, Distortion::Type);
+  t.turn(1);
+  t.turn(1);
+  CHECK(t.param(kDist, Distortion::Type) - m0 <= 2.0f);  // X8 would run to the list's end
+  o3sdk_app().config_set(ctx, config::kKnobSpeed, 0.0f);
+  CHECK(PageKeys::knob_speed() == 1u);
 }
 
 TEST_CASE("B6 a learned controller's move is motion on the line that plays with REC on, nothing with REC off, and no lane for Stock") {

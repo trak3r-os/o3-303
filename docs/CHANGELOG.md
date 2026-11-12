@@ -3,6 +3,14 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## Unreleased
+
+### What you can do that you could not before
+
+- **KNOB SPEED, a factor on the encoder.** Config's page 303 has a new row, KNOB SPEED (X1, X2, X3, X4, X6, X8; X1 at first): one click of the encoder moves a continuous
+  knob that many of its steps, so a whole knob takes fewer turns. It multiplies after DISPLAY's ENCODER acceleration. A list, a switch, Shift's coarse step and the arrows move as
+  before. It is a setting of the unit, kept on the card.
+
 ## v0.8.0 (2026-11-12), a pre-release
 
 The keys, the Params order, pattern lengths and the NEW line. It needs more testing: the host tests and the cross build pass (remote CI), but nothing after

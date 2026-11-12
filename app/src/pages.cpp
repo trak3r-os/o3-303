@@ -1003,7 +1003,7 @@ int PageKeys::lock_detents(app::Context& ctx, const Controls& controls, const En
 
 int PageKeys::scaled(app::Context& ctx, int detents) noexcept {
   if (!(have_fast_ && fast_raw_ == detents && fast_at_ == ctx.now())) {  // once per turn event: the run tracker counts each detent report once
-    fast_ = ctx.enc_scale(detents);
+    fast_ = ctx.enc_scale(detents) * static_cast<int>(knob_speed_);  // the kit's acceleration, then Config's KNOB SPEED
     fast_raw_ = detents;
     fast_at_ = ctx.now();
     have_fast_ = true;

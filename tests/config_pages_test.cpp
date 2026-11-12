@@ -91,8 +91,8 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
     std::uint16_t key;
     const char* label;
     bool value;
-  } expect[] = {{1, "AUTOSAVE", true}, {2, "KEYS AT BOOT", true}, {3, "LADDER SLEW", true}, {4, "PAD LEGEND", true}, {5, "RESET PROJECT", false}, {7, "SKIN", true}, {8, "KEYS", true}};
-  REQUIRE(v.page[0].valid() == 7);
+  } expect[] = {{1, "AUTOSAVE", true}, {2, "KEYS AT BOOT", true}, {3, "LADDER SLEW", true}, {4, "PAD LEGEND", true}, {5, "RESET PROJECT", false}, {7, "SKIN", true}, {8, "KEYS", true}, {9, "KNOB SPEED", true}};
+  REQUIRE(v.page[0].valid() == 8);
   for (unsigned i = 0; i < v.page[0].valid(); ++i) {
     const app::ConfigItem* it = v.page[0].nth(i);
     REQUIRE(it != nullptr);
@@ -105,7 +105,7 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
       CHECK(core::param_desc_valid(*it->value));
     }
   }
-  CHECK(v.values == 6);
+  CHECK(v.values == 7);
   CHECK(find_item(v, 6) == nullptr);  // reserved: SEQ MIDI OUT, deferred (D16)
   for (std::uint16_t retired = 20; retired <= 24; ++retired) {
     CHECK_MESSAGE(find_item(v, retired) == nullptr, "key " << retired << " is retired (the page DEEP, docs/MODS-PLAN.md 7)");
@@ -113,6 +113,7 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
   CHECK(config::kAutosave == 1);
   CHECK(config::kResetProject == 5);
   CHECK(config::kSkin == 7);
+  CHECK(config::kKnobSpeed == 9);
   CHECK(config::kKeys == 8);  // appended: the keys of an older settings file keep their meaning
 }
 
@@ -454,7 +455,7 @@ TEST_CASE("a system.o3s that still holds the retired keys 20..24 loads, drops th
   app::KitValues back;
   app::settings::Report rep;
   REQUIRE(app::settings::read(saved.data(), saved.size(), back, rep) == app::settings::Result::Ok);
-  CHECK(back.app_count == 6);  // PAD LEGEND, ..., SKIN and KEYS (S3)
+  CHECK(back.app_count == 7);  // PAD LEGEND, ..., SKIN and KEYS (S3)
   for (unsigned i = 0; i < back.app_count; ++i) {
     CHECK(back.app_key[i] < 20);
   }

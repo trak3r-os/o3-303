@@ -338,6 +338,10 @@ class PageKeys {
   int lock_detents(o3sdk::app::Context& ctx, const Controls& controls, const Entry& entry, int detents, bool coarse) noexcept;
   // The state the focus returns to when the screen is left with keys down.
   void release_all() noexcept;
+  // Config's KNOB SPEED: the factor on a detent of the encoder for a continuous knob, after the kit's acceleration (1 to 8; 1 at first). It is the unit's
+  // setting, one for every screen with F-key knobs. Not for an enum or a switch, Shift's coarse step, an arrow's press or a list.
+  static void set_knob_speed(unsigned factor) noexcept { knob_speed_ = static_cast<std::uint8_t>(factor < 1u ? 1u : (factor > 8u ? 8u : factor)); }
+  static unsigned knob_speed() noexcept { return knob_speed_; }
 
  private:
   const Page* table_ = nullptr;  // null: the global table
@@ -349,6 +353,7 @@ class PageKeys {
   unsigned last_held_ = 0;
   bool turned_ = false;
   int scaled(o3sdk::app::Context& ctx, int detents) noexcept;
+  static inline std::uint8_t knob_speed_ = 1;  // main loop only
   int fast_ = 0;  // enc_scale()'s answer for fast_raw_ detents, asked by lock_detents() and taken by the turn() after it
   int fast_raw_ = 0;
   std::uint32_t fast_at_ = 0;  // Context::now() when fast_ was asked: valid only in the same tick and for the same raw detents (one turn event)

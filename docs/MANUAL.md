@@ -888,6 +888,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 | RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, assignments, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
 | SKIN | The look (section 13) | CLASSIC, **OBSIDIAN** |
 | KEYS | Whether the keys outside the scale on PATTERN SETUP's F5 play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
+| KNOB SPEED | How far one click of the encoder moves a knob: the factor on every continuous knob (CUTOFF, RESO, a level), on top of DISPLAY's ENCODER acceleration. Lists, switches, Shift's coarse step and the arrows are not changed | **X1**, X2, X3, X4, X6, X8 |
 
 The sound is no longer on this page. The five settings that were on the old page DEEP are on the screens of their sounds, and a project
 saves them with its sound:
