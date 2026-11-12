@@ -1,5 +1,5 @@
 # PERFORM (docs/UX-303.md 5.3, 6.3; H1): the Perform button opens it and the 48 pads are live, one lamp over each pad on the screen. Row 1: the line and tone
-# actions MUTE ACC SLD OCT- OCT+ FILL THRW (pads 0..6; held while the pad is down; Shift latches) and ALL OFF (pad 11); row 2: the beat freeze at a rate, FRZ, RPT 8 to 64, BLD BT, BLD BAR,
+# actions MUTE ACC SLD OCT- OCT+ FILL THRW (pads 0..6; held while the pad is down; Shift latches), the four punches DIST CUTLO CUTHI RESO (pads 7..10; H2) and ALL OFF (pad 11); row 2: the beat freeze at a rate, FRZ, RPT 8 to 64, BLD BT, BLD BAR,
 # STP 1/2, STP 2, REV (pads 12..21); row 3: the wobble at a rate (pads 24..34: 1/4 1/8 1/16 1/32 1/4T 1/8T 1/16T 1/8D 1/16D 1/2 1/1); row 4: the keys (here first transposing the running pattern,
 # TRNSP being on, then, after TRNSP off on the 303 screen, playing the voice). Of a row the last pad pressed wins. Pad effects are not recorded. The snapshots and NEW, VARY, UNDO, REDO are
 # PERFORM SETUP's row 2 (Shift + Perform; 5.4), and the ladders of the sound knobs are on KNOBS and HOME's FILT. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47.
@@ -32,6 +32,18 @@ wait 300
 snap 04b_roll_held
 padup 15
 wait 200
+# The punches (H2): DIST (pad 7) and RESO (pad 10) held together, then CUT HI (pad 9) latched with Shift; the sequencer holds them, the knobs stay where they were.
+paddown 7
+paddown 10
+wait 300
+snap 04c_punch_dist_reso_held
+padup 7
+padup 10
+press shift
+pad 9
+release shift
+wait 300
+snap 04d_punch_cuthi_latched
 # Shift + the pad of a latched action lets it go; ALL OFF lets every latched action go.
 press shift
 pad 12

@@ -439,6 +439,18 @@ bool Sequencer::slew(std::uint8_t target, std::uint8_t id, float value, float ms
   return !glides;  // false: the ring was full and the value went in without its glide
 }
 
+bool Sequencer::set_punch(unsigned slot, std::uint8_t target, std::uint8_t id, float value) noexcept {
+  if (engine_ == nullptr || slot >= kPunchSlots || target == kLaneMixer || target == kLaneSeq || !resolvable(target, id)) {
+    return false;
+  }
+  const float v = core::param_clamp(*desc_of(target, id), value);
+  return slew_commands_.push(SlewCommand{SlewOp::PunchSet, target, id, static_cast<std::uint8_t>(slot), 0, v, 0.0f});
+}
+
+bool Sequencer::clear_punch(unsigned slot) noexcept {
+  return slot < kPunchSlots && slew_commands_.push(SlewCommand{SlewOp::PunchClear, 0, 0, static_cast<std::uint8_t>(slot), 0, 0.0f, 0.0f});
+}
+
 bool Sequencer::slew_stop(std::uint8_t target, std::uint8_t id) noexcept {
   if (target < kLaneTargetCount && id < kKnobs) {
     unstored_[target][id].valid = false;  // stopped short of its goal: where it stands is not known here
@@ -493,6 +505,24 @@ void Sequencer::drain_commands(dsp::BlockContext& ctx) noexcept {
           s.active = false;
         }
         break;
+      case SlewOp::PunchSet: {
+        Punch& p = punch_[sc.pad < kPunchSlots ? sc.pad : 0u];
+        const Punch old = p;
+        p = Punch{true, sc.target, sc.id, sc.to};
+        if (old.active && (old.target != sc.target || old.id != sc.id)) {
+          release_punched(ctx, old.target, old.id);  // the slot moved on: its old target is its own again
+        }
+        break;
+      }
+      case SlewOp::PunchClear: {
+        Punch& p = punch_[sc.pad < kPunchSlots ? sc.pad : 0u];
+        const Punch old = p;
+        p.active = false;
+        if (old.active) {
+          release_punched(ctx, old.target, old.id);
+        }
+        break;
+      }
     }
   }
   Command c;
@@ -754,6 +784,9 @@ bool Sequencer::write_target(dsp::BlockContext& ctx, std::uint8_t target, std::u
     const unsigned at = wob_base_count_ < kMaxWobbleBase ? wob_base_count_++ : kMaxWobbleBase - 1u;
     wob_base_[at] = BaseEvent{static_cast<std::uint16_t>(frame), value};
     return true;
+  }
+  if (punched(target, id)) {
+    return true;  // a punch holds it (run_punches()): what the lock, the lane or the knob says waits
   }
   if (target == kLaneMixer) {
     return ctx.set_mix(kMixerSlot, static_cast<dsp::MixField>(id), value);
@@ -1294,7 +1327,7 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
       if (budget[t] <= kSlewExtraEvents) {
         break;  // the rest of the unit's share is for the slews' last events
       }
-      if (slew_locked_at(s, f) || wob_owns(s)) {
+      if (slew_locked_at(s, f) || wob_owns(s) || punched(s.target, s.id)) {
         continue;
       }
       const float v = slew_value(s, s.pos + f);
@@ -1308,7 +1341,7 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
       s.last = v;
       s.emitted = true;
     }
-    if (ends_here && budget[t] > 0u && !slew_locked_at(s, remaining) && !wob_owns(s)) {
+    if (ends_here && budget[t] > 0u && !slew_locked_at(s, remaining) && !wob_owns(s) && !punched(s.target, s.id)) {
       // The goal, at the frame the time runs out. A slew that cannot say it now (a full share, a full list, a lock) says it at frame 0
       // of the next block.
       if (emit_to(ctx, unit, dsp::param_change(s.id, s.goal, static_cast<std::uint16_t>(remaining)))) {
@@ -1330,6 +1363,32 @@ void Sequencer::run_slews(dsp::BlockContext& ctx) noexcept {
     left += s.active ? 1u : 0u;
   }
   slewing_.store(left, std::memory_order_relaxed);
+}
+
+// A punch let go of (target, id): the value it hid comes back (another slot may still hold the same target: then nothing changes).
+void Sequencer::release_punched(dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id) noexcept {
+  if (punched(target, id)) {
+    return;
+  }
+  float v = 0.0f;
+  if (lane_lock_value(target, id, v)) {
+    (void)write_target(ctx, target, id, v, 0);
+  } else {
+    restore_target(ctx, target, id, 0);
+  }
+}
+
+// Every held punch writes its value at frame 0 (a later slot of the same target wins), and the slots held are published.
+void Sequencer::run_punches(dsp::BlockContext& ctx) noexcept {
+  std::uint32_t mask = 0;
+  for (unsigned i = 0; i < kPunchSlots; ++i) {
+    const Punch& p = punch_[i];
+    if (p.active) {
+      mask |= 1u << i;
+      (void)emit_to(ctx, tab_[p.target].unit, dsp::param_change(p.id, p.value, 0));
+    }
+  }
+  punch_mask_.store(mask, std::memory_order_relaxed);
 }
 
 // ---- Wobble (main loop) ----------------------------------------------------------------------------------------------------------
@@ -1649,7 +1708,7 @@ void Sequencer::run_wobble(dsp::BlockContext& ctx) noexcept {
     }
     const float base = base_valid ? base_now : live(f);
     const float v = wobble_value(tg, id, base, amplitude * wobble_wave(shape, static_cast<std::uint32_t>(at >> 32), wob_held_));
-    if (f == 0u || !wob_emitted_ || v != wob_last_) {  // frame 0 always speaks: the wobble owns its target, the main loop's write must not win
+    if ((f == 0u || !wob_emitted_ || v != wob_last_) && !punched(tg, id)) {  // frame 0 always speaks: the wobble owns its target, the main loop's write must not win
       (void)emit_to(ctx, unit, dsp::param_change(id, v, static_cast<std::uint16_t>(f)));
     }
     wob_last_ = v;
@@ -1766,6 +1825,7 @@ void Sequencer::block(dsp::BlockContext& ctx) noexcept {
   sequence(ctx);
   run_wobble(ctx);  // before the slews: a slew on the wobbled target only counts its time, and the wobble reads where it stands
   run_slews(ctx);
+  run_punches(ctx);  // last: frame 0 of the unit's list, after the lock's, the slew's and the wobble's writes
 }
 
 void Sequencer::sequence(dsp::BlockContext& ctx) noexcept {

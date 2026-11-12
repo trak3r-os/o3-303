@@ -33,7 +33,7 @@ constexpr std::uint64_t kToastMs = 1400;
 constexpr unsigned kVaryPct = 25;  // VARY is MUTATE at 25 % (UX-303 section 7)
 
 // The lamps' labels: the actions in the order of the PerfAction enum (the pads are in the mockup's order, perform.h), and the keys.
-constexpr const char* kActionLabels[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV", "OCT-"};
+constexpr const char* kActionLabels[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV", "OCT-", "DIST", "CLO", "CHI", "RES"};
 constexpr const char* kNoteLabels[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 // The drawing's geometry: a label column, then twelve lamps a row, four rows, one lamp over each pad.

@@ -8,6 +8,8 @@
 #include "step_view.h"
 
 #include <o3sdk/dsp/engine.h>
+#include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/freeze/freeze.h>
 
 namespace o3_303 {
@@ -51,6 +53,10 @@ void LiveActions::init(Rig& rig) noexcept {
   wob_.reset();
   rpt_col_ = -1;
   wob_col_ = -1;
+  punch_dist_ = false;
+  punch_cut_ = -1;
+  punch_reso_ = false;
+  cut_last_ = PerfAction::CutLo;
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     seen_[b] = rig.wiring.perf[b];
   }
@@ -174,6 +180,9 @@ void LiveActions::unlatch(PerfAction a) noexcept {
 void LiveActions::action_press(app::Context& ctx, PerfAction a, bool shift) noexcept {
   if (static_cast<unsigned>(a) >= kPerfActionCount) {
     return;
+  }
+  if (a == PerfAction::CutLo || a == PerfAction::CutHi) {
+    cut_last_ = a;
   }
   if (latched(a)) {  // a latched action's pad, tapped again (with Shift or without), lets it go
     unlatch(a);
@@ -318,11 +327,50 @@ void LiveActions::apply(app::Context& ctx) noexcept {
       sequencer.wobble_rate_override(seq::kWobbleRateNone);
     }
   }
+  apply_punches(on);
   ctx.redraw();
+}
+
+// H2: DIST, CUT LO, CUT HI and RESO hold their targets on the sequencer while they are on (it writes them at frame 0 of every block, over the lock, the slew, the wobble and
+// the knob, and gives each back on the release); the sequencer is only told when a state changes. Nothing is stored in the engine and nothing goes to the lane recorder.
+void LiveActions::apply_punches(std::uint16_t on) noexcept {
+  seq::Sequencer& s = *rig_->seq;
+  const auto is_set = [&](PerfAction a) { return (on & perf_bit(a)) != 0u; };
+  const bool dist = is_set(PerfAction::Dist);
+  if (dist != punch_dist_) {
+    if (dist) {
+      const bool ok = s.set_punch(0, kLaneDist, Distortion::Active, 1.0f) && s.set_punch(1, kLaneDist, Distortion::Mix, 1.0f);
+      punch_dist_ = ok;
+    } else {
+      const bool a = s.clear_punch(0);
+      const bool b = s.clear_punch(1);
+      punch_dist_ = !(a && b);
+    }
+  }
+  const bool lo = is_set(PerfAction::CutLo);
+  const bool hi = is_set(PerfAction::CutHi);
+  const int cut = (lo || hi) ? ((hi && (!lo || cut_last_ == PerfAction::CutHi)) ? 1 : 0) : -1;
+  if (cut != punch_cut_) {
+    if (cut >= 0) {
+      if (s.set_punch(2, kLaneVoice, AcidVoice::Cutoff, cut == 1 ? kPunchCutHiHz : kPunchCutLoHz)) {
+        punch_cut_ = cut;
+      }
+    } else if (s.clear_punch(2)) {
+      punch_cut_ = -1;
+    }
+  }
+  const bool reso = is_set(PerfAction::Reso);
+  if (reso != punch_reso_) {
+    if (reso ? s.set_punch(3, kLaneVoice, AcidVoice::Reso, kPunchReso) : s.clear_punch(3)) {
+      punch_reso_ = reso;
+    }
+  }
 }
 
 // A button PERFORM SETUP gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a
 // held one goes on, now with the new action.
+static_assert(kPunchCutLoHz == AcidVoice::kCutoffLiveLoHz && kPunchCutHiHz == AcidVoice::kCutoffLiveHiHz, "the cutoff punches are the voice's live span");
+
 // The row-2 pads' unit values are the unit's enums (perform.h kRepeatPads holds the raw numbers so it need not include the unit).
 static_assert(static_cast<unsigned>(Freeze::Quarter) == 0u && static_cast<unsigned>(Freeze::kRoll8) == 0u && static_cast<unsigned>(Freeze::kRoll16) == 1u &&
                   static_cast<unsigned>(Freeze::kRoll32) == 2u && static_cast<unsigned>(Freeze::kRoll64) == 3u,

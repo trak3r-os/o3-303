@@ -26,7 +26,7 @@ std::string text_of(std::uint8_t cond) {
 
 TEST_CASE("perform: the defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (C4)") {
   CHECK(kPerfButtons == 4);
-  CHECK(kPerfActionCount == 12);
+  CHECK(kPerfActionCount == 16);
   CHECK(kDefaultPerf[0] == static_cast<std::uint8_t>(PerfAction::Mute));
   CHECK(kDefaultPerf[1] == static_cast<std::uint8_t>(PerfAction::AccAll));
   CHECK(kDefaultPerf[2] == static_cast<std::uint8_t>(PerfAction::Fill));
@@ -64,7 +64,7 @@ TEST_CASE("perform: an action is on while a button that carries it is held or la
     CHECK((all & b) == 0);
     all = static_cast<std::uint16_t>(all | b);
   }
-  CHECK(all == 0xFFF);
+  CHECK(all == 0xFFFF);
 }
 
 TEST_CASE("perform: the ladder has 12 places from the knob's minimum to its maximum, and a position finds its pad") {
@@ -273,8 +273,9 @@ unsigned pad_of(unsigned row, unsigned col) { return o3sdk::app::pad_at(row, col
 
 }  // namespace
 
-TEST_CASE("perform map: row 1 is the line and tone actions, ALL OFF at the end, and four dark pads for the punches") {
-  const PerfAction expect[kLineActionCount] = {PerfAction::Mute, PerfAction::AccAll, PerfAction::SlideAll, PerfAction::OctDown, PerfAction::OctUp, PerfAction::Fill, PerfAction::Throw};
+TEST_CASE("perform map: row 1 is the line and tone actions then the four punches, ALL OFF at the end") {
+  const PerfAction expect[kLineActionCount] = {PerfAction::Mute, PerfAction::AccAll, PerfAction::SlideAll, PerfAction::OctDown, PerfAction::OctUp, PerfAction::Fill, PerfAction::Throw,
+                                          PerfAction::Dist, PerfAction::CutLo, PerfAction::CutHi, PerfAction::Reso};
   for (unsigned col = 0; col < kLineActionCount; ++col) {
     const PerformPad pp = perform_pad(pad_of(0, col));
     CHECK(pp.role == PerformRole::Action);
@@ -282,9 +283,6 @@ TEST_CASE("perform map: row 1 is the line and tone actions, ALL OFF at the end, 
     CHECK(perform_action_pad(expect[col]) == col);  // the inverse
   }
   CHECK(perform_pad(pad_of(0, 11)).role == PerformRole::AllOff);
-  for (unsigned col = kLineActionCount; col < 11; ++col) {
-    CHECK(perform_pad(pad_of(0, col)).role == PerformRole::None);
-  }
   // The four sounds are on the colour keys, not on pads: no pad is MODS, GROWL, TRACT or WOBBLE's own action but the wobble's rate row; Freeze, Roll, Stop and Reverse have pads on row 2.
   CHECK(perform_action_pad(PerfAction::Wobble) == o3sdk::app::kPadCount);
   CHECK(perform_action_pad(PerfAction::Freeze) == o3sdk::app::kPadCount);
@@ -413,6 +411,7 @@ TEST_CASE("perform map: an action is on while a colour button or its own pad is 
   // The pad and the button are one action: one bit.
   CHECK(live_actions_on(assign, 1u << 0, 0, perf_bit(PerfAction::Mute), 0) == perf_bit(PerfAction::Mute));
   CHECK(live_actions_on(assign, 1u << 3, 0, 0, perf_bit(PerfAction::Stop)) == (perf_bit(PerfAction::Freeze) | perf_bit(PerfAction::Stop)));
-  // A bit above the actions is no action.
+  // Every bit of the 16 is an action.
   CHECK(live_actions_on(assign, 0, 0, 0xFFFFu, 0) == kAllActionsMask);
+  CHECK(kAllActionsMask == 0xFFFFu);
 }

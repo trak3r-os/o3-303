@@ -103,6 +103,7 @@ class LiveActions {
   void sync_assignments(o3sdk::app::Context& ctx) noexcept;
   void push_live_transpose() noexcept;
   void snap_apply(o3sdk::app::Context& ctx, float ms) noexcept;
+  void apply_punches(std::uint16_t on) noexcept;
 
   Rig* rig_ = nullptr;
   Controls* controls_ = nullptr;
@@ -119,6 +120,12 @@ class LiveActions {
   PadGroup wob_;              // PERFORM's row 3 (a column per kWobblePadRates)
   int rpt_col_ = -1;          // the row-2 column whose rate the freeze unit has now (-1: none owns it)
   int wob_col_ = -1;          // the row-3 column whose rate is the sequencer's override now
+  // H2's punches (Sequencer::set_punch: slot 0 and 1 DIST's Active and Mix, 2 the cutoff, 3 the resonance): what has been handed to the sequencer. A punch is held by the
+  // sequencer, not stored in the engine, and not recorded.
+  bool punch_dist_ = false;
+  int punch_cut_ = -1;                      // -1 none, 0 CUT LO, 1 CUT HI
+  bool punch_reso_ = false;
+  PerfAction cut_last_ = PerfAction::CutLo;  // of CUT LO and CUT HI, the one pressed last wins while both are on
   std::uint8_t seen_[kPerfButtons] = {};  // the assignment each button had at the last update: a reassigned button drops its latch
   bool trnsp_ = false;
   float ladder_slew_ms_ = kLadderSlewMs;

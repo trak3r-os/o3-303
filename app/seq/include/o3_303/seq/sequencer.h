@@ -82,6 +82,9 @@
 //               long as it holds, to the frame, and the slew goes on along its line when it ends. While a slew runs it owns its target:
 //               slew_stop() it before the main loop writes the target. Its end is exact: the goal is emitted at the frame the time
 //               runs out. Cost: nothing while no slew runs; about a lerp, a curve inverse and an event for each slew each tick.
+//   punch       set_punch() holds a unit's parameter at a value while a pad is down (H2): the hook writes it at frame 0 of every block, after
+//               everything else, and the lock, the slew and the wobble keep their writes to themselves while it holds; clear_punch() puts the
+//               target back where it would be (the lock's value, the slew's, or the knob; the wobble's base).
 //
 // M3c (docs/M3C-PLAN.md), on top of those:
 //
@@ -177,6 +180,7 @@ inline constexpr unsigned kMixerSlot = 0;   // the slot whose mixer the mixer la
 inline constexpr unsigned kKnobs = 32;      // parameter ids 0..31 of a unit can be a lane's or a slew's target
 inline constexpr unsigned kMaxSlews = 32;   // slews running at once (a snapshot morph moves up to about 26 parameters)
 inline constexpr unsigned kSlewEvents = 12; // the most Param events the slews put in one unit's list in one block (the list holds 32)
+inline constexpr unsigned kPunchSlots = 4;  // set_punch(): targets held at a value at once (PERFORM's DIST takes two, CUT LO / CUT HI one, RESO one); a punch is one event a block
 inline constexpr unsigned kWobbleEvents = 8;  // the most Param events the wobble puts in its unit's list in one block (4 ticks and up to 4 note resets)
 inline constexpr std::uint8_t kGrowlNoteParam = 6;  // the growl's Note parameter id (units/growl: Growl::Note; tests/seq_wobble_test.cpp checks it)
 inline constexpr std::uint8_t kTractVowelParam = 0;  // the tract's VOWEL parameter id (units/tract: TractFx; app/seq/tests/seq_tract_line_test.cpp checks it)
@@ -347,6 +351,18 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   unsigned slewing() const noexcept { return slewing_.load(std::memory_order_relaxed); }
   std::uint32_t slew_overflow() const noexcept { return slew_overflow_.load(std::memory_order_relaxed); }
 
+  // ---- Punches (main loop; H2: PERFORM's DIST, CUT LO, CUT HI and RESO pads) -----------------------------------------------------
+  // A punch holds a unit's parameter at `value` (clamped to its range) until clear_punch(): the hook writes it at frame 0 of every block, and it
+  // wins over a p-lock or a motion point, a slew, the wobble and a write of the main loop (that one within a block). None of them is lost: clearing
+  // the punch brings back where the target would be without it (a lock that holds, else the slew's value, else the knob; with a wobble on it the
+  // wobble's base). A punch is not a lane: nothing records it and the engine does not store it, so a project never keeps it. `slot` < kPunchSlots;
+  // `target` a unit target (not the mixer, not the sequencer's own values). false: refused, or the command ring is full. A slot given another
+  // target lets go of its old one. Cost while a punch is held: one event a block each, nothing otherwise.
+  bool set_punch(unsigned slot, std::uint8_t target, std::uint8_t id, float value) noexcept;
+  bool clear_punch(unsigned slot) noexcept;
+  // The slots held as of the end of the last block (bit n: slot n).
+  unsigned punches() const noexcept { return punch_mask_.load(std::memory_order_relaxed); }
+
   // ---- Wobble (main loop; atomics, effective at the next block) ---------------------------------------------------------------
   // The wobble (see "M3c" above). `rate` is a WobbleRate, `shape` a WobbleShape, `depth` 0..1 (clamped), `target` a lane target whose parameter
   // is not an Enum and that is available (a unit that was not given gives false; kLaneSeq is not a target). With `on` false only the switch
@@ -386,7 +402,7 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   };
   static_assert(sizeof(Command) == 4, "a command is one word");
 
-  enum class SlewOp : std::uint8_t { Start, Stop, StopAll };
+  enum class SlewOp : std::uint8_t { Start, Stop, StopAll, PunchSet, PunchClear };  // a punch's commands: `pad` is the slot, `to` the value
   struct SlewCommand {
     SlewOp op;
     std::uint8_t target;
@@ -415,6 +431,14 @@ class Sequencer final : public o3sdk::dsp::Clocked {
     float inv_total;
     std::uint32_t total;  // samples
     std::uint32_t pos;    // samples since the start, as of the start of the current block
+  };
+
+  // A held punch (render side).
+  struct Punch {
+    bool active = false;
+    std::uint8_t target = 0;
+    std::uint8_t id = 0;
+    float value = 0.0f;
   };
 
   // A unit a lane or a slew can address (setup()).
@@ -472,6 +496,16 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   void note_started(o3sdk::dsp::BlockContext& ctx, unsigned frame, std::uint8_t note) noexcept;
   bool is_unit_target(std::uint8_t target) const noexcept;
   bool wobbleable(std::uint8_t target, std::uint8_t id) const noexcept;
+  bool punched(std::uint8_t target, std::uint8_t id) const noexcept {
+    for (const Punch& p : punch_) {
+      if (p.active && p.target == target && p.id == id) {
+        return true;
+      }
+    }
+    return false;
+  }
+  void release_punched(o3sdk::dsp::BlockContext& ctx, std::uint8_t target, std::uint8_t id) noexcept;
+  void run_punches(o3sdk::dsp::BlockContext& ctx) noexcept;
   bool wob_owns(const Slew& s) const noexcept { return wob_active_ && s.target == wob_target_ && s.id == wob_id_; }
   bool lane_lock_value(std::uint8_t target, std::uint8_t id, float& value) const noexcept;
   bool motion_holds(std::uint8_t target, std::uint8_t id) const noexcept;
@@ -518,6 +552,8 @@ class Sequencer final : public o3sdk::dsp::Clocked {
   std::atomic<std::uint32_t> playhead_{0};  // packed (sequencer.cpp)
   std::atomic<std::uint32_t> dropped_{0};
   std::atomic<std::uint32_t> slewing_{0};
+  std::atomic<std::uint32_t> punch_mask_{0};  // single writer (the render, run_punches()): the slots held, for the screens
+  Punch punch_[kPunchSlots];                  // render side only
   std::atomic<std::uint32_t> slew_overflow_{0};
   // The chain, published by the render when it changes: a seqlock (single writer: the render; odd while writing) over 4 words of
   // entries (4 bytes each) and a word of length, position and loop. chain() retries when a write overlapped its read.

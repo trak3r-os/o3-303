@@ -547,6 +547,57 @@ TEST_CASE("row 3 (H1): a pad runs the wobble at its rate, Shift latches it, the 
   t.tap(Button::Play);
 }
 
+TEST_CASE("row 1 (H2): DIST, CUT LO, CUT HI and RESO punch their targets while held, the knob comes back on the release, Shift latches, ALL OFF lets go") {
+  Hands t;
+  t.to_perform();
+  t.tap(Button::Play);
+  t.wait(100);
+  CHECK(seqr().punches() == 0u);
+  const float c = cutoff(t);
+  const float r = t.param(kVoice, AcidVoice::Reso);
+  t.down(action_pad(PerfAction::CutLo));
+  t.wait(40);
+  CHECK(seqr().punches() == 4u);  // slot 2: the cutoff
+  CHECK(cutoff(t) == c);          // the knob is not moved: the punch is the sequencer's
+  CHECK(lamp(t, action_pad(PerfAction::CutLo)) == app::kLedOn);
+  t.down(action_pad(PerfAction::CutHi));  // the last pressed wins: the same slot, the other value
+  t.wait(40);
+  CHECK(seqr().punches() == 4u);
+  t.up(action_pad(PerfAction::CutHi));  // CUT LO is still down: it takes over again
+  t.wait(40);
+  CHECK(seqr().punches() == 4u);
+  t.up(action_pad(PerfAction::CutLo));
+  t.wait(40);
+  CHECK(seqr().punches() == 0u);
+  CHECK(cutoff(t) == c);
+  t.down(action_pad(PerfAction::Reso));
+  t.down(action_pad(PerfAction::Dist));
+  t.wait(40);
+  CHECK(seqr().punches() == 0xBu);  // slots 0, 1 (DIST) and 3 (RESO)
+  CHECK(t.param(kVoice, AcidVoice::Reso) == r);
+  t.up(action_pad(PerfAction::Reso));
+  t.up(action_pad(PerfAction::Dist));
+  t.wait(40);
+  CHECK(seqr().punches() == 0u);
+  // Shift latches the punch; ALL OFF lets it go.
+  shift_pad(t, action_pad(PerfAction::Dist));
+  shift_pad(t, action_pad(PerfAction::CutHi));
+  t.wait(40);
+  CHECK(seqr().punches() == 0x7u);
+  CHECK(lamp(t, action_pad(PerfAction::Dist)) == app::kLedOn);
+  t.pad(all_off_pad(), 10);
+  t.wait(40);
+  CHECK(seqr().punches() == 0u);
+  // Leaving the screen lets a held punch go, a latched one stays.
+  t.down(action_pad(PerfAction::Reso));
+  t.wait(40);
+  CHECK(seqr().punches() == 8u);
+  t.to_home();
+  t.wait(40);
+  CHECK(seqr().punches() == 0u);
+  t.tap(Button::Play);
+}
+
 TEST_CASE("row 4: a key plays the voice; while the pattern runs and TRNSP is on, it transposes (the bottom left C is none)") {
   Hands t;
   t.to_perform();

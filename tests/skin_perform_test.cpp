@@ -288,7 +288,7 @@ TEST_CASE("skin perform: the worst frame (every action on, every button latched,
   for (Button b : {Button::Note, Button::Instr, Button::Vol, Button::Fx}) {  // the buttons first: Shift + a button on an action already latched lets it go
     o.t.tap(b, 10);
   }
-  for (unsigned pad : {2u, 3u, 4u, 6u, app::pad_at(2, 3)}) {  // the line actions the buttons do not carry, and a wobble rate
+  for (unsigned pad : {2u, 3u, 4u, 6u, 7u, 8u, 9u, 10u, app::pad_at(2, 3)}) {  // the line actions the buttons do not carry (the punches among them), and a wobble rate
     o.t.pad(pad, 10);
   }
   o.t.release(Button::Shift);
@@ -298,7 +298,7 @@ TEST_CASE("skin perform: the worst frame (every action on, every button latched,
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
     latched += v.lamp[pad].latched ? 1u : 0u;
   }
-  CHECK(latched == 8u);  // a button's latch rings its action's lamp too: the seven line pads and the wobble rate
+  CHECK(latched == 12u);  // a button's latch rings its action's lamp too: the eleven line pads and the wobble rate
   for (unsigned pad = 0; pad < kLineActionCount; ++pad) {
     CHECK_MESSAGE(v.lamp[pad].level == kLedOn, "action pad " << pad);
   }

@@ -33,8 +33,12 @@ enum class PerfAction : std::uint8_t {
   Stop,      // M3c: the freeze in STOP mode (the tape stop)
   Reverse,   // M3c: the freeze in REVERSE mode
   OctDown,   // H1: the running pattern an octave lower (the keyboard's live transpose - 12); appended, so the saved assignments keep their meaning
+  Dist,      // H2: a punch: the distortion fully in (Active on, Mix 100 %) while it is on; the sequencer holds it (Sequencer::set_punch), nothing is recorded
+  CutLo,     // H2: a punch: the cutoff at the bottom of the voice's live span (kPunchCutLoHz)
+  CutHi,     // H2: a punch: the cutoff at the top of it (kPunchCutHiHz); of CUT LO and CUT HI the last pressed wins
+  Reso,      // H2: a punch: the resonance at kPunchReso
 };
-inline constexpr unsigned kPerfActionCount = 12;
+inline constexpr unsigned kPerfActionCount = 16;
 inline constexpr unsigned kPerfButtons = 4;  // Note, Instr, Vol, Fx
 
 // The defaults: Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (docs/M3B-PLAN.md C4; SLIDE ALL and THROW are one assignment away).
@@ -44,8 +48,14 @@ inline constexpr std::uint8_t kDefaultPerf[kPerfButtons] = {
 
 // The names on the PERF page's strip (at most eight characters) and in the header's chips (as short as they can be).
 inline constexpr const char* kPerfActionNames[kPerfActionCount] = {"MUTE", "ACC ALL", "SLD ALL", "OCT UP", "FILL", "THROW", "FREEZE",
-                                                                  "WOBBLE", "ROLL", "STOP", "REV", "OCT DOWN"};
-inline constexpr const char* kPerfActionChips[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THROW", "FREEZE", "WOB", "ROLL", "STOP", "REV", "OCT-"};
+                                                                  "WOBBLE", "ROLL", "STOP", "REV", "OCT DOWN", "DIST", "CUT LO", "CUT HI", "RESO"};
+inline constexpr const char* kPerfActionChips[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THROW", "FREEZE", "WOB", "ROLL", "STOP", "REV", "OCT-", "DIST", "CLO", "CHI", "RESO"};
+
+// H2: what the punches hold (live_actions.cpp checks the two Hz values against the voice's live span, AcidVoice::kCutoffLiveLoHz / HiHz). CUT LO and CUT HI are the
+// ends of the 303's own knob; RESO is near the top of its range, short of the limit where the filter runs away.
+inline constexpr float kPunchCutLoHz = 200.0f;
+inline constexpr float kPunchCutHiHz = 2394.0f;
+inline constexpr float kPunchReso = 0.9f;
 
 constexpr std::uint16_t perf_bit(PerfAction a) noexcept { return static_cast<std::uint16_t>(1u << static_cast<unsigned>(a)); }
 
@@ -140,7 +150,7 @@ constexpr unsigned ladder_col(float norm) noexcept {
 // ---- H1: the PERFORM pad map ----------------------------------------------------------------------------------------------------------
 //
 //   col      1     2     3     4     5     6     7     8     9     10    11    12
-//   row 1   MUTE  ACC   SLD   OCT-  OCT+  FILL  THRW  .     .     .     .     ALL OFF        the line and the tone (the four dark pads are H2's punches)
+//   row 1   MUTE  ACC   SLD   OCT-  OCT+  FILL  THRW  DIST  CUTLO CUTHI RESO  ALL OFF        the line and the tone, then the four punches (H2)
 //   row 2   FRZ   RPT   RPT   RPT   RPT   BLD   BLD   STOP  STOP  REV   .     .              the beat freeze's rates (one unit, one owner); the last two are dark
 //   row 3   1/4   1/8   1/16  1/32  1/4T  1/8T  1/16T 1/8D  1/16D 1/2   1/1   .              the wobble's rates (kWobblePadRates)
 //   row 4   the keys: one octave, C..B
@@ -154,10 +164,11 @@ struct PerformPad {
   std::uint8_t index = 0;  // Action: a PerfAction; Snapshot: the slot 0..7; Repeat, WobRate and Key: the column
 };
 
-// Row 1, column by column, columns 1..7 (column 12 is ALL OFF).
-inline constexpr unsigned kLineActionCount = 7;
+// Row 1, column by column, columns 1..11 (column 12 is ALL OFF).
+inline constexpr unsigned kLineActionCount = 11;
 inline constexpr PerfAction kPerformActionOrder[kLineActionCount] = {PerfAction::Mute,   PerfAction::AccAll, PerfAction::SlideAll, PerfAction::OctDown,
-                                                                    PerfAction::OctUp, PerfAction::Fill,   PerfAction::Throw};
+                                                                    PerfAction::OctUp, PerfAction::Fill,   PerfAction::Throw,    PerfAction::Dist,
+                                                                    PerfAction::CutLo, PerfAction::CutHi, PerfAction::Reso};
 
 // Row 2: what a pad does to the beat freeze (units/freeze). `value` is the unit's parameter for the action (Freeze: Length 0..2, Roll: Roll Rate
 // 0..3, Stop: Stop Time 0..4, Reverse: none) and `accel` the Accelerate of a roll (0 off, 1 beat, 2 bar): live_actions.cpp static_asserts them
@@ -192,7 +203,7 @@ constexpr PerformPad perform_pad(unsigned pad) noexcept {
       if (col < kLineActionCount) {
         return PerformPad{PerformRole::Action, static_cast<std::uint8_t>(kPerformActionOrder[col])};
       }
-      return col == 11u ? PerformPad{PerformRole::AllOff, 0} : PerformPad{};  // columns 8..11: H2's punches, dark until built
+      return col == 11u ? PerformPad{PerformRole::AllOff, 0} : PerformPad{};
     case 1:
       return col < kRepeatPadCount ? PerformPad{PerformRole::Repeat, static_cast<std::uint8_t>(col)} : PerformPad{};
     case 2:

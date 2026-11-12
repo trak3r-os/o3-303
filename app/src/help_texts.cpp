@@ -463,8 +463,8 @@ constexpr const char* kSlotNumbers[48] = {"00", "01", "02", "03", "04", "05", "0
                                           "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
                                           "32", "33", "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46", "47"};
 
-// Row 1 of PERFORM, columns 1..7 (perform.h kPerformActionOrder; the four dark pads after them are for the punches), column 12 is ALL OFF.
-constexpr const char* kActionPads[kLineActionCount] = {"MUTE", "ACC", "SLD", "OCT-", "OCT+", "FILL", "THRW"};
+// Row 1 of PERFORM, columns 1..11 (perform.h kPerformActionOrder; the last four are the punches), column 12 is ALL OFF.
+constexpr const char* kActionPads[kLineActionCount] = {"MUTE", "ACC", "SLD", "OCT-", "OCT+", "FILL", "THRW", "DIST", "CUTLO", "CUTHI", "RESO"};
 // Row 2 (kRepeatPads), row 3 (kWobblePadRates): the labels the pads carry, five characters at most.
 constexpr const char* kRepeatLabels[kRepeatPadCount] = {"FRZ", "RPT8", "RPT16", "RPT32", "RPT64", "BLD B", "BLD R", "STP.5", "STP 2", "REV"};
 constexpr const char* kWobbleLabels[kWobblePadCount] = {"1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/8D", "1/16D", "1/2", "1/1"};

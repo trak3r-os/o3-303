@@ -65,7 +65,7 @@ void check_pads_grouped(const Help& h, std::uint64_t used, const std::string& wh
 }
 
 constexpr std::uint64_t kAllPads = (std::uint64_t{1} << app::kPadCount) - 1u;
-constexpr std::uint64_t kPerformDark = (std::uint64_t{0xF} << 7) | (std::uint64_t{1} << 35);  // PERFORM SETUP: the H2 punch pads (row 1 columns 8..11) and row 3's last pad
+constexpr std::uint64_t kPerformDark = std::uint64_t{1} << 35;  // PERFORM SETUP: row 3's last pad
 constexpr std::uint64_t kPerformPads = kAllPads - kPerformDark - (std::uint64_t{0x3} << 22);  // PERFORM: and row 2's last two pads
 constexpr std::uint64_t kTractPads = std::uint64_t{0x1F} << 36;  // TRACT: the live vowels A E I O U, the bottom row's first five; the rest of the grid is dark and has no group
 constexpr std::uint64_t kRefusedKeyPads = (std::uint64_t{1} << 23) | (std::uint64_t{1} << 33);  // '+' and '@' on the name keyboard
@@ -225,7 +225,7 @@ TEST_CASE("help pads: PERFORM's rows, FILE LIBRARY's slots, the list's rows and 
         used |= std::uint64_t{1} << pad;
       }
     }
-    CHECK(used == kAllPads - ((std::uint64_t{0xF} << 7) | (std::uint64_t{0x3} << 22) | (std::uint64_t{1} << 35)));  // the dark pads: row 1 columns 8..11 (H2), row 2 columns 11 and 12, row 3 column 12
+    CHECK(used == kAllPads - ((std::uint64_t{0x3} << 22) | (std::uint64_t{1} << 35)));  // the dark pads: row 2 columns 11 and 12, row 3 column 12
     check_pads_grouped(h, used, "perform pads");
     for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
       if ((used >> pad & 1u) == 0u) {
