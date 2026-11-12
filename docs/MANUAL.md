@@ -48,8 +48,7 @@ What is in it:
 - **The sequencer**: 48 patterns of 1 to 64 steps. Each step has a note, accent, slide, tie or rest, can play up to four times
   (ratchets) or only now and then (conditions), and can hold its own value of a knob (a lock). Knob moves can be recorded as motion.
 - **SONG**: rows of patterns played in order, with repeats and transposes.
-- **PERFORM**: the 48 pads become live actions (mute, fills, rolls, freeze, tape stop, wobble), eight sound snapshots with a morph, a pad
-  ladder for the filter, and a keyboard.
+- **PERFORM**: the 48 pads become an effects surface: the line and tone actions (mute, accents, slides, octaves, fills, throw), the beat freeze at a rate (rolls, builds, tape stop, reverse), the wobble at a rate, and a keyboard. The eight sound snapshots and their morph are on PERFORM SETUP.
 - **FILE LIBRARY**: 512 ready-made lines and sounds in eight banks.
 - **RECORD**: records what you play to a WAV file on the card.
 - **Projects** that save themselves to the card while you play.
@@ -126,7 +125,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Sample Edit** | TRACT |
 | **Config** | The unit's settings. **Shift + Config**: HELP for the screen you are on |
 | **Play** | Play and stop. **Shift + Play**: restart from step 1 |
-| **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records knob and ladder moves. **Shift + Rec**: arm or stop an audio take, from any screen |
+| **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records the encoder's knob moves (the pad effects are not recorded). **Shift + Rec**: arm or stop an audio take, from any screen |
 | **Note, Instr, Vol, Fx** | The four colour buttons, on every screen. A tap flips a sound: **Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE**. **Shift + the button**: the PERFORM action set on PERFORM SETUP (MUTE, ACC ALL, FILL, FREEZE at first): a tap latches it, a hold is momentary. With a step pad held on HOME they give the encoder one row of that step (NOTE, GATE, PLAYS, LOCK) |
 | **Copy, Insert, Delete** | Step editing on HOME (copy, make a tie, clear; Shift + Insert pushes the steps right) |
 | **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range |
@@ -388,48 +387,35 @@ The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back.
 
 Press **Performance**. There is no menu here: the 48 pads are live, and the line keeps playing.
 
-![PERFORM: four rows of lamps, ACTIONS, SNAPSHOTS, LADDER CUTOFF and KEYS, the four colour buttons' actions under them, and the sound knobs](manual/img/perform.png)
+![PERFORM: four rows of lamps, LINE+TONE, REPEAT, WOBBLE and KEYS, the four colour buttons' actions under them, and the sound knobs](manual/img/perform.png)
 
-*PERFORM. Each lamp on the screen is the pad under it. Row 3 shows CUTOFF's ladder, its value in green.*
+*PERFORM. Each lamp on the screen is the pad under it. A lit lamp is an effect that is on.*
 
 | Row | Pads |
 |---|---|
-| 1, actions | MUTE, ACC (every note accented), SLD (every step slides), OCT+ (an octave up), FILL (the fill variant), THRW (the delay send opens all the way), FRZ (freeze the beat), ROLL, STOP (tape stop), REV (reverse), WOB (wobble). Column 12 is ALL OFF |
-| 2, snapshots and variations | Snapshots 1 to 8, then RANDOM, VARY, UNDO, REDO (the pattern tools of HOME) |
-| 3, ladder | 12 places of CUTOFF (HOME's FILT row 3, the same row). It does not follow the F key you tapped last: to give it another knob hold that key and tap a pad, again to go back to CUTOFF. Saved in the project |
+| 1, line and tone | MUTE, ACC (every note accented), SLD (every step slides), OCT- and OCT+ (an octave down or up), FILL (the fill variant), THRW (the delay send opens all the way). Columns 8 to 11 are the **punches**: DIST (the distortion on, full mix), CUTLO (the cutoff at 200 Hz), CUTHI (at 2,394 Hz) and RESO (the resonance at 0.9). A punch wins over the knobs, the step locks and the wobble while it lasts; then the sound is as it was. Of CUTLO and CUTHI the last pressed wins. Punches are not recorded. Column 12 is ALL OFF |
+| 2, repeat | FRZ (freeze the beat, 1/4), RPT 8, 16, 32 and 64 (a roll at that rate), BLD BT and BLD BAR (a roll that speeds up every beat or bar), STP 1/2 and STP 2 (tape stop over half a bar or two bars), REV (reverse). Columns 11 and 12 are dark |
+| 3, wobble | The wobble at a rate: 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T, 1/8D, 1/16D, 1/2, 1/1. Column 12 is dark |
 | 4, keys | One octave, C to B. They play the voice, or transpose the line while it plays if TRNSP is on (set on HOME) |
 
-**Actions** are on while you hold the pad. **Shift + pad** latches an action: it stays on (a ring around its lamp) until you tap it again
-or tap ALL OFF. A latched action stays on when you leave the screen. FRZ, ROLL, STOP and REV share one effect: the first one on wins until
-it goes off.
+**A pad is an effect while you hold it.** **Shift + pad** latches it: it stays on (a ring around its lamp) until you tap it again
+or tap ALL OFF. A latched effect stays on when you leave the screen. Effects on different rows combine (a wobble over a roll over a mute). On a row the
+last pad you pressed wins, and when you let it go the one still held below takes over. FRZ, RPT, BLD, STP and REV share one effect, the beat freeze: while a roll runs, another RPT or BLD pad only changes its rate,
+and FRZ, STP and REV wait (their lamps go dark) until it ends. The pads leave the freeze's settings where they played them, so PERFORM SETUP's F6 to F8 show the last rate. **Pad effects are not recorded**,
+even with Rec on. The four sounds (MODS, GROWL, TRACT, WOBBLE) have no pads: the plain colour buttons flip them.
 
 ![PERFORM with SLD, FILL, FRZ and ROLL latched (green with a ring) and the Vol chip filled; the PERFORM lights in the header show SLD FILL FRZ ROLL](manual/img/perform-latched.png)
 
-*Four actions latched. The header's PERFORM lights show what is on.*
+*Effects latched. The header's PERFORM lights show what is on.*
 
 **The colour buttons** are four more actions, held or latched with **Shift + the button**. At first: Note is MUTE, Instr is ACC ALL, Vol is FILL, Fx is
 FREEZE. PERFORM SETUP changes them. A tap under 300 ms latches the action (Shift + the button again lets it go), a hold is momentary. A plain tap of the same button flips a sound instead: Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE (the PAGE window says MODS ON, GROWL OFF and so on).
 
-**Snapshots** keep the sound (the voice, the distortion, the delay, the growl, the level and the delay send). **Shift + a snapshot pad**
-stores the sound as it is. A tap recalls it, and then the encoder morphs between the snapshot you came from and the one you recalled (the
-ENC window says MORPH 1>2 50%). The first recall morphs from the sound as it was: recalling snapshot 2 first reads MORPH LIVE>2 100%.
-An empty slot says so and does nothing. Snapshots are saved with the project.
+![PERFORM with a wobble pad held: row 3 is WOBBLE, 1/8 in green](manual/img/perform-wobble.png)
 
-A new project (first start, NEW and RESET PROJECT) starts with all eight filled, so the pads play at once: **1** the sound as it is, **2** CLOSED DUB (a dark, short saw with a quarter-note delay),
-**3** SCREAMER (high resonance, a big envelope and a little tube), **4** HOLLOW (the square wave), **5** OVERDRIVEN (the voice's overdrive and the grit up), **6** LONG (long decays), **7** FISH (RANGE FISH with
-the Devil Fish mods on) and **8** GROWL (the growl on). Shift + a pad replaces any of them. A project you saved before keeps its own snapshots, empty ones included.
+*A wobble pad held: its rate runs and its lamp is green.*
 
-![PERFORM after snapshot 2 was recalled: pad 2 green, SNAP 2 RECALLED in the PAGE window and MORPH 1>2 50% in the ENC window](manual/img/perform-morph.png)
-
-*Snapshot 2 recalled, the encoder halfway back towards snapshot 1.*
-
-**WOB on**: while the wobble runs, row 3 picks its rate: 1/1, 1/2, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/8D, 1/16D.
-
-![PERFORM with WOB latched: row 3 is WOBBLE RATE, 1/8 in green](manual/img/perform-wobble.png)
-
-*WOB latched: row 3 is now the wobble's rate.*
-
-**Rec** on PERFORM records the knob and ladder moves while the line plays. **Shift** shows F7 REDO and F8 UNDO.
+**Rec** on PERFORM records the encoder's knob moves while the line plays; the pads are not recorded. **Shift** shows F7 REDO and F8 UNDO.
 
 The arrows work the knobs without the F row: **Left** and **Right** move the latch along F1 to F8 (no wrap), so the encoder, **Up** and **Down** are on the next knob; **Up** and **Down** move the latched knob by 1/20 of its range (a switch flips) and repeat while held. With an F key held, Left and Right are minus and plus 1/20 of that key's knob, as on HOME.
 
@@ -459,11 +445,11 @@ Shift + a colour button is PERFORM's action here too; a plain tap flips a sound.
 
 ### PERFORM SETUP
 
-Press **Shift + Performance**, from PERFORM, PERFORM KNOBS or any other screen. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does.
+Press **Shift + Performance**, from PERFORM, PERFORM KNOBS or any other screen. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does. **Row 2 of the pads is the snapshots here**, and the other rows are PERFORM's.
 
 ![PERFORM SETUP: row 1 of actions, a short text, the four colour buttons' actions, and the F row NOTE, INSTR, VOL, FX, FILL, FREEZE, ROLL and STOP](manual/img/perform-setup.png)
 
-*PERFORM SETUP. The pads still play PERFORM's actions here.*
+*PERFORM SETUP. Row 2 of the pads is the snapshots 1 to 8 and NEW, VARY, UNDO, REDO; the other rows are PERFORM's.*
 
 | Key | What | Values |
 |---|---|---|
@@ -472,6 +458,19 @@ Press **Shift + Performance**, from PERFORM, PERFORM KNOBS or any other screen. 
 | F6 FREEZE | The length FREEZE loops | 1/4, 1/8, 1/16 |
 | F7 ROLL | The roll's rate, or a build that starts at 1/8 and speeds up every beat or bar | 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR |
 | F8 STOP | How long the tape stop takes | 1/8, 1/4, 1/2, 1, 2 bars |
+
+**Snapshots** keep the sound (the voice, the distortion, the delay, the growl, the level and the delay send). They are on **row 2 of the pads, here**: pads 1 to 8 are snapshots 1 to 8, then NEW, VARY, UNDO and REDO (the pattern tools of HOME, for doing this live; NEW draws the same line as RANDOM). **Shift + a snapshot pad**
+stores the sound as it is. A tap recalls it, and then the encoder morphs between the snapshot you came from and the one you recalled (the
+ENC window says MORPH 1>2 50%) until you tap an F key. The first recall morphs from the sound as it was: recalling snapshot 2 first reads MORPH LIVE>2 100%.
+An empty slot says so and does nothing. Snapshots are saved with the project.
+
+A new project (first start, NEW and RESET PROJECT) starts with all eight filled, so the pads play at once: **1** the sound as it is, **2** CLOSED DUB (a dark, short saw with a quarter-note delay),
+**3** SCREAMER (high resonance, a big envelope and a little tube), **4** HOLLOW (the square wave), **5** OVERDRIVEN (the voice's overdrive and the grit up), **6** LONG (long decays), **7** FISH (RANGE FISH with
+the Devil Fish mods on) and **8** GROWL (the growl on). Shift + a pad replaces any of them. A project saved by an earlier version does not load (see the CHANGELOG), so every project starts with these.
+
+![PERFORM SETUP after snapshot 2 was recalled: pad 2 green, SNAP 2 RECALLED in the PAGE window and MORPH 1>2 50% in the ENC window](manual/img/perform-morph.png)
+
+*Snapshot 2 recalled, the encoder halfway back towards snapshot 1.*
 
 Press **Performance** to leave: it goes back to the page SETUP was opened from (PERFORM when you came from another screen).
 
@@ -601,8 +600,9 @@ Like the other knobs, a growl knob can be locked per step and recorded as motion
 
 ### WOBBLE
 
-Press **Sample Rec**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The wobble runs while PERFORM's WOB
-action is on. F8 (or the Fx button, on every screen) latches that action here, the same as WOB on PERFORM, and ALL OFF on PERFORM lets it go.
+Press **Sample Rec**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The wobble runs while the WOB
+action is on. F8 (or the Fx button, on every screen) latches that action, and ALL OFF on PERFORM lets it go. **Row 3 of the pads is the wobble's rates** here as on PERFORM
+(1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T, 1/8D, 1/16D, 1/2, 1/1): hold a pad and the wobble runs at that rate, Shift + pad latches it, ALL OFF lets it go. Rows 1 and 2 are the pattern's steps and row 4 the keys, as on HOME.
 
 ![WOBBLE: F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET, F6 and F7 empty, F8 WOB](manual/img/wobble.png)
 
@@ -615,7 +615,7 @@ action is on. F8 (or the Fx button, on every screen) latches that action here, t
 | F3 DEPTH | How far the wobble swings | 0 to 100 % | 50 % |
 | F4 TARGET | What the wobble moves: the cutoff, or the growl's vowel | CUTOFF, VOWEL | CUTOFF |
 | F5 RESET | Whether each note restarts the wave | OFF, ON | OFF |
-| F8 WOB | Runs the wobble, as PERFORM's WOB action does | OFF, ON | OFF |
+| F8 WOB | Runs the wobble (the WOB action: latched here, held or latched on PERFORM's row 3) | OFF, ON | OFF |
 
 The wobble's settings are learnable: with Shift held, F1 to F5 (RATE, SHAPE, DEPTH, TARGET, RESET) and F8 WOB arm like any knob, and the next controller you move binds. A learned controller steps the lists (RATE, SHAPE, TARGET), switches RESET and WOB (on from 64 up), and sets DEPTH. The usual MIDI Pickup applies: an absolute controller does nothing until it has reached the value shown (or passed it), so it never makes a jump. A move of the panel's knob is followed, so the controller catches the new value again. The bindings are kept with the unit's other MIDI bindings.
 
@@ -777,11 +777,11 @@ OCT- and OCT+ move rows 3 and 4 by octaves; the header's KEYBOARD says which (OC
 
 ### PERFORM, PERFORM KNOBS and PERFORM SETUP
 
-On PERFORM KNOBS each row of pads is one knob, as the tables above say; HELP's PADS page lists the four rows.
+On PERFORM KNOBS each row of pads is one knob, as the tables above say; HELP's PADS page lists the four rows of whichever page is up. On WOBBLE, row 3 of the pads is the wobble's rates (hold a pad, Shift latches).
 
-![HELP's PADS page for PERFORM: the eleven actions and OFF on row 1, snapshots 1 to 8 and NEW VARY UNDO REDO on row 2, the ladder MIN to MAX on row 3, the keys C to B on row 4](manual/img/help-perform-pads.png)
+![HELP's PADS page for PERFORM: the line and tone actions and ALL OFF on row 1, the repeat rates on row 2, the wobble's rates on row 3, the keys C to B on row 4](manual/img/help-perform-pads.png)
 
-*PERFORM's map. With WOB on, row 3 picks the wobble's rate.*
+*PERFORM's map. On PERFORM SETUP row 2 is snapshots 1 to 8 and NEW VARY UNDO REDO.*
 
 ### SONG
 
@@ -810,11 +810,11 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 - **UNDO and REDO.** Shift + F8 is UNDO and Shift + F7 is REDO wherever you edit: HOME, PATTERN SETUP, PERFORM and SONG. The history holds the last 32 changes
   to the patterns and the song. Turning the encoder on one step is one change, not forty.
 - **The pattern tools** (Shift on HOME: CLEAR, VARY, RHYTHM, NOTES; on PATTERN SETUP: REVERSE, RANDOM). Each one is a single undo, so press RANDOM five times and
-  UNDO back to the one you liked. PERFORM's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live (its NEW draws the same line as RANDOM).
+  UNDO back to the one you liked. PERFORM SETUP's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live (its NEW draws the same line as RANDOM).
 - **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo (a load while the
   transport runs keeps it) or the sound a LOAD BOTH or LOAD SOUND sets: the screen starts on LOAD LINE, which leaves the sound alone, and Shift + F3
   brings back the sound a load replaced (section 5, FILE LIBRARY).
-- **Snapshots** (PERFORM): store a sound before you twist the knobs, recall it when you get lost, and morph between two.
+- **Snapshots** (PERFORM SETUP's pads): store a sound before you twist the knobs, recall it when you get lost, and morph between two.
 - **MODS** (Shift + Sample Load, from any screen): turns the MODDED mods off to hear the plain 303, and on again, with your settings
   kept (section 5, MODDED).
 - **Copy first.** On PATTERN SETUP, Shift + F3 DUP>NEXT copies the pattern into the next one: change the copy and keep the original.

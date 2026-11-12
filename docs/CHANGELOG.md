@@ -7,6 +7,18 @@ hear says so in plain words.
 
 ### What you can do that you could not before
 
+- **PERFORM is the effects surface (H1).** The 48 pads are four rows. Row 1: MUTE, ACC ALL, SLIDE ALL, OCT-, OCT+, FILL, THROW and ALL OFF (columns 8 to 11 are the punches, below). Row 2: FRZ 1/4,
+  the rolls RPT 1/8, 1/16, 1/32 and 1/64, the builds BLD BT and BLD BAR, the stops STP 1/2 and STP 2, and REV. Row 3: the wobble at a rate (1/4, 1/8, 1/16, 1/32, the triplets 1/4T, 1/8T, 1/16T,
+  the dotted 1/8D and 1/16D, 1/2 and 1/1). Row 4: the keys. A press holds, Shift + a press latches, a tap on a latched pad or ALL OFF lets it go; of a row's pads the last pressed wins, and
+  when it goes the one below takes over. **Pad effects are not recorded** into the pattern. Moved: the **snapshots are on PERFORM SETUP** (Shift + Perform: row 2 is snapshots 1 to 8, then
+  RANDOM, VARY, UNDO, REDO), and the **filter ladder left PERFORM's first page** (it is on PERFORM KNOBS and on HOME's FILT rows). The four sounds (MODS, GROWL, TRACT, WOBBLE) have no pads: the colour buttons flip them.
+
+- **Punches on PERFORM's row 1 (H2).** Columns 8 to 11 are DIST (the distortion on at full mix), CUT LO (the cutoff at 200 Hz), CUT HI (the cutoff at 2,394 Hz, the top of the voice's live span) and RESO
+  (the resonance at 0.9). A press holds the punch, Shift latches it, a tap on a latched pad or ALL OFF lets it go. A punch wins over the step's locks, the knobs, the wobble and a slew while it
+  lasts, and the old value comes back when it ends; of CUT LO and CUT HI the last pressed wins. Punches are not recorded and not saved with the project; the sound knobs do not move.
+
+- **WOBBLE's row 3 is the rates (E2c).** On the WOBBLE page the pads of row 3 run the wobble at a rate while held (Shift latches), in the same order as PERFORM's row 3.
+
 - **TRACT's STEPS layer (E2a).** The TRACT page now opens on the pattern's own steps: the pads of rows 1 and 2 (columns 1 to 8) are steps 1 to 16, and the mouth is set where the notes are. Hold a step and tap the palette on row 3 to write its vowel, turn F1 to move the vowel of the held steps, or turn F2 / F3 to lock TONGUE or LIPS on that step. The line keeps its own length (a short line's step is edited under its wrap, the toast says so). **Sample Edit again** is the LINE layer, the old pads of the line, and again STEPS. Shift + F5 CLEAR also clears the TONGUE and LIPS locks.
 - **TRACT's strip shows the mouth (E2b).** On the TRACT page the 16 steps' rows are VOWEL, TONGUE and LIPS instead of ACCENT, SLIDE and STEP: OBSIDIAN draws the step's vowel letter (amber for GLD, teal for a VOWEL lock) and the TONGUE and LIPS locks as LEDs; CLASSIC's gate line reads the letter with `~` for GLD and `*` for a lock.
 

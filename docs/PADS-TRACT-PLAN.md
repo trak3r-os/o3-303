@@ -24,11 +24,11 @@ The maintainer's decisions folded in:
 | 11 | B2 GAIN on F8 of TRACT and GROWL | B | B1, E1b | S |
 | 12 | E2a TRACT STEPS layer (A) | E | E1a | M |
 | 13 | E2b TRACT strip in both skins (A) | E | E2a | M |
-| 14 | H1 PERFORM effects surface from existing features | H | E1b | M |
-| 15 | E2c WOBBLE screen rows (rates on row 3) | E | H1 | S |
-| 16 | H2 Punches: DIST, CUT LO, CUT HI, RESO | H | H1 | M |
-| 17 | H3 GATE, PUMP, DIVE (M3C T and P), measured | H | H2 | M, optional |
-| 18 | Docs sweep: UX-303 amendments, manual images | all | all | S |
+| 14 | H1 PERFORM effects surface from existing features (done: cc5d473) | H | E1b | M |
+| 15 | E2c WOBBLE screen rows (rates on row 3) (done: b50e046) | E | H1 | S |
+| 16 | H2 Punches: DIST, CUT LO, CUT HI, RESO (done: 3a9e0e5) | H | H1 | M |
+| 17 | H3 GATE, PUMP, DIVE (M3C T and P), measured (not built: needs CPU measured on the unit) | H | H2 | M, optional |
+| 18 | Docs sweep: UX-303 amendments, manual images (done, images owed: see slice 18) | all | all | S |
 
 ## P. Project format 2.0
 
@@ -323,14 +323,14 @@ The M3C backlog:
 | 3 WOBBLE | 1/4 | 1/8 | 1/16 | 1/32 | 1/4T | 1/8T | 1/16T | 1/8D | 1/16D | 1/2 | 1/1 | DIVE³ |
 | 4 KEYS | C | … | | | | | | | | | | B |
 
-² comes in H2 and ³ in H3. Until then those pads are dark.
+² built in H2 (3a9e0e5); ³ comes in H3, which is not built: those pads are dark.
 
 Reasons for the rows:
 - Row 1 groups what the line plays (it takes effect at the next step) with the tone punches, and keeps ALL OFF where it is today.
 - Row 2 is one unit with one owner.
 - Row 3 puts a held rate under the finger.
 - Keys stay because the live transpose (TRNSP) is the 303's main live gesture.
-- The wobble order `kWobblePadRates[11]` (perform.h) is shared by all three pickers: here, the WOBBLE screen's row 3, and the home map's WOB row (`wobble_pad_rate`, `perform_wobble_rate`). `WobbleRate` values are unchanged.
+- The wobble order `kWobblePadRates[11]` (perform.h) is shared by all three pickers: here, the WOBBLE screen's row 3, and the home map's WOB row (`perform_wobble_rate`). `WobbleRate` values are unchanged.
 
 **Gestures.**
 - A press puts the effect in and the release takes it out. Shift + press latches it, and a tap or ALL OFF releases it. That is today's action gesture.
@@ -461,7 +461,7 @@ Every slice:
     - Unit: a played session (rolls switching rate live, wobble rates, keys).
     - SRAM: about 28 B (the stacks).
 15. **E2c.**
-    - Files: instrument_screen.cpp (WOBBLE row 3 = rates), home_map.cpp (`wobble_pad_rate` order).
+    - Files: instrument_screen.cpp (WOBBLE row 3 = rates), home_map.cpp (the WOB row's order, `perform_wobble_rate`).
     - Tests: perform_test, home_map_test.
     - Scenario: growl_wobble.
 16. **H2.**
@@ -473,14 +473,17 @@ Every slice:
     - Tests: seq punch test (it wins over a lock, is restored, and REC writes no point); perform_test.
     - Scenario: perform_pads.
     - Unit: by ear. SRAM: about 32 B.
+    - As built (3a9e0e5): `PerfAction` count is 16 (not 15: Dist, CutLo, CutHi, Reso appended after OctDown), `kPerfActionCount` 16 and the mask is a uint16. DIST is the Distortion's `Active` = 1 and `Mix` = 1 in two punch slots (it does not touch MODEL). CUT LO and CUT HI are `kPunchCutLoHz` 200 and `kPunchCutHiHz` 2394 (`AcidVoice::kCutoffLiveLoHz` / `HiHz`, static_assert), one cutoff slot, the last pressed wins; RESO is `kPunchReso` 0.9. Tests: `app/seq/tests/seq_punch_test.cpp` (8 cases), perform_test, perform_screen_test, skin_perform_test, help_texts_test; scenario perform_pads (snaps 04c, 04d). Unit check owed: the values by ear.
 17. **H3.** GATE and PUMP follow M3C-PLAN T and DIVE follows P. PerfAction masks widen to `std::uint32_t` (LiveActions, `perf_actions_on`, `live_actions_on`, `StatusView.actions`).
     - Tests: seq gate and pump tests (multiplier on the base level, released cleanly).
     - Unit: `cpu` with TRACT on, before and after, and 0 underruns.
+    - **Not built:** it needs its CPU measured on the unit first.
 18. **Docs.**
     - UX-303 amendments: D15, D22, 2.1, 2.3, 5.3 and the PERFORM map.
     - MANUAL pass.
     - `tools/manual_images.py` regenerated.
     - CHANGELOG: the old-projects refusal stated plainly.
+    - Done: UX-303 (D15, D22, 2.1, 2.3, 5.3, the PERFORM map), MANUAL, README status row and CHANGELOG. **Owed:** `tools/manual_images.py` was not regenerated (it needs the simulator built locally, which the low-RAM rule forbids); the manual's PERFORM images still show the old pads.
 
 ## Riskiest assumptions not verified
 
