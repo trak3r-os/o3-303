@@ -24,6 +24,11 @@ hear says so in plain words.
   now works while Shift + F5 is held. NEW moved to PATTERN SETUP and is called RANDOM (Shift + F6), beside REVERSE (Shift + F5); CLEAR moved to HOME's Shift + F1. PATTERN SETUP's
   Shift + F5 ROOT is gone (HOME's NOTE does it). The Shift + F-key combos are the only change: no file or sound differs.
 
+- **CHANCE on PATTERN SETUP's F5 (G2).** Each pattern has a CHANCE, 1 to 100 % (100 % at first): the share of its steps that play, drawn afresh each pass, so a line never repeats
+  exactly. A step with no condition plays CHANCE % of the time; a step with a probability condition plays its probability times CHANCE; steps with a ratio, FILL or FIRST condition are
+  left alone, and the line you wrote is not changed. At 100 % the pattern plays exactly as before. CHANCE is saved with the pattern (it is part of format 2.0). It took F5's place, so
+  the scale moved off PATTERN SETUP: it is HOME's Shift + F6 (G1). PERFORM's pad that was labelled NEW says RANDOM, as the action is called now.
+
 ### What plays or sounds different
 
 - **TRACT and GROWL have a GAIN stage, and GROWL's Mix crossfades at equal power (B1).** Both units gain a level control on the wet sound (-12 to +18 dB, before the Mix), set by a

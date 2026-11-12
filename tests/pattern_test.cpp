@@ -54,19 +54,20 @@ static_assert(static_cast<unsigned>(dsp::MixField::Level) == kMixerLevel && stat
               "the mixer lane ids are dsp::MixField's values");
 static_assert(dsp::kMixFieldCount == kMixerFieldCount, "the mixer has the fields pattern.h gives ranges to");
 
-TEST_CASE("Pattern: 2,328 bytes, 4-byte aligned, a multiple of 4, laid out for word access") {
+TEST_CASE("Pattern: 2,332 bytes, 4-byte aligned, a multiple of 4, laid out for word access") {
   CHECK(sizeof(Step) == 3);
   CHECK(sizeof(LaneRef) == 2);
-  CHECK(sizeof(Pattern) == 2328);  // 2,260 bytes of pattern and 68 of the TRACT line (was 2,180 before the lanes)
+  CHECK(sizeof(Pattern) == 2332);  // 2,264 bytes of pattern and 68 of the TRACT line (CHANCE and its padding added 4 in format 2.0)
   CHECK(sizeof(Pattern) % 4 == 0);
   CHECK(alignof(Pattern) == 4);
   CHECK(offsetof(Pattern, steps) == 0);
-  CHECK(offsetof(Pattern, motion) == 196);
+  CHECK(offsetof(Pattern, chance) == 196);
+  CHECK(offsetof(Pattern, motion) == 200);
   CHECK(offsetof(Pattern, motion) % 4 == 0);
   CHECK(sizeof(Pattern::motion[0]) % 4 == 0);
-  CHECK(offsetof(Pattern, lanes) == 196 + 8 * 256);
-  CHECK(offsetof(Pattern, lanes) + sizeof(Pattern::lanes) == 2260);  // no padding before the TRACT line
-  CHECK(offsetof(Pattern, tract) == 2260);                           // the TRACT line follows the lanes
+  CHECK(offsetof(Pattern, lanes) == 200 + 8 * 256);
+  CHECK(offsetof(Pattern, lanes) + sizeof(Pattern::lanes) == 2264);  // no padding before the TRACT line
+  CHECK(offsetof(Pattern, tract) == 2264);                           // the TRACT line follows the lanes
   CHECK(offsetof(Pattern, tract) + sizeof(Pattern::tract) == sizeof(Pattern));  // no padding at the end
   CHECK(std::is_trivial<Pattern>::value);
   CHECK(std::is_standard_layout<Pattern>::value);
@@ -210,7 +211,7 @@ TEST_CASE("lanes: the default table is the SOUND page, and a fresh pattern has i
   // M3c's targets are appended (the contract of docs/M3C-PLAN.md), and the Pattern is as large and laid out as before.
   static_assert(kLaneGrowl == 5 && kLaneSeq == 6 && kLaneTract == 7 && kLaneTargetCount == 8);
   static_assert(kSeqWobbleRate == 0 && kSeqWobbleDepth == 1 && kSeqValueCount == 2);
-  static_assert(sizeof(Pattern) == 2328 && offsetof(Pattern, tract) == 2260 && offsetof(Pattern, motion) == 196 && offsetof(Pattern, lanes) == 2244);
+  static_assert(sizeof(Pattern) == 2332 && offsetof(Pattern, tract) == 2264 && offsetof(Pattern, motion) == 200 && offsetof(Pattern, lanes) == 2248);
 
   const Pattern p = fresh();
   for (unsigned i = 0; i < 7; ++i) {  // Cutoff, Reso, Env Mod, Decay, Accent, Wave, Tune: the acid_voice ids 0..6
@@ -275,6 +276,10 @@ TEST_CASE("clear(): no ratchet, no condition, the default lanes; the all-zero pa
     CHECK(s.cond == kCondAlways);
     CHECK(ratchet_of(s.flags) == 0);
   }
+  CHECK(p.chance == kDefaultChance);  // CHANCE 100 plays as before; the padding after it is zero
+  CHECK(p.reserved[0] == 0);
+  CHECK(p.reserved[1] == 0);
+  CHECK(p.reserved[2] == 0);
   Pattern z;
   std::memset(&z, 0, sizeof(z));
   CHECK_FALSE(same(z, p));

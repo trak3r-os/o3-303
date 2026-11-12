@@ -177,15 +177,16 @@ struct Hands {
     release(Button::Shift);
     tap(Button::Pattern);
   }
-  // The generator's scale (SETUP's F5): the encoder moves a place a detent (there are 40): down to the first (0 No scale, 1 Chromatic, 2 Minor,
-  // 3 Major ... 18 Penta Min, the default), then up to `to`. Back on HOME. (A turn that leaves the value where it is is no choice: the lock follows one.)
+  // The generator's scale (HOME's Shift + F6, G1; from HOME): the encoder moves a place a detent (there are 40, no wrap): down to the first (0 No scale,
+  // 1 Chromatic, 2 Minor, 3 Major ... 18 Penta Min, the default), then up to `to`. Two taps of Pattern (SETUP and back) then give the encoder back to
+  // the knob and leave HOME as it was. (A turn that leaves the value where it is is no choice: the lock follows one.)
   void choose_scale(int to) {
-    tap(Button::Pattern);
-    tap(Button::F5);
+    shift_tap(Button::F6);
     turn(-40);
     if (to != 0) {
       turn(to);
     }
+    tap(Button::Pattern);
     tap(Button::Pattern);
     wait(40);
   }

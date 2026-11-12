@@ -61,9 +61,9 @@ constexpr Page kPages[kPageCount] = {
       app_item(Item::RollMode, "ROLL"), freeze(Freeze::StopTime, "STOP")}},
 };
 
-// PATTERN SETUP (UX-303 5.2): this pattern's four, then the generator's four (project-wide, D1).
+// PATTERN SETUP (UX-303 5.2): this pattern's five (G2: CHANCE on F5), then the generator's three (project-wide, D1; its SCALE is on HOME's Shift + F6).
 constexpr Page kSetupPage = {"SETUP",
-                             {app_item(Item::Length), app_item(Item::Swing), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"), app_item(Item::Scale),
+                             {app_item(Item::Length), app_item(Item::Swing), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"), app_item(Item::Chance),
                               app_item(Item::Density), app_item(Item::AccPct), app_item(Item::SldPct)}};
 
 // What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
@@ -111,6 +111,7 @@ constexpr core::ParamDesc kTempo = {"TEMPO", "BPM", nullptr, nullptr, 20.0f, 300
 constexpr core::ParamDesc kSwing = {"SWING", "%", nullptr, nullptr, 0.0f, static_cast<float>(kMaxSwing), 0.0f, kMaxSwing, 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kLength = {"LENGTH", "", kLengthNames, nullptr, 0.0f, static_cast<float>(kMaxSteps - 1u), static_cast<float>(kDefaultLength - 1u), kMaxSteps - 1u, 1, kMaxSteps, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kGate = {"GATE", "%", nullptr, nullptr, 5.0f, 100.0f, static_cast<float>(kDefaultGate), 95, 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kChance = {"CHANCE", "%", nullptr, nullptr, 1.0f, 100.0f, static_cast<float>(kDefaultChance), 99, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kTranspose = {"TRANSPOSE", "st", nullptr, nullptr, -24.0f, 24.0f, 0.0f, 48, 12, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kScale = {"SCALE", "", kScaleNamePtrs.p, nullptr, 0.0f, static_cast<float>(core::kScaleCount - 1u), 18.0f,
                                     static_cast<std::uint16_t>(core::kScaleCount - 1u), 4, static_cast<std::uint8_t>(core::kScaleCount),
@@ -240,6 +241,8 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kGate;
     case Item::Transpose:
       return &kTranspose;
+    case Item::Chance:
+      return &kChance;
     case Item::Scale:
       return &kScale;
     case Item::Density:
@@ -303,6 +306,8 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return static_cast<float>(p.gate);
     case Item::Transpose:
       return static_cast<float>(p.transpose);
+    case Item::Chance:
+      return static_cast<float>(p.chance < kMinChance || p.chance > kMaxChance ? kMaxChance : p.chance);  // 0 and above 100 play as 100
     case Item::Scale:
       return static_cast<float>(w_->gen.scale);
     case Item::Density:
@@ -399,6 +404,9 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       break;
     case Item::Transpose:
       (void)w_->bank->set_transpose(sel, round_to_int(v));
+      break;
+    case Item::Chance:
+      (void)w_->bank->set_chance(sel, round_to_int(v));
       break;
     case Item::Scale:
       w_->gen.scale = static_cast<std::uint8_t>(round_to_int(v));

@@ -276,6 +276,8 @@ void sanitize(Pattern& p) noexcept {
   p.swing = p.swing > kMaxSwing ? kMaxSwing : p.swing;
   p.transpose = p.transpose < -24 ? std::int8_t{-24} : (p.transpose > 24 ? std::int8_t{24} : p.transpose);
   p.gate = p.gate < 5u ? std::uint8_t{5} : (p.gate > 100u ? std::uint8_t{100} : p.gate);
+  p.chance = p.chance < kMinChance || p.chance > kMaxChance ? kDefaultChance : p.chance;  // 0 and above 100 read as 100 (every step as its condition says)
+  p.reserved[0] = p.reserved[1] = p.reserved[2] = 0;
   for (LaneRef& l : p.lanes) {
     // A lane on a target this build has not, or on the voice's Stock (a switch, never a lane's: a hand-built file could name it), is dropped.
     if (l.target >= kLaneTargetCount || (l.target == kLaneVoice && l.id == kLaneVoiceStock)) {

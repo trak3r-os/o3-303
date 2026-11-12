@@ -328,7 +328,7 @@ std::uint8_t key_led_level(bool natural, bool scale_on, bool in_scale, bool root
   return root ? app::kLedOn : app::kLedMid;
 }
 
-// The scale on F5 lights the keys (scale at mid, root full, the others dark) and every key plays and writes; Config's KEYS: IN SCALE (off by default)
+// The scale (HOME's Shift + F6) lights the keys (scale at mid, root full, the others dark) and every key plays and writes; Config's KEYS: IN SCALE (off by default)
 // adds the old lock: the other pads do nothing. "No scale" and "Chromatic" have every note and light nothing.
 bool HomeMap::scale_shown() const noexcept {
   const Wiring& w = rig_->wiring;

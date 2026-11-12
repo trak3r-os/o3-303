@@ -683,7 +683,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
         break;
       }
       case PerformRole::New:
-        cut("NEW", 7, lamp.label, sizeof lamp.label);
+        cut("RANDOM", 7, lamp.label, sizeof lamp.label);
         lamp.level = app::kLedDim;
         break;
       case PerformRole::Vary:

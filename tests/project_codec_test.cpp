@@ -143,6 +143,7 @@ Pattern random_pattern(std::uint32_t seed) {
     st = tract_make(static_cast<std::uint8_t>(lcg(s) % (kTractVowels + 1u)), lcg(s) % 4 == 0);
   }
   p.tract.len = kTractLens[lcg(s) % 6];
+  p.chance = static_cast<std::uint8_t>(1u + lcg(s) % 100u);  // CHANCE (G2), drawn last so the draws above are what they were
   return p;
 }
 
@@ -1152,6 +1153,8 @@ TEST_CASE("project: out of range fields of a file with a good CRC are brought in
   bad.swing = 200;
   bad.transpose = -100;
   bad.gate = 0;
+  bad.chance = 0;  // a pattern that never plays is no CHANCE: back to 100
+  bad.reserved[1] = 7;
   bad.lanes[1].target = 99;
   (void)a.bank->restore(0, bad);
   const auto hostile = rebuild(encode_session(a), [](char (&id)[4], std::vector<std::uint8_t>& p) {
@@ -1179,8 +1182,25 @@ TEST_CASE("project: out of range fields of a file with a good CRC are brought in
   CHECK(p0.swing == kMaxSwing);
   CHECK(p0.transpose == -24);
   CHECK(p0.gate == 5);
+  CHECK(p0.chance == kDefaultChance);
+  CHECK(p0.reserved[1] == 0);
   CHECK(p0.lanes[1].target == kLaneNone);
   CHECK(b.bank->selected() == 0);
+  // 101 or more is out of range too; 1 and 100 are kept.
+  Pattern hi = random_pattern(4);
+  hi.chance = 1;
+  (void)a.bank->restore(1, hi);
+  hi.chance = 100;
+  (void)a.bank->restore(2, hi);
+  hi.chance = 200;
+  (void)a.bank->restore(3, hi);
+  project::ProjectState s2;
+  Session c;
+  REQUIRE(load(encode_session(a), s2).status == project::Status::Ok);
+  project::apply(c.rig, c.engine, s2);
+  CHECK(c.bank->pattern(1).chance == 1);
+  CHECK(c.bank->pattern(2).chance == 100);
+  CHECK(c.bank->pattern(3).chance == kDefaultChance);
 }
 
 TEST_CASE("project: the image fits its buffer, at the fullest too, and an apply leaves no history") {

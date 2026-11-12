@@ -360,9 +360,9 @@ HELD) so you can work on it; Stop, or a change of pattern, gives the follow back
 
 Tap **Pattern** on HOME. The F row now holds this pattern's settings and the generator's.
 
-![PATTERN SETUP: the generator line over the steps, and the F row LENGTH, SWING, GATE, TRANSP, SCALE, DENSITY, ACC % and SLD %](manual/img/setup.png)
+![PATTERN SETUP: the generator line over the steps, and the F row LENGTH, SWING, GATE, TRANSP, CHANCE, DENSITY, ACC % and SLD %](manual/img/setup.png)
 
-*PATTERN SETUP. F1 to F4 are this pattern's; F5 to F8 belong to the whole project.*
+*PATTERN SETUP. F1 to F5 are this pattern's; F6 to F8 belong to the whole project.*
 
 | Key | What | Values |
 |---|---|---|
@@ -370,12 +370,12 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F2 SWING | Swing | 0 to 66 % |
 | F3 GATE | How long the notes are | 5 to 100 % (50 % at first) |
 | F4 TRANSP | This pattern's transpose | -24 to +24 semitones |
-| F5 SCALE | The scale. The keys of HOME and PERFORM light it, and every key still plays; Config's KEYS: IN SCALE makes the others do nothing | No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more (Penta Min at first) |
+| F5 CHANCE | How likely each step of this pattern is to play, so a line never plays the same twice. A step with no condition plays CHANCE % of the time; a step with a probability condition plays that probability times CHANCE; steps with a ratio, FILL or FIRST condition are left alone. The stored line does not change: 100 % plays it as written | 1 to 100 % (100 % at first) |
 | F6 DENSITY | How many steps RANDOM fills | 0 to 100 % (75 %) |
 | F7 ACC % | How many accents RANDOM draws | 0 to 100 % (25 %) |
 | F8 SLD % | How many slides RANDOM draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
 
-The info line always shows the scale on F5 with its root ("D MAJOR"; "No scale" and "Chromatic" have no root), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). RANDOM, NOTES and VARY keep to the scale. If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. To set the root without the encoder, hold Shift and F5 (NOTE) and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
+The scale is HOME's: hold Shift and tap F6 (SCALE) and turn the encoder (No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more; Penta Min at first). The info line shows it with its root ("D MAJOR"; "No scale" and "Chromatic" have no root), and the keys of HOME and PERFORM light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). RANDOM, NOTES and VARY keep to the scale. If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. To set the root without the encoder, hold Shift and F5 (NOTE) on HOME and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
 pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 REVERSE (the line backwards), F6 RANDOM (a new line from the generator: it leans on the root and its octave, with a fifth or a minor third or seventh for colour, repeats its first half with a part changed (a quarter of the line from 32 steps), glides its slides toward a note of another pitch and puts its accents off the beat and on the octave jumps; the toast says RANDOMIZED), F7 REDO, F8 UNDO. HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale.
@@ -395,7 +395,7 @@ Press **Performance**. There is no menu here: the 48 pads are live, and the line
 | Row | Pads |
 |---|---|
 | 1, actions | MUTE, ACC (every note accented), SLD (every step slides), OCT+ (an octave up), FILL (the fill variant), THRW (the delay send opens all the way), FRZ (freeze the beat), ROLL, STOP (tape stop), REV (reverse), WOB (wobble). Column 12 is ALL OFF |
-| 2, snapshots and variations | Snapshots 1 to 8, then NEW, VARY, UNDO, REDO (the pattern tools of HOME) |
+| 2, snapshots and variations | Snapshots 1 to 8, then RANDOM, VARY, UNDO, REDO (the pattern tools of HOME) |
 | 3, ladder | 12 places of CUTOFF (HOME's FILT row 3, the same row). It does not follow the F key you tapped last: to give it another knob hold that key and tap a pad, again to go back to CUTOFF. Saved in the project |
 | 4, keys | One octave, C to B. They play the voice, or transpose the line while it plays if TRNSP is on (set on HOME) |
 
@@ -890,7 +890,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 | PAD LEGEND | The PADS line on every screen | OFF, **ON** |
 | RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, assignments, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
 | SKIN | The look (section 13) | CLASSIC, **OBSIDIAN** |
-| KEYS | Whether the keys outside the scale on PATTERN SETUP's F5 play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
+| KEYS | Whether the keys outside the scale (HOME's Shift + F6) play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
 | KNOB SPEED | How far one click of the encoder moves a knob: the factor on every continuous knob (CUTOFF, RESO, a level), on top of DISPLAY's ENCODER acceleration. Lists, switches, Shift's coarse step and the arrows are not changed | **X1**, X2, X3, X4, X6, X8 |
 
 The sound is no longer on this page. The five settings that were on the old page DEEP are on the screens of their sounds, and a project
@@ -1026,7 +1026,7 @@ button.
 **No sound.** Check F8 VOLUME on HOME, F4 MASTER on MASTER, that MUTE is not latched on PERFORM (ALL OFF lets every action go), and that OVERDRIVE on MODDED TONE (F3) is not OFF, the bottom of its range, where no oscillator reaches the filter. If the
 header says STOCK, the mods are off on purpose: Shift + Sample Load turns them back on.
 
-**The keys do nothing, or some are dark.** Dark keys are outside the scale on F5; they play unless Config's KEYS is IN SCALE. TRNSP on (row 2, column 11) makes the keys
+**The keys do nothing, or some are dark.** Dark keys are outside the scale (HOME's Shift + F6); they play unless Config's KEYS is IN SCALE. TRNSP on (row 2, column 11) makes the keys
 transpose while the line plays instead of playing the voice. FILT on (row 2, column 12) turns rows 3 and 4 into the filter ladders.
 
 **The encoder changes the wrong thing.** Look at the ENC window. A colour button may hold a row: tap an F key to give the encoder back to

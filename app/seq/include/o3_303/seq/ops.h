@@ -120,6 +120,7 @@ void apply_fill(Pattern& p, FillVariant variant, std::uint32_t seed) noexcept;
 bool set_length(Pattern& p, unsigned length) noexcept;
 void set_swing(Pattern& p, int percent) noexcept;      // 0..kMaxSwing
 void set_gate(Pattern& p, int percent) noexcept;       // 5..100
+void set_chance(Pattern& p, int percent) noexcept;     // 1..kMaxChance (G2)
 void set_transpose(Pattern& p, int semitones) noexcept;  // -24..+24, applied at playback
 
 // ---- Motion and parameter locks ---------------------------------------------------------------------------------------------

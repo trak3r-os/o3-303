@@ -260,8 +260,7 @@ TEST_CASE("pages: PERFORM SETUP's page (the four assignments, FILL, the freeze's
 TEST_CASE("pages: choosing a scale locks nothing (S3): the keys keep playing, only Config's KEYS: IN SCALE locks them") {
   Rig rig;
   CHECK_FALSE(rig.wiring.keys_in_scale);
-  const Entry scale = setup_page().entry[4];  // PATTERN SETUP's F5
-  REQUIRE(scale.item == Item::Scale);
+  const Entry scale{Item::Scale, 0, nullptr};  // HOME's Shift + F6 (G1) steps this entry
   rig.controls.set(rig.engine, scale, 3.0f);
   CHECK(rig.wiring.gen.scale == 3);
   CHECK_FALSE(rig.wiring.keys_in_scale);
@@ -488,7 +487,7 @@ TEST_CASE("pages: the tempo and the fields of the selected pattern (MASTER's and
 
 TEST_CASE("pages: the generator's settings, PATTERN SETUP's keys: scale, density, accent and slide chance") {
   Rig rig;
-  const Entry scale = setup_page().entry[4];
+  const Entry scale{Item::Scale, 0, nullptr};  // HOME's Shift + F6 steps it since G1; no SETUP key holds it
   const Entry density = setup_page().entry[5];
   CHECK(rig.wiring.gen.scale == 18);
   CHECK(rig.text(scale) == "Penta Min");
@@ -750,12 +749,12 @@ TEST_CASE("pages: ROLL is one list, the rate and the accelerate together (Item::
   CHECK_FALSE(rig.controls.lane_ref(roll, ref));
 }
 
-TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's four, then the generator's four, and the entries it appends") {
+TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's five, then the generator's three, and the entries it appends") {
   Rig rig;
   const Page& pg = setup_page();
   CHECK(std::strcmp(pg.name, "SETUP") == 0);
-  static constexpr Item kItems[kKeys] = {Item::Length, Item::Swing, Item::Gate, Item::Transpose, Item::Scale, Item::Density, Item::AccPct, Item::SldPct};
-  static constexpr const char* kLabels[kKeys] = {"LENGTH", "SWING", "GATE", "TRANSP", "SCALE", "DENSITY", "ACC %", "SLD %"};
+  static constexpr Item kItems[kKeys] = {Item::Length, Item::Swing, Item::Gate, Item::Transpose, Item::Chance, Item::Density, Item::AccPct, Item::SldPct};
+  static constexpr const char* kLabels[kKeys] = {"LENGTH", "SWING", "GATE", "TRANSP", "CHANCE", "DENSITY", "ACC %", "SLD %"};
   for (unsigned k = 0; k < kKeys; ++k) {
     CHECK(pg.entry[k].item == kItems[k]);
     CHECK(rig.controls.desc(rig.engine, pg.entry[k]) != nullptr);

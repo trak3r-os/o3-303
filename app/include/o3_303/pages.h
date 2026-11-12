@@ -60,6 +60,7 @@ enum class Item : std::uint8_t {
   GrowlOn,    // B5a: GROWL's F8: the growl heard (Mix above 0); the screen flips Mix between 0 and Wiring::growl_last_mix
   Tract,      // A1: a parameter of the tract on slot 0's insert 2 after the growl (id = its parameter id)
   TractOn,    // A1: the tract heard (Mix above 0); flips Mix between 0 and Wiring::tract_last_mix
+  Chance,     // G2: the current pattern's CHANCE, the percent of its steps that play (Pattern::chance); PATTERN SETUP's F5
 };
 
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
@@ -108,8 +109,9 @@ extern const Page kGrowlPage;
 extern const Page kTractPage;  // A2: the tract's seven knobs and F8 TRACT on / off (the first page of the Sample Play group, GROWL the second)
 extern const Page kWobblePage;
 
-// PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
-// (this pattern's), F5 SCALE, F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). SCALE lights the keyboard (and Config's KEYS: IN SCALE locks it: Wiring::keys_in_scale).
+// PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP, F5 CHANCE
+// (this pattern's), F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). The scale (it lights the keyboard, and Config's KEYS: IN SCALE locks it:
+// Wiring::keys_in_scale) is HOME's Shift + F6.
 inline constexpr unsigned kSetupPageCount = 1;
 const Page& setup_page() noexcept;
 
@@ -185,7 +187,7 @@ struct Wiring {
   bool throw_on = false;
   bool stock = false;        // the voice's Stock is on (the mirror of its parameter, for the chip of every screen): Controls::set(Item::Mods) is its one writer. Main loop only
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};  // PerfAction of Note, Instr, Vol, Fx
-  bool keys_in_scale = false;  // Config's KEYS: IN SCALE (a setting, not the project's; main loop only): the keys outside the scale on F5 are dark and do nothing. ALL (false) is the default: every key plays and writes, the scale only lights them
+  bool keys_in_scale = false;  // Config's KEYS: IN SCALE (a setting, not the project's; main loop only): the keys outside the scale (HOME's Shift + F6) are dark and do nothing. ALL (false) is the default: every key plays and writes, the scale only lights them
   SnapBank snaps;            // the eight snapshots and the morph (PERFORM's row 2; saved in the project; the screens read and write it from the main loop)
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
   std::int8_t wob_want = -1;  // B5a: the WOB latch a project load or a snapshot recall asks for (0 off, 1 on, -1 nothing): Controls::set(Item::WobOn) writes it, LiveActions::update takes it. Main loop only

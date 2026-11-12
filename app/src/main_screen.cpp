@@ -184,21 +184,14 @@ void MainScreen::input(app::Context& ctx, const Input& in) noexcept {
   }
 }
 
-// PATTERN SETUP, F5 (SCALE) held, or HOME, Shift + F5 (NOTE) held: a tap of a key of the bottom row (C to B, pads 36..47) is the generator's root, without the encoder.
+// HOME, Shift + F5 (NOTE) held: a tap of a key of the bottom row (C to B, pads 36..47) is the generator's root, without the encoder.
 // The press is the whole gesture (the key's release reaches the home map and finds no note to end); the held key's release gives the latch back.
 bool MainScreen::root_tap(app::Context& ctx, const Input& in) noexcept {
   const unsigned pad = in.pad();
   if (!in.pad_press() || pad < 36u || pad >= 48u) {
     return false;
   }
-  bool root_held = !setup_ && (tool_mask_ >> kToolNote & 1u) != 0u;  // HOME: Shift + F5 is down
-  if (setup_) {
-    const PageKeys& fk = fkeys();
-    const Page& pg = fk.page();
-    for (unsigned k = 0; k < kKeys; ++k) {
-      root_held = root_held || (pg.entry[k].item == Item::Scale && (fk.held() >> k & 1u) != 0u);
-    }
-  }
+  const bool root_held = !setup_ && (tool_mask_ >> kToolNote & 1u) != 0u;  // HOME: Shift + F5 is down (SETUP's F5 is CHANCE since G2: no root there)
   if (!root_held) {
     return false;
   }
@@ -206,9 +199,6 @@ bool MainScreen::root_tap(app::Context& ctx, const Input& in) noexcept {
   char text[12] = "ROOT ";
   (void)root_name(pad - 36u, text + 5, sizeof text - 5u);
   toast(ctx, text);
-  if (setup_) {
-    fkeys().mark_turned();
-  }
   ctx.redraw();
   return true;
 }
@@ -580,9 +570,6 @@ void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kK
       continue;
     }
     kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus() && !enc_owns();  // NOTE and SCALE took the encoder: no knob is focused
-    if (setup_ && pg.entry[k].item == Item::Scale) {  // SCALE shows its root beside the name
-      scale_value_text(rig_->wiring.gen.scale, false, kn.value, sizeof kn.value, static_cast<int>(rig_->wiring.gen.root));
-    }
     kn.held = (fk.held() >> k & 1u) != 0u;
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];

@@ -454,7 +454,7 @@ TEST_CASE("the tract line: the Bank is in the SDRAM as a plain trivial object, a
   static_assert(std::is_trivial<Pattern>::value && std::is_trivial<TractLine>::value);
   static_assert(sizeof(Pattern) - offsetof(Pattern, tract) == sizeof(TractLine));
   CHECK(sizeof(TractLine) == 68u);
-  CHECK(offsetof(Pattern, tract) == 2260u);
+  CHECK(offsetof(Pattern, tract) == 2264u);
   Bank& b = project_bank();
   b.init();
   CHECK(b.pattern(0).tract.len == kTractSame);

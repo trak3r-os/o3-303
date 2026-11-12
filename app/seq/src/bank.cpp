@@ -27,6 +27,7 @@ constexpr std::uint32_t kKeySongAppend = 0x10000000u;  // a run of appends from 
 constexpr std::uint32_t kKeyTractStep = 0x12000000u;  // | step: one step of the TRACT line
 constexpr std::uint32_t kKeyTractLen = 0x13000000u;
 constexpr std::uint32_t kKeyLength = 0x14000000u;  // LENGTH walks a step a detent (I1): a turn of the encoder is one undo step, not one a step
+constexpr std::uint32_t kKeyChance = 0x15000000u;  // CHANCE (G2): a turn of the encoder is one undo step
 constexpr std::uint32_t kKeyHold = 0x11000000u;  // | hold id: a key held while recording, the note and its ties (HomeMap)
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
@@ -242,6 +243,10 @@ bool Bank::set_swing(unsigned index, int percent) noexcept {
 
 bool Bank::set_gate(unsigned index, int percent) noexcept {
   return edit(index, [&](Pattern& p) { seq::set_gate(p, percent); }, kKeyGate);
+}
+
+bool Bank::set_chance(unsigned index, int percent) noexcept {
+  return edit(index, [&](Pattern& p) { seq::set_chance(p, percent); }, kKeyChance);
 }
 
 bool Bank::set_tract_step(unsigned index, unsigned step, std::uint8_t vowel, bool glide) noexcept {

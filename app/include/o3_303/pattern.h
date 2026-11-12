@@ -46,6 +46,9 @@ inline constexpr std::uint8_t kDefaultNote = 36;  // C2, the middle of Replicant
 
 inline constexpr std::uint8_t kMaxSwing = 66;     // percent (Replicant: 0..0.66)
 inline constexpr std::uint8_t kDefaultGate = 50;  // percent of a step (Replicant's fixed half step)
+inline constexpr std::uint8_t kDefaultChance = 100;  // percent: every step plays as its own condition says (G2, PATTERN SETUP's CHANCE)
+inline constexpr unsigned kMinChance = 1;
+inline constexpr unsigned kMaxChance = 100;
 
 // Motion: kMotionLanes lanes, four points a step. A point is the normalised value 0..254 of the lane's target (0 = the minimum of its
 // range, 254 = the maximum), kNoLock where the knob's value applies. Which parameter a lane drives is the pattern's `lanes` table.
@@ -141,6 +144,26 @@ constexpr std::uint8_t encode_cond(const Cond& c) noexcept {
 
 // true: a defined value (0, 1..99, a valid A:B, 0xC0..0xC3); false: reserved, which plays as always.
 constexpr bool cond_valid(std::uint8_t c) noexcept { return c == kCondAlways || decode_cond(c).kind != CondKind::Always; }
+
+// The condition a step plays by under its pattern's CHANCE (Pattern::chance, G2), at play time: the stored byte is never changed.
+//   chance 0 or 100 or more        the byte as it is (so a pattern at 100 % plays bit for bit as before CHANCE)
+//   no condition                   a probability of `chance` %
+//   a probability of p %           p x chance / 100, rounded down, at least 1 %
+//   a ratio, FILL, FIRST, ...      the byte as it is: they are deliberate, and CHANCE leaves them alone
+constexpr std::uint8_t effective_cond(std::uint8_t cond, unsigned chance) noexcept {
+  if (chance == 0u || chance >= kMaxChance) {
+    return cond;
+  }
+  if (cond == kCondAlways || !cond_valid(cond)) {  // a reserved byte plays as always, so it gets the chance too
+    return cond_probability(chance);
+  }
+  const Cond c = decode_cond(cond);
+  if (c.kind != CondKind::Probability) {
+    return cond;
+  }
+  const unsigned p = (static_cast<unsigned>(c.a) * chance) / 100u;
+  return cond_probability(p == 0u ? 1u : p);
+}
 
 // ---- The ratchet (Step::flags bits 4-5) ----------------------------------------------------------------------------------------------
 
@@ -253,6 +276,8 @@ struct alignas(4) Pattern {
   std::uint8_t swing;      // percent, 0..kMaxSwing
   std::int8_t transpose;   // semitones, -24..+24
   std::uint8_t gate;       // percent, 5..100
+  std::uint8_t chance;     // percent, 1..100: the chance a step plays (effective_cond); 100 = every step as its condition says. 0 and above 100 read as 100
+  std::uint8_t reserved[3];  // zero; keeps `motion` word-aligned
   std::uint8_t motion[kMotionLanes][kMaxSteps * kMotionPointsPerStep];
   LaneRef lanes[kMotionLanes];  // what each motion lane drives (kDefaultLanes in a fresh pattern)
   TractLine tract;              // the TRACT vowel line (tract_line.h); last, so a Pattern ends with it
@@ -261,10 +286,11 @@ struct alignas(4) Pattern {
 static_assert(std::is_trivial<Pattern>::value, "Pattern lives in an O3SDK_BIG array: it must stay trivial");
 static_assert(std::is_standard_layout<Pattern>::value, "Pattern's layout is read with offsetof and copied in words");
 static_assert(alignof(Pattern) >= 4 && sizeof(Pattern) % 4 == 0, "the Bank moves patterns in words: 4-byte aligned, a multiple of 4 long");
+static_assert(offsetof(Pattern, chance) == 196 && offsetof(Pattern, motion) == 200, "the PATS record is the struct byte for byte: chance and its padding come before the motion");
 static_assert(offsetof(Pattern, motion) % 4 == 0 && sizeof(Pattern::motion[0]) % 4 == 0,
               "the Bank scans each motion lane in words");
-// 2,328 bytes (2,260 of the pattern, 68 of the TRACT line); the 48 patterns of a project are about 112 KB of SDRAM (docs/M3-PLAN.md, "Memory").
-static_assert(sizeof(Pattern) <= 2328, "Pattern grew: check the project's SDRAM budget in docs/M3-PLAN.md");
+// 2,332 bytes (2,264 of the pattern, 68 of the TRACT line); the 48 patterns of a project are about 112 KB of SDRAM (docs/M3-PLAN.md, "Memory").
+static_assert(sizeof(Pattern) <= 2332, "Pattern grew: check the project's SDRAM budget in docs/M3-PLAN.md");
 
 constexpr bool valid_length(unsigned n) noexcept { return n >= kMinLength && n <= kMaxSteps; }
 
@@ -280,6 +306,8 @@ constexpr void clear(Pattern& p) noexcept {
   p.swing = 0;
   p.transpose = 0;
   p.gate = kDefaultGate;
+  p.chance = kDefaultChance;
+  p.reserved[0] = p.reserved[1] = p.reserved[2] = 0;
   for (auto& lane : p.motion) {
     for (auto& point : lane) {
       point = kNoLock;

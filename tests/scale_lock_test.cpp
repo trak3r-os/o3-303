@@ -17,7 +17,7 @@ using namespace o3_303;
 
 namespace {
 
-// PATTERN SETUP's F5 is Scale (Hands::choose_scale): 0 No scale, 1 Chromatic, 2 Minor, 3 Major ... 18 Penta Min (the default), 39. The encoder moves a
+// The scale is HOME's Shift + F6 (Hands::choose_scale): 0 No scale, 1 Chromatic, 2 Minor, 3 Major ... 18 Penta Min (the default), 39. The encoder moves a
 // place a detent (there are 40): down to the first, then up to `to`.
 void choose_scale(Hands& t, int to) { t.choose_scale(to); }
 

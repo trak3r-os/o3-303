@@ -1,5 +1,5 @@
 # PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH walks 1 to 64 a step a detent (Shift + turn jumps 8, 16, 32, 64; a longer line repeats the bar before, a shorter one cuts),
-# one gesture is one UNDO; F5 SCALE lights the keys; F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, REDO and UNDO; HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale (G1).
+# one gesture is one UNDO; F5 CHANCE is the share of the steps that play (G2); F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, REDO and UNDO; HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale (G1).
 wait 300
 tap pattern
 wait 100
@@ -22,12 +22,11 @@ tap f8
 release shift
 wait 100
 snap 04_undo_to_16
-# F5 SCALE: walk to Major (entry 3); the keyboard pads out of it go dark and the info strip says so.
+# F5 CHANCE (G2): fifty detents down from 100 is 50 %; the stored steps do not change, only how many of them play.
 tap f5
-turn -40
-turn 3
+turn -50
 wait 100
-snap 06_scale_major
+snap 06_chance_50
 # The generator's other three: DENSITY down, ACC % up, SLD % down.
 tap f6
 turn -3
@@ -82,7 +81,16 @@ snap 15_still_setup
 tap pattern
 wait 100
 snap 16_back_on_home
-# HOME with the Major lock still on, a pattern queued and a step held with a lock: the strip is full, so the scale takes its short form ("SC MAJ").
+# HOME's scale (G1): Shift + F6 gives the encoder the scale, walked down to No scale and up to Major (3); a tap of Pattern twice gives the encoder back.
+press shift
+tap f6
+release shift
+turn -40
+turn 3
+tap pattern
+tap pattern
+wait 100
+# HOME with Major still chosen, a pattern queued and a step held with a lock: the strip is full, so the scale takes its short form ("SC MAJ").
 tap play
 wait 200
 press pattern
@@ -102,12 +110,11 @@ release shift
 turn 2
 wait 100
 snap 18_home_note_root
+# A plain F key gives the encoder back; SETUP's F5 box says CHANCE with its 50 %.
 tap f5
 tap pattern
 wait 100
-tap f5
-wait 100
-snap 19_setup_scale_with_root
+snap 19_setup_chance_50
 # HOME: the keys of D Major, the root full and the other keys of the scale mid, the rest dark.
 tap pattern
 wait 200
@@ -129,17 +136,16 @@ tap right
 wait 100
 snap 23_home_f1_held_right
 release f1
-# X4: on PATTERN SETUP, F5 held and a tap of a bottom-row key sets the root (F here); the scale box says F MAJOR, HOME lights F full.
-tap pattern
-wait 100
+# X4 (G1): on HOME, Shift + F5 held and a tap of a bottom-row key sets the root (F here); HOME lights F full.
+press shift
 press f5
 wait 50
 pad 41
 wait 50
 release f5
+release shift
 wait 100
-snap 24_setup_root_by_key
-tap pattern
+snap 24_home_root_by_key
 wait 200
 snap 25_home_root_f
 # G1: SETUP's Shift + F5 REVERSE and Shift + F6 RANDOM (one UNDO step each, the toasts say so), then HOME's Shift + F6 SCALE: the encoder is the generator's scale and the strip says so.

@@ -144,6 +144,7 @@ class Bank {
   bool set_length(unsigned index, unsigned length) noexcept;
   bool set_swing(unsigned index, int percent) noexcept;
   bool set_gate(unsigned index, int percent) noexcept;
+  bool set_chance(unsigned index, int percent) noexcept;  // 1..100: the chance a step plays (G2); one undo step a gesture
   bool set_transpose(unsigned index, int semitones) noexcept;
   // The TRACT line of a pattern (tract_line.h; the page lane's accessor). Out-of-range arguments change nothing and return false. A step
   // byte is vowel | GLD (kTractFollow .. kTractU, kTractGlide). The line rides in the Pattern: copy, paste, DUP>NEXT, undo and the song

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// PATTERN SETUP (docs/UX-303.md 5.2, slice H2) end to end: a tap of Pattern opens it and a tap closes it, F1 LENGTH is one undo each way, F5 SCALE locks
-// the keyboard, F6..F8 are the generator's settings (project-wide), the Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, UNDO)
+// PATTERN SETUP (docs/UX-303.md 5.2, slice H2) end to end: a tap of Pattern opens it and a tap closes it, F1 LENGTH is one undo each way, F5 CHANCE is how many steps play,
+// F6..F8 are the generator's settings (project-wide), the Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, UNDO)
 // replaces the bridges of H1 (Pattern held + Insert / Delete), and every one of today's functions stays reachable. HOME's NOTE and SCALE (G1) are here too.
 #include <doctest/doctest.h>
 
@@ -185,15 +185,9 @@ TEST_CASE("SETUP has its own latch: HOME's stays where it was, and so does SETUP
   CHECK(t.pat().swing == 2);
 }
 
-TEST_CASE("F5 SCALE lights the keyboard and is what NEW uses; every pad still plays and writes (KEYS: ALL, S3)") {
+TEST_CASE("HOME's SCALE lights the keyboard; every pad still plays and writes (KEYS: ALL, S3)") {
   Hands t;
-  open_setup(t);
-  t.tap(Button::F5);
-  t.turn(-40);  // No scale
-  t.turn(3);    // Major
-  t.wait(40);
-  t.tap(Button::Pattern);  // HOME
-  t.wait(40);
+  t.choose_scale(3);  // Major
   CHECK(t.led(key_pad(38)) == app::kLedMid);  // D is in C major: mid
   CHECK(t.led(key_pad(36)) == app::kLedOn);   // the root (C) is full
   CHECK(t.led(key_pad(37)) == app::kLedOff);
@@ -210,13 +204,33 @@ TEST_CASE("F5 SCALE lights the keyboard and is what NEW uses; every pad still pl
   CHECK(t.pat().steps[3].note == 40);
   t.tap(Button::Rec);
   // "No scale" lights the naturals as before.
-  t.tap(Button::Pattern);
-  t.tap(Button::F5);
-  t.turn(-40);
-  t.wait(40);
-  t.tap(Button::Pattern);
-  t.wait(40);
+  t.choose_scale(0);
   CHECK(t.led(key_pad(38)) == app::kLedDim);
+}
+
+TEST_CASE("F5 CHANCE: how many steps play, per pattern, 1 to 100, one UNDO a gesture (G2)") {
+  Hands t;
+  const unsigned sel = t.selected();
+  REQUIRE(t.pat().chance == kDefaultChance);
+  bank().clear_history();
+  open_setup(t);
+  t.tap(Button::F5);
+  t.turn(-20);  // 100 down to 80 (a detent a percent)
+  CHECK(t.pat().chance == 80);
+  t.turn(-30);
+  CHECK(t.pat().chance == 50);  // the same gesture
+  t.turn(-100);
+  CHECK(t.pat().chance == kMinChance);  // no wrap, never 0
+  t.turn(100);
+  CHECK(t.pat().chance == kMaxChance);  // no wrap above
+  t.turn(-50);
+  CHECK(t.pat().chance == 50);
+  // Another pattern keeps its own.
+  CHECK(bank().pattern((sel + 1u) % 48u).chance == kDefaultChance);
+  // One gesture is one UNDO step, back to 100 (the turn that came before the pause shares the key).
+  t.shift_tap(Button::F8);
+  CHECK(t.pat().chance == kDefaultChance);
+  CHECK_FALSE(bank().can_undo());
 }
 
 TEST_CASE("F6 DENSITY, F7 ACC % and F8 SLD % are the generator's settings, for every pattern (D1)") {
@@ -354,11 +368,7 @@ TEST_CASE("REDO with nothing to redo does nothing, and the bridges of H1 are gon
 
 TEST_CASE("NOTE and the drawer rows share one encoder: a row latched before Shift + F5 gives way to NOTE, and a row latched after it takes it") {
   Hands t;
-  open_setup(t);
-  t.tap(Button::F5);
-  t.turn(-40);
-  t.turn(3);  // Major
-  t.tap(Button::Pattern);  // HOME
+  t.choose_scale(3);  // Major, back on HOME
   const auto root_on = [&](unsigned note) {
     t.wait(40);
     return t.led(key_pad(note)) == app::kLedOn;
@@ -451,11 +461,7 @@ TEST_CASE("the scale field of the info lines: the name, and its first three lett
 
 TEST_CASE("HOME with Major locked, a pattern queued and a step held with a lock draws and fits (the scale field takes its short form when the strip is full)") {
   Hands t;
-  open_setup(t);
-  t.tap(Button::F5);
-  t.turn(-40);
-  t.turn(3);  // Major
-  t.tap(Button::Pattern);
+  t.choose_scale(3);  // Major
   REQUIRE(std::strcmp(t.title(), "STEPS") == 0);
   t.tap(Button::Play);
   t.wait(200);
@@ -512,11 +518,7 @@ TEST_CASE("Master's tap latches TEMPO; leaving the screen and coming back gives 
 
 TEST_CASE("HOME's Shift + F5 NOTE gives the encoder the generator's root (C to B, no wrap); an F key gives it back; SCALE shows its root") {
   Hands t;
-  open_setup(t);
-  t.tap(Button::F5);
-  t.turn(-40);
-  t.turn(3);  // Major
-  t.tap(Button::Pattern);  // HOME
+  t.choose_scale(3);  // Major, back on HOME
   // The root is read off the keys of HOME: the root's pad is full, the others of the scale mid.
   const auto root_on = [&](unsigned note) {
     t.wait(40);
@@ -589,49 +591,47 @@ TEST_CASE("HOME's Shift + F6 SCALE gives the encoder the generator's scale (no w
   CHECK(t.led(key_pad(50)) == app::kLedOn);  // the root stayed
 }
 
-TEST_CASE("PATTERN SETUP: F5 held and a tap of a bottom-row key sets the root, and so does HOME's Shift + F5 held; without them the key is no root (X4, G1)") {
+TEST_CASE("HOME: Shift + F5 held and a tap of a bottom-row key sets the root; SETUP's F5 is CHANCE and sets none; without them the key is no root (X4, G1, G2)") {
   Hands t;
-  open_setup(t);
-  t.tap(Button::F5);
-  t.turn(-40);
-  t.turn(3);  // Major: the keyboard is locked, so the root shows on the pads
+  t.choose_scale(3);  // Major: the keyboard shows the root on the pads
   const auto root_on = [&](unsigned note) {
-    t.tap(Button::Pattern);  // HOME
     t.wait(40);
-    const bool on = t.led(key_pad(note)) == app::kLedOn;
-    t.tap(Button::Pattern);  // back to SETUP
-    t.wait(40);
-    return on;
+    return t.led(key_pad(note)) == app::kLedOn;
   };
   REQUIRE(root_on(36));  // C by default
+  t.press(Button::Shift);
   t.press(Button::F5);
   t.pad(key_pad(39));  // D#
   t.release(Button::F5);
-  t.wait(40);
+  t.release(Button::Shift);
   CHECK(root_on(39));
   CHECK(!root_on(36));
+  t.press(Button::Shift);
   t.press(Button::F5);
   t.pad(key_pad(47));  // B: the last key of the row
   t.release(Button::F5);
-  t.wait(40);
+  t.release(Button::Shift);
   CHECK(root_on(47));
   t.pad(key_pad(38));  // no F key held: a key of the keyboard, not a root
   CHECK(root_on(47));
+  t.press(Button::Shift);
   t.press(Button::F5);
   t.pad(key_pad(52));  // a key of the row above: not one of the twelve
   t.release(Button::F5);
-  t.wait(40);
+  t.release(Button::Shift);
   CHECK(root_on(47));
   t.press(Button::F1);  // another F key held: no root either
   t.pad(key_pad(40));
   t.release(Button::F1);
-  t.wait(40);
   CHECK(root_on(47));
-  // The tap left F5 as it found it: the encoder is SCALE's (one more scale: the root stays).
-  t.turn(1);
-  CHECK(root_on(47));
-  // HOME: Shift + F5 held and a tap of a bottom-row key is the root too (G1), and the encoder stays NOTE's.
+  // PATTERN SETUP: F5 is CHANCE (G2); held with a key it sets no root.
+  open_setup(t);
+  t.press(Button::F5);
+  t.pad(key_pad(41));
+  t.release(Button::F5);
   t.tap(Button::Pattern);  // HOME
+  CHECK(root_on(47));
+  // The encoder is the knob's again (the one more scale and the root stay): Shift + F5 held and F is the root, the encoder stays NOTE's.
   t.press(Button::Shift);
   t.press(Button::F5);
   t.pad(key_pad(41));  // F

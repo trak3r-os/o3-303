@@ -714,6 +714,55 @@ TEST_CASE("probability: only steps with a probability draw, so other steps and c
   CHECK(fraction(base) < 1.0);
 }
 
+TEST_CASE("chance: effective_cond is the identity at 100 and a probability under it; ratios, FILL and FIRST are left alone (G2)") {
+  for (const unsigned c : {0u, 100u, 101u, 255u}) {
+    for (const unsigned cond : {0u, 1u, 50u, 99u, 0x80u, 0xBFu, 0xC0u, 0xC3u, 0xF0u}) {
+      CHECK(effective_cond(static_cast<std::uint8_t>(cond), c) == cond);
+    }
+  }
+  CHECK(effective_cond(kCondAlways, 50) == cond_probability(50));
+  CHECK(effective_cond(kCondAlways, 1) == cond_probability(1));
+  CHECK(effective_cond(0xF0, 30) == cond_probability(30));  // a reserved byte plays as always
+  CHECK(effective_cond(cond_probability(50), 50) == cond_probability(25));  // the two multiply
+  CHECK(effective_cond(cond_probability(10), 5) == cond_probability(1));    // never rounded to 0 (a step that never plays)
+  CHECK(effective_cond(cond_ratio(1, 2), 10) == cond_ratio(1, 2));
+  CHECK(effective_cond(kCondFill, 10) == kCondFill);
+  CHECK(effective_cond(kCondNotFill, 10) == kCondNotFill);
+  CHECK(effective_cond(kCondFirst, 10) == kCondFirst);
+  CHECK(effective_cond(kCondNotFirst, 10) == kCondNotFirst);
+}
+
+TEST_CASE("chance: a pattern at 100 plays bit for bit as before; at 50 about half of its steps play, reproducibly; the stored conditions stay") {
+  Pattern p = play_all(16);
+  const auto full = outcomes(p, 40, 0, false);
+  CHECK(fraction(full) == 1.0);
+  p.chance = 50;
+  const auto a = outcomes(p, 40, 0, false);
+  const auto b = outcomes(p, 40, 0, false);
+  CHECK(a == b);
+  const double f = fraction(a);  // 640 draws
+  CHECK(f > 0.43);
+  CHECK(f < 0.57);
+  for (unsigned j = 0; j < 16; ++j) {
+    CHECK(p.steps[j].cond == kCondAlways);  // the byte is not rewritten
+  }
+  // Stacked on a probability: 50 % of 50 % is about a quarter.
+  for (unsigned j = 0; j < 16; ++j) {
+    p.steps[j].cond = cond_probability(50);
+  }
+  const double q = fraction(outcomes(p, 40, 0, false));
+  CHECK(q > 0.18);
+  CHECK(q < 0.32);
+  // A pattern at 100 with a probability plays exactly as it did without the field.
+  Pattern r = play_all(16);
+  for (unsigned j = 0; j < 16; ++j) {
+    r.steps[j].cond = cond_probability(50);
+  }
+  Pattern r2 = r;
+  r2.chance = 100;
+  CHECK(outcomes(r, 30, 0, false) == outcomes(r2, 30, 0, false));
+}
+
 TEST_CASE("a condition that does not pass makes the step a rest: the held note ends at its start and the slide is over") {
   const std::uint32_t tempo = 300'000;
   Rig rig;

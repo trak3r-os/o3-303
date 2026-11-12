@@ -1,14 +1,16 @@
-# The scale on the keyboard (docs/M3B-PLAN.md R8, S3 of docs/REVIEW-303.md): the scale on PATTERN SETUP's F5 always lights the keys (the scale mid, the root full, the others
+# The scale on the keyboard (docs/M3B-PLAN.md R8, S3 of docs/REVIEW-303.md): the scale (HOME's Shift + F6, the encoder walks it) always lights the keys (the scale mid, the root full, the others
 # dark) and every key plays and writes. Config's KEYS: IN SCALE (the last row of page 303) brings the lock back: the dark keys do nothing.
 wait 300
 snap 01_penta_boot
-# SETUP: F5 is Scale; walk to the first entry (No scale) and up to Major (3).
-tap pattern
-tap f5
+# HOME: Shift + F6 is Scale; walk to the first entry (No scale) and up to Major (3). Two taps of Pattern (SETUP and back) give the encoder back to the knob.
+press shift
+tap f6
+release shift
 turn -40
 turn 3
 wait 100
 snap 02_major_chosen
+tap pattern
 tap pattern
 wait 100
 snap 03_c_major_keyboard
@@ -22,17 +24,21 @@ wait 100
 snap 04_rec_every_key
 tap rec
 # C minor pentatonic: Penta Min is entry 18.
-tap pattern
-tap f5
+press shift
+tap f6
+release shift
 turn -40
 turn 18
+tap pattern
 tap pattern
 wait 100
 snap 05_penta_minor
 # No scale (0) unlocks it again.
-tap pattern
-tap f5
+press shift
+tap f6
+release shift
 turn -40
+tap pattern
 tap pattern
 wait 100
 snap 06_no_scale
@@ -49,10 +55,12 @@ snap 07_config_keys_row
 tap f1
 tap config
 wait 100
-tap pattern
-tap f5
+press shift
+tap f6
+release shift
 turn -40
 turn 3
+tap pattern
 tap pattern
 wait 100
 snap 08_c_major_locked

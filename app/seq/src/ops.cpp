@@ -430,6 +430,10 @@ void set_gate(Pattern& p, int percent_) noexcept {
   p.gate = static_cast<std::uint8_t>(percent_ < 5 ? 5 : (percent_ > 100 ? 100 : percent_));
 }
 
+void set_chance(Pattern& p, int percent_) noexcept {
+  p.chance = static_cast<std::uint8_t>(percent_ < static_cast<int>(kMinChance) ? static_cast<int>(kMinChance) : (percent_ > static_cast<int>(kMaxChance) ? static_cast<int>(kMaxChance) : percent_));
+}
+
 void set_transpose(Pattern& p, int semitones) noexcept {
   p.transpose = static_cast<std::int8_t>(semitones < -24 ? -24 : (semitones > 24 ? 24 : semitones));
 }

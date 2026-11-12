@@ -9,7 +9,7 @@
 //   KEYS AT BOOT  this object; TRNSP is set from it while the boot window is open (the kit's boot read), and only then: a later change is the next boot's
 //   LADDER SLEW   LiveActions::ladder_slew_ms (HOME's and PERFORM's ladder taps)
 //   PAD LEGEND    frame::pad_legend (the PADS line's text on every screen)
-//   KEYS          Wiring::keys_in_scale (a setting, not the project's: ALL by default, IN SCALE locks the keys to the scale on F5)
+//   KEYS          Wiring::keys_in_scale (a setting, not the project's: ALL by default, IN SCALE locks the keys to the scale, HOME's Shift + F6)
 //   SKIN          skin::on (skin/skin.h): the obsidian look of the screens that have one; OBSIDIAN by default (SK8)
 // No value of this page is sound: the project is the only owner of the sound. The page DEEP (FMT MIX, CMB TUNE, CMB FB, WOB RESET, DLY MODE: keys 20..24) was retired on 2026-11-01 (docs/MODS-PLAN.md 7):
 // the growl's and the wobble's are keys of GROWL and WOBBLE, DLY MODE is MASTER's F5. A settings file that still holds them loads with them dropped (the kit drops a value of an item the app no longer

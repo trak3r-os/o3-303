@@ -1015,7 +1015,8 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
     draw_valid_ = false;  // a draw kept for a step that did not come (the look-ahead of a step that was cut short)
   }
   bool rest = (s.flags & kStepRest) != 0u || mute;
-  if (!rest && s.cond != kCondAlways && !cond_passes(s.cond, j, pass_, false)) {
+  const std::uint8_t cond = effective_cond(s.cond, pat.chance);  // the pattern's CHANCE (G2); at 100 % the stored byte, no draw added
+  if (!rest && cond != kCondAlways && !cond_passes(cond, j, pass_, false)) {
     rest = true;  // the trig condition did not pass: the step does not play
   }
   const bool tie = (s.flags & kStepTie) != 0u && !rest;
@@ -1034,7 +1035,8 @@ void Sequencer::start_step(dsp::BlockContext& ctx, unsigned frame) noexcept {
     const unsigned after = j + 1u < n ? j + 1u : 0u;
     const Step& next = pat.steps[after];
     if ((next.flags & kStepTie) != 0u && (next.flags & kStepRest) == 0u && !mute) {
-      tie_follows = next.cond == kCondAlways || cond_passes(next.cond, after, after == 0u ? pass_ + 1u : pass_, true);
+      const std::uint8_t next_cond = effective_cond(next.cond, pat.chance);
+      tie_follows = next_cond == kCondAlways || cond_passes(next_cond, after, after == 0u ? pass_ + 1u : pass_, true);
     }
   }
   const bool hold = slide || tie_follows;
