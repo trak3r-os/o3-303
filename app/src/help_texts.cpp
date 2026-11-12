@@ -196,6 +196,14 @@ constexpr const char* kVowelPads[] = {"A", "E", "I", "O", "U"};
 constexpr const char* kPalettePads[] = {"A", "E", "I", "O", "U", "-"};
 constexpr const char* kGldLinePads[] = {"GLD", "LINE"};
 
+// The WOBBLE page (E2c): the home map's steps and modifiers on rows 1 and 2, PERFORM's wobble rates on row 3, the keys on row 4.
+constexpr HelpPadGroup kWobblePageGroups[] = {
+    kHomeGroups[0],
+    kHomeGroups[1],
+    {"WOBBLE", "RUNS THE WOBBLE AT THAT RATE. SHIFT: LATCH", Color::Fx},
+    kHomeGroups[2],
+};
+
 constexpr HelpPadGroup kPerformGroups[] = {
     {"LINE + TONE", "HOLD A PAD FOR ITS ACTION. SHIFT: LATCH", Color::Accent},
     {"ALL OFF", "LETS EVERY LATCHED ACTION GO", Color::Rec},
@@ -600,6 +608,22 @@ void fill_tract_steps_pads(Help& h) noexcept {
   app::help_pads(h, 3, 0, 3, 4, 4, kVowelPads);
   h.groups = kTractStepsGroups;
   h.group_count = count_of(sizeof kTractStepsGroups / sizeof kTractStepsGroups[0]);
+}
+
+void fill_wobble_pads(Help& h) noexcept {
+  for (unsigned c = 0; c < app::kPadCols; ++c) {  // row 3: the rates, the twelfth pad does nothing
+    const unsigned pad = app::pad_at(2, c);
+    h.pad_group[pad] = c < kWobblePadCount ? 3 : 0;
+    h.pad_label[pad] = c < kWobblePadCount ? kWobbleLabels[c] : nullptr;
+  }
+  for (unsigned c = 0; c < app::kPadCols; ++c) {  // row 4: the home map's keys keep their labels, in the fourth group
+    const unsigned pad = app::pad_at(3, c);
+    if (h.pad_group[pad] != 0) {
+      h.pad_group[pad] = 4;
+    }
+  }
+  h.groups = kWobblePageGroups;
+  h.group_count = count_of(sizeof kWobblePageGroups / sizeof kWobblePageGroups[0]);
 }
 
 void fill_perform_pads(Help& h, bool knobs, bool setup) noexcept {

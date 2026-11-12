@@ -437,7 +437,7 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
-    check_screen(h, Id::Wobble, page_mask(inst->page_table()), kAllPads, "WOBBLE");
+    check_screen(h, Id::Wobble, page_mask(inst->page_table()), kAllPads - (std::uint64_t{1} << 35), "WOBBLE");  // E2c: row 3 is the wobble rates; its twelfth pad is dark
   }
   tap(h, app::Button::Master);
   check_screen(h, Id::Master, 0x1Fu, kAllPads, "MASTER");  // the knob row of MASTER: F1 TEMPO, F2 TAP, F3 NUDGE, F4 MASTER, F5 DLY MODE (master_screen.cpp kPage and the two action boxes)

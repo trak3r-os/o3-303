@@ -508,6 +508,7 @@ void InstrumentScreen::init(Rig& rig, HomeMap& home, const InstrumentGroup& grou
   live_held_ = 0;
   live_override_ = false;
   live_saved_ = 0.0f;
+  wob_held_ = 0;
 }
 
 void InstrumentScreen::release_keys() noexcept {
@@ -569,6 +570,9 @@ void InstrumentScreen::update(app::Context& ctx) noexcept {
   if (learn_armed_ && (!ctx.midi().learning() || learn_page_ != page_)) {
     learn_drop(ctx);  // a controller bound it (the kit said so), or the page changed under it
   }
+  if (!wobble_page()) {  // only the WOBBLE page holds rate pads
+    wobble_end(ctx);
+  }
   if (!tract_page()) {  // only the TRACT screen holds live vowels and steps: any other ends them
     live_end(ctx);
     for (int& h : held_step_) {
@@ -605,6 +609,15 @@ void InstrumentScreen::pad_input(app::Context& ctx, const Input& in) noexcept {
   if (in.pad_release()) {
     if (!pad_up(ctx, in.pad())) {
       (void)home_->input(ctx, in);
+    }
+    return;
+  }
+  if (wobble_page() && !home_->overlay() && in.pad_press() && in.pad() < app::kPadCount && app::pad_row(in.pad()) == 2u) {
+    const unsigned c = app::pad_col(in.pad());  // E2c: row 3 is PERFORM's wobble rates (a hold, Shift latches); the twelfth pad and the upper octave of keys are gone
+    if (c < kWobblePadCount) {
+      wob_held_ = static_cast<std::uint16_t>(wob_held_ | (1u << c));
+      live_->wobble_press(ctx, c, in.shift);
+      ctx.redraw();
     }
     return;
   }
@@ -829,6 +842,12 @@ bool InstrumentScreen::pad_up(app::Context& ctx, unsigned pad) noexcept {
     return true;
   }
   const unsigned col = app::pad_col(pad);
+  if (app::pad_row(pad) == 2u && col < kWobblePadCount && ((wob_held_ >> col) & 1u) != 0u) {
+    wob_held_ = static_cast<std::uint16_t>(wob_held_ & ~(1u << col));
+    live_->wobble_release(ctx, col);
+    ctx.redraw();
+    return true;
+  }
   if (app::pad_row(pad) == 3u && col < kTractVowelCount && ((live_held_ >> col) & 1u) != 0u) {
     live_held_ &= ~(1u << col);
     if (live_held_ == 0u) {
@@ -1093,6 +1112,17 @@ void InstrumentScreen::learn_drop(app::Context& ctx) noexcept {
 void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
   if (!tract_page() || home_->overlay()) {
     home_->leds(ctx, leds);
+    if (wobble_page() && !home_->overlay()) {  // E2c: row 3 is the wobble's rates, as PERFORM shows them (the one that runs at full level, the pads held or latched too)
+      const int now = rig_->seq->wobble_rate_now();
+      for (unsigned c = 0; c < app::kPadCols; ++c) {
+        if (c >= kWobblePadCount) {
+          leds.set(2u, c, app::kLedOff);
+          continue;
+        }
+        const bool active = (live_->wobble_pads().active() >> c & 1u) != 0u;
+        leds.set(2u, c, active || (live_->wobble_on() && static_cast<int>(kWobblePadRates[c]) == now) ? app::kLedOn : app::kLedDim);
+      }
+    }
     return;
   }
   leds.clear();
@@ -1158,6 +1188,17 @@ void InstrumentScreen::palette_leds(app::Context& ctx, app::PadLeds& leds, std::
 
 bool InstrumentScreen::tract_page() const noexcept { return group_ == &kTractGroup; }
 
+bool InstrumentScreen::wobble_page() const noexcept { return group_ == &kWobbleGroup; }
+
+void InstrumentScreen::wobble_end(app::Context& ctx) noexcept {
+  for (unsigned c = 0; c < kWobblePadCount; ++c) {
+    if (((wob_held_ >> c) & 1u) != 0u) {
+      live_->wobble_release(ctx, c);
+    }
+  }
+  wob_held_ = 0;
+}
+
 // HELP: the page's texts, LEARN on the keys of the Shift row that soft_keys() labels so (learn_target(): the unit's own parameters), and the home map's pads.
 void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
   (void)ctx;
@@ -1180,6 +1221,9 @@ void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcep
     return;
   }
   home_->help_pads(h);
+  if (wobble_page()) {
+    help_texts::fill_wobble_pads(h);  // E2c: row 3 the rates, row 4 the keys
+  }
 }
 
 // ---- The view -----------------------------------------------------------------------------------------------------------------
@@ -1202,6 +1246,10 @@ void InstrumentScreen::pads_line(app::Context& ctx, char* out, unsigned cap) con
     cut(line_layer_ ? "ROWS 1-2 LINE STEPS . ROW 3 A E I O U - GLD LINE . ROW 4 LIVE VOWELS"
                     : "ROWS 1-2 PATTERN STEPS . ROW 3 A E I O U - GLD LINE . ROW 4 LIVE VOWELS . HOLD A STEP, TURN F1-F3",
         cap - 1u, out, cap);
+    return;
+  }
+  if (wobble_page() && !home_->overlay()) {
+    cut("ROWS 1-2 PATTERN STEPS . ROW 3 WOBBLE RATES: HOLD, SHIFT LATCHES . ROW 4 KEYS", cap - 1u, out, cap);
     return;
   }
   home_->pads_line(ctx, out, cap);

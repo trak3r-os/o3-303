@@ -749,3 +749,66 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   fill_sections(e, c, false, tract_group(), 1, v);
   CHECK(v.sections == 0);
 }
+
+// E2c: the WOBBLE page's row 3 is PERFORM's wobble rates (kWobblePadRates); rows 1 and 2 stay the home map's, row 4 the keys.
+TEST_CASE("WOBBLE row 3 (E2c): a pad runs the wobble at its rate while held, Shift latches, the twelfth pad does nothing, row 4 still plays keys, the page leaving ends a held pad") {
+  Hands t;
+  seq::Sequencer& sq = app_sequencer();
+  t.to_wobble();
+  t.wait(60);
+  REQUIRE(is_title(t, "WOBBLE"));
+  CHECK_FALSE(sq.wobble().on);
+  CHECK(sq.wobble_rate_now() == seq::kWobbleRateNone);
+  const unsigned p0 = app::pad_at(2, 0);
+  const unsigned p9 = app::pad_at(2, 9);
+  t.down(p0);  // 1/4
+  t.wait(40);
+  CHECK(sq.wobble().on);
+  CHECK(sq.wobble_rate_now() == seq::kWobble1_4);
+  t.wait(100);
+  CHECK(t.led(p0) == app::kLedOn);
+  CHECK(t.led(app::pad_at(2, 1)) == app::kLedDim);
+  CHECK(t.led(app::pad_at(2, 11)) == app::kLedOff);
+  t.down(p9);  // 1/2 on top
+  t.wait(30);
+  CHECK(sq.wobble_rate_now() == seq::kWobble1_2);
+  t.up(p9);  // the one below takes over
+  t.wait(30);
+  CHECK(sq.wobble_rate_now() == seq::kWobble1_4);
+  t.up(p0);
+  t.wait(30);
+  CHECK_FALSE(sq.wobble().on);
+  // The twelfth pad of row 3 does nothing.
+  t.down(app::pad_at(2, 11));
+  t.wait(30);
+  CHECK_FALSE(sq.wobble().on);
+  t.up(app::pad_at(2, 11));
+  // Shift latches; a tap on the latched pad lets it go.
+  t.press(Button::Shift);
+  t.pad(app::pad_at(2, 2), 10);  // 1/16
+  t.release(Button::Shift);
+  t.wait(30);
+  CHECK(sq.wobble().on);
+  CHECK(sq.wobble_rate_now() == seq::kWobble1_16);
+  t.pad(app::pad_at(2, 2), 10);
+  t.wait(30);
+  CHECK_FALSE(sq.wobble().on);
+  // A pad held when the page is left lets go (nothing is stuck on).
+  t.down(p0);
+  t.wait(30);
+  CHECK(sq.wobble().on);
+  t.to_growl();
+  t.wait(60);
+  CHECK_FALSE(sq.wobble().on);
+  t.up(p0);
+  t.wait(30);
+  CHECK_FALSE(sq.wobble().on);
+  // Row 4 plays the voice (a key lights while held).
+  t.to_wobble();
+  t.wait(60);
+  t.down(app::pad_at(3, 4));
+  t.wait(100);
+  CHECK(t.led(app::pad_at(3, 4)) == app::kLedOn);
+  CHECK_FALSE(sq.wobble().on);
+  t.up(app::pad_at(3, 4));
+}

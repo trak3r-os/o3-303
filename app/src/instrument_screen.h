@@ -125,6 +125,8 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void learn_drop(o3sdk::app::Context& ctx) noexcept;
   void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   bool tract_page() const noexcept;  // the TRACT screen (Sample Editor): the pads are the TRACT line, its palette and the live vowels
+  bool wobble_page() const noexcept;  // the WOBBLE screen: row 3 of the pads is the wobble's rates (PERFORM's row 3, E2c), row 4 the keys
+  void wobble_end(o3sdk::app::Context& ctx) noexcept;  // the rate pads this screen holds let go (the page is left)
   // ---- the TRACT page's pads (A2; TRACT-KNOBS-PLAN 11.4 and 11.6). Main loop only. The line is the selected pattern's (Bank::tract_line); its steps are shown 24 a page on rows 0 and 1.
   static constexpr unsigned kLinePage = 24;                // the line's steps on the pads of a page (pad n of rows 0 and 1 is step page * 24 + n)
   unsigned line_len() const noexcept;                      // the steps the selected pattern's line runs (its own length, else the pattern's)
@@ -175,6 +177,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   std::uint32_t live_held_ = 0;             // the live vowels down (bit n = vowel n of the bottom row)
   bool live_override_ = false;              // a live pad holds the mouth over a playing line (kPerfTractLive is set): its release gives the line back
   float live_saved_ = 0.0f;                 // the VOWEL knob before the override: the "-" steps' base comes back with the line
+  std::uint16_t wob_held_ = 0;              // the WOBBLE page's rate pads down (bit c = column c of row 3); the latches are LiveActions'
 };
 
 }  // namespace o3_303
