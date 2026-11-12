@@ -1538,18 +1538,21 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip; a damaged ro
   Wiring& w = a.rig.wiring;
   w.knob_sets.row[1][0] = LaneRef{kLaneGrowl, Growl::Mix};  // set 2, row 1 re-pointed
   w.knob_sets.row[3][3] = LaneRef{kLaneDelay, 1};           // set 4, row 4 re-pointed
-  knob_set_use(w, 2);                                       // set 3 in use
+  w.knob_sets.row[kKnobSetTract][1] = LaneRef{kLaneTract, TractFx::Mix};  // F1: the TRACT set (index 4), row 2 re-pointed
+  knob_set_use(w, kKnobSetTract);                           // the TRACT set in use: saved as index 4
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
   REQUIRE(load(img, s).status == project::Status::Ok);
-  CHECK(s.knob_set == 2);
+  CHECK(s.knob_set == kKnobSetTract);
+  CHECK(s.sets.row[kKnobSetTract][1].id == TractFx::Mix);
+  CHECK(s.sets.row[kKnobSetTract][0].id == TractFx::Vowel);
   CHECK(s.sets.row[1][0].target == kLaneGrowl);
   CHECK(s.sets.row[1][0].id == Growl::Mix);
   CHECK(s.sets.row[3][3].target == kLaneDelay);
   CHECK(s.sets.row[3][3].id == 1);
   Session b;
   REQUIRE(project::apply(b.rig, b.engine, s));
-  CHECK(b.rig.wiring.knob_set == 2);
+  CHECK(b.rig.wiring.knob_set == kKnobSetTract);
   for (unsigned set = 0; set < kKnobSets; ++set) {
     for (unsigned pos = 0; pos < kKnobsPerSet; ++pos) {
       CHECK(b.rig.wiring.knob_sets.row[set][pos].target == w.knob_sets.row[set][pos].target);
@@ -1557,12 +1560,13 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip; a damaged ro
     }
   }
   for (unsigned r = 0; r < kLadderRows; ++r) {  // the live rows are the set in use's
-    const LaneRef want = b.rig.wiring.knob_sets.row[2][knob_row_pos(r)];
+    const LaneRef want = b.rig.wiring.knob_sets.row[kKnobSetTract][knob_row_pos(r)];
     CHECK(b.rig.wiring.ladder[r].target == want.target);
     CHECK(b.rig.wiring.ladder[r].id == want.id);
   }
   CHECK(!knob_set_is_factory(b.rig.wiring, 1));
   CHECK(knob_set_is_factory(b.rig.wiring, 2));
+  CHECK(!knob_set_is_factory(b.rig.wiring, kKnobSetTract));
 
   // A damaged row (a target past the table, then the voice's Stock) and a set in use past the last: the factory knob, and set 1.
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {

@@ -6,6 +6,7 @@
 #include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3_303/units/distortion/distortion.h>
 #include <o3_303/units/growl/growl.h>
+#include <o3_303/units/tract/tract.h>
 #include <o3sdk/core/param.h>
 #include <o3sdk/units/delay/delay.h>
 
@@ -18,6 +19,7 @@ static_assert(AcidVoice::Cutoff == 0 && AcidVoice::Reso == 1 && AcidVoice::EnvMo
                   AcidVoice::FilterFm == 13 && AcidVoice::Overdrive == 17,
               "kKnobFactory's voice ids");
 static_assert(Growl::Vowel == 0 && Growl::FormantQ == 1 && Growl::CombTune == 3 && Growl::Mix == 7, "kKnobFactory's growl ids");
+static_assert(TractFx::Vowel == 0 && TractFx::Tongue == 1 && TractFx::Lips == 2 && TractFx::Mix == 6, "kKnobFactory's tract ids");
 static_assert(Distortion::Drive == 2 && o3sdk::units::Delay::Time == 0 && o3sdk::units::Delay::Feedback == 1, "kKnobFactory's distortion and delay ids");
 
 namespace {
@@ -179,7 +181,7 @@ void knob_set_factory(Wiring& wiring, unsigned set) noexcept {
 }
 
 const char* knob_set_name(unsigned set) noexcept {
-  static constexpr const char* kNames[kKnobSets] = {"FILTER", "MODDED", "GROWL", "WOBBLE"};
+  static constexpr const char* kNames[kKnobSets] = {"FILTER", "MODDED", "GROWL", "WOBBLE", "TRACT"};
   return set < kKnobSets ? kNames[set] : "";
 }
 

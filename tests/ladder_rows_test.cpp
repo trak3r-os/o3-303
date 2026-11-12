@@ -13,6 +13,7 @@
 #include <o3_303/app_access.h>
 #include <o3_303/seq/ops.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/tract/tract.h>
 
 #include <cstring>
 
@@ -446,7 +447,16 @@ TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the 
   }
   CHECK(std::strcmp(knob_set_name(0), "FILTER") == 0);
   CHECK(std::strcmp(knob_set_name(3), "WOBBLE") == 0);
+  CHECK(std::strcmp(knob_set_name(kKnobSetTract), "TRACT") == 0);  // F1: the fifth set, reached by F3's second tap
   CHECK(std::strlen(knob_set_name(kKnobSets)) == 0u);
+  knob_set_use(w, kKnobSetTract);
+  CHECK(w.knob_set == kKnobSetTract);
+  CHECK(w.ladder[kLadderKnobs1].target == kLaneTract);
+  CHECK(w.ladder[kLadderKnobs1].id == TractFx::Vowel);
+  CHECK(w.ladder[kLadderKnobs2].id == TractFx::Tongue);
+  CHECK(w.ladder[kLadderHome3].id == TractFx::Lips);
+  CHECK(w.ladder[kLadderHome4].id == TractFx::Mix);
+  knob_set_use(w, 0);
   // Set 2 (MODDED): ACC DECAY, SLIDE, OVERDRIVE, FILTER FM.
   knob_set_use(w, 1);
   CHECK(w.knob_set == 1u);

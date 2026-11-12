@@ -139,11 +139,15 @@ enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderKnobs1 
 // voice ids 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay
 inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneVoice, 2}, {kLaneVoice, 3}};
 
-// KNOBS' four live sets (KN3, REVIEW-KNOBS Q3-A): each set is four rows (top to bottom: KNOBS' rows 1 and 2, then HOME's FILT rows 3 and 4), each row a knob stored as its lane
+// KNOBS' five live sets (KN3, REVIEW-KNOBS Q3-A): each set is four rows (top to bottom: KNOBS' rows 1 and 2, then HOME's FILT rows 3 and 4), each row a knob stored as its lane
 // target and parameter. Set 1 is the four rows the PERF chunk always had; the others are factory-filled and the player re-points any row of any set. The ids below are the units'
 // parameter ids (ladder_rows.cpp static_asserts them): voice 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay, 8 Acc Decay, 10 Slide, 13 Filter FM, 17 Overdrive; growl 0 Vowel, 1 Fmt Q, 3 Cmb Tune,
 // 7 Mix; distortion 2 Drive; delay 0 Time, 1 Feedback; mixer send A.
-inline constexpr unsigned kKnobSets = 4;
+inline constexpr unsigned kKnobSets = 5;
+// F1 PERFORM KNOBS' set index 4 is TRACT: it has no F key of its own, a tap on F3 while F3's set is in use flips GROWL (set index 2) and TRACT (F1, docs/PADS-TRACT-PLAN.md F).
+inline constexpr unsigned kKnobSetGrowl = 2;
+inline constexpr unsigned kKnobSetTract = 4;
+inline constexpr unsigned kKnobSetsOnKeys = 4;  // F1..F4: a set per key (TRACT shares F3)
 inline constexpr unsigned kKnobsPerSet = 4;
 struct KnobSets {
   LaneRef row[kKnobSets][kKnobsPerSet];
@@ -169,6 +173,7 @@ inline constexpr KnobSets kKnobFactory = {{
     {{kLaneVoice, 8}, {kLaneVoice, 10}, {kLaneVoice, 17}, {kLaneVoice, 13}},   // 2 MODDED: ACC DECAY, SLIDE, OVERDRIVE, FILTER FM
     {{kLaneGrowl, 0}, {kLaneGrowl, 1}, {kLaneGrowl, 3}, {kLaneGrowl, 7}},      // 3 GROWL: VOWEL, FMT Q, CMB TUNE, GRL MIX
     {{kRowWobRate, 0}, {kRowWobDepth, 0}, {kLaneDist, 2}, {kLaneMixer, kMixerSendA}},  // 4 WOBBLE: WOB RATE, WOB DEPTH, DRIVE, DLY SEND (KN4; set 4 was FX before)
+    {{kLaneTract, 0}, {kLaneTract, 1}, {kLaneTract, 2}, {kLaneTract, 6}},      // 5 TRACT (F1, on F3's second tap): VOWEL, TONGUE, LIPS, TRC MIX
 }};
 
 struct Wiring {

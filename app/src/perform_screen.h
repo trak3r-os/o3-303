@@ -97,7 +97,8 @@ class PerformScreen final : public o3sdk::app::Screen {
   void ladder_press(o3sdk::app::Context& ctx, unsigned col) noexcept;
   void knobs_press(o3sdk::app::Context& ctx, unsigned row, unsigned col) noexcept;  // KNOBS: a tap on place `col` of row `row` (0..3); the encoder goes to that row's knob (Q1-A)
   void knobs_shift_key(o3sdk::app::Context& ctx, unsigned k) noexcept;              // KNOBS with Shift: F1..F4 put set 1..4 back to its factory knobs, F7 REDO, F8 UNDO
-  void knobs_set(o3sdk::app::Context& ctx, unsigned set) noexcept;                  // KNOBS: F1..F4 make a set the one in use
+  void knobs_set(o3sdk::app::Context& ctx, unsigned set) noexcept;                  // KNOBS: make a set the one in use (set index 0..4)
+  unsigned key_set(unsigned k) const noexcept { return k == 2u ? f3_set_ : k; }       // the set F key `k` (0..3) stands for: F3 is GROWL or TRACT, whichever is up (F1)
   bool knobs_repoint(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;  // KNOBS: a row's F key held and Up / Down (Shift: a family): the row's next knob; true when taken
   void sync_knobs() noexcept;                                                         // KNOBS' key page follows the four rows (after any change of the rows or the set)
   void knobs_toast(o3sdk::app::Context& ctx, unsigned row, const char* family, const char* knob) noexcept;
@@ -137,6 +138,7 @@ class PerformScreen final : public o3sdk::app::Screen {
   // KNOBS' keys (KN3): a one-page table of its own that sync_knobs() fills (F1..F4 blank: the screen does the set keys; F5..F8 the four rows' knobs), with a latch of its own (F5 at the start)
   Page knobs_page_ = {"KNOBS", {}};
   PageKeys knobs_keys_;
+  unsigned f3_set_ = kKnobSetGrowl;  // F1: the set F3 shows and selects, GROWL (2) or TRACT (4); it follows the set in use when that is one of them (sync_knobs). Main loop only
   std::uint64_t perf_down_ = 0;      // the pads pressed under PERFORM's roles (a release ends what the press began, whatever page the release finds)
   bool morph_ = false;
   int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)

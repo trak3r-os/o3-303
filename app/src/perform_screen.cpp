@@ -163,6 +163,9 @@ void PerformScreen::enter(app::Context& ctx) noexcept {
 
 // KNOBS' F5..F8 are the four rows' knobs (the rows of the set in use); the page follows whatever changed them (a set, a re-pointed row, a project, HOME's FILT rows).
 void PerformScreen::sync_knobs() noexcept {
+  if (rig_->wiring.knob_set == kKnobSetGrowl || rig_->wiring.knob_set == kKnobSetTract) {
+    f3_set_ = rig_->wiring.knob_set;
+  }
   for (unsigned k = 0; k < kKnobsRows; ++k) {
     knobs_page_.entry[4u + k] = ladder_entry(*controls_, rig_->wiring, kKnobsRowId[k]);
   }
@@ -370,7 +373,7 @@ void PerformScreen::knobs_set(app::Context& ctx, unsigned set) noexcept {
   char text[32];
   text[0] = '\0';
   append(text, sizeof text, "SET ");
-  const char num[3] = {static_cast<char>('1' + set), ' ', '\0'};
+  const char num[3] = {static_cast<char>('1' + (set == kKnobSetTract ? kKnobSetGrowl : set)), ' ', '\0'};  // TRACT is set 3's second knob set
   append(text, sizeof text, num);
   append(text, sizeof text, knob_set_name(set));
   toast(ctx, text);
@@ -379,8 +382,8 @@ void PerformScreen::knobs_set(app::Context& ctx, unsigned set) noexcept {
 // KNOBS with Shift held: F1..F4 put set 1..4 back to its factory knobs (the set in use follows at once), F7 and F8 are the pattern's REDO and UNDO as on PERFORM.
 void PerformScreen::knobs_shift_key(app::Context& ctx, unsigned k) noexcept {
   morph_ = false;
-  if (k < kKnobSets) {
-    knob_set_factory(rig_->wiring, k);
+  if (k < kKnobSetsOnKeys) {
+    knob_set_factory(rig_->wiring, key_set(k));
     sync_knobs();
     char text[32];
     text[0] = '\0';
@@ -388,7 +391,7 @@ void PerformScreen::knobs_shift_key(app::Context& ctx, unsigned k) noexcept {
     const char num[3] = {static_cast<char>('1' + k), ' ', '\0'};
     append(text, sizeof text, num);
     append(text, sizeof text, "FACTORY: ");
-    append(text, sizeof text, knob_set_name(k));
+    append(text, sizeof text, knob_set_name(key_set(k)));
     toast(ctx, text);
   } else if (k == 6u) {
     variation(ctx, PerformRole::Redo);
@@ -509,8 +512,9 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
         ctx.redraw();
         return;
       }
-      if (page_ == PerformPage::Knobs && k < kKnobSets) {  // KNOBS' F1..F4 are the sets
-        knobs_set(ctx, k);
+      if (page_ == PerformPage::Knobs && k < kKnobSetsOnKeys) {  // KNOBS' F1..F4 are the sets; F3 while its set is in use flips GROWL and TRACT (F1)
+        const unsigned in_use = rig_->wiring.knob_set;
+        knobs_set(ctx, k == 2u && (in_use == kKnobSetGrowl || in_use == kKnobSetTract) ? (in_use == kKnobSetGrowl ? kKnobSetTract : kKnobSetGrowl) : key_set(k));
         ctx.redraw();
         return;
       }
@@ -521,7 +525,7 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
         tool_mask_ &= ~(1u << k);
         return;
       }
-      if (page_ == PerformPage::Knobs && k < kKnobSets) {
+      if (page_ == PerformPage::Knobs && k < kKnobSetsOnKeys) {
         return;
       }
       (void)keys().input(ctx, in, *controls_);
@@ -552,8 +556,8 @@ void PerformScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
     return;
   }
   if (page_ == PerformPage::Knobs) {
-    static constexpr const char* kFactoryLabels[kKnobSets] = {"FACTORY 1", "FACTORY 2", "FACTORY 3", "FACTORY 4"};
-    for (unsigned k = 0; k < kKnobSets; ++k) {
+    static constexpr const char* kFactoryLabels[kKnobSetsOnKeys] = {"FACTORY 1", "FACTORY 2", "FACTORY 3", "FACTORY 4"};
+    for (unsigned k = 0; k < kKnobSetsOnKeys; ++k) {
       out.label[k] = kFactoryLabels[k];
     }
   }
@@ -571,8 +575,8 @@ void PerformScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
   (void)ctx;
   help_texts::fill(h, help_texts::text(page_ == PerformPage::Setup ? help_texts::Id::PerformSetup : (page_ == PerformPage::Knobs ? help_texts::Id::Knobs : help_texts::Id::Perform)));
   if (page_ == PerformPage::Knobs) {  // the Shift row of KNOBS (soft_keys()): FACTORY 1..4 on F1..F4, REDO and UNDO as on PERFORM
-    static constexpr const char* kFactoryLabels[kKnobSets] = {"FACTORY 1", "FACTORY 2", "FACTORY 3", "FACTORY 4"};
-    for (unsigned k = 0; k < kKnobSets; ++k) {
+    static constexpr const char* kFactoryLabels[kKnobSetsOnKeys] = {"FACTORY 1", "FACTORY 2", "FACTORY 3", "FACTORY 4"};
+    for (unsigned k = 0; k < kKnobSetsOnKeys; ++k) {
       h.fkey_shift[k] = kFactoryLabels[k];
     }
   }
@@ -855,8 +859,8 @@ bool PerformScreen::fill_knob_row(app::Context& ctx, view::Knob (&knobs)[view::k
   if (page_ != PerformPage::Setup && ctx.panel().shift()) {  // the Shift row: REDO and UNDO, and on KNOBS FACTORY 1..4 under F1..F4
     for (unsigned k = 0; k < kKeys; ++k) {
       knobs[k].fkey = kFKeys[k];
-      knobs[k].blank = k < 6u && !(page_ == PerformPage::Knobs && k < kKnobSets);
-      if (k < kKnobSets && page_ == PerformPage::Knobs) {
+      knobs[k].blank = k < 6u && !(page_ == PerformPage::Knobs && k < kKnobSetsOnKeys);
+      if (k < kKnobSetsOnKeys && page_ == PerformPage::Knobs) {
         const char num[7] = {'S', 'E', 'T', ' ', static_cast<char>('1' + k), '\0', '\0'};
         knobs[k].label = "FACTORY";
         cut(num, 7, knobs[k].value, sizeof knobs[k].value);
@@ -874,14 +878,15 @@ bool PerformScreen::fill_knob_row(app::Context& ctx, view::Knob (&knobs)[view::k
   const Page& pg = pk.page();
   for (unsigned k = 0; k < kKeys; ++k) {
     view::Knob& kn = knobs[k];
-    if (page_ == PerformPage::Knobs && k < kKnobSets) {  // F1..F4 are the sets: the one in use lit, "OWN n" once a row of it was re-pointed
+    if (page_ == PerformPage::Knobs && k < kKnobSetsOnKeys) {  // F1..F4 are the sets (F3: GROWL or TRACT, whichever is up): the one in use lit, "OWN n" once a row of it was re-pointed
       kn = view::Knob{};
       kn.fkey = kFKeys[k];
-      kn.label = knob_set_name(k);
-      const char num[8] = {knob_set_is_factory(rig_->wiring, k) ? 'S' : 'O', knob_set_is_factory(rig_->wiring, k) ? 'E' : 'W', knob_set_is_factory(rig_->wiring, k) ? 'T' : 'N', ' ',
-                           static_cast<char>('1' + k), '\0', '\0', '\0'};
+      const unsigned set = key_set(k);
+      const bool factory = knob_set_is_factory(rig_->wiring, set);
+      kn.label = knob_set_name(set);
+      const char num[8] = {factory ? 'S' : 'O', factory ? 'E' : 'W', factory ? 'T' : 'N', ' ', static_cast<char>('1' + k), '\0', '\0', '\0'};
       cut(num, 7, kn.value, sizeof kn.value);
-      kn.lit = k == rig_->wiring.knob_set;
+      kn.lit = set == rig_->wiring.knob_set;
       continue;
     }
     frame::fill_knob(ctx, *controls_, k, pg.entry[k], kn);

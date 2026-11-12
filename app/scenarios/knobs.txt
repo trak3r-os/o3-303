@@ -54,6 +54,13 @@ tap f1
 release shift
 wait 100
 snap 06_defaults_again
+# F3 is SET 3 (GROWL) and a second tap flips it to TRACT (F1): VOWEL, TONGUE, LIPS and TRC MIX on the four rows; a pad plays the vowel.
+tap f3
+tap f3
+wait 100
+pad 11
+wait 300
+snap 06b_set_3_tract
 # Perform again is PERFORM; Shift + Perform opens PERFORM SETUP and Perform leaves it for PERFORM: the page after a trip round the pages.
 tap performance
 wait 62

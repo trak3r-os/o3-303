@@ -10,6 +10,7 @@
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
+#include <o3_303/units/growl/growl.h>
 #include <o3_303/units/tract/tract.h>
 
 #include <cstring>
@@ -186,6 +187,47 @@ TEST_CASE("PERFORM KNOBS: the walk's list ends with the TRACT knobs (KN0): ROW 2
   t.wait(100);
   CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(1.0f));  // U: the pad set the unit's own parameter
   CHECK(t.param(kTract, TractFx::Mix) == mix0);                      // and nothing else of the tract
+}
+
+TEST_CASE("PERFORM KNOBS: F3 is GROWL and TRACT (F1): a second tap flips them, the key remembers the one up, the rows are VOWEL, TONGUE, LIPS and TRC MIX") {
+  Hands t;
+  to_knobs(t);
+  t.tap(Button::F3);  // GROWL: ROW 1 is its VOWEL
+  t.wait(30);
+  t.pad(row_pad(0, 11), 10);
+  t.wait(60);
+  CHECK(t.param(kGrowl, Growl::Vowel) == doctest::Approx(1.0f));
+  CHECK(t.param(kTract, TractFx::Vowel) < 0.5f);  // the tract is not touched
+  t.tap(Button::F3);                               // again: TRACT, ROW 1 is its VOWEL, ROW 3 LIPS, ROW 4 TRC MIX
+  t.wait(30);
+  t.pad(row_pad(0, 11), 10);
+  t.pad(row_pad(2, 11), 10);
+  t.pad(row_pad(3, 0), 10);
+  t.wait(120);
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(1.0f));
+  CHECK(t.param(kTract, TractFx::Lips) > 0.9f);  // LIPS and TONGUE run 0..100, VOWEL 0..1
+  CHECK(t.param(kTract, TractFx::Mix) == doctest::Approx(0.0f));
+  t.pad(row_pad(1, 11), 10);  // ROW 2 is TONGUE
+  t.wait(120);
+  CHECK(t.param(kTract, TractFx::Tongue) > 0.9f);
+  t.tap(Button::F2);  // another set: F3 then gives back the one that was up (TRACT), a second tap GROWL
+  t.wait(30);
+  t.tap(Button::F3);
+  t.wait(30);
+  t.pad(row_pad(0, 0), 10);
+  t.wait(120);
+  CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(0.0f));
+  t.tap(Button::F3);
+  t.wait(30);
+  t.pad(row_pad(0, 0), 10);
+  t.wait(120);
+  CHECK(t.param(kGrowl, Growl::Vowel) == doctest::Approx(0.0f));
+  // Shift + F3 is FACTORY for the set up (GROWL here): TRACT keeps its own rows.
+  t.tap(Button::F3);
+  t.press(Button::Shift);
+  t.tap(Button::F3);
+  t.release(Button::Shift);
+  t.wait(30);
 }
 
 TEST_CASE("PERFORM KNOBS: a tap on a row that holds a mod ends MODS OFF (STOCK), as the encoder does") {
