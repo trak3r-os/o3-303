@@ -124,7 +124,7 @@ toggle. *R1* KEYS is tap or hold (300 ms, as the modifier pads): a tap toggles l
 `param_denorm(ladder_norm(col))`, written as motion when REC or the MOTION latch is on and the pattern plays. *R7* Master: a tap latches TEMPO (Shift: SWING;
 again, or an F key, gives the encoder back; a chip on the knob strip's tab line shows the latch with its value), a hold and a turn nudges 1 % a detent up to 3 % and gives the
 base tempo back at the release or when the screen is left. *R8* the lock follows a scale the player chose: the generator's default Penta Min is not a choice, so
-a boot is chromatic until the SEQ page's Scale is turned (`Wiring::scale_set`); with it, in-scale pads are dim (lit means playable, sharps too), the others dark and
+a boot is chromatic until the SEQ page's Scale is turned (`Wiring::scale_set`, gone since the S3 change of 2026-11-12: the scale is lit, never locks unless Config's KEYS is IN SCALE); with it, in-scale pads are dim (lit means playable, sharps too), the others dark and
 skipped, and a chip with the scale's name (as the nudge's, on the tab line) says so. *Finding 4* `plock_turn`, `record_motion` and the lane caption go through the pattern's `lanes` table
 (`Controls::lane_ref`, `lane_entry`, `to_point`, `from_point`): VOLUME and DLY SEND are lanes (the mixer's 0..1.5 gain), any unit key with a lane locks
 there; a key no lane drives moves the knob and says "NO LANE". Hold MOTION + an F key points the lane shown at that key's parameter (clears its points;
@@ -136,7 +136,7 @@ feel of KEYS and Master, the ladder's 30 ms slew by ear, the freeze on the Fx bu
 `pages.{h,cpp}`, `step_view.cpp`, `step_model.cpp`, `main_screen.cpp`, `vault_screen.cpp`; tests `snapshot`, `snapshots_app`, `pages`, `step_model`; scenarios
 `random`, `snapshots`, `roll`, with `scale`, `pages`, `tools`, `freeze`, `perf_assign`, `perform`, `step_edit`, `m3b_seq`, `lanes` re-walked). *C3* SEQ is Tempo, Swing,
 Length, Gate, Transpose, FILL's variant, Ratchet, Cond; PERF is the four buttons and the freeze's Length (F6..F8 blank); Scale, Density and ACC/SLD
-are the RANDOM popup (`random_entry()`), Shift + F1: F1..F3 latch the encoder on them (`Controls::step`, so Scale sets `scale_set` and the lock engages), F8 generates, F7 /
+are the RANDOM popup (`random_entry()`), Shift + F1: F1..F3 latch the encoder on them (`Controls::step`; the lock that Scale used to engage is Config's KEYS: IN SCALE since S3), F8 generates, F7 /
 Shift + F1 / Params close; Shift + F1 no longer generates by itself. *R2* the pages are SOUND, FX, SEQ, PERF, SNAP (`kPageCount` 5: Shift + Params is SNAP, again
 back; PERF is three Params from SOUND now, so the older tests' and scenarios' route changed). `SnapBank` (pure) holds 8 snapshots of 24 numbers (18 in use: the voice's 7, the
 distortion's 5, the delay's 4, Level, Send A); a tap recalls (30 ms slews), Shift + F stores, the encoder moves a 32-step morph (Shift: 4 a step) from the snapshot

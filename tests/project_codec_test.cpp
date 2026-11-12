@@ -158,7 +158,6 @@ void scramble(Session& t) {
                                            static_cast<std::int8_t>(static_cast<int>(i) * 3 - 12), static_cast<std::uint8_t>(i % 3u == 0u ? seq::kSongRowMute : 0u)});
   }
   (void)t.engine.set_tempo(133'500);
-  w.scale_set = true;
   w.gen.scale = 7;
   w.gen.root = 5;
   w.gen.low = 30;
@@ -262,7 +261,6 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(std::strcmp(s.name, "JAM ONE") == 0);
   CHECK(s.selected == 17);
   CHECK(s.tempo_mbpm == 133'500);
-  CHECK(s.scale_set);
   CHECK(s.gen.scale == 7);
   CHECK(s.gen.root == 5);
   CHECK(s.gen.low == 30);
@@ -298,7 +296,6 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(b.engine.own_tempo() == 133'500);
   const Wiring& wa = a.rig.wiring;
   const Wiring& wb = b.rig.wiring;
-  CHECK(wb.scale_set);
   CHECK(wb.gen.scale == wa.gen.scale);
   CHECK(wb.gen.density == wa.gen.density);
   CHECK(wb.gen.slide_pct == wa.gen.slide_pct);

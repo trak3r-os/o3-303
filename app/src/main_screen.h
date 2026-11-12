@@ -30,9 +30,9 @@
 namespace o3_303 {
 
 // The scale field of the info lines: the name in capitals without the table's padding ("PENTA MIN"), or its first three letters (`short_form`, when the
-// strip is full); "--" when `locked` is false (the keyboard is chromatic: a scale never chosen locks nothing), whatever the generator's scale is.
-void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap,
-                      int root = -1) noexcept;  // root >= 0 with a scale locked puts the key first ("D PHRYGIAN")
+// strip is full); the scale on F5 is always shown (S3: no "--" state any more).
+void scale_value_text(unsigned scale, bool short_form, char* out, unsigned cap,
+                      int root = -1) noexcept;  // root >= 0 with a real scale puts the key first ("D PHRYGIAN"; "No scale" and "Chromatic" have none)
 
 class MainScreen final : public o3sdk::app::Screen {
  public:
@@ -66,6 +66,8 @@ class MainScreen final : public o3sdk::app::Screen {
   // What PERFORM's key row and encoder ask of the home map's keyboard (one keyboard, one octave, one scale lock, one Rec).
   void toggle_rec(o3sdk::app::Context& ctx) noexcept { home_.toggle_rec(ctx); }
   bool scale_locked_out(int note) const noexcept { return home_.scale_locked_out(note); }
+  bool scale_shown() const noexcept { return home_.scale_shown(); }
+  bool in_scale_note(int note) const noexcept { return home_.in_scale_note(note); }
   // An encoder move or a ladder tap is written as motion under the playhead (Rec while the pattern plays).
   bool recording_motion() const noexcept { return home_.recording_motion(); }
   // A line in the status line for a moment (what a tool or a load just did).

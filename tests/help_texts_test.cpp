@@ -380,13 +380,13 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   shift_tap(h, app::Button::Performance);  // R8 (the review's S1): Shift + Performance is PERFORM SETUP
   check_screen(h, Id::PerformSetup, page_mask(page_at(kPagePerfSetup)), kAllPads, "PERFORM SETUP");
   tap(h, app::Button::Params);
-  check_screen(h, Id::Voice, sound, kAllPads, "INSTRUMENT VOICE");
-  tap(h, app::Button::Params);
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
     check_screen(h, Id::Fx, page_mask(inst->page_table()), kAllPads, "INSTRUMENT FX");
   }
+  tap(h, app::Button::Params);
+  check_screen(h, Id::Voice, sound, kAllPads, "INSTRUMENT VOICE");
   tap(h, app::Button::SampleLoad);
   {
     app::Context& ctx = h.runtime().context();
@@ -575,6 +575,7 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     }
     close_help(h);
   }
+  tap(h, app::Button::Params);  // INSTRUMENT FX, then the next page: VOICE
   tap(h, app::Button::Params);  // INSTRUMENT VOICE: LEARN on the unit's parameters, nothing on VOLUME (F8, an app value)
   {
     const Help& help = open_help(h);
@@ -625,7 +626,16 @@ TEST_CASE("help screens: the home map's pads follow the pattern, the octave, the
     close_help(h);
   }
   t.pad(role_pad(PadRole::OctDown), 10);
-  t.choose_scale(3);  // Major: the keys outside it are dark
+  t.choose_scale(3);  // Major: every key still plays (KEYS: ALL), so no pad is dark
+  {
+    const Help& help = open_help(h);
+    check_help(help, "scale shown, KEYS: ALL");
+    for (unsigned pad = 24; pad < app::kPadCount; ++pad) {
+      CHECK_MESSAGE(help.pad_group[pad] == 3, "pad " << pad);
+    }
+    close_help(h);
+  }
+  t.config_set(o3_303::config::kKeys, 1.0f);  // KEYS: IN SCALE: the keys outside the scale are dark
   {
     const Help& help = open_help(h);
     check_help(help, "scale locked");
@@ -657,6 +667,7 @@ TEST_CASE("help screens: PERFORM's keys outside a locked scale are dark, as its 
   Hands t;
   sim::Harness& h = *t.h;
   t.choose_scale(3);  // Major on C
+  t.config_set(o3_303::config::kKeys, 1.0f);  // KEYS: IN SCALE
   t.to_perform();
   REQUIRE(std::strcmp(h.runtime().context().screen()->title(), "PERFORM") == 0);
   const Help& help = open_help(h);

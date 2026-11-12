@@ -67,7 +67,7 @@ TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four but
   t.press(Button::Vol);
   CHECK(sequencer.perf() == (kAcc | kSlide));
   t.tap(Button::Params);  // INSTRUMENT (the File button is the 303 screen's and INSTRUMENT's)
-  CHECK(std::strcmp(t.title(), "INSTRUMENT VOICE") == 0);
+  CHECK(std::strcmp(t.title(), "INSTRUMENT FX") == 0);
   CHECK(sequencer.perf() == kAcc);
   t.release(Button::Vol);
   t.tap(Button::Pattern);
@@ -199,7 +199,7 @@ TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the botto
   t.pad(key_pad(36));  // back to none
   t.wait(30);
   CHECK(sequencer.live_transpose() == 0);
-  CHECK(t.led(key_pad(48)) == app::kLedDim);
+  CHECK(t.led(key_pad(48)) == app::kLedOn);  // C3, the root of the default Penta Min
   const double back = measure(1200);
   CHECK(back / base > 0.95);
   CHECK(back / base < 1.05);

@@ -105,7 +105,7 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
   // HOME's pads stay keys while it runs (a latched action stays on across the change): no picker over them.
   t.to_home();
   CHECK(s.wobble().on);
-  CHECK(t.led(bottom(2)) == app::kLedDim);
+  CHECK(t.led(bottom(3)) == app::kLedMid);  // Eb: the default Penta Min lit
   t.pad(bottom(2));  // a key here: no rate is picked
   t.wait(30);
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);

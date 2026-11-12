@@ -657,7 +657,7 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
   const KnobSpan* sp = controls_->live_span(e, knob, knob_span) ? &knob_span : nullptr;
   ladder_levels(kd, kd != nullptr ? controls_->shown(e, knob) : 0.0f, assigning, knob_level, sp);
   const int wobble_now = rig_->seq->wobble_rate_now();
-  const bool scale_locked = rig_->wiring.scale_set && rig_->wiring.gen.scale < core::kScaleCount && core::kScaleDef[rig_->wiring.gen.scale] != 0xFFFu;
+  const bool scale_shown = home_->scale_shown();
 
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
     PadLamp& lamp = view.lamp[pad];
@@ -722,11 +722,11 @@ void PerformScreen::fill_view(app::Context& ctx, PerformView& view) const noexce
           break;
         }
         cut(kNoteLabels[pp.index], 7, lamp.label, sizeof lamp.label);
-        if (home_->scale_locked_out(n)) {  // out of the scale the keyboard is locked to: dark
+        if (home_->scale_locked_out(n)) {  // out of the scale KEYS: IN SCALE locks the keyboard to: dark
           break;
         }
-        // naturals dim, sharps off (with a scale chosen, lit means playable); the pad of the transposition in force on; a held pad on
-        lamp.level = is_natural(static_cast<unsigned>(n)) || scale_locked ? app::kLedDim : app::kLedOff;
+        // naturals dim, sharps off (with a scale shown, the notes of the scale dim and the others off); the pad of the transposition in force on; a held pad on
+        lamp.level = (scale_shown ? home_->in_scale_note(n) : is_natural(static_cast<unsigned>(n))) ? app::kLedDim : app::kLedOff;
         if (transposing && n == kLowestNote + live_->live_transpose()) {
           lamp.level = app::kLedOn;
         }

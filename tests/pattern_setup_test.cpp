@@ -183,7 +183,7 @@ TEST_CASE("SETUP has its own latch: HOME's stays where it was, and so does SETUP
   CHECK(t.pat().swing == 2);
 }
 
-TEST_CASE("F5 SCALE locks the keyboard: the pads out of the scale are dark and do nothing, and the scale is what NEW uses") {
+TEST_CASE("F5 SCALE lights the keyboard and is what NEW uses; every pad still plays and writes (KEYS: ALL, S3)") {
   Hands t;
   open_setup(t);
   t.tap(Button::F5);
@@ -196,23 +196,25 @@ TEST_CASE("F5 SCALE locks the keyboard: the pads out of the scale are dark and d
   CHECK(t.led(key_pad(36)) == app::kLedOn);   // the root (C) is full
   CHECK(t.led(key_pad(37)) == app::kLedOff);
   CHECK(t.led(key_pad(39)) == app::kLedOff);
-  // REC + keys: C# and D# write nothing and do not advance; D and E do.
+  // REC + keys: every pad writes and advances, in or out of the scale.
   t.tap(Button::Rec);
   t.pad(key_pad(37), 10);
   t.pad(key_pad(38), 10);
   t.pad(key_pad(39), 10);
   t.pad(key_pad(40), 10);
-  CHECK(t.pat().steps[0].note == 38);
-  CHECK(t.pat().steps[1].note == 40);
+  CHECK(t.pat().steps[0].note == 37);
+  CHECK(t.pat().steps[1].note == 38);
+  CHECK(t.pat().steps[2].note == 39);
+  CHECK(t.pat().steps[3].note == 40);
   t.tap(Button::Rec);
-  // SETUP keeps the lock on its own keyboard (the pads are the home map's), and "No scale" unlocks it again.
+  // "No scale" lights the naturals as before.
   t.tap(Button::Pattern);
   t.tap(Button::F5);
   t.turn(-40);
   t.wait(40);
-  t.tap(Button::Rec);
-  t.pad(key_pad(37), 10);
-  CHECK(t.pat().steps[2].note == 37);
+  t.tap(Button::Pattern);
+  t.wait(40);
+  CHECK(t.led(key_pad(38)) == app::kLedDim);
 }
 
 TEST_CASE("F6 DENSITY, F7 ACC % and F8 SLD % are the generator's settings, for every pattern (D1)") {
@@ -427,24 +429,19 @@ TEST_CASE("the drawer on SETUP is the same one: a step pad still toggles, the pl
   CHECK(t.h->runtime().frame_failures() == 0u);
 }
 
-TEST_CASE("the scale field of the info lines: the name, its first three letters when the strip is full, and \"--\" until a scale locks the keyboard") {
+TEST_CASE("the scale field of the info lines: the name, and its first three letters when the strip is full") {
   char out[24];
-  scale_value_text(18, true, false, out, sizeof out);
+  scale_value_text(18, false, out, sizeof out);
   CHECK(std::strcmp(out, "PENTA MIN") == 0);
-  scale_value_text(18, true, true, out, sizeof out);
+  scale_value_text(18, true, out, sizeof out);
   CHECK(std::strcmp(out, "PEN") == 0);
-  scale_value_text(3, true, false, out, sizeof out);
+  scale_value_text(3, false, out, sizeof out);
   CHECK(std::strcmp(out, "MAJOR") == 0);
-  scale_value_text(3, true, true, out, sizeof out);
+  scale_value_text(3, true, out, sizeof out);
   CHECK(std::strcmp(out, "MAJ") == 0);
-  // Not locked (the generator's default scale is not a choice): "--", whatever the scale is, in either form.
-  scale_value_text(18, false, false, out, sizeof out);
-  CHECK(std::strcmp(out, "--") == 0);
-  scale_value_text(18, false, true, out, sizeof out);
-  CHECK(std::strcmp(out, "--") == 0);
   // The table pads a name to its field: no trailing space.
   for (unsigned i = 0; i < o3sdk::core::kScaleCount; ++i) {
-    scale_value_text(i, true, false, out, sizeof out);
+    scale_value_text(i, false, out, sizeof out);
     CHECK(out[0] != '\0');
     CHECK(out[std::strlen(out) - 1u] != ' ');
   }
@@ -544,13 +541,15 @@ TEST_CASE("Shift + F5 gives the encoder the generator's root (C to B, no wrap); 
   CHECK(root_on(47));  // the root stayed
   // The scale text carries the root beside the name.
   char sc[24];
-  scale_value_text(3, true, false, sc, sizeof sc, 2);
+  scale_value_text(3, false, sc, sizeof sc, 2);
   CHECK(std::strncmp(sc, "D ", 2) == 0);
-  scale_value_text(3, true, true, sc, sizeof sc, 10);
+  scale_value_text(3, true, sc, sizeof sc, 10);
   CHECK(std::strncmp(sc, "A# ", 3) == 0);
   CHECK(std::strlen(sc) == 6);  // "A# " + three letters
-  scale_value_text(3, false, false, sc, sizeof sc, 2);
-  CHECK(std::strcmp(sc, "--") == 0);
+  scale_value_text(0, false, sc, sizeof sc, 2);  // "No scale" and "Chromatic" have no root
+  CHECK(std::strcmp(sc, "NO SCALE") == 0);
+  scale_value_text(1, true, sc, sizeof sc, 2);
+  CHECK(std::strcmp(sc, "CHR") == 0);
 }
 
 TEST_CASE("PATTERN SETUP: F5 held and a tap of a bottom-row key sets the root; without F5 the key is no root; Shift + F5 stays the encoder's way (X4)") {

@@ -210,7 +210,7 @@ class O3_303App final : public app::App {
 
     live_.init(rig_);
     o3_303::install_factory_snapshots(e, rig_);  // a first boot's eight snapshots (REVIEW I4), after live_.init has emptied the bank; a project read from the card replaces them with its own
-    config_.init(live_, project_);  // the values it holds start at their defaults; the kit's settings read (after setup) then set them
+    config_.init(live_, project_, rig_.wiring);  // the values it holds start at their defaults; the kit's settings read (after setup) then set them
     main_.init(rig_);
     perform_.init(rig_, main_);
     instrument_.init(rig_, main_.home_map(), o3_303::instrument_group());  // the home map HOME has: one cursor, one keyboard, one Rec
@@ -284,7 +284,7 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // PARAMS: INSTRUMENT on VOICE, and on it the next page (UX-303 2.1, D21), from every screen. Shift changes nothing.
+    // PARAMS: INSTRUMENT on FX (page 1; VOICE is page 2), and on it the next page (UX-303 2.1, D21), from every screen. Shift changes nothing.
     if (in.press(Button::Params)) {
       if (ctx.screen() == &instrument_) {
         instrument_.next_page();

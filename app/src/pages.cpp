@@ -379,7 +379,6 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       break;
     case Item::Scale:
       w_->gen.scale = static_cast<std::uint8_t>(round_to_int(v));
-      w_->scale_set = true;  // the player chose it: the keyboard is locked to it (R8)
       break;
     case Item::Density:
       w_->gen.density = static_cast<std::uint8_t>(round_to_int(v));

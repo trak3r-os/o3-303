@@ -328,15 +328,19 @@ std::uint8_t key_led_level(bool natural, bool scale_on, bool in_scale, bool root
   return root ? app::kLedOn : app::kLedMid;
 }
 
-// With a scale chosen on PATTERN SETUP the keyboard keeps to it: the other pads are dark and do nothing. Until the player chooses one
-// (the generator's default scale is not a choice) the keyboard is chromatic as it always was; "No scale" and "Chromatic" have every note.
-bool HomeMap::scale_locked() const noexcept {
+// The scale on F5 lights the keys (scale at mid, root full, the others dark) and every key plays and writes; Config's KEYS: IN SCALE (off by default)
+// adds the old lock: the other pads do nothing. "No scale" and "Chromatic" have every note and light nothing.
+bool HomeMap::scale_shown() const noexcept {
   const Wiring& w = rig_->wiring;
-  return w.scale_set && w.gen.scale < core::kScaleCount && core::kScaleDef[w.gen.scale] != 0xFFFu;
+  return w.gen.scale < core::kScaleCount && core::kScaleDef[w.gen.scale] != 0xFFFu;
 }
 
+bool HomeMap::in_scale_note(int note) const noexcept { return !scale_shown() || in_scale(note, rig_->wiring.gen.scale, rig_->wiring.gen.root); }
+
+bool HomeMap::scale_locked() const noexcept { return rig_->wiring.keys_in_scale && scale_shown(); }
+
 bool HomeMap::scale_locked_out(int note) const noexcept {
-  return scale_locked() && !in_scale(note, rig_->wiring.gen.scale, rig_->wiring.gen.root);
+  return scale_locked() && !in_scale_note(note);
 }
 
 // The lane of `p` that drives what `entry` shows (pattern.h's lanes table), -1 when the entry is not a lane target or no lane points at it.
@@ -421,7 +425,7 @@ void HomeMap::audition_off(app::Context& ctx) noexcept {
 
 void HomeMap::key_press(app::Context& ctx, unsigned pad, bool shift) noexcept {
   const int note = key_note(pad, octave_);
-  if (note < 0 || scale_locked_out(note)) {  // not a key, or out of the scale the keyboard is locked to (R8): the pad is dark and does nothing
+  if (note < 0 || scale_locked_out(note)) {  // not a key, or out of the scale KEYS: IN SCALE locks the keyboard to (R8): the pad does nothing
     return;
   }
   std::uint8_t flags = 0;
@@ -1462,9 +1466,9 @@ void HomeMap::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
       leds.set(pad, app::kLedOff);
       continue;
     }
-    // The piano drawn with one colour: naturals dim, sharps off. With a scale chosen, lit means playable: the pads of the scale mid, the root full.
-    const bool locked = scale_locked();
-    std::uint8_t level = key_led_level(is_natural(static_cast<unsigned>(n)), locked, true, locked && static_cast<unsigned>(n) % 12u == rig_->wiring.gen.root % 12u);
+    // The piano drawn with one colour: naturals dim, sharps off. With a scale shown the pads of the scale are mid and the root full, the others dark (they still play).
+    const bool shown = scale_shown();
+    std::uint8_t level = key_led_level(is_natural(static_cast<unsigned>(n)), shown, in_scale_note(n), shown && static_cast<unsigned>(n) % 12u == rig_->wiring.gen.root % 12u);
     if (playing_ && live_->trnsp() && !rec_ && n == kLowestNote + live_->live_transpose()) {
       level = app::kLedMid;  // the key the running pattern is transposed by
     }

@@ -141,7 +141,11 @@ class HomeMap {
   const char* lock_text() const noexcept { return lock_text_; }
   // An encoder move or a ladder tap is written as motion under the playhead (Rec while the pattern plays).
   bool recording_motion() const noexcept { return playing_ && rec_; }
-  // The keyboard is locked to a scale (R8) and `note` is not in it.
+  // The scale on F5 is a real one (not "No scale" or "Chromatic"): the keys light it (scale at mid, root full, the others dark), whatever KEYS says.
+  bool scale_shown() const noexcept;
+  // `note` is in the scale shown (true when none is shown: every note is).
+  bool in_scale_note(int note) const noexcept;
+  // Config's KEYS: IN SCALE with a scale shown (R8, S3): the keys outside it do nothing. With KEYS: ALL (the default) nothing is ever locked out.
   bool scale_locked() const noexcept;
   bool scale_locked_out(int note) const noexcept;
 

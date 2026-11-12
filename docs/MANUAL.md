@@ -115,7 +115,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | Button | What it does in o3-303 |
 |---|---|
 | **Pattern** | HOME, the step screen, from any screen. On HOME a tap opens PATTERN SETUP, and held, the 48 pads are the 48 patterns |
-| **Params** | INSTRUMENT, on VOICE and FX. Again: the other page |
+| **Params** | INSTRUMENT, on FX (page 1) and VOICE (page 2). Again: the other page |
 | **Performance** | PERFORM. Again: PERFORM KNOBS, and back. **Shift + Performance**: PERFORM SETUP, from any screen; Performance leaves it |
 | **Song** | SONG |
 | **Master** | MASTER (tempo and level). Hold it and turn: nudge the tempo. **Shift + Master**: tap tempo, from any screen |
@@ -370,12 +370,12 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F2 SWING | Swing | 0 to 66 % |
 | F3 GATE | How long the notes are | 5 to 100 % (50 % at first) |
 | F4 TRANSP | This pattern's transpose | -24 to +24 semitones |
-| F5 SCALE | The scale. Once you choose one, the keys keep to it: the other keys go dark | No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more (Penta Min at first) |
+| F5 SCALE | The scale. The keys of HOME and PERFORM light it, and every key still plays; Config's KEYS: IN SCALE makes the others do nothing | No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more (Penta Min at first) |
 | F6 DENSITY | How many steps NEW fills | 0 to 100 % (75 %) |
 | F7 ACC % | How many accents NEW draws | 0 to 100 % (25 %) |
 | F8 SLD % | How many slides NEW draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
 
-The info line says SCALE "--" until you turn F5: until then the keys play every note (NEW still uses the scale shown on F5). With a scale on, the scale's value shows its root ("D MAJOR"), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark. To set the root without the encoder, hold F5 and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
+The info line always shows the scale on F5 with its root ("D MAJOR"; "No scale" and "Chromatic" have no root), and the keys of HOME light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). NEW, NOTES and VARY keep to the scale. If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. To set the root without the encoder, hold F5 and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
 
 **The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
 pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 ROOT (the encoder sets the generator's root, C to B, until you press an F key; F5 alone gives it back to SCALE), F7 REDO, F8 UNDO.
@@ -474,17 +474,17 @@ Press **Performance** to leave: it goes back to the page SETUP was opened from (
 
 ### INSTRUMENT
 
-Press **Params**. INSTRUMENT shows the whole sound on two pages, VOICE and FX: press **Params** again to go to the other one. Tap an F key,
+Press **Params**. INSTRUMENT shows the whole sound on two pages: it opens on FX (page 1) and **Params** again goes to VOICE (page 2) and back. Tap an F key,
 then turn. The other sections of the sound stay in view, and the 16 steps of the pattern sit under them with their accent and slide lights.
+
+![INSTRUMENT FX: the F row DRIVE, TONE, MIX, MODEL, DLY TIME, DLY FB, DLY SEND and DLY TONE](manual/img/instrument-fx.png)
+
+*FX: the distortion on F1 to F4 (MODEL is OFF, GRIT, TUBE, HARD, FUZZ or FOLD) and the delay on F5 to F8.*
 
 ![INSTRUMENT VOICE: the eight voice knobs, boxes for the distortion, delay and MODDED, and the 16 steps with their notes](manual/img/instrument-voice.png)
 
 *VOICE: CUTOFF, RESO, ENV MOD, DECAY, ACCENT, WAVE, TUNE, VOLUME. Under them, read-outs of the distortion, the delay and the MODDED
 mods (ACC DEC, SLIDE, SUB, MODS).*
-
-![INSTRUMENT FX: the F row DRIVE, TONE, MIX, MODEL, DLY TIME, DLY FB, DLY SEND and DLY TONE](manual/img/instrument-fx.png)
-
-*FX: the distortion on F1 to F4 (MODEL is OFF, GRIT, TUBE, HARD, FUZZ or FOLD) and the delay on F5 to F8.*
 
 **MIDI learn**: hold **Shift** and the F keys say LEARN where a knob can follow a MIDI controller. Press Shift + that F key, then move a
 knob on your controller: it is bound. Shift + the same key again cancels. With REC on and the line playing, moving a bound controller is recorded on the current step as turning that knob is; with REC off it only moves the sound. A knob without a lane records nothing. See section 10.
@@ -875,7 +875,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 
 ![Config, page 303: AUTOSAVE 10 S, KEYS AT BOOT PLAY, LADDER SLEW 30 ms, PAD LEGEND ON, RESET PROJECT RUN, SKIN OBSIDIAN](manual/img/config-303.png)
 
-*Page 303, with SKIN set to OBSIDIAN. (The simulator has no firmware, audio or MIDI section, so its tabs start at CARD.)*
+*Page 303, with SKIN set to OBSIDIAN (the picture predates the KEYS row). (The simulator has no firmware, audio or MIDI section, so its tabs start at CARD.)*
 
 | Page 303 | What | Values (the default in bold) |
 |---|---|---|
@@ -885,6 +885,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 | PAD LEGEND | The PADS line on every screen | OFF, **ON** |
 | RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, assignments, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
 | SKIN | The look (section 13) | CLASSIC, **OBSIDIAN** |
+| KEYS | Whether the keys outside the scale on PATTERN SETUP's F5 play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
 
 The sound is no longer on this page. The five settings that were on the old page DEEP are on the screens of their sounds, and a project
 saves them with its sound:
@@ -1018,7 +1019,7 @@ button.
 **No sound.** Check F8 VOLUME on HOME, F4 MASTER on MASTER, that MUTE is not latched on PERFORM (ALL OFF lets every action go), and that OVERDRIVE on MODDED TONE (F3) is not OFF, the bottom of its range, where no oscillator reaches the filter. If the
 header says STOCK, the mods are off on purpose: Shift + Sample Load turns them back on.
 
-**The keys do nothing, or some are dark.** A scale chosen on PATTERN SETUP keeps the keys to it. TRNSP on (row 2, column 11) makes the keys
+**The keys do nothing, or some are dark.** Dark keys are outside the scale on F5; they play unless Config's KEYS is IN SCALE. TRNSP on (row 2, column 11) makes the keys
 transpose while the line plays instead of playing the voice. FILT on (row 2, column 12) turns rows 3 and 4 into the filter ladders.
 
 **The encoder changes the wrong thing.** Look at the ENC window. A colour button may hold a row: tap an F key to give the encoder back to

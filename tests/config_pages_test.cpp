@@ -91,8 +91,8 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
     std::uint16_t key;
     const char* label;
     bool value;
-  } expect[] = {{1, "AUTOSAVE", true}, {2, "KEYS AT BOOT", true}, {3, "LADDER SLEW", true}, {4, "PAD LEGEND", true}, {5, "RESET PROJECT", false}, {7, "SKIN", true}};
-  REQUIRE(v.page[0].valid() == 6);
+  } expect[] = {{1, "AUTOSAVE", true}, {2, "KEYS AT BOOT", true}, {3, "LADDER SLEW", true}, {4, "PAD LEGEND", true}, {5, "RESET PROJECT", false}, {7, "SKIN", true}, {8, "KEYS", true}};
+  REQUIRE(v.page[0].valid() == 7);
   for (unsigned i = 0; i < v.page[0].valid(); ++i) {
     const app::ConfigItem* it = v.page[0].nth(i);
     REQUIRE(it != nullptr);
@@ -105,7 +105,7 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
       CHECK(core::param_desc_valid(*it->value));
     }
   }
-  CHECK(v.values == 5);
+  CHECK(v.values == 6);
   CHECK(find_item(v, 6) == nullptr);  // reserved: SEQ MIDI OUT, deferred (D16)
   for (std::uint16_t retired = 20; retired <= 24; ++retired) {
     CHECK_MESSAGE(find_item(v, retired) == nullptr, "key " << retired << " is retired (the page DEEP, docs/MODS-PLAN.md 7)");
@@ -113,18 +113,20 @@ TEST_CASE("the pages: only 303, with the keys UX-303 5.12 fixes, every descripto
   CHECK(config::kAutosave == 1);
   CHECK(config::kResetProject == 5);
   CHECK(config::kSkin == 7);
+  CHECK(config::kKeys == 8);  // appended: the keys of an older settings file keep their meaning
 }
 
 TEST_CASE("a fresh boot reads the 303 page's defaults") {
   Hands t;
   const app::ConfigView& v = t.h->runtime().context().config_view();
-  // The 303 page's defaults: 10 S, PLAY, 30 ms, ON, OBSIDIAN.
+  // The 303 page's defaults: 10 S, PLAY, 30 ms, ON, OBSIDIAN, KEYS ALL.
   CHECK(t.config_get(config::kAutosave) == 1.0f);
   CHECK(t.config_get(config::kKeysAtBoot) == 0.0f);
   CHECK(t.config_get(config::kLadderSlew) == 30.0f);
   CHECK(t.config_get(config::kPadLegend) == 1.0f);
   CHECK(t.config_get(config::kSkin) == 1.0f);
-  for (std::uint16_t key : {config::kAutosave, config::kKeysAtBoot, config::kLadderSlew, config::kPadLegend, config::kSkin}) {
+  CHECK(t.config_get(config::kKeys) == 0.0f);
+  for (std::uint16_t key : {config::kAutosave, config::kKeysAtBoot, config::kLadderSlew, config::kPadLegend, config::kSkin, config::kKeys}) {
     const app::ConfigItem* it = find_item(v, key);
     REQUIRE(it != nullptr);
     CHECK(t.config_get(key) == it->value->def);
@@ -375,6 +377,7 @@ TEST_CASE("the values are back after a reboot: AUTOSAVE, KEYS AT BOOT (TRNSP is 
   s.set(config::kLadderSlew, 65.0f);
   s.set(config::kPadLegend, 0.0f);
   s.set(config::kSkin, 1.0f);
+  s.set(config::kKeys, 1.0f);
   s.settle();
   REQUIRE(fs::exists(s.path("system.o3s")));
   app_project().set_autosave_period(10'000);  // the service keeps its period across a simulated reboot: only the kit's file can bring 30 S back
@@ -389,6 +392,7 @@ TEST_CASE("the values are back after a reboot: AUTOSAVE, KEYS AT BOOT (TRNSP is 
   CHECK(s.get(config::kSkin) == 1.0f);
   CHECK(skin::on());
   CHECK(skin::active(s.ctx()));
+  CHECK(s.get(config::kKeys) == 1.0f);  // IN SCALE is a setting: it outlives the session
   // TRNSP is on at the boot (the TRNSP pad's lamp, on HOME) ...
   const unsigned trnsp = role_pad(PadRole::Trnsp);
   CHECK(s.h->leds().level(trnsp) == app::kLedOn);
@@ -450,7 +454,7 @@ TEST_CASE("a system.o3s that still holds the retired keys 20..24 loads, drops th
   app::KitValues back;
   app::settings::Report rep;
   REQUIRE(app::settings::read(saved.data(), saved.size(), back, rep) == app::settings::Result::Ok);
-  CHECK(back.app_count == 5);
+  CHECK(back.app_count == 6);  // PAD LEGEND, ..., SKIN and KEYS (S3)
   for (unsigned i = 0; i < back.app_count; ++i) {
     CHECK(back.app_key[i] < 20);
   }

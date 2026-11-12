@@ -584,7 +584,7 @@ TEST_CASE("WOBBLE on: row 3 is the wobble's rates (columns 1..11), the keys stay
   t.wait(100);
   CHECK(lamp(t, pp(kRow3, 2)) == app::kLedOn);
   // Row 4 is still the keys.
-  CHECK(lamp(t, pp(kRow4, 2)) == app::kLedDim);
+  CHECK(lamp(t, pp(kRow4, 3)) == app::kLedDim);  // Eb: in the default Penta Min (a scale shown lights its notes)
   t.pad(all_off_pad(), 10);
   t.wait(30);
   CHECK_FALSE(seqr().wobble().on);
@@ -627,7 +627,7 @@ TEST_CASE("row 4: a key plays the voice; while the pattern runs and TRNSP is on,
   CHECK(seqr().live_transpose() == 7);
   t.wait(100);
   CHECK(lamp(t, pp(kRow4, 7)) == app::kLedOn);  // the pad of the transposition in force
-  CHECK(lamp(t, pp(kRow4, 4)) == app::kLedDim);
+  CHECK(lamp(t, pp(kRow4, 5)) == app::kLedDim);
   t.pad(pp(kRow4, 0), 10);
   CHECK(seqr().live_transpose() == 0);
   // The 303 screen's octave moves the keys: OCT+ there, and C here is an octave up.

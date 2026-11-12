@@ -327,8 +327,8 @@ TEST_CASE("a latched WOBBLE does not turn HOME's key row into the rate picker: a
     peak = std::fmax(peak, std::fabs(static_cast<float>(t.h->audio()[i])));
   }
   CHECK(peak > 300.0f);
-  CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);  // and the LEDs are the keyboard's: naturals dim, sharps off
-  CHECK(t.led(key_pad(36 + 2)) == app::kLedDim);
+  CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);  // and the LEDs are the keyboard's: the default Penta Min lit (root full, scale mid), the rest off
+  CHECK(t.led(key_pad(36 + 3)) == app::kLedMid);
   t.to_perform();
   t.shift_tap(Button::Note);
 }

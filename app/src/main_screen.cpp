@@ -93,15 +93,15 @@ void append(char* out, unsigned cap, const char* s) noexcept {
 
 // ---- The scale on the info lines -------------------------------------------------------------------------------------------
 
-void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, unsigned cap, int root) noexcept {
+void scale_value_text(unsigned scale, bool short_form, char* out, unsigned cap, int root) noexcept {
   unsigned n = 0;
-  if (locked && scale < core::kScaleCount && root >= 0 && cap > 4u) {  // the root first: "D PHRYGIAN"
+  if (scale < core::kScaleCount && core::kScaleDef[scale] != 0xFFFu && root >= 0 && cap > 4u) {  // the root first: "D PHRYGIAN" ("No scale" and "Chromatic" have none)
     n = root_name(static_cast<unsigned>(root), out, cap);
     out[n++] = ' ';
   }
   const unsigned head = n;
   const unsigned max = head + (short_form ? 3u : core::kScaleNameChars);
-  if (locked && scale < core::kScaleCount) {
+  if (scale < core::kScaleCount) {
     for (unsigned i = 0; n < max && core::kScaleNames[scale][i] != '\0' && n + 1u < cap; ++n, ++i) {
       const char c = core::kScaleNames[scale][i];
       out[n] = c >= 'a' && c <= 'z' ? static_cast<char>(c - 'a' + 'A') : c;
@@ -110,7 +110,7 @@ void scale_value_text(unsigned scale, bool locked, bool short_form, char* out, u
       --n;
     }
   }
-  if (n == 0u && cap > 2u) {  // no scale locked: the keyboard is chromatic
+  if (n == 0u && cap > 2u) {  // a scale index out of the table (never from the app): "--"
     out[n++] = '-';
     out[n++] = '-';
   }
@@ -492,16 +492,15 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     cut("NEXT ", 5, next, sizeof next);
     append(next, sizeof next, qn);
   }
-  if (!setup_) {  // the keyboard's scale lock (SETUP's F5 sets it; SETUP's own second line shows the generator's scale)
-    const bool locked = home_.scale_locked();
+  if (!setup_) {  // the scale the keys light (SETUP's F5 sets it; SETUP's own second line shows the generator's scale)
     char sc[24];
-    scale_value_text(rig_->wiring.gen.scale, locked, false, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
+    scale_value_text(rig_->wiring.gen.scale, false, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
     const int next_w = next[0] != '\0' ? r.text_width(next, Face::Label) + 22 : 0;
     const bool full = row.x() + r.text_width("SCALE", Face::Label) + r.text_width(sc, Face::Data) + 24 + next_w <= box_x - 12;
     if (full) {
       row.field("SCALE", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
-    } else if (locked) {  // a scale that locks the keyboard is always shown: short, when the full field does not fit
-      scale_value_text(rig_->wiring.gen.scale, true, true, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
+    } else {  // the scale is always shown: short, when the full field does not fit
+      scale_value_text(rig_->wiring.gen.scale, true, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
       row.field("SC", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
     }
   }
@@ -535,7 +534,7 @@ void MainScreen::draw_info_generator(app::Context& ctx, ui::Renderer& r, const R
   row.put(Face::Label, " (WHOLE PROJECT)", Color::ChromeDim);
   row.skip(40);
   char sc[24];
-  scale_value_text(g.scale, home_.scale_locked(), false, sc, sizeof sc, static_cast<int>(g.root));  // "--" until the player chooses one: the keyboard is chromatic (NEW uses it anyway)
+  scale_value_text(g.scale, false, sc, sizeof sc, static_cast<int>(g.root));
   row.field("SCALE", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
   const unsigned pct[3] = {g.density, g.accent_pct, g.slide_pct};
   static constexpr const char* kNames[3] = {"DENSITY", "ACC", "SLD"};
@@ -568,8 +567,8 @@ void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kK
         cut(rn, sizeof kn.value - 1u, kn.value, sizeof kn.value);
         kn.unit = "";
         kn.norm = static_cast<float>(root < 11u ? root : 11u) / 11.0f;
-      } else if (home_.scale_locked()) {
-        scale_value_text(rig_->wiring.gen.scale, true, false, kn.value, sizeof kn.value, static_cast<int>(root));
+      } else {
+        scale_value_text(rig_->wiring.gen.scale, false, kn.value, sizeof kn.value, static_cast<int>(root));
       }
     }
     kn.held = (fk.held() >> k & 1u) != 0u;

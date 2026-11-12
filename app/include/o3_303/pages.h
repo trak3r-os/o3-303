@@ -109,7 +109,7 @@ extern const Page kTractPage;  // A2: the tract's seven knobs and F8 TRACT on / 
 extern const Page kWobblePage;
 
 // PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP
-// (this pattern's), F5 SCALE, F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). SCALE locks the keyboard (Wiring::scale_set).
+// (this pattern's), F5 SCALE, F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). SCALE lights the keyboard (and Config's KEYS: IN SCALE locks it: Wiring::keys_in_scale).
 inline constexpr unsigned kSetupPageCount = 1;
 const Page& setup_page() noexcept;
 
@@ -185,8 +185,7 @@ struct Wiring {
   bool throw_on = false;
   bool stock = false;        // the voice's Stock is on (the mirror of its parameter, for the chip of every screen): Controls::set(Item::Mods) is its one writer. Main loop only
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};  // PerfAction of Note, Instr, Vol, Fx
-  bool scale_set = false;    // the player chose a scale (PATTERN SETUP's Scale): the keyboard is locked to it (R8). A boot has the generator's default
-                             // scale without that, so the keyboard is chromatic until the Scale entry is touched; "No scale" or "Chromatic" unlocks it
+  bool keys_in_scale = false;  // Config's KEYS: IN SCALE (a setting, not the project's; main loop only): the keys outside the scale on F5 are dark and do nothing. ALL (false) is the default: every key plays and writes, the scale only lights them
   SnapBank snaps;            // the eight snapshots and the morph (PERFORM's row 2; saved in the project; the screens read and write it from the main loop)
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)
   std::int8_t wob_want = -1;  // B5a: the WOB latch a project load or a snapshot recall asks for (0 off, 1 on, -1 nothing): Controls::set(Item::WobOn) writes it, LiveActions::update takes it. Main loop only

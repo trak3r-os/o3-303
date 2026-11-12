@@ -35,8 +35,9 @@ TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, a
     const std::uint8_t expect = info.kind == Cell::Rest ? app::kLedOff : (info.accent ? app::kLedLow : app::kLedDim);
     CHECK(t.led(step_pad_of(k)) == expect);
   }
-  // Keyboard LEDs: naturals dim, sharps off, the note of the cursor's step at mid level (UX-303 6.2). The keyboard is in the pattern's register: the
-  // bottom left pad is C2, which is the first note of the factory line, under the cursor.
+  // Keyboard LEDs: the default scale (C minor pentatonic, S3) lights its notes at mid and the root full, the others dark; the note of the cursor's step
+  // is at least mid (UX-303 6.2). The keyboard is in the pattern's register: the bottom left pad is C2, which is the first note of the factory line,
+  // under the cursor.
   const StepInfo cursor_step = describe(p, 0);
   REQUIRE(cursor_step.kind == Cell::Note);
   REQUIRE(cursor_step.note >= 36);
@@ -45,12 +46,17 @@ TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, a
   for (unsigned pad = 24; pad < 48; ++pad) {
     const int note = key_note(pad, 0);
     REQUIRE(note >= 0);
-    const std::uint8_t expect = pad == current_pad ? app::kLedMid : (is_natural(static_cast<unsigned>(note)) ? app::kLedDim : app::kLedOff);
+    const unsigned pc = static_cast<unsigned>(note) % 12u;
+    const bool in_scale = pc == 0u || pc == 3u || pc == 5u || pc == 7u || pc == 10u;
+    std::uint8_t expect = !in_scale ? app::kLedOff : (pc == 0u ? app::kLedOn : app::kLedMid);
+    if (pad == current_pad && expect < app::kLedMid) {
+      expect = app::kLedMid;
+    }
     CHECK(t.led(pad) == expect);
   }
-  CHECK(t.led(key_pad(36)) == app::kLedMid);  // C2
+  CHECK(t.led(key_pad(36)) == app::kLedOn);  // C2, the root, under the cursor
   CHECK(t.led(key_pad(37)) == app::kLedOff); // C#2
-  CHECK(t.led(key_pad(52)) == app::kLedDim); // E3
+  CHECK(t.led(key_pad(51)) == app::kLedMid); // Eb3
   // Move the cursor to a step with another note: its key is the one at mid level.
   unsigned other = 1;
   while (other < 16 && (describe(p, other).kind != Cell::Note || describe(p, other).note == cursor_step.note || describe(p, other).note > 59)) {
@@ -59,8 +65,13 @@ TEST_CASE("boot: the factory line is in A01, the rest of the project is empty, a
   REQUIRE(other < 16);
   t.pad(step_pad_of(other));
   t.wait(30);
-  CHECK(t.led(key_pad(describe(p, other).note)) == app::kLedMid);
-  CHECK(t.led(key_pad(cursor_step.note)) == (is_natural(cursor_step.note) ? app::kLedDim : app::kLedOff));
+  const auto scale_level = [](int note) {
+    const unsigned pc = static_cast<unsigned>(note) % 12u;
+    return pc == 0u ? app::kLedOn : (pc == 3u || pc == 5u || pc == 7u || pc == 10u ? app::kLedMid : app::kLedOff);
+  };
+  const std::uint8_t at_other = scale_level(describe(p, other).note);
+  CHECK(t.led(key_pad(describe(p, other).note)) == (at_other > app::kLedMid ? at_other : app::kLedMid));
+  CHECK(t.led(key_pad(cursor_step.note)) == scale_level(cursor_step.note));
 }
 
 TEST_CASE("every frame of a session fits the display list") {

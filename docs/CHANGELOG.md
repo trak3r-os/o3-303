@@ -3,6 +3,17 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## Unreleased
+
+### What you can do that you could not before
+
+- **Every key plays; the scale only lights them (S3).** The scale on PATTERN SETUP's F5 always lights the keys (the scale at mid, the root full, the others dark) and the info line
+  always shows it with its root: the "--" state and the hidden "a scale was chosen" lock are gone. Every key plays and writes, so the flat second and the chromatic walk-up are
+  yours. NEW, NOTES and VARY still keep to the scale. A new Config row, KEYS (ALL or IN SCALE, ALL at first), brings the old lock back: with IN SCALE the dark keys do nothing.
+  A project saved with the old lock loads without it (the flag is read and ignored); KEYS is a setting of the unit, not of the project.
+- **Params opens FX first (S4).** INSTRUMENT has the same two pages and read-outs, but FX is page 1 (the distortion and the delay, the effects you reach for most) and VOICE
+  is page 2. Params from another screen opens FX; Params again goes to VOICE and back.
+
 ## v0.7.0 (2026-11-12), a pre-release
 
 TRACT, a talking mouth after the voice, with its page and its pattern line; PERFORM KNOBS with four sets of knobs; PERFORM's arrows; and a

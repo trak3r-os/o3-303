@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The scale-locked keyboard (docs/M3B-PLAN.md R8): with a scale set, the keyboard pads out of it go dark and are skipped (a press does
-// nothing: no note, no entry). A boot has the generator's default scale without it being a choice, so the keyboard is chromatic until the
-// generator's Scale (PATTERN SETUP's F5) is touched; "No scale" and "Chromatic" unlock it again.
+// The scale on the keyboard (docs/M3B-PLAN.md R8, changed by S3 of docs/REVIEW-303.md): the scale shown on F5 always lights the keys (the scale mid, the root full,
+// the others dark) and every key plays and writes, whatever the scale is. Config's KEYS: IN SCALE (key 8, ALL by default) adds the old lock: the pads out of the
+// scale do nothing (no note, no entry). "No scale" and "Chromatic" light nothing and lock nothing.
 #include <doctest/doctest.h>
 
 #include "hands.h"
 
 #include <o3sdk/app/pad_leds.h>
 #include <o3_303/app_access.h>
+#include <o3_303/config_keys.h>
 #include <o3_303/pad_map.h>
 #include <o3_303/perform.h>
 
@@ -17,26 +18,46 @@ using namespace o3_303;
 namespace {
 
 // PATTERN SETUP's F5 is Scale (Hands::choose_scale): 0 No scale, 1 Chromatic, 2 Minor, 3 Major ... 18 Penta Min (the default), 39. The encoder moves a
-// place a detent (there are 40): down to the first, then up to `to`. (A turn that leaves the value where it is, the default 18 chosen from 18, is
-// no choice: the lock follows a choice the player made.)
+// place a detent (there are 40): down to the first, then up to `to`.
 void choose_scale(Hands& t, int to) { t.choose_scale(to); }
+
+void keys_in_scale(Hands& t, bool on) { t.config_set(config::kKeys, on ? 1.0f : 0.0f); }
 
 }  // namespace
 
-TEST_CASE("at boot the keyboard is chromatic: every pad plays, whatever the generator's default scale is") {
+TEST_CASE("at boot every pad plays and the default scale (C minor pentatonic) lights the keys: the root full, the scale mid, the others dark") {
   Hands t;
   t.tap(Button::Rec);
+  for (unsigned pc = 0; pc < 12; ++pc) {
+    t.pad(key_pad(36 + pc), 10);
+    CHECK(t.pat().steps[pc].note == 36 + pc);  // every key writes: KEYS is ALL
+  }
+  t.wait(40);
+  CHECK(t.led(key_pad(48)) == app::kLedOn);   // C, the root
+  CHECK(t.led(key_pad(51)) == app::kLedMid);  // Eb
+  CHECK(t.led(key_pad(53)) == app::kLedMid);  // F
+  CHECK(t.led(key_pad(50)) == app::kLedOff);  // D, a natural out of the scale: dark (and still plays)
+  CHECK(t.led(key_pad(49)) == app::kLedOff);  // C#
+}
+
+TEST_CASE("with Major chosen and KEYS: ALL the scale only lights the keys: every pad plays and writes") {
+  Hands t;
+  choose_scale(t, 3);
+  t.tap(Button::Rec);
+  const bool in[12] = {true, false, true, false, true, true, false, true, false, true, false, true};
   for (unsigned pc = 0; pc < 12; ++pc) {
     t.pad(key_pad(36 + pc), 10);
     CHECK(t.pat().steps[pc].note == 36 + pc);
   }
   t.wait(40);
-  CHECK(t.led(key_pad(37)) == app::kLedOff);  // sharps are dark as ever (a piano drawn with one colour) ...
-  CHECK(t.led(key_pad(38)) == app::kLedDim);  // ... and the naturals dim
+  for (unsigned pc = 0; pc < 12; ++pc) {
+    CHECK(t.led(key_pad(48 + pc)) == (!in[pc] ? app::kLedOff : (pc == 0 ? app::kLedOn : app::kLedMid)));
+  }
 }
 
-TEST_CASE("with Major chosen the pads of C D E F G A B play and the others are dark and do nothing") {
+TEST_CASE("KEYS: IN SCALE with Major: the pads of C D E F G A B play and the others are dark and do nothing") {
   Hands t;
+  keys_in_scale(t, true);
   choose_scale(t, 3);
   const Pattern before = t.pat();
   t.tap(Button::Rec);
@@ -53,7 +74,6 @@ TEST_CASE("with Major chosen the pads of C D E F G A B play and the others are d
   CHECK(written == 7);
   CHECK(t.pat().steps[7].note == before.steps[7].note);  // the skipped notes were not written, and the cursor did not run on
   t.wait(40);
-  // The LEDs: with a scale chosen lit means playable: the pads of the scale are mid, the root full, the others dark.
   for (unsigned pc = 0; pc < 12; ++pc) {
     if (!in[pc]) {
       CHECK(t.led(key_pad(36 + pc)) == app::kLedOff);
@@ -64,11 +84,11 @@ TEST_CASE("with Major chosen the pads of C D E F G A B play and the others are d
   }
 }
 
-TEST_CASE("a scale with a natural out of it (C minor pentatonic: C Eb F G Bb) darkens that natural") {
+TEST_CASE("KEYS: IN SCALE with C minor pentatonic: a natural out of it is dark and skipped, a sharp in it is lit and written") {
   Hands t;
-  choose_scale(t, 18);  // the default's own index, chosen (down and up again): the keyboard locks to it
+  keys_in_scale(t, true);
+  choose_scale(t, 18);
   t.wait(40);
-  // D, E, A, B and the sharps C#, F#, G# are out; Eb, Bb are in: with a scale chosen lit means playable, so those two sharps are dim.
   CHECK(t.led(key_pad(39)) == app::kLedMid);  // Eb
   CHECK(t.led(key_pad(46)) == app::kLedMid);  // Bb
   CHECK(t.led(key_pad(37)) == app::kLedOff);  // C#
@@ -87,8 +107,9 @@ TEST_CASE("a scale with a natural out of it (C minor pentatonic: C Eb F G Bb) da
   CHECK(t.pat().steps[1].note == 39);
 }
 
-TEST_CASE("a skipped pad plays no sound and a hold-a-step key does not write the step") {
+TEST_CASE("KEYS: IN SCALE: a skipped pad plays no sound and a hold-a-step key does not write the step") {
   Hands t;
+  keys_in_scale(t, true);
   choose_scale(t, 3);  // C major
   const Pattern before = t.pat();
   t.down(step_pad_of(4));
@@ -110,8 +131,21 @@ TEST_CASE("a skipped pad plays no sound and a hold-a-step key does not write the
   t.tap(Button::Play);
 }
 
-TEST_CASE("No scale and Chromatic unlock the keyboard again") {
+TEST_CASE("KEYS: ALL: a pad out of the scale transposes the running pattern too (TRNSP on)") {
   Hands t;
+  choose_scale(t, 3);  // C major
+  t.toggle_trnsp();
+  t.tap(Button::Play);
+  t.wait(200);
+  t.pad(key_pad(37), 10);  // C#: out of the scale, still a key
+  t.wait(40);
+  CHECK(app_sequencer().live_transpose() == 1);
+  t.tap(Button::Play);
+}
+
+TEST_CASE("No scale and Chromatic light nothing and lock nothing, with KEYS: IN SCALE too") {
+  Hands t;
+  keys_in_scale(t, true);
   choose_scale(t, 3);
   t.tap(Button::Rec);
   t.pad(key_pad(37), 10);
@@ -129,10 +163,11 @@ TEST_CASE("No scale and Chromatic unlock the keyboard again") {
   t.pad(key_pad(39), 10);
   CHECK(t.pat().steps[3].note == 39);
   t.wait(40);
-  CHECK(t.led(key_pad(38)) == app::kLedDim);
+  CHECK(t.led(key_pad(38)) == app::kLedDim);  // the naturals dim, the sharps off, as a piano drawn with one colour
+  CHECK(t.led(key_pad(37)) == app::kLedOff);
 }
 
-TEST_CASE("the scale lock follows the keyboard's octave and ends with the run") {
+TEST_CASE("the scale's lamps follow the keyboard's octave and end with the run") {
   Hands t;
   choose_scale(t, 3);
   t.pad(role_pad(PadRole::OctUp), 10);
@@ -141,7 +176,7 @@ TEST_CASE("the scale lock follows the keyboard's octave and ends with the run") 
   CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);
   CHECK(t.led(key_pad(36 + 2)) == app::kLedMid);
   CHECK(t.led(key_pad(36 + 4)) == app::kLedMid);
-  Hands again;  // a new run: chromatic
+  Hands again;  // a new run: KEYS is ALL
   again.tap(Button::Rec);
   again.pad(key_pad(37), 10);
   CHECK(again.pat().steps[0].note == 37);

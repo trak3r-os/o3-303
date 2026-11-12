@@ -60,8 +60,6 @@ constexpr std::size_t kMaxImageBytes =
     chunk_bytes(kPerfPayload) + kSongReserve + chunk::kCrcChunkBytes;
 static_assert(kMaxImageBytes <= kProjectBytes, "the project image must fit its 128 KiB buffer");
 
-constexpr std::uint8_t kFlagScaleSet = 1u << 0;
-
 O3SDK_BIG std::uint8_t g_buffer[kProjectBytes];
 
 // Counts the encodes (main loop only): decode() records it with the patterns' pointer, apply() refuses a state an encode has outdated.
@@ -316,7 +314,7 @@ void read_head(chunk::Fields& f, ProjectState& out) noexcept {
   out.selected = static_cast<std::uint8_t>(sel < kPatternCount ? sel : 0u);  // a pattern this build has not: the first
   const std::uint32_t tempo = f.u32();
   out.tempo_mbpm = tempo < dsp::kMinTempoMilliBpm ? dsp::kMinTempoMilliBpm : (tempo > dsp::kMaxTempoMilliBpm ? dsp::kMaxTempoMilliBpm : tempo);
-  out.scale_set = (f.u8() & kFlagScaleSet) != 0u;
+  (void)f.u8();  // HEAD flags: bit 0 was "a scale was chosen" (the keyboard lock, S3 of docs/REVIEW-303.md); read and ignored, written as 0
   char name[kNameChars];
   for (char& c : name) {
     c = static_cast<char>(f.u8());
@@ -516,7 +514,6 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   const Wiring& w = rig.wiring;
   out.selected = static_cast<std::uint8_t>(rig.bank != nullptr ? rig.bank->selected() : 0u);
   out.tempo_mbpm = rig.tempo_base_mbpm != 0u ? rig.tempo_base_mbpm : e.own_tempo();  // a tempo nudge on: the tempo it started from
-  out.scale_set = w.scale_set;
   out.gen = w.gen;
 
   out.sound_n = 0;
@@ -570,7 +567,7 @@ bool write_head_gen(chunk::Writer& w, const ProjectState& s, std::uint32_t save_
   for (unsigned i = 0; i + 1u < kNameChars && s.name[i] != '\0'; ++i) {
     name[i] = s.name[i];
   }
-  bool ok = w.begin("HEAD") && w.u16(kHeadVersion) && w.u8(s.selected) && w.u32(s.tempo_mbpm) && w.u8(s.scale_set ? kFlagScaleSet : 0u) &&
+  bool ok = w.begin("HEAD") && w.u16(kHeadVersion) && w.u8(s.selected) && w.u32(s.tempo_mbpm) && w.u8(0u) &&
             w.bytes(name, kNameChars) && w.u32(save_count) && w.end();
 
   return ok && w.begin("GEN ") && w.u16(kVersion) && w.u8(s.gen.scale) && w.u8(s.gen.root) && w.u8(s.gen.low) && w.u8(s.gen.high) && w.u8(s.gen.density) &&
@@ -910,7 +907,6 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
 
   (void)e.set_tempo(s.tempo_mbpm);
   w.gen = s.gen;
-  w.scale_set = s.scale_set;
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     w.perf[b] = s.perf[b] < kPerfActionCount ? s.perf[b] : kDefaultPerf[b];
   }

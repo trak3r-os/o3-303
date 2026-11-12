@@ -89,7 +89,6 @@ struct ProjectState {
   // HEAD
   std::uint8_t selected = 0;
   std::uint32_t tempo_mbpm = 125'000;
-  bool scale_set = false;
   char name[kNameChars] = {};  // informational; gather() leaves it alone: the service owns the name
   std::uint32_t save_count = 0;  // HEAD 1.1: the write this image is (the service sets it before an encode; gather() leaves it alone; a 1.0 file reads 0). small_crc() ignores it
   // GEN

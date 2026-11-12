@@ -257,17 +257,14 @@ TEST_CASE("pages: PERFORM SETUP's page (the four assignments, FILL, the freeze's
   }
 }
 
-TEST_CASE("pages: choosing a scale locks the keyboard to it (the generator's default scale is not a choice)") {
+TEST_CASE("pages: choosing a scale locks nothing (S3): the keys keep playing, only Config's KEYS: IN SCALE locks them") {
   Rig rig;
-  CHECK_FALSE(rig.wiring.scale_set);
+  CHECK_FALSE(rig.wiring.keys_in_scale);
   const Entry scale = setup_page().entry[4];  // PATTERN SETUP's F5
   REQUIRE(scale.item == Item::Scale);
   rig.controls.set(rig.engine, scale, 3.0f);
-  CHECK(rig.wiring.scale_set);
-  // The other generator entries do not set it.
-  Rig other;
-  other.controls.set(other.engine, setup_page().entry[5], 40.0f);  // DENSITY
-  CHECK_FALSE(other.wiring.scale_set);
+  CHECK(rig.wiring.gen.scale == 3);
+  CHECK_FALSE(rig.wiring.keys_in_scale);
 }
 
 TEST_CASE("pages: the SOUND page goes through the engine to the voice") {

@@ -1,8 +1,7 @@
-# The scale-locked keyboard (docs/M3B-PLAN.md R8): with a scale chosen on PATTERN SETUP (a tap of Pattern; F5 is Scale) the keyboard pads out of it are
-# dark and do nothing; a boot has none chosen (the generator's default scale is not a choice), so the keyboard is chromatic until the Scale key is
-# turned. SETUP sets it through the same control as always, so the lock engages as before.
+# The scale on the keyboard (docs/M3B-PLAN.md R8, S3 of docs/REVIEW-303.md): the scale on PATTERN SETUP's F5 always lights the keys (the scale mid, the root full, the others
+# dark) and every key plays and writes. Config's KEYS: IN SCALE (the last row of page 303) brings the lock back: the dark keys do nothing.
 wait 300
-snap 01_chromatic_boot
+snap 01_penta_boot
 # SETUP: F5 is Scale; walk to the first entry (No scale) and up to Major (3).
 tap pattern
 tap f5
@@ -13,14 +12,14 @@ snap 02_major_chosen
 tap pattern
 wait 100
 snap 03_c_major_keyboard
-# REC + keys: D (pad 38) and E (pad 40) are written on steps 1 and 2; the C# (37) and D# (39) pads, dark, do nothing and the cursor stays.
+# KEYS: ALL. REC + keys: the four pads C# D D# E (37 to 40) are all written, on steps 1 to 4, dark or not.
 tap rec
 pad 37
 pad 38
 pad 39
 pad 40
 wait 100
-snap 04_rec_in_scale_only
+snap 04_rec_every_key
 tap rec
 # C minor pentatonic: Penta Min is entry 18.
 tap pattern
@@ -37,3 +36,31 @@ turn -40
 tap pattern
 wait 100
 snap 06_no_scale
+# KEYS: IN SCALE. Config, page 303 (Left wraps to it), the last row (six Downs), F1 steps it on. The keyboard is C major again.
+tap config
+tap left
+tap down 1
+tap down 1
+tap down 1
+tap down 1
+tap down 1
+tap down 1
+snap 07_config_keys_row
+tap f1
+tap config
+wait 100
+tap pattern
+tap f5
+turn -40
+turn 3
+tap pattern
+wait 100
+snap 08_c_major_locked
+# REC + the same four pads: D and E are written on steps 1 and 2; the C# (37) and D# (39), dark, do nothing and the cursor stays.
+tap rec
+pad 37
+pad 38
+pad 39
+pad 40
+wait 100
+snap 09_rec_in_scale_only

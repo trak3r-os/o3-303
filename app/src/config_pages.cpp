@@ -7,6 +7,7 @@
 #include "skin/skin.h"
 
 #include <o3_303/config_keys.h>
+#include <o3_303/pages.h>
 
 namespace o3_303 {
 
@@ -22,6 +23,7 @@ constexpr const char* kAutosaveNames[config::kAutosaveChoices] = {"OFF", "10 S",
 constexpr const char* kKeysNames[] = {"PLAY", "TRANSPOSE"};
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
 constexpr const char* kSkinNames[] = {"CLASSIC", "OBSIDIAN"};
+constexpr const char* kKeysScaleNames[] = {"ALL", "IN SCALE"};
 
 constexpr core::ParamDesc kAutosave = {"AUTOSAVE", "", kAutosaveNames, nullptr, 0.0f, 2.0f, 1.0f, 2, 1, config::kAutosaveChoices, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kKeysAtBoot = {"KEYS AT BOOT", "", kKeysNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -29,6 +31,7 @@ constexpr core::ParamDesc kLadderSlew = {"LADDER SLEW", "ms", nullptr, nullptr, 
                                          ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kPadLegend = {"PAD LEGEND", "", kOffOnNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSkin = {"SKIN", "", kSkinNames, nullptr, 0.0f, 1.0f, 1.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kKeys = {"KEYS", "", kKeysScaleNames, nullptr, 0.0f, 1.0f, 0.0f, 1, 1, 2, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 
 // ---- The pages -----------------------------------------------------------------------------------------------------------------------------
 
@@ -39,6 +42,7 @@ constexpr app::ConfigItem k303Items[] = {
     {config::kPadLegend, "PAD LEGEND", &kPadLegend},
     {config::kResetProject, "RESET PROJECT", nullptr},
     {config::kSkin, "SKIN", &kSkin},
+    {config::kKeys, "KEYS", &kKeys},
 };
 constexpr app::ConfigPage kPages[1] = {
     {"303", k303Items, sizeof k303Items / sizeof k303Items[0]},
@@ -53,9 +57,11 @@ unsigned round_index(float v, unsigned last) noexcept {
 
 }  // namespace
 
-void ConfigPages::init(LiveActions& live, ProjectService& project) noexcept {
+void ConfigPages::init(LiveActions& live, ProjectService& project, Wiring& wiring) noexcept {
   live_ = &live;
   project_ = &project;
+  wiring_ = &wiring;
+  wiring.keys_in_scale = false;  // ALL
   keys_at_boot_ = 0;
   boot_ = true;
   live.set_ladder_slew_ms(kLadderSlewMs);
@@ -87,6 +93,8 @@ float ConfigPages::get(const app::Context& /*ctx*/, std::uint16_t key) const noe
       return frame::pad_legend() ? 1.0f : 0.0f;
     case config::kSkin:
       return skin::on() ? 1.0f : 0.0f;
+    case config::kKeys:
+      return wiring_->keys_in_scale ? 1.0f : 0.0f;
     default:
       break;
   }
@@ -115,6 +123,10 @@ void ConfigPages::set(app::Context& ctx, std::uint16_t key, float value) noexcep
       return;
     case config::kSkin:
       skin::set_on(value >= 0.5f);
+      ctx.redraw();
+      return;
+    case config::kKeys:
+      wiring_->keys_in_scale = value >= 0.5f;
       ctx.redraw();
       return;
     default:
