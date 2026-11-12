@@ -1,0 +1,44 @@
+# The arrows on MODDED, GROWL, TRACT and WOBBLE (as on PERFORM): Left and Right move the latch along the F keys, Up and Down turn the latched knob by 1/20; with Shift the arrows are the
+# pattern's again (the cursor, and the cursor step's note).
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/mods_arrows.txt --out <dir>
+#
+# 01 MODDED NOTES, F1 latched; 02 Up three times: the F1 knob has moved up; 03 Right: the latch is on F2, Up twice moves F2; 04 Shift + Right: the pattern's cursor on step 2, the knobs stay;
+# 05 GROWL after Up; 06 TRACT after Right and Up; 07 WOBBLE after Up.
+wait 300
+tap sampleload
+wait 100
+tap f1
+wait 60
+snap 01_notes_f1_latched
+tap up
+tap up
+tap up
+wait 100
+snap 02_up_three
+tap right
+tap up
+tap up
+wait 100
+snap 03_right_up_two
+press shift
+tap right
+release shift
+wait 100
+snap 04_shift_right_cursor
+tap sampleplay
+tap f1
+tap up
+wait 100
+snap 05_growl
+tap sampleedit
+tap f2
+tap right
+tap up
+wait 100
+snap 06_tract
+tap samplerec
+tap f1
+tap up
+wait 100
+snap 07_wobble

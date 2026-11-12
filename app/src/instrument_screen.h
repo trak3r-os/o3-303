@@ -101,7 +101,10 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   const o3sdk::ui::Theme* theme(const o3sdk::app::Context& ctx) const noexcept override;
   void enter(o3sdk::app::Context& ctx) noexcept override;
   void leave(o3sdk::app::Context& ctx) noexcept override;
-  std::uint64_t repeat_buttons(const o3sdk::app::Context&) const noexcept override { return PageKeys::repeat_arrows(); }  // held Left and Right with an F key held keep stepping its knob
+  // Held Left and Right keep stepping (a knob with an F key held, else the latch along the F keys); on the mods screens Up and Down repeat as well (the latched knob by 1/20), as on PERFORM.
+  std::uint64_t repeat_buttons(const o3sdk::app::Context&) const noexcept override {
+    return PageKeys::repeat_arrows() | (mods_screen() ? (std::uint64_t{1} << static_cast<unsigned>(o3sdk::app::Button::Up)) | (std::uint64_t{1} << static_cast<unsigned>(o3sdk::app::Button::Down)) : 0u);
+  }
   void input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept override;
   void update(o3sdk::app::Context& ctx) noexcept override;
   void draw(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept override;
@@ -146,6 +149,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   bool line_tool(o3sdk::app::Context& ctx, unsigned k) noexcept;  // Shift + F`k` of the TRACT page: LEN (F4), CLEAR (F5); false: not a tool key
   void line_arrow(o3sdk::app::Context& ctx, int direction) noexcept;
   std::uint64_t held_steps() const noexcept;               // the line steps held on the pads (bit n = step n)
+  bool mods_screen() const noexcept { return group_ != &instrument_group(); }  // MODDED, GROWL, TRACT, WOBBLE (not the INSTRUMENT FX and VOICE instance)
   PageKeys& keys() noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
   const PageKeys& keys() const noexcept { return group_->pages[page_] == nullptr ? rig_->sound_keys : own_[page_]; }
 

@@ -203,11 +203,11 @@ TEST_CASE("tract page: Left and Right move the line's cursor, the LINE pad flips
   Hands t;
   t.to_tract_line();
   t.pad(4);
-  t.tap(Button::Right);
+  t.shift_tap(Button::Right);
   t.pad(pal_pad(0));  // A on step 5
   CHECK(vowel_of(5) == 1u);
-  t.tap(Button::Left);  // from the cursor (6) back to 5
-  t.tap(Button::Left);
+  t.shift_tap(Button::Left);  // from the cursor (6) back to 5
+  t.shift_tap(Button::Left);
   t.pad(pal_pad(1));  // E on step 4
   CHECK(vowel_of(4) == 2u);
   // LINE.

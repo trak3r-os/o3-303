@@ -128,7 +128,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records the encoder's knob moves (the pad effects are not recorded). **Shift + Rec**: arm or stop an audio take, from any screen |
 | **Note, Instr, Vol, Fx** | The four colour buttons, on every screen. A tap flips a sound: **Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE**. **Shift + the button** flips it the same way (the colour buttons carry no PERFORM action: MUTE, ACC, FILL and FRZ are pads). With a step pad held on HOME they give the encoder one row of that step (NOTE, GATE, PLAYS, LOCK) |
 | **Copy, Insert, Delete** | Step editing on HOME (copy, make a tie, clear; Shift + Insert pushes the steps right) |
-| **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range |
+| **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range. On MODDED, GROWL, TRACT and WOBBLE they are PERFORM's (the latch and the latched knob) and **Shift + arrow** is the cursor and the note |
 | **F1 to F8** | The eight keys under the screen. Their names are always on the screen, just above them |
 | **Encoder** | Turns what the ENC window names. With Shift held it moves in bigger steps. Config's ENCODER (page DISPLAY: OFF, NORMAL, FAST) makes a fast spin move a knob, a step's lock and the FILE and LIBRARY lists further; a switch, a short list, Shift's coarse steps and the morph stay one value a detent |
 | **Shift** | Hold it for the second meaning of a button (HELP shows them in blue). With Shift held, the F keys show their Shift row |
@@ -504,6 +504,8 @@ Press **Sample Load**. MODDED opens on NOTES, the page for how a note moves. Pre
 the filter is fed and gives, and again to go back. F8 on either page is **MODS**, the same switch as **Shift + Sample Load** from any
 screen (below).
 
+**The arrows on MODDED, GROWL, TRACT and WOBBLE** are PERFORM's: **Left** and **Right** move the latch along F1 to F8, **Up** and **Down** move the latched knob by 1/20 of its range (they repeat while held), and with an F key held Left and Right are minus and plus 1/20 of that key's knob. The pattern's cursor and the cursor step's note (the arrows of HOME) are **Shift + Left, Right, Up, Down** on these four screens.
+
 These are Devil Fish-style mods: changes to the 303's circuit of the kind the Devil Fish made popular, with the ranges Robin Whittle published
 for it. At their stock values the voice is a plain TB-303, so a MODDED page changes nothing you hear until you turn a knob.
 
@@ -553,7 +555,7 @@ MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen 
 
 Press **Sample Edit**. TRACT is a mouth after the growl: F1 VOWEL (A E I O U morphed; the read-out is a letter on a vowel and "E 37%" between), F2 TONGUE,
 F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8 GAIN. The **Vol** button switches the tract on and off (off is Mix 0, the dry sound bit for bit; on brings back the last
-mix). GAIN is the level of the tract's wet sound (-12 to +18 dB, +0.5 dB at first: the level match of the factory vowel); like any knob it can be locked on a held step, recorded and learned. Shift + F1 to F3, F7 and F8 are MIDI learn (Shift + F4, F5 and F6 are the line's LEN, CLEAR and NEW, below). Another press of **Sample Edit** flips the page's layer: STEPS (it opens on that) and LINE.
+mix). GAIN is the level of the tract's wet sound (-12 to +18 dB, +0.5 dB at first: the level match of the factory vowel); like any knob it can be locked on a held step, recorded and learned. Shift + F1 to F3, F7 and F8 are MIDI learn (Shift + F4, F5 and F6 are the line's LEN, CLEAR and NEW, below). Another press of **Sample Edit** flips the page's layer: STEPS (it opens on that) and LINE. The arrows are PERFORM's here too (the latch and the latched knob; Shift + arrow is the cursor), as on MODDED.
 
 **STEPS layer.** The pads are the pattern's own steps, so the mouth can be set where the notes are: rows 1 and 2, columns 1 to 8, are steps 1 to 16 (the other four columns of each row do nothing here). Tap a step to select it, or hold steps. Row 3 is the palette below (columns 1 to 5 write A E I O U, column 6 "-", column 11 GLD, column 12 LINE) and writes the TRACT line under the steps you hold, else under the selected step, which then moves on. With a step held, **F1 turned** moves that step's vowel ("-" A E I O U, GLD stays) and **F2 or F3 turned** lock TONGUE or LIPS for that step only (tongue and lips are the two lanes of the pattern that the tract can take). Shift + F5 CLEAR also clears those two locks. A line of its own length (Shift + F4 LEN) is edited under its wrap: with LEN 4 on a 16-step pattern the steps 5, 9 and 13 edit the same line step as step 1, and the toast says LINE LEN 4: EDIT REPEATS. A line longer than the pattern shows only its first steps here; the LINE layer reaches all of them.
 
@@ -577,7 +579,7 @@ VOWEL knob as it is). With LINE on the line plays with the pattern; with LINE of
 ### GROWL
 
 Press **Sample Play**. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
-comb, then the mix), and F8 is the level of the wet sound. The **Instr** button switches the growl on and off.
+comb, then the mix), and F8 is the level of the wet sound. The **Instr** button switches the growl on and off. The arrows are PERFORM's (the latch and the latched knob; Shift + arrow is the pattern's cursor and note), as on MODDED.
 
 ![GROWL: F1 VOWEL, F2 FMT Q, F3 FMT MIX, F4 CMB TUNE, F5 CMB FB, F6 CMB MIX, F7 GRL MIX; the VOICE and WOBBLE read-outs](manual/img/growl.png)
 
@@ -601,7 +603,7 @@ Like the other knobs, a growl knob can be locked per step and recorded as motion
 
 ### WOBBLE
 
-Press **Sample Rec**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The wobble runs while the WOB
+Press **Sample Rec**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The arrows are PERFORM's (the latch and the latched knob; Shift + arrow is the pattern's cursor and note), as on MODDED. The wobble runs while the WOB
 action is on. F8 (or the Fx button, on every screen) latches that action, and ALL OFF on PERFORM lets it go. **Row 3 of the pads is the wobble's rates** here as on PERFORM
 (1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T, 1/8D, 1/16D, 1/2, 1/1): hold a pad and the wobble runs at that rate, Shift + pad latches it, ALL OFF lets it go. Rows 1 and 2 are the pattern's steps and row 4 the keys, as on HOME.
 

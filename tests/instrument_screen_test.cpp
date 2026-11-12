@@ -294,8 +294,8 @@ TEST_CASE("the pads, Rec and the cursor are HOME's own: the same home map") {
   t.pad(key_pad(53));
   CHECK(t.pat().steps[3].note == 53);
   t.tap(Button::Rec);
-  t.tap(Button::Left);  // the arrows move the cursor: the pad of the cursor step is the same on the next screen
-  t.tap(Button::Left);
+  t.shift_tap(Button::Left);  // Shift + arrows move the cursor (the plain ones are the latch's): the pad of the cursor step is the same on the next screen
+  t.shift_tap(Button::Left);
   t.pad(key_pad(55));  // Rec is off: it plays the voice and writes nothing
   CHECK(t.pat().steps[3].note == 53);
   CHECK(t.pat().steps[2].note == 52);

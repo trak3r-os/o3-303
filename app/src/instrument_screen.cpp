@@ -962,6 +962,17 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
     keys().end_press();
     return;
   }
+  if (mods_screen() && !home_->overlay()) {  // MODDED, GROWL, TRACT and WOBBLE: the arrows are PERFORM's (Left and Right move the latch, Up and Down the latched knob by 1/20); Shift + arrow is the pattern's (below)
+    if (keys().move_latch(in)) {
+      ctx.redraw();
+      return;
+    }
+    if (Input step; keys().value_arrow(in, step)) {
+      turn_input(ctx, step);
+      keys().end_press();
+      return;
+    }
+  }
   if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (Left and Right keep their single press)
     return;
   }
@@ -999,9 +1010,15 @@ void InstrumentScreen::button_input(app::Context& ctx, const Input& in) noexcept
     }
     return;
   }
-  if (tract_page() && line_layer_ && !home_->overlay() && in.type == Input::Type::Press && (in.which() == Button::Left || in.which() == Button::Right)) {
+  if (tract_page() && line_layer_ && in.shift && !home_->overlay() && in.type == Input::Type::Press && (in.which() == Button::Left || in.which() == Button::Right)) {
     line_arrow(ctx, in.which() == Button::Right ? 1 : -1);  // the line's cursor, not the notes'
     ctx.redraw();
+    return;
+  }
+  if (mods_screen() && !home_->overlay() && in.shift && in.button() && (in.which() == Button::Left || in.which() == Button::Right || in.which() == Button::Up || in.which() == Button::Down)) {
+    Input plain = in;  // Shift + arrow on a mods screen does what the plain arrow did before: the pattern's cursor and the step's note, so the home map sees it without Shift
+    plain.shift = false;
+    (void)home_->input(ctx, plain);
     return;
   }
   (void)home_->input(ctx, in);  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows)

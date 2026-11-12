@@ -128,6 +128,64 @@ TEST_CASE("MODDED: every key of NOTES and TONE reaches its parameter, and every 
   CHECK_FALSE(stock(t));  // none of the above ended or began STOCK
 }
 
+TEST_CASE("MODDED, GROWL, TRACT and WOBBLE: the arrows are PERFORM's (Left and Right move the latch, Up and Down the latched knob), Shift + arrow is the pattern's (the cursor and the note)") {
+  Hands t;
+  t.to_modded();
+  const Pattern before = t.pat();
+  const auto untouched = [&] {
+    for (unsigned i = 0; i < 16; ++i) {
+      if (t.pat().steps[i].note != before.steps[i].note || t.pat().steps[i].flags != before.steps[i].flags) {
+        return false;
+      }
+    }
+    return true;
+  };
+  t.tap(Button::F1);  // SOFT ATK latched
+  const float atk = t.param(kVoice, kNotesIds[0]);
+  const float dec = t.param(kVoice, kNotesIds[1]);
+  t.tap(Button::Up);
+  const float atk_up = t.param(kVoice, kNotesIds[0]);
+  CHECK(atk_up != atk);
+  t.tap(Button::Down);
+  CHECK(t.param(kVoice, kNotesIds[0]) == doctest::Approx(atk).epsilon(0.01));
+  t.tap(Button::Right);  // the latch moves to F2, the pattern does not
+  t.tap(Button::Up);
+  CHECK(t.param(kVoice, kNotesIds[1]) != dec);
+  CHECK(t.param(kVoice, kNotesIds[0]) == doctest::Approx(atk).epsilon(0.01));
+  t.tap(Button::Left);
+  t.tap(Button::Left);  // F1 again (the latch wraps or stops, either way no step is touched)
+  CHECK(untouched());
+  // Shift + arrow is the pattern's: the cursor goes on a step, Delete makes it a rest, Shift + Up wakes it and then moves the note.
+  t.shift_tap(Button::Right);
+  t.tap(Button::Delete);
+  CHECK((t.pat().steps[1].flags & kStepRest) != 0);
+  CHECK((t.pat().steps[0].flags & kStepRest) == (before.steps[0].flags & kStepRest));
+  t.shift_tap(Button::Up);  // the rest wakes as a note, the pitch does not move
+  CHECK((t.pat().steps[1].flags & kStepRest) == 0);
+  const unsigned woken = t.pat().steps[1].note;
+  t.shift_tap(Button::Up);
+  CHECK(t.pat().steps[1].note == woken + 1);
+  t.shift_tap(Button::Down);
+  CHECK(t.pat().steps[1].note == woken);
+  t.shift_tap(Button::Left);
+  t.tap(Button::Delete);
+  CHECK((t.pat().steps[0].flags & kStepRest) != 0);
+  // The same on the other three screens.
+  const std::function<void()> screens[] = {[&] { t.to_growl(); }, [&] { t.to_tract(); }, [&] { t.to_wobble(); }};
+  for (const auto& go : screens) {
+    go();
+    INFO(t.title());
+    t.shift_tap(Button::Right);  // the cursor was on step 0: now on 1
+    const unsigned note = t.pat().steps[1].note;
+    t.tap(Button::Up);  // a plain Up is the latched knob (or nothing): the note stays
+    CHECK(t.pat().steps[1].note == note);
+    t.shift_tap(Button::Up);
+    CHECK(t.pat().steps[1].note == note + 1);
+    t.shift_tap(Button::Down);
+    t.shift_tap(Button::Left);
+  }
+}
+
 TEST_CASE("MODDED: each page keeps its own latch, and DECAY (F2 of NOTES) is the VOICE page's own knob") {
   Hands t;
   t.to_modded();

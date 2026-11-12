@@ -84,6 +84,19 @@ constexpr Buttons make_home(Where w) noexcept {
   add_edit(b);
   return b;
 }
+// MODDED, GROWL, TRACT and WOBBLE: Copy / Insert / Delete are the home map's, the arrows are PERFORM's (the latch and the latched knob) and with Shift the pattern's (the cursor and the note).
+constexpr Buttons make_mods(Where w) noexcept {
+  Buttons b;
+  add_globals(b, w);
+  b.add(Button::Copy, "COPY THE CURSOR STEP", "PASTE ON THE CURSOR STEP");
+  b.add(Button::Insert, "NOTE>TIE, TIE>REST", "INSERT A REST, PUSH RIGHT");
+  b.add(Button::Delete, "CLEAR THE STEP", "REMOVE STEP, PULL LEFT");
+  b.add(Button::Left, "HELD F: -1/20. ELSE LATCH <", "CURSOR LEFT");
+  b.add(Button::Right, "HELD F: +1/20. ELSE LATCH >", "CURSOR RIGHT");
+  b.add(Button::Up, "LATCHED KNOB +1/20", "NOTE UP; REST: WAKE FIRST");
+  b.add(Button::Down, "LATCHED KNOB -1/20", "NOTE DOWN; REST: WAKE FIRST");
+  return b;
+}
 constexpr Buttons make_home_map_only(Where w) noexcept {  // MASTER and RECORD: the home map's edit buttons, no drawer rows
   Buttons b;
   add_globals(b, w);
@@ -153,10 +166,10 @@ constexpr Buttons kPerformButtons = make_perform(Where::Perform);
 constexpr Buttons kKnobsButtons = make_perform(Where::Knobs);
 constexpr Buttons kPerformSetupButtons = make_perform(Where::PerformSetup);
 constexpr Buttons kInstrumentButtons = make_home(Where::Instrument);
-constexpr Buttons kModdedButtons = make_home(Where::Modded);
-constexpr Buttons kTractButtons = make_home(Where::Tract);
-constexpr Buttons kGrowlButtons = make_home(Where::Growl);
-constexpr Buttons kWobbleButtons = make_home(Where::Wobble);
+constexpr Buttons kModdedButtons = make_mods(Where::Modded);
+constexpr Buttons kTractButtons = make_mods(Where::Tract);
+constexpr Buttons kGrowlButtons = make_mods(Where::Growl);
+constexpr Buttons kWobbleButtons = make_mods(Where::Wobble);
 constexpr Buttons kMasterButtons = make_home_map_only(Where::Master);
 constexpr Buttons kFileButtons = make_file();
 constexpr Buttons kNamingButtons = make_naming();

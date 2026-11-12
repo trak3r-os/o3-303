@@ -17,6 +17,7 @@ hear says so in plain words.
 
 - **The colour buttons are the sounds only (PF1).** Note, Instr, Vol and Fx flip MODDED, GROWL, TRACT and WOBBLE, with or without Shift. They no longer run MUTE, ACC ALL, FILL or FREEZE (those
   stay on PERFORM's pads), so PERFORM SETUP's F1 to F4 are blank. The FRZ pad always freezes at 1/4, so PERFORM SETUP's F6 (freeze length) has no effect for now.
+- **The arrows on the mods screens are PERFORM's.** On MODDED, GROWL, TRACT and WOBBLE, Left and Right move the latch along F1 to F8 and Up and Down turn the latched knob by 1/20 of its range (they repeat while held); with an F key held Left and Right still move that knob. The pattern's cursor and the cursor step's note are now **Shift + arrow** on these four screens. HOME and INSTRUMENT are unchanged.
 - **Project file: format 3.0.** The four bytes that held the colour buttons' assignments are gone from the PERF chunk. **Projects saved by v0.9.0 or earlier do not load**: they are refused
   with PROJECT FROM AN OLDER O3-303, nothing of them is read and the file on the card is left untouched. There is no converter. The unit's settings and MIDI bindings (`system.o3s`) are not affected.
 
