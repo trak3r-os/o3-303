@@ -310,7 +310,7 @@ Hold **Shift** on HOME and the F keys become tools for the whole pattern. Each o
 
 | Shift + | Does |
 |---|---|
-| F1 NEW | A new line from the generator (its settings are on PATTERN SETUP) |
+| F1 NEW | A new line from the generator (its settings are on PATTERN SETUP): it leans on the root and its octave, with a fifth or a minor third or seventh for colour, repeats its first half with a part changed (a quarter of the line from 32 steps), glides its slides toward a note of another pitch and puts its accents off the beat and on the octave jumps. NOTES draws the pitches the same way |
 | F2 VARY | Changes about a quarter of the line |
 | F3 RHYTHM | New rests, accents and slides; the notes stay |
 | F4 NOTES | New notes in the scale; the rhythm stays |

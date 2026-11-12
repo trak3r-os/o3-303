@@ -885,52 +885,46 @@ TEST_CASE("a tie carries the pitch that goes on sounding, and RHYTHM keeps every
   }
 }
 
-TEST_CASE("SLD 0 keeps NEW, VARY, RHYTHM and NOTES exactly as they were before ties: the same line for a seed") {
+TEST_CASE("SLD 0 keeps VARY and RHYTHM exactly as they were before ties: the same line for a seed") {
   // Digests of the lines the generators drew before ties existed (taken from the code at 7ec471d, SLD 0). The tie draws come from a
-  // stream of their own, so at 0 nothing else moved.
+  // stream of their own, so at 0 nothing else moved. NEW and NOTES are not here: I2 changed their draw (the weighted line). The VARY digests
+  // were renewed at I2 (the start line is now drawn by hand, not by NEW); `mutate` itself is untouched by I2.
   struct Gold {
     std::uint32_t seed;
-    std::uint32_t fill, rhythm, vary, notes;
+    std::uint32_t rhythm, vary;
   };
   const Gold gold[] = {
-      {1u, 0xdda2caceu, 0x4add72f9u, 0x4e827d2bu, 0x6d3aa7c5u},
-      {77u, 0xd3743efbu, 0x701edf89u, 0x4b58591bu, 0x9aff44c5u},
-      {1234u, 0xaf01fb55u, 0xb6f7b305u, 0x04d6fd28u, 0xf5a47255u},
-      {987654u, 0x1f37f702u, 0xcd363a35u, 0x368758c6u, 0x685f1742u},
+      {1u, 0x4add72f9u, 0xea1b262du},
+      {77u, 0x701edf89u, 0xfbc61284u},
+      {1234u, 0xb6f7b305u, 0xa177e8c6u},
+      {987654u, 0xcd363a35u, 0xde249627u},
   };
   GenParams g;
   g.slide_pct = 0;
   for (const Gold& e : gold) {
     Pattern p = fresh(32);
-    random_fill(p, g, e.seed);
-    CHECK(digest(p) == e.fill);
-    p = fresh(32);
     regen_rhythm(p, g, e.seed);
     CHECK(digest(p) == e.rhythm);
     p = fresh(32);
-    random_fill(p, g, 5u);
+    for (unsigned i = 0; i < 32; ++i) {  // a fixed start, drawn by hand: VARY is checked on its own, not on NEW's draw
+      p.steps[i].note = static_cast<std::uint8_t>(24u + (i * 7u + i / 3u) % 25u);
+      p.steps[i].flags = (i % 5u == 4u) ? kStepRest : static_cast<std::uint8_t>((i % 4u == 3u) ? kStepAccent : 0u);
+    }
     mutate(p, g, e.seed, 40);
     CHECK(digest(p) == e.vary);
-    p = fresh(32);
-    random_fill(p, g, 5u);
-    regen_notes(p, g, e.seed);
-    CHECK(digest(p) == e.notes);
   }
 }
 
-TEST_CASE("with SLD above 0 NEW is the SLD 0 line with some steps tied: every other draw is the same") {
+TEST_CASE("with SLD above 0 NEW keeps the rests of the SLD 0 line: the rhythm has a stream of its own") {
   GenParams zero;
   zero.slide_pct = 0;
   GenParams some = zero;
-  some.slide_pct = 20;  // slides change with it, so compare what slides do not touch: the rests and the pitches
+  some.slide_pct = 20;
   Pattern a = fresh(32);
   Pattern b = fresh(32);
   random_fill(a, zero, 55);
   random_fill(b, some, 55);
   for (unsigned i = 0; i < 32; ++i) {
     CHECK(((a.steps[i].flags ^ b.steps[i].flags) & kStepRest) == 0);
-    if ((b.steps[i].flags & kStepTie) == 0 && (a.steps[i].flags & kStepRest) == 0) {
-      CHECK(a.steps[i].note == b.steps[i].note);
-    }
   }
 }

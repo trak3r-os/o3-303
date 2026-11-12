@@ -18,6 +18,11 @@ hear says so in plain words.
   doubles it), a shrinking one cuts; the turns of one gesture are one UNDO step. DOUBLE clamps at 64 (40 doubles to 64 by repeating its first 24 steps). The last step of an odd
   length has no partner under swing and is not swung. A project with a length other than 8, 16, 32 or 64 saves and loads as it is; **an older version (v0.7.0 and before) reads
   a length it does not know as 16**, so open such a project in the new version.
+- **NEW draws a line that sounds like a 303's (I2).** The pitches lean on the root (about 45 %) and its octave (20 %), with the fifth and the minor third or seventh for colour (25 %)
+  and the rest of the scale for the remaining 10 %; the first half of the line (a quarter from 32 steps) comes back over the rest with about a quarter of it changed; a slide prefers
+  a step that glides into a sounding step of another pitch, and an accent prefers the steps off the beat and the octave jumps. NOTES draws its pitches the same way. DENSITY, ACC %
+  and SLD % keep their meaning (0 is none, 100 is every step). **The same seed draws a different line than in v0.7.0**, and the old promise that SLD 0 gives the pre-tie line is gone.
+  The numbers are four constants at the top of NEW in `app/seq/src/ops.cpp`: the first guesses, to be tuned by ear on the unit.
 
 ## v0.7.0 (2026-11-12), a pre-release
 

@@ -155,9 +155,14 @@ struct GenParams {
   std::uint8_t slide_pct = 20;    // percent of sounding steps that slide; half of it is the chance of a tie after a playing step (NEW, RHYTHM)
 };
 
-// A new line over the length: it replaces the flags and notes of those steps (ratchets and conditions go; step 0 always sounds; a step
-// right after a playing one is a tie with the chance of half of `slide_pct`, from a stream of its own, so at 0 the line is the one
-// drawn before ties existed); motion, the lanes and the steps above the length are untouched. Deterministic from the seed.
+// A new line over the length, drawn as a 303 line goes (I2): it replaces the flags and notes of those steps (ratchets and conditions go;
+// step 0 always sounds; a step right after a playing one is a tie with the chance of half of `slide_pct`). The pitches lean on the
+// root (about 45 %), that root an octave up (20 %), the fifth and the minor third or seventh (25 %) and the rest of the scale (10 %); the
+// first half of the line (a quarter from 32 steps) is copied over the rest with about a quarter of it drawn again; a slide prefers a step
+// whose next sounds with another pitch and an accent prefers the steps off the beat and the octave jumps. `density`, `accent_pct` and
+// `slide_pct` keep their meaning (0 and 100 are none and every step). The numbers are four named constants in ops.cpp, tuned by ear.
+// Motion, the lanes and the steps above the length are untouched. Deterministic from the seed: the line of a seed is not the one v0.7.0
+// drew.
 void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // Changes about `amount_pct` percent of the steps of the length: a new note from the scale, a rest toggled by the density, a
 // re-rolled accent or slide.
@@ -171,8 +176,9 @@ void mutate(Pattern& p, const GenParams& g, std::uint32_t seed, unsigned amount_
 // the slide percentage (as random_fill does; the old ties go). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
 bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // NOTES: keeps the rhythm, every flag, ratchet and condition, and redraws the pitch of every sounding step (not a rest, not a tie: those
-// keep theirs) over the length from the scale and the range of `g` (`scale`, `root`, `low`, `high`), with random_fill's draw (a repeated
-// note now and then). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
+// keep theirs) over the length from the scale and the range of `g` (`scale`, `root`, `low`, `high`), with random_fill's draw (the weights
+// on the root, a repeated note now and then, the first half copied over the rest with a part drawn again). Deterministic from the seed.
+// Motion, the lanes and the steps above the length are untouched. true: something changed.
 bool regen_notes(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 
 // The PLAYS list of a step (D8): one list that holds a ratchet or a condition, never both. The 17 entries, in the order the encoder walks:

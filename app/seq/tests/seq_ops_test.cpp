@@ -945,3 +945,225 @@ TEST_CASE("find_lane: the lowest lane that drives a target, or -1") {
   CHECK(find_lane(p, kLaneDist, 0) == 4);
   CHECK(find_lane(p, kLaneVoice, 4) == -1);
 }
+
+// ---- I2: NEW draws a 303 line -----------------------------------------------------------------------------------------------
+
+namespace {
+
+GenParams acid_params() {
+  GenParams g;
+  g.scale = 1;  // Chromatic, root C, C1 .. C3: three Cs (24, 36, 48), 6 colour notes (the minor thirds, fifths and sevenths)
+  g.density = 100;
+  g.accent_pct = 0;
+  g.slide_pct = 0;
+  return g;
+}
+
+struct Shares {
+  unsigned root = 0, octave = 0, colour = 0, total = 0;
+};
+
+void count_notes(const Pattern& p, Shares& s) {
+  for (unsigned i = 0; i < p.length; ++i) {
+    if ((p.steps[i].flags & (kStepRest | kStepTie)) != 0) {
+      continue;
+    }
+    const unsigned n = p.steps[i].note;
+    const unsigned rel = n % 12u;
+    ++s.total;
+    if (n == 24u) {
+      ++s.root;
+    } else if (n == 36u) {
+      ++s.octave;
+    } else if (n != 48u && (rel == 3u || rel == 7u || rel == 10u)) {
+      ++s.colour;
+    }
+  }
+}
+
+float share(unsigned part, unsigned whole) { return static_cast<float>(part) / static_cast<float>(whole); }
+
+}  // namespace
+
+TEST_CASE("random_fill leans on the root: about 45 % the root, 20 % its octave, 25 % the colour notes") {
+  const GenParams g = acid_params();
+  Shares s;
+  for (std::uint32_t seed = 1; seed <= 300; ++seed) {
+    Pattern p = make({}, 64);
+    random_fill(p, g, seed);
+    count_notes(p, s);
+  }
+  CHECK(share(s.root, s.total) == doctest::Approx(0.45f).epsilon(0.12));
+  CHECK(share(s.octave, s.total) == doctest::Approx(0.20f).epsilon(0.2));
+  CHECK(share(s.colour, s.total) == doctest::Approx(0.25f).epsilon(0.15));
+}
+
+TEST_CASE("regen_notes draws the same weighted pitches over the sounding steps") {
+  const GenParams g = acid_params();
+  Shares s;
+  for (std::uint32_t seed = 1; seed <= 300; ++seed) {
+    Pattern p = make({}, 64);
+    REQUIRE(regen_notes(p, g, seed));
+    count_notes(p, s);
+  }
+  CHECK(share(s.root, s.total) == doctest::Approx(0.45f).epsilon(0.12));
+  CHECK(share(s.octave, s.total) == doctest::Approx(0.20f).epsilon(0.2));
+  CHECK(share(s.colour, s.total) == doctest::Approx(0.25f).epsilon(0.15));
+}
+
+TEST_CASE("the weights follow the scale and the root, and a scale without a root, a colour or a second octave still draws") {
+  GenParams g = acid_params();
+  g.scale = 18;  // Penta Min: 0 3 5 7 10
+  g.root = 9;    // A: the lowest A of 24..48 is 33
+  unsigned root = 0, octave = 0, total = 0;
+  for (std::uint32_t seed = 1; seed <= 200; ++seed) {
+    Pattern p = make({}, 64);
+    random_fill(p, g, seed);
+    for (unsigned i = 0; i < 64; ++i) {
+      ++total;
+      root += p.steps[i].note == 33u ? 1u : 0u;
+      octave += p.steps[i].note == 45u ? 1u : 0u;
+    }
+  }
+  CHECK(share(root, total) == doctest::Approx(0.45f).epsilon(0.12));
+  CHECK(share(octave, total) == doctest::Approx(0.20f).epsilon(0.2));
+  g.low = 34;  // no A inside 34..44: the root and octave classes are empty, and every note is still in range and in scale
+  g.high = 44;
+  for (std::uint32_t seed = 1; seed <= 20; ++seed) {
+    Pattern p = make({}, 16);
+    random_fill(p, g, seed);
+    for (unsigned i = 0; i < 16; ++i) {
+      CHECK(p.steps[i].note >= 34u);
+      CHECK(p.steps[i].note <= 44u);
+      CHECK(o3sdk::core::is_in_scale(p.steps[i].note, 9, 18));
+    }
+  }
+}
+
+TEST_CASE("random_fill repeats its first half over the rest, with a part drawn again: 8 of 16, 8 of 32, 16 of 64") {
+  const GenParams g = acid_params();
+  for (const unsigned length : {16u, 32u, 64u}) {
+    const unsigned motif = length >= 32u ? length / 4u : length / 2u;
+    unsigned same = 0, total = 0;
+    for (std::uint32_t seed = 1; seed <= 200; ++seed) {
+      Pattern p = make({}, length);
+      random_fill(p, g, seed);
+      for (unsigned i = motif; i < length; ++i) {
+        ++total;
+        same += p.steps[i].note == p.steps[i % motif].note ? 1u : 0u;
+      }
+    }
+    // 3/4 are copied for sure, and the quarter drawn again lands on the same pitch now and then; a free draw would match about 30 %.
+    CHECK(share(same, total) > 0.72f);
+    CHECK(share(same, total) < 0.92f);
+  }
+}
+
+TEST_CASE("regen_notes copies the first half over the rest too, and draws a rest's partner afresh") {
+  const GenParams g = acid_params();
+  unsigned same = 0, total = 0;
+  for (std::uint32_t seed = 1; seed <= 200; ++seed) {
+    Pattern p = make({}, 16);
+    regen_notes(p, g, seed);
+    for (unsigned i = 8; i < 16; ++i) {
+      ++total;
+      same += p.steps[i].note == p.steps[i - 8].note ? 1u : 0u;
+    }
+  }
+  CHECK(share(same, total) > 0.72f);
+  Pattern q = make({}, 16);
+  q.steps[2].flags = kStepRest;  // the partner of step 10 rests: step 10 draws for itself and still lies in scale and range
+  q.steps[10].note = 90;
+  regen_notes(q, g, 4);
+  CHECK(q.steps[2].note == kDefaultNote);
+  CHECK(q.steps[10].note <= g.high);
+}
+
+TEST_CASE("random_fill: a slide prefers a step whose next one sounds with another pitch") {
+  GenParams g = acid_params();
+  g.slide_pct = 30;
+  unsigned glide_slides = 0, glide_total = 0, flat_slides = 0, flat_total = 0, rest_slides = 0, rest_total = 0;
+  for (std::uint32_t seed = 1; seed <= 300; ++seed) {
+    g.density = 60;
+    Pattern p = make({}, 64);
+    random_fill(p, g, seed);
+    for (unsigned i = 0; i < 64; ++i) {
+      if ((p.steps[i].flags & (kStepRest | kStepTie)) != 0) {
+        continue;
+      }
+      const Step& next = p.steps[(i + 1u) % 64u];
+      const unsigned slid = (p.steps[i].flags & kStepSlide) != 0 ? 1u : 0u;
+      if ((next.flags & kStepRest) != 0) {
+        rest_slides += slid;
+        ++rest_total;
+      } else if ((next.flags & kStepTie) == 0 && next.note != p.steps[i].note) {
+        glide_slides += slid;
+        ++glide_total;
+      } else if ((next.flags & kStepTie) == 0) {
+        flat_slides += slid;
+        ++flat_total;
+      }
+    }
+  }
+  const float glide = share(glide_slides, glide_total);
+  CHECK(glide > 2.0f * share(flat_slides, flat_total));
+  CHECK(glide > 2.0f * share(rest_slides, rest_total));
+}
+
+TEST_CASE("random_fill: an accent prefers the off-beat sixteenths and the octave jumps") {
+  GenParams g = acid_params();
+  g.accent_pct = 30;
+  unsigned odd = 0, odd_total = 0, even = 0, even_total = 0, jump = 0, jump_total = 0, steady = 0, steady_total = 0;
+  for (std::uint32_t seed = 1; seed <= 300; ++seed) {
+    Pattern p = make({}, 64);
+    random_fill(p, g, seed);
+    for (unsigned i = 1; i < 64; ++i) {
+      const unsigned acc = (p.steps[i].flags & kStepAccent) != 0 ? 1u : 0u;
+      ((i & 1u) != 0u ? odd : even) += acc;
+      ++((i & 1u) != 0u ? odd_total : even_total);
+      const int d = static_cast<int>(p.steps[i].note) - static_cast<int>(p.steps[i - 1].note);
+      if (d >= 12 || d <= -12) {
+        jump += acc;
+        ++jump_total;
+      } else {
+        steady += acc;
+        ++steady_total;
+      }
+    }
+  }
+  CHECK(share(odd, odd_total) > 1.5f * share(even, even_total));
+  CHECK(share(jump, jump_total) > 1.2f * share(steady, steady_total));
+}
+
+TEST_CASE("random_fill and regen_notes at every length from 1 to 64: in range, ties under the note before, nothing above the length") {
+  GenParams g;
+  g.slide_pct = 60;
+  g.accent_pct = 60;
+  for (unsigned length = 1; length <= 64; ++length) {
+    for (std::uint32_t seed = 1; seed <= 4; ++seed) {
+      Pattern p = make({}, length);
+      const Pattern before = p;
+      random_fill(p, g, seed);
+      CHECK_FALSE(has_flag(p, 0, kStepRest));
+      for (unsigned i = 0; i < kMaxSteps; ++i) {
+        if (i >= length) {
+          CHECK(p.steps[i].note == before.steps[i].note);
+          CHECK(p.steps[i].flags == before.steps[i].flags);
+          continue;
+        }
+        if ((p.steps[i].flags & kStepRest) == 0) {
+          CHECK(p.steps[i].note >= g.low);
+          CHECK(p.steps[i].note <= g.high);
+        }
+        if ((p.steps[i].flags & kStepTie) != 0) {
+          CHECK(i > 0);
+          CHECK(p.steps[i].note == p.steps[i - 1].note);
+        }
+      }
+      regen_notes(p, g, seed + 9u);
+      for (unsigned i = length; i < kMaxSteps; ++i) {
+        CHECK(p.steps[i].note == before.steps[i].note);
+      }
+    }
+  }
+}

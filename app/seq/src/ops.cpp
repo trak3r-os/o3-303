@@ -615,47 +615,192 @@ void apply_fill(Pattern& p, FillVariant variant, std::uint32_t seed) noexcept {
 
 // ---- Generators -------------------------------------------------------------------------------------------------------------
 
-void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
+// ---- NEW: the line of a 303 -----------------------------------------------------------------------------------------------
+//
+// The four constants that decide how NEW sounds. They are first guesses from the shape of an acid line (the root most of the time,
+// the octave as the jump, one or two colour notes, a figure that comes back, slides that glide somewhere, accents off the beat);
+// only the ear on the unit tunes them, so they live here and nowhere else.
+
+namespace {
+
+// 1. The share of each kind of note, in percent of the notes drawn (a kind the scale or the range does not have drops out and the
+//    others share its part): the lowest root of the range, that root an octave up, the colour notes (fifth, minor third, minor
+//    seventh) and every other note of the scale.
+struct NoteWeights {
+  float root;
+  float octave;
+  float colour;
+  float other;
+};
+constexpr NoteWeights kNoteWeights = {45.0f, 20.0f, 25.0f, 10.0f};
+// 2. The part of the copied half (a quarter of the line for 32 and 64 steps) that is drawn again.
+constexpr float kMotifRedraw = 0.25f;
+// 3. How much a slide prefers a step whose next step sounds with another pitch (it is multiplied by 1 + lean) over one that glides into
+//    a rest, a tie or the same pitch (1 - lean); 0 would be the old coin flip.
+constexpr float kSlideLean = 0.75f;
+// 4. How much an accent prefers the off-beat sixteenths (odd steps by 1 + lean, even ones by 1 - lean) and the steps that jump an
+//    octave or more from the sounding step before (another + lean); 0 would be the old coin flip.
+constexpr float kAccentLean = 0.5f;
+
+// `p` leaned by the factor `f` (> 1 more, < 1 less) and kept so that 0 % stays 0 and 100 % stays 100: the knob keeps its meaning at
+// both ends.
+float lean_chance(float p, float f) noexcept {
+  if (f >= 1.0f) {
+    const float q = p * f;
+    return q > 1.0f ? 1.0f : q;
+  }
+  return p * (1.0f - (1.0f - f) * (1.0f - p));
+}
+
+// The pitches a line draws from: `notes` of scale_notes() with the cumulative weight of each.
+struct NoteDraw {
   std::uint8_t notes[128];
-  const unsigned count = scale_notes(g, notes);
-  Rng rng(seed);
-  const float density = percent(g.density);
-  const float accent = percent(g.accent_pct);
-  const float slide = percent(g.slide_pct);
-  const unsigned n = length_of(p);
-  Rng ties = tie_stream(seed);
-  const float tie = tie_chance(g);
-  bool after_playing = false;  // the step before sounds with a note of its own
-  int previous = notes[0];
+  float cum[128];
+  unsigned count;
+  int home;  // the lowest root of the range, or the first note when the scale has none: what a line starts from
+};
+
+void build_note_draw(const GenParams& g, NoteDraw& d) noexcept {
+  d.count = scale_notes(g, d.notes);
+  const unsigned root = g.root % 12u;
+  int first_root = -1;
+  for (unsigned k = 0; k < d.count && first_root < 0; ++k) {
+    if ((d.notes[k] + 12u - root) % 12u == 0u) {
+      first_root = d.notes[k];
+    }
+  }
+  d.home = first_root >= 0 ? first_root : d.notes[0];
+  unsigned kind[128];
+  unsigned per_kind[4] = {0, 0, 0, 0};
+  for (unsigned k = 0; k < d.count; ++k) {
+    const unsigned rel = (d.notes[k] + 12u - root) % 12u;
+    unsigned c = 3;
+    if (first_root >= 0 && d.notes[k] == first_root) {
+      c = 0;
+    } else if (first_root >= 0 && d.notes[k] == first_root + 12) {
+      c = 1;
+    } else if (rel == 3u || rel == 7u || rel == 10u) {
+      c = 2;
+    }
+    kind[k] = c;
+    ++per_kind[c];
+  }
+  const float weight[4] = {kNoteWeights.root, kNoteWeights.octave, kNoteWeights.colour, kNoteWeights.other};
+  float sum = 0.0f;
+  for (unsigned k = 0; k < d.count; ++k) {
+    sum += weight[kind[k]] / static_cast<float>(per_kind[kind[k]]);
+    d.cum[k] = sum;
+  }
+}
+
+int draw_note(Rng& rng, const NoteDraw& d) noexcept {
+  const float r = rng.next_float() * d.cum[d.count - 1u];
+  for (unsigned k = 0; k < d.count; ++k) {
+    if (r < d.cum[k]) {
+      return d.notes[k];
+    }
+  }
+  return d.notes[d.count - 1u];
+}
+
+// What a step does in the line being drawn.
+constexpr std::uint8_t kKindRest = 0;
+constexpr std::uint8_t kKindNote = 1;  // sounds with a pitch of its own
+constexpr std::uint8_t kKindTie = 2;   // the note before goes on (random_fill only)
+
+// The pitches of the steps of `kind`: the first half of the line is drawn (a quarter for 32 steps and more), the rest of the line copies
+// it step for step (the figure that comes back) and draws again about kMotifRedraw of the copied steps. A note is sometimes the one before
+// (the backbone of a 303 line, and something for a slide to glide from). A tie takes the pitch of the step before, a rest keeps its own.
+// true: a pitch changed.
+bool draw_notes(Pattern& p, unsigned n, const std::uint8_t* kind, const NoteDraw& d, Rng& rng) noexcept {
+  const unsigned motif = n >= 32u ? n / 4u : (n / 2u != 0u ? n / 2u : 1u);
+  int previous = d.home;
+  bool changed = false;
   for (unsigned i = 0; i < n; ++i) {
     Step& s = p.steps[i];
-    s.cond = kCondAlways;  // a new line: no ratchets (the flags below are assigned whole) and no conditions
-    if (i != 0u && !rng.chance(density)) {
-      s.flags = kStepRest;
-      after_playing = false;
+    if (kind[i] == kKindRest) {
       continue;
     }
-    int note = notes[rng.next_int(0, static_cast<int>(count) - 1)];
-    if (rng.chance(0.12f)) {  // a repeated note: the backbone of a 303 line, and something for a slide to glide from
-      note = previous;
+    int note;
+    if (kind[i] == kKindTie) {
+      note = i != 0u ? p.steps[i - 1u].note : previous;
+    } else {
+      const unsigned from = i % motif;
+      if (i >= motif && kind[from] != kKindRest && !rng.chance(kMotifRedraw)) {
+        note = p.steps[from].note;
+      } else {
+        note = draw_note(rng, d);
+        if (rng.chance(0.12f)) {
+          note = previous;
+        }
+      }
+      previous = note;
     }
-    previous = note;
+    changed = changed || s.note != note;
     s.note = static_cast<std::uint8_t>(note);
+  }
+  return changed;
+}
+
+}  // namespace
+
+void random_fill(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
+  const unsigned n = length_of(p);
+  // The rhythm and the ties first (each from a stream of its own), then the pitches, then accents and slides, which look at both.
+  std::uint8_t kind[kMaxSteps];
+  Rng rhythm(seed);
+  Rng ties = tie_stream(seed);
+  const float density = percent(g.density);
+  const float tie = tie_chance(g);
+  bool after_playing = false;  // the step before sounds with a note of its own
+  for (unsigned i = 0; i < n; ++i) {
+    if (i != 0u && !rhythm.chance(density)) {
+      kind[i] = kKindRest;
+      after_playing = false;
+    } else if (after_playing && tie > 0.0f && ties.chance(tie)) {
+      kind[i] = kKindTie;
+      after_playing = false;
+    } else {
+      kind[i] = kKindNote;
+      after_playing = true;
+    }
+  }
+  NoteDraw draw;
+  build_note_draw(g, draw);
+  Rng pitch(seed ^ 0x9171c4e5u);
+  draw_notes(p, n, kind, draw, pitch);
+
+  Rng marks(seed ^ 0xacce77edu);
+  const float accent = percent(g.accent_pct);
+  const float slide = percent(g.slide_pct);
+  int last = -1;  // the pitch of the sounding step before
+  for (unsigned i = 0; i < n; ++i) {
+    Step& s = p.steps[i];
+    s.cond = kCondAlways;  // a new line: no ratchets (the flags are assigned whole) and no conditions
+    if (kind[i] == kKindRest) {
+      s.flags = kStepRest;
+      continue;
+    }
+    if (kind[i] == kKindTie) {
+      s.flags = kStepTie;  // no accent, no slide, the pitch under it is the one that goes on
+      continue;
+    }
+    const int note = s.note;
+    float accent_factor = (i & 1u) != 0u ? 1.0f + kAccentLean : 1.0f - kAccentLean;  // the odd steps and the even ones: the mean is 1
+    if (last >= 0 && (note - last >= 12 || last - note >= 12)) {
+      accent_factor += kAccentLean;
+    }
+    const unsigned next = i + 1u < n ? i + 1u : 0u;  // the line loops
+    const bool glides = kind[next] == kKindNote && p.steps[next].note != note;
     std::uint8_t flags = 0;
-    if (rng.chance(accent)) {
+    if (marks.chance(lean_chance(accent, accent_factor))) {
       flags |= kStepAccent;
     }
-    if (rng.chance(slide)) {
+    if (marks.chance(lean_chance(slide, glides ? 1.0f + kSlideLean : 1.0f - kSlideLean))) {
       flags |= kStepSlide;
     }
     s.flags = flags;
-    if (after_playing && tie > 0.0f && ties.chance(tie)) {
-      s.flags = kStepTie;  // the note before goes on: no accent, no slide, no pitch of its own
-      s.note = p.steps[i - 1u].note;  // under a tie sits the pitch that goes on sounding
-      after_playing = false;
-    } else {
-      after_playing = true;
-    }
+    last = note;
   }
 }
 
@@ -729,26 +874,15 @@ bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
 }
 
 bool regen_notes(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
-  std::uint8_t notes[128];
-  const unsigned count = scale_notes(g, notes);
-  Rng rng(seed);
   const unsigned n = length_of(p);
-  int previous = notes[0];
-  bool changed = false;
+  std::uint8_t kind[kMaxSteps];
   for (unsigned i = 0; i < n; ++i) {
-    Step& s = p.steps[i];
-    if (!is_playing(s)) {
-      continue;
-    }
-    int note = notes[rng.next_int(0, static_cast<int>(count) - 1)];
-    if (rng.chance(0.12f)) {  // a repeated note, as random_fill draws it
-      note = previous;
-    }
-    previous = note;
-    changed = changed || s.note != note;
-    s.note = static_cast<std::uint8_t>(note);
+    kind[i] = is_playing(p.steps[i]) ? kKindNote : kKindRest;  // a tie keeps the pitch it has
   }
-  return changed;
+  NoteDraw draw;
+  build_note_draw(g, draw);
+  Rng rng(seed);
+  return draw_notes(p, n, kind, draw, rng);
 }
 
 namespace {
