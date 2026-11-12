@@ -12,6 +12,10 @@ hear says so in plain words.
   the card untouched (autosave stays off until you SAVE). **There is no converter**: start those projects again. A project of a newer o3-303 is refused the same way. A file with a
   chunk missing, cut or of another major is damaged (the unit then tries the saved copy). The settings of the unit (`system.o3s`) and the MIDI bindings are not affected.
 
+- **One Sample button per sound; RECORD is Song again (E1a).** Sample Loader opens MODDED, Sample Playback GROWL, Sample Editor TRACT and Sample Recorder WOBBLE (before, Sample Playback
+  was TRACT then GROWL, Sample Editor WOBBLE and Sample Recorder RECORD). RECORD is now **Song** pressed again: Song opens SONG, a second press RECORD, and from RECORD a press goes back to
+  SONG. TRACT has its own page and hint (F8 TRACT). The help texts and the manual say so.
+
 - **TRACT is a fifth set on PERFORM KNOBS (F1).** A second tap on F3 flips SET 3 between GROWL and TRACT (VOWEL, TONGUE, LIPS and TRC MIX on the four rows of pads; the key and the
   toast say TRACT), so the mouth can be played from the pads. Shift + F3 puts the one that is up back to its factory knobs. The TRACT set is saved with the project (format 2.0).
 

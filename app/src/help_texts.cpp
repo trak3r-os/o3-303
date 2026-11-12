@@ -50,14 +50,13 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM" : (w == Where::PerformSetup ? "LEAVE SETUP" : "OPEN PERFORM")), w == Where::PerformSetup ? nullptr : "PERFORM SETUP");
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
   b.add(Button::File, w == Where::File ? "FILE LIBRARY" : (w == Where::Library ? "FILE PROJECTS" : (w == Where::Naming ? "DROP THE NAME, THEN LIBRARY" : "OPEN FILE PROJECTS")), "SAVE THE PROJECT");
-  b.add(Button::SampleRec, w == Where::Record ? nullptr : "OPEN RECORD");
-  // Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback opens TRACT (again: its next page, GROWL, and back) and Sample Editor WOBBLE (one page: again does nothing).
+  // One key per sound (E1a): Sample Loader opens MODDED (again: its next page) and, with Shift, flips MODS (STOCK) from every screen; Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder
+  // WOBBLE (one page each: again does nothing). With Shift they do the same (o3_303_app.cpp ignores Shift for the three): the Shift text says so (U8). Song opens SONG, again RECORD, and from RECORD SONG.
   b.add(Button::SampleLoad, w == Where::Modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED", "MODS: HEARD / PLAIN 303");
-  // With Shift they do the same (o3_303_app.cpp ignores Shift for both): the Shift text says so (U8).
-  const bool on_play = w == Where::Tract || w == Where::Growl;
-  b.add(Button::SamplePlay, on_play ? "NEXT PAGE: TRACT, GROWL" : "OPEN TRACT", on_play ? "SAME: NEXT PAGE" : "SAME: OPEN TRACT");
-  b.add(Button::SampleEdit, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
-  b.add(Button::Song, w == Where::Song ? nullptr : "OPEN SONG");
+  b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
+  b.add(Button::SampleEdit, w == Where::Tract ? nullptr : "OPEN TRACT", w == Where::Tract ? nullptr : "SAME: OPEN TRACT");
+  b.add(Button::SampleRec, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
+  b.add(Button::Song, w == Where::Song ? "OPEN RECORD" : (w == Where::Record ? "OPEN SONG" : "OPEN SONG, AGAIN RECORD"));
 }
 
 // The home map's edit buttons (home_map.h): the cursor, the note of the cursor step (or of the held steps), Copy / Insert / Delete.

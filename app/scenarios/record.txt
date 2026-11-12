@@ -8,7 +8,8 @@
 # The pictures: 01 idle, 03 and 04 the tempo too slow for 8 bars, 06 armed (waiting for the bar), 07 recording, 08 done, 10 saved, 12 Shift + Rec armed on HOME, 13 the take on HOME, 19 and 20 the take refused on PERFORM and on GROWL.
 record on
 wait 300
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 wait 100
 snap 01_idle
 # F5 is an empty key: the take is always the master.
@@ -21,7 +22,8 @@ wait 50
 tap master
 turn -70
 turn -70
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 wait 100
 snap 03_bars_too_long
 tap f1
@@ -35,7 +37,8 @@ tap f2
 tap master
 turn 70
 turn 70
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 wait 100
 snap 05_four_bars
 tap play
@@ -73,7 +76,8 @@ snap 13_shift_rec_recording
 wait 3000
 snap 14_home_after
 # The take F1 stops: FREE take (F2 to FREE), stopped by F1, then dropped with F4 twice.
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 tap f2
 tap f2
 tap f2
@@ -95,7 +99,8 @@ wait 100
 wav record
 # The take speaks on every screen, not on RECORD's alone: at 20 BPM 4 bars do not fit (BARS: FREE, 1, 2, 4), and Shift + Rec on PERFORM says so on its status line (picture 19); on
 # GROWL too (20: Sample Playback, which opens GROWL).
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 tap f2
 tap f2
 tap f2
@@ -110,8 +115,7 @@ tap rec
 release shift
 wait 100
 snap 19_perform_refused
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 wait 3000
 press shift
 tap rec

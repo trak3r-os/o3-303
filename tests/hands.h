@@ -134,20 +134,17 @@ struct Hands {
       tap(Button::SampleLoad);
     }
   }
-  // Sample Playback opens TRACT and again flips to GROWL and back (A2, TRACT-KNOBS-PLAN 11.1): both helpers press until the title is theirs.
-  void to_tract() {
-    tap(Button::SamplePlay);
-    if (std::strcmp(title(), "TRACT") != 0) {
-      tap(Button::SamplePlay);
+  // Sample Playback is GROWL, Sample Editor TRACT and Sample Recorder WOBBLE (E1a).
+  void to_tract() { tap(Button::SampleEdit); }
+  void to_growl() { tap(Button::SamplePlay); }
+  void to_wobble() { tap(Button::SampleRec); }
+  // RECORD (Song again, E1a): from SONG itself the Song button goes to RECORD, from any other screen it takes two.
+  void to_record() {
+    tap(Button::Song);
+    if (std::strcmp(title(), "RECORD") != 0) {
+      tap(Button::Song);
     }
   }
-  void to_growl() {
-    tap(Button::SamplePlay);
-    if (std::strcmp(title(), "GROWL") != 0) {
-      tap(Button::SamplePlay);
-    }
-  }
-  void to_wobble() { tap(Button::SampleEdit); }
   // PERFORM (the Perform button; again it is PERFORM SETUP) and back to the 303 screen (Pattern). The title tells which page is up.
   void to_perform() { tap(Button::Performance); }
   // PERFORM SETUP from anywhere: Shift + Performance (R8); Performance then leaves it for the page it came from.

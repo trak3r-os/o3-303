@@ -95,8 +95,7 @@ tap fx
 turn 5
 wait 100
 snap 13_seven_more_lanes
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 tap f1
 tap fx
 turn 5

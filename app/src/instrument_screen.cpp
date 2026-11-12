@@ -99,12 +99,16 @@ constexpr const Page* kModdedPages[2] = {&kNotesPage, &kTonePage};
 constexpr unsigned kModdedShown[2] = {kSecVoice | kSecTone, kSecVoice | kSecNotes};
 constexpr help_texts::Id kModdedHelp[2] = {help_texts::Id::ModdedNotes, help_texts::Id::ModdedTone};
 
-// Sample Play's group (A2): TRACT first, GROWL on the second press, as Sample Load flips MODDED's two pages. Both show VOICE and the wobble (it swings either one's VOWEL).
-constexpr const char* kGrowlTitles[2] = {"TRACT", "GROWL"};
-constexpr const Page* kGrowlPages[2] = {&kTractPage, &kGrowlPage};
-constexpr unsigned kGrowlShown[2] = {kSecVoice | kSecWobble, kSecVoice | kSecWobble};
-constexpr help_texts::Id kGrowlHelp[2] = {help_texts::Id::Tract, help_texts::Id::Growl};
-constexpr unsigned kTractPageIndex = 0;  // the page of kGrowlGroup that is the TRACT (the pads are its vowels)
+// Sample Playback is GROWL and Sample Editor TRACT (E1a): a page each, the wobble is a read-out of either one's VOWEL.
+constexpr const char* kGrowlTitles[1] = {"GROWL"};
+constexpr const Page* kGrowlPages[1] = {&kGrowlPage};
+constexpr unsigned kGrowlShown[1] = {kSecVoice | kSecWobble};
+constexpr help_texts::Id kGrowlHelp[1] = {help_texts::Id::Growl};
+
+constexpr const char* kTractTitles[1] = {"TRACT"};
+constexpr const Page* kTractPages[1] = {&kTractPage};
+constexpr unsigned kTractShown[1] = {kSecVoice | kSecWobble};
+constexpr help_texts::Id kTractHelp[1] = {help_texts::Id::Tract};
 
 constexpr const char* kWobbleTitles[1] = {"WOBBLE"};
 constexpr const Page* kWobblePages[1] = {&kWobblePage};
@@ -114,9 +118,10 @@ constexpr help_texts::Id kWobbleHelp[1] = {help_texts::Id::Wobble};
 constexpr InstrumentGroup kInstrumentGroup = {2, kInstrumentTitles, kInstrumentTabs, kInstrumentPages, kInstrumentShown, kInstrumentHelp,
                                               "PARAMS AGAIN = NEXT PAGE   SHIFT + F = MIDI LEARN"};
 constexpr InstrumentGroup kModdedGroup = {2, kModdedTitles, kModdedTabs, kModdedPages, kModdedShown, kModdedHelp, "SHIFT + SAMPLE LOAD = MODS  SHIFT + F = LEARN"};
-constexpr InstrumentGroup kGrowlGroup = {2, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SAMPLE PLAY AGAIN = GROWL / TRACT   SHIFT + F = LEARN"};
+constexpr InstrumentGroup kGrowlGroup = {1, kGrowlTitles, kGrowlTitles, kGrowlPages, kGrowlShown, kGrowlHelp, "SHIFT + F = MIDI LEARN"};
+constexpr InstrumentGroup kTractGroup = {1, kTractTitles, kTractTitles, kTractPages, kTractShown, kTractHelp, "SHIFT + F = MIDI LEARN"};
 constexpr InstrumentGroup kWobbleGroup = {1, kWobbleTitles, kWobbleTitles, kWobblePages, kWobbleShown, kWobbleHelp, "RUNS WHILE THE WOB ACTION IS ON"};
-static_assert(kInstrumentGroup.count <= kMaxGroupPages && kModdedGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages,
+static_assert(kInstrumentGroup.count <= kMaxGroupPages && kModdedGroup.count <= kMaxGroupPages && kGrowlGroup.count <= kMaxGroupPages && kTractGroup.count <= kMaxGroupPages && kWobbleGroup.count <= kMaxGroupPages,
               "a group has at most kMaxGroupPages pages");
 
 // The drawing's geometry (the area is the screen's, under the kit's header): the read-outs under the status line, then the drawer's two lines, then the page's knobs large at the bottom, directly
@@ -359,6 +364,7 @@ void fill_cells(const Pattern& p, unsigned first, InstrumentView& view) noexcept
 const InstrumentGroup& instrument_group() noexcept { return kInstrumentGroup; }
 const InstrumentGroup& modded_group() noexcept { return kModdedGroup; }
 const InstrumentGroup& growl_group() noexcept { return kGrowlGroup; }
+const InstrumentGroup& tract_group() noexcept { return kTractGroup; }
 const InstrumentGroup& wobble_group() noexcept { return kWobbleGroup; }
 
 void fill_sections(const dsp::Engine& e, const Controls& controls, bool wobble_on, const InstrumentGroup& group, unsigned page, InstrumentView& view) noexcept {
@@ -511,7 +517,7 @@ void InstrumentScreen::update(app::Context& ctx) noexcept {
   if (learn_armed_ && (!ctx.midi().learning() || learn_page_ != page_)) {
     learn_drop(ctx);  // a controller bound it (the kit said so), or the page changed under it
   }
-  if (!tract_page()) {  // Sample Play flipped to GROWL with a pad down: its holds end here
+  if (!tract_page()) {  // only the TRACT screen holds live vowels and steps: any other ends them
     live_end(ctx);
     for (int& h : held_step_) {
       h = -1;
@@ -1016,7 +1022,7 @@ void InstrumentScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
   }
 }
 
-bool InstrumentScreen::tract_page() const noexcept { return group_ == &kGrowlGroup && page_ == kTractPageIndex; }
+bool InstrumentScreen::tract_page() const noexcept { return group_ == &kTractGroup; }
 
 // HELP: the page's texts, LEARN on the keys of the Shift row that soft_keys() labels so (learn_target(): the unit's own parameters), and the home map's pads.
 void InstrumentScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
@@ -1091,9 +1097,9 @@ void InstrumentScreen::fill_view(app::Context& ctx, InstrumentView& view) noexce
   view.hint = group_->hint;
   if (ctx.panel().shift() && !page_learnable()) {  // a page of app values only has nothing to learn (U8a; WOBBLE has been learnable since D1)
     view.hint = "NOT LEARNABLE";
-  } else if (group_ == &kGrowlGroup && page_ == kTractPageIndex && controls_->get(e, Entry{Item::TractOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
+  } else if (group_ == &kTractGroup && controls_->get(e, Entry{Item::TractOn, 0, nullptr}) < 0.5f) {  // an effect that is off says how to bring it back (B5a)
     view.hint = "TRACT OFF: F8";
-  } else if (group_ == &kGrowlGroup && page_ != kTractPageIndex && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {
+  } else if (group_ == &kGrowlGroup && controls_->get(e, Entry{Item::GrowlOn, 0, nullptr}) < 0.5f) {
     view.hint = "GROWL OFF: F8";
   } else if (group_ == &kWobbleGroup && !live_->wobble_on()) {
     view.hint = "WOB OFF: F8";

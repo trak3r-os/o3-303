@@ -8,7 +8,7 @@
 wait 300
 record on
 # TRACT: on, mix 100 %, the vowel I by its pad. The growl is on too (F8 of GROWL) so VOWEL is a target one step before MOUTH.
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 tap f8
 tap f7
 turn 100
@@ -19,7 +19,7 @@ tap sampleplay
 tap f8
 wait 50
 snap 00_growl_on
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 tap f3
 turn 50
 tap f4

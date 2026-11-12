@@ -7,14 +7,13 @@ wait 300
 record on
 # GROWL (Sample Playback twice, TRACT then GROWL, 91 ms each: the 186 ms the one tap of 184 took, which were the three Params taps of the old INSTRUMENT MODS, so every later event keeps its time and the WAV its bytes): F1 VOWEL to 50 % (I),
 # F7 GRL MIX to 100 %; WOBBLE (Sample Editor): F3 DEPTH to 100 %, F4 TARGET the growl's Vowel. The wait is what is left of the old 100 ms and the one tap more.
-tap sampleplay 91   # TRACT first, then GROWL: the two taps take the 186 ms the one did
-tap sampleplay 91
+tap sampleplay 184   # Sample Play opens GROWL (E1a): the one tap takes the 186 ms the two did
 tap f1
 turn 50
 tap f7
 turn 100
 snap 01a_growl_set
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 tap f3
 turn 50
 tap f4

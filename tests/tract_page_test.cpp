@@ -41,18 +41,20 @@ o3_303::HomeMap& home_of(Hands& t) { return static_cast<o3_303::MainScreen*>(t.h
 
 }  // namespace
 
-TEST_CASE("tract page: Sample Playback opens TRACT, again GROWL, again TRACT; the other Sample buttons are as they were") {
+TEST_CASE("tract page: Sample Editor opens TRACT (one page, again nothing); the other Sample buttons are each their own screen (E1a)") {
   Hands t;
   CHECK(std::strcmp(t.title(), "TRACT") != 0);
-  t.tap(Button::SamplePlay);
+  t.tap(Button::SampleEdit);
+  CHECK(std::strcmp(t.title(), "TRACT") == 0);
+  t.tap(Button::SampleEdit);
   CHECK(std::strcmp(t.title(), "TRACT") == 0);
   t.tap(Button::SamplePlay);
   CHECK(std::strcmp(t.title(), "GROWL") == 0);
-  t.tap(Button::SamplePlay);
+  t.to_tract();
   CHECK(std::strcmp(t.title(), "TRACT") == 0);
   t.to_wobble();
   CHECK(std::strcmp(t.title(), "WOBBLE") == 0);
-  t.tap(Button::SamplePlay);  // from another screen it opens the first page again
+  t.to_tract();
   CHECK(std::strcmp(t.title(), "TRACT") == 0);
   t.to_home();
   t.to_growl();
@@ -388,25 +390,25 @@ TEST_CASE("tract page: F8 off is the dry chain bit for bit, whatever the knobs s
   REQUIRE(dry.size() > 44);
   // Every knob moved, the vowels played, F8 on and off again, a visit to GROWL's page and back: Mix is 0 again, the tract is a bypass.
   const std::string visited = render(
-      "tap sampleplay\ntap f8\ntap f1\nturn 40\ntap f2\nturn -30\ntap f3\nturn 50\ntap f4\nturn 20\ntap f5\nturn 10\ntap f6\nturn 2\ntap f7\nturn 60\n"
-      "paddown 39\nwait 60\npadup 39\ntap sampleplay\ntap sampleplay\ntap f8\ntap pattern\n");
+      "tap sampleedit\ntap f8\ntap f1\nturn 40\ntap f2\nturn -30\ntap f3\nturn 50\ntap f4\nturn 20\ntap f5\nturn 10\ntap f6\nturn 2\ntap f7\nturn 60\n"
+      "paddown 39\nwait 60\npadup 39\ntap sampleplay\ntap sampleedit\ntap f8\ntap pattern\n");
   CHECK(visited.size() == dry.size());
   CHECK(visited == dry);
   // And the control: with the tract on (Mix 50 %, the vowel U) the line is not the dry one.
-  const std::string on = render("tap sampleplay\ntap f8\npaddown 40\nwait 60\npadup 40\ntap pattern\n");
+  const std::string on = render("tap sampleedit\ntap f8\npaddown 40\nwait 60\npadup 40\ntap pattern\n");
   CHECK(on.size() == dry.size());
   CHECK(on != dry);
 }
 
 TEST_CASE("tract page: the wobble on MOUTH changes the sound (the tract's vowel moves with the line), and it is the tract's, not the growl's") {
-  const std::string setup_tract = "tap sampleplay\ntap f8\ntap f7\nturn 50\npaddown 38\nwait 60\npadup 38\n";
+  const std::string setup_tract = "tap sampleedit\ntap f8\ntap f7\nturn 50\npaddown 38\nwait 60\npadup 38\n";
   const std::string still = render(setup_tract + "tap pattern\n");
   // WOBBLE: DEPTH 100 %, TARGET up from CUTOFF (the growl is off and the tract on: the turn goes past VOWEL to MOUTH), the latch on.
-  const std::string mouth = render(setup_tract + "tap sampleedit\ntap f3\nturn 50\ntap f4\nturn 1\ntap f8\ntap pattern\n");
+  const std::string mouth = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap f4\nturn 1\ntap f8\ntap pattern\n");
   CHECK(mouth.size() == still.size());
   CHECK(mouth != still);
   // The same wobble on CUTOFF (the default target) moves another thing: its take differs from the MOUTH one.
-  const std::string cutoff = render(setup_tract + "tap sampleedit\ntap f3\nturn 50\ntap f8\ntap pattern\n");
+  const std::string cutoff = render(setup_tract + "tap samplerec\ntap f3\nturn 50\ntap f8\ntap pattern\n");
   CHECK(cutoff != mouth);
   CHECK(cutoff != still);
 }

@@ -5,7 +5,7 @@
 # 01 WOBBLE: the settings at their defaults (RATE 1/8, DEPTH 50); 02 Shift: LEARN on F1 to F5 and F8; 03 Shift + F1 arms RATE; 04 CC 74 binds it; 05 the controller at its top (RATE 1/16D);
 # 06 the controller at its bottom (RATE 1/1); 07 Shift + F8 arms WOB and CC 75 latches the wobble (F8 lit).
 wait 300
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 wait 100
 snap 01_wobble_defaults
 press shift

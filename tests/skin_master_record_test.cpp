@@ -301,8 +301,11 @@ TEST_CASE("skin record: two of the take's peaks make a column, the larger one; a
 TEST_CASE("skin screens: MASTER and RECORD take no kit chrome and the obsidian theme with the skin on, the kit's with it off") {
   Hands t;
   t.skin_off();
-  for (const Button b : {Button::Master, Button::SampleRec}) {
+  for (const Button b : {Button::Master, Button::Song}) {
     t.tap(b, 30);
+    if (b == Button::Song) {
+      t.tap(b, 30);  // Song again: RECORD (E1a)
+    }
     t.wait(60);
     app::Context& ctx = t.h->runtime().context();
     CHECK(ctx.screen()->chrome(ctx) == app::Chrome::Full);
@@ -391,7 +394,7 @@ TEST_CASE("skin master: the fullest frame (playing, nudged, taps, a toast) is qu
 TEST_CASE("skin record: three action keys on F1, F3 and F4 and the BARS knob on F2, F5 to F8 empty boxes; ARM is lit red only while a take records; SAVE and DISCARD are dim until one is done") {
   Hands t;
   t.skin_on();
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   t.wait(100);
   const Queue q;
   CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == 3u);       // F1, F3, F4 (U6: BARS shows a value and the encoder drives it, so it is a knob)
@@ -453,7 +456,7 @@ TEST_CASE("skin record: the envelope's idle hint is the arming one when the bars
   REQUIRE(fits != too_long);
   Hands t;
   t.skin_on();
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   set_bars(t, 8);
   t.wait(100);
   CHECK(record(t).last_view().fits);
@@ -462,7 +465,7 @@ TEST_CASE("skin record: the envelope's idle hint is the arming one when the bars
   t.tap(Button::Master, 30);  // the slowest tempo: 8 bars no longer fit the buffer
   t.turn(-70);
   t.turn(-70);
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   t.wait(100);
   CHECK_FALSE(record(t).last_view().fits);
   CHECK(micro_at(too_long));
@@ -472,7 +475,7 @@ TEST_CASE("skin record: the envelope's idle hint is the arming one when the bars
 TEST_CASE("skin record: the bars are the view's levels, and IN is dark while the source is the master") {
   Hands t;
   t.skin_on();
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   t.tap(Button::Play);
   t.wait(1500);
   const Queue q;
@@ -492,7 +495,7 @@ TEST_CASE("skin record: the bars are the view's levels, and IN is dark while the
 TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red while it records, amber when it is ready") {
   Hands t;
   t.skin_on();
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   t.wait(100);
   const Queue q;
   CHECK(same(q.take_led(), skin::pal::kLedOff));  // no take
@@ -503,17 +506,20 @@ TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red 
   struct Screen {
     Button button;
     const char* name;
+    unsigned taps;
   };
   // HOME, PERFORM, INSTRUMENT, GROWL, WOBBLE, MASTER, RECORD and SONG are the skinned screens that draw the header.
-  const Screen screens[] = {{Button::Pattern, "HOME"},     {Button::Performance, "PERFORM"}, {Button::Params, "INSTRUMENT"}, {Button::SamplePlay, "GROWL"},
-                            {Button::SampleEdit, "WOBBLE"}, {Button::Master, "MASTER"},      {Button::SampleRec, "RECORD"},    {Button::Song, "SONG"}};
+  const Screen screens[] = {{Button::Pattern, "HOME", 1}, {Button::Performance, "PERFORM", 1}, {Button::Params, "INSTRUMENT", 1}, {Button::SamplePlay, "GROWL", 1},
+                            {Button::SampleRec, "WOBBLE", 1}, {Button::Master, "MASTER", 1},      {Button::Song, "RECORD", 2},    {Button::Song, "SONG", 1}};
   for (const Screen& s : screens) {
-    t.tap(s.button, 30);
+    for (unsigned i = 0; i < s.taps; ++i) {
+      t.tap(s.button, 30);
+    }
     t.wait(80);
     REQUIRE_MESSAGE(recorder(t).state() == hal_state::Recording, s.name << ": the take is still recording");
     CHECK_MESSAGE(same(q.take_led(), skin::pal::kLedRed), s.name << ": the TAKE LED is red while it records");
   }
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   t.tap(Button::F1);  // stops the take
   REQUIRE(wait_state(t, hal_state::Done, 4000));
   for (const Screen& s : screens) {
@@ -523,7 +529,7 @@ TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red 
     CHECK_MESSAGE(same(q.take_led(), skin::pal::kLedAmber), s.name << ": the TAKE LED is amber when the take is ready");
   }
   // The take dropped (F4 twice on RECORD), the LED is dark again everywhere.
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   t.tap(Button::F4);
   t.tap(Button::F4);
   t.wait(100);
@@ -535,7 +541,7 @@ TEST_CASE("skin record: the TAKE LED in the header of every skinned screen: red 
 TEST_CASE("skin record: the fullest frame (an 8 bar take done, a toast in the PAGE window) is queued whole") {
   Hands t;
   t.skin_on();
-  t.tap(Button::SampleRec, 30);
+  t.to_record();
   set_bars(t, 8);
   t.tap(Button::Play);
   t.tap(Button::F1);
@@ -566,9 +572,12 @@ TEST_CASE("skin screens: Shift on MASTER and RECORD leaves the F row's slots as 
     unsigned caps;
     unsigned keys;
     unsigned boxes;
+    unsigned taps;  // the presses that open it (RECORD is Song twice)
   };
-  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u}, Row{Button::SampleRec, 1u, 3u, 4u}}) {
-    t.tap(row.button, 30);
+  for (const Row& row : {Row{Button::Master, 3u, 1u, 3u, 1u}, Row{Button::Song, 1u, 3u, 4u, 2u}}) {
+    for (unsigned i = 0; i < row.taps; ++i) {
+      t.tap(row.button, 30);
+    }
     t.wait(100);
     CHECK(q.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob42Cap) == row.caps);
     CHECK(q.sprites(skin::Layer::ActKey, skin_assets::Id::ActKey) == row.keys);
@@ -593,7 +602,7 @@ TEST_CASE("skin screens: the NO AUTOSAVE chip reaches the header of every screen
     const char* name;
   };
   const Screen screens[] = {{Button::Pattern, 1, "HOME"},      {Button::Performance, 1, "PERFORM"}, {Button::Params, 1, "INSTRUMENT"}, {Button::SamplePlay, 1, "GROWL"},
-                            {Button::SampleEdit, 1, "WOBBLE"}, {Button::Master, 1, "MASTER"},       {Button::SampleRec, 1, "RECORD"},    {Button::Song, 1, "SONG"},
+                            {Button::SampleRec, 1, "WOBBLE"}, {Button::Master, 1, "MASTER"},       {Button::Song, 2, "RECORD"},    {Button::Song, 1, "SONG"},
                             {Button::File, 1, "FILE PROJECTS"}, {Button::File, 2, "FILE LIBRARY"}};
   for (const Screen& s : screens) {
     t.tap(Button::Pattern, 30);

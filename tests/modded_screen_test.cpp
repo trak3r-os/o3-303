@@ -423,7 +423,7 @@ TEST_CASE("Shift + Sample Loader flips STOCK from every screen with no change of
   go("MASTER", [&] { t.tap(Button::Master); });
   go("FILE PROJECTS", [&] { t.tap(Button::File); });
   go("SONG", [&] { t.tap(Button::Song); });
-  go("RECORD", [&] { t.tap(Button::SampleRec); });
+  go("RECORD", [&] { t.to_record(); });
   go("INSTRUMENT FX", [&] { t.to_instrument(kInstFx); });
   go("GROWL", [&] { t.to_growl(); });
   go("MODDED TONE", [&] { t.to_modded(1); });

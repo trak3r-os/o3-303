@@ -226,6 +226,7 @@ class O3_303App final : public app::App {
     instrument_.init(rig_, main_.home_map(), o3_303::instrument_group());  // the home map HOME has: one cursor, one keyboard, one Rec
     modded_.init(rig_, main_.home_map(), o3_303::modded_group());                  // MODDED, GROWL and WOBBLE are INSTRUMENT's class on the same home map
     growl_screen_.init(rig_, main_.home_map(), o3_303::growl_group());
+    tract_screen_.init(rig_, main_.home_map(), o3_303::tract_group());
     wobble_screen_.init(rig_, main_.home_map(), o3_303::wobble_group());
     master_.init(rig_, main_.home_map());  // the home map HOME has, as INSTRUMENT
     record_.init(rig_, main_.home_map());  // the home map HOME has, as MASTER
@@ -305,9 +306,9 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    // MODDED, RECORD, TRACT / GROWL and WOBBLE (UX-303 2.1, docs/MODS-PLAN.md 4.3): Sample Loader opens MODDED NOTES, and on it flips to TONE and back; Shift + Sample Loader flips STOCK from every screen with no
-    // change of screen. The Sample Recorder button opens RECORD, Sample Playback TRACT (again: GROWL, and back) and Sample Editor WOBBLE, each with or without Shift and, on its own screen, nothing for WOBBLE (one page). The app takes
-    // these presses, so that no screen sees them. Shift + Rec is RECORD's F1 from every screen, with no change of screen (the plain Rec stays the home map's step record).
+    // One key per sound (E1a, docs/PADS-TRACT-PLAN.md E): Sample Loader opens MODDED NOTES, and on it flips to TONE and back; Shift + Sample Loader flips STOCK from every screen with no change of screen (until the
+    // colour keys take it, E1b). Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder WOBBLE, each with or without Shift and, on its own screen, nothing (one page each). Song opens SONG and, pressed
+    // again, RECORD (and from RECORD, SONG). The app takes these presses, so that no screen sees them. Shift + Rec is RECORD's F1 from every screen, with no change of screen (the plain Rec stays the home map's step record).
     if (in.press(Button::SampleLoad)) {
       if (in.shift) {
         o3_303::toggle_stock(rig_, ctx);
@@ -320,33 +321,33 @@ class O3_303App final : public app::App {
       }
       return true;
     }
-    if (in.press(Button::SampleRec)) {
-      if (ctx.screen() != &record_) {
-        ctx.show(record_);
-      }
-      return true;
-    }
     if (in.press(Button::SamplePlay)) {
-      if (ctx.screen() == &growl_screen_) {
-        growl_screen_.next_page();  // TRACT and GROWL: again flips (TRACT-KNOBS-PLAN 11.1)
-        ctx.redraw();
-      } else {
+      if (ctx.screen() != &growl_screen_) {
         growl_screen_.open_first_page();
         ctx.show(growl_screen_);
       }
       return true;
     }
     if (in.press(Button::SampleEdit)) {
+      if (ctx.screen() != &tract_screen_) {
+        tract_screen_.open_first_page();
+        ctx.show(tract_screen_);
+      }
+      return true;
+    }
+    if (in.press(Button::SampleRec)) {
       if (ctx.screen() != &wobble_screen_) {
         wobble_screen_.open_first_page();
         ctx.show(wobble_screen_);
       }
       return true;
     }
-    // SONG (UX-303 2.1, 5.7): the Song button, from every screen.
+    // SONG (UX-303 2.1, 5.7): the Song button, from every screen; again, RECORD; on RECORD, SONG.
     if (in.press(Button::Song)) {
       if (ctx.screen() != &song_) {
         ctx.show(song_);
+      } else {
+        ctx.show(record_);
       }
       return true;
     }
@@ -437,9 +438,10 @@ class O3_303App final : public app::App {
   o3_303::MainScreen& main_ = sdram_instance<o3_303::MainScreen, 0>();
   o3_303::PerformScreen& perform_ = sdram_instance<o3_303::PerformScreen, 0>();
   o3_303::InstrumentScreen& instrument_ = sdram_instance<o3_303::InstrumentScreen, 0>();    // SDRAM (sdram_instance)
-  o3_303::InstrumentScreen& growl_screen_ = sdram_instance<o3_303::InstrumentScreen, 1>();  // GROWL, WOBBLE and MODDED: INSTRUMENT's class with the groups of instrument_screen.cpp (growl_ is the unit)
+  o3_303::InstrumentScreen& growl_screen_ = sdram_instance<o3_303::InstrumentScreen, 1>();  // GROWL, WOBBLE, TRACT and MODDED: INSTRUMENT's class with the groups of instrument_screen.cpp (growl_ is the unit)
   o3_303::InstrumentScreen& wobble_screen_ = sdram_instance<o3_303::InstrumentScreen, 2>();
   o3_303::InstrumentScreen& modded_ = sdram_instance<o3_303::InstrumentScreen, 3>();
+  o3_303::InstrumentScreen& tract_screen_ = sdram_instance<o3_303::InstrumentScreen, 4>();  // TRACT (Sample Editor): the 1-page tract_group of instrument_screen.cpp
   o3_303::MasterScreen& master_ = sdram_instance<o3_303::MasterScreen, 0>();
   o3_303::RecordScreen& record_ = sdram_instance<o3_303::RecordScreen, 0>();
   o3_303::SongScreen& song_ = sdram_instance<o3_303::SongScreen, 0>();

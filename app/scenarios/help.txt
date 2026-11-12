@@ -71,8 +71,7 @@ tap f2
 snap 11_instrument_voice_pads
 tap config
 wait 50
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 wait 100
 press shift
 tap config
@@ -94,7 +93,8 @@ tap f2
 snap 15_master_pads
 tap config
 wait 50
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 wait 100
 press shift
 tap config
@@ -105,7 +105,7 @@ tap f2
 snap 17_record_pads
 tap config
 wait 50
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 wait 100
 press shift
 tap config

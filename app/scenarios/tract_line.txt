@@ -9,7 +9,7 @@
 # the line is stored but the vowel is the knob's; 09 CLEAR. The WAV: the factory line under the tract, the line moving the vowel for two bars, a hold on O, the line again, LINE off.
 wait 300
 record on
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 wait 100
 tap f8
 tap f7

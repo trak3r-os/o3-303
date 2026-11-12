@@ -72,23 +72,18 @@ TEST_CASE("Params opens INSTRUMENT on FX from any screen, again it cycles FX VOI
   CHECK(is_title(t, "INSTRUMENT FX"));
 }
 
-TEST_CASE("Sample Playback opens TRACT, again GROWL and back; Sample Editor opens WOBBLE (one page); Params leaves for FX") {
+TEST_CASE("Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder WOBBLE (one page each, again nothing); Params leaves for FX") {
   Hands t;
   CHECK(is_title(t, "STEPS"));
   t.tap(Button::SamplePlay);
-  CHECK(is_title(t, "TRACT"));
-  t.tap(Button::SamplePlay);  // again: the next page (A2, TRACT-KNOBS-PLAN 11.1)
   CHECK(is_title(t, "GROWL"));
-  t.tap(Button::SamplePlay);
-  CHECK(is_title(t, "TRACT"));
-  t.tap(Button::SamplePlay);
+  t.tap(Button::SamplePlay);  // again: nothing, GROWL has one page
   CHECK(is_title(t, "GROWL"));
-  t.tap(Button::Pattern);
-  t.tap(Button::SamplePlay);  // from another screen it opens the first page again, not the one that was left
+  t.to_tract();
   CHECK(is_title(t, "TRACT"));
-  t.to_growl();
-  CHECK(is_title(t, "GROWL"));
-  t.to_wobble();  // the other button, from GROWL
+  t.to_tract();
+  CHECK(is_title(t, "TRACT"));
+  t.to_wobble();
   CHECK(is_title(t, "WOBBLE"));
   t.to_wobble();
   CHECK(is_title(t, "WOBBLE"));
@@ -100,15 +95,18 @@ TEST_CASE("Sample Playback opens TRACT, again GROWL and back; Sample Editor open
   CHECK(is_title(t, "WOBBLE"));
   t.tap(Button::Pattern);
   CHECK_FALSE(on_instrument(t));
-  // From the screens of other classes: each is entered with `enter`, left by GROWL or WOBBLE.
+  // From the screens of other classes: each is entered with `enter`, left by GROWL, TRACT or WOBBLE.
   const auto from = [&](const char* title, auto enter) {
-    for (unsigned w = 0; w < 2; ++w) {
+    for (unsigned w = 0; w < 3; ++w) {
       t.to_home();
       enter();
       CHECK_MESSAGE(is_title(t, title), title);
       if (w == 0) {
         t.to_growl();
         CHECK_MESSAGE(is_title(t, "GROWL"), title);
+      } else if (w == 1) {
+        t.to_tract();
+        CHECK_MESSAGE(is_title(t, "TRACT"), title);
       } else {
         t.to_wobble();
         CHECK_MESSAGE(is_title(t, "WOBBLE"), title);
@@ -118,19 +116,29 @@ TEST_CASE("Sample Playback opens TRACT, again GROWL and back; Sample Editor open
   from("PERFORM", [&] { t.tap(Button::Performance); });
   from("PERFORM SETUP", [&] { t.shift_tap(Button::Performance); });
   from("MASTER", [&] { t.tap(Button::Master); });
-  from("RECORD", [&] { t.tap(Button::SampleRec); });
+  from("RECORD", [&] { t.to_record(); });
   from("SONG", [&] { t.tap(Button::Song); });
   from("FILE PROJECTS", [&] { t.tap(Button::File); });
   from("FILE LIBRARY", [&] { t.tap(Button::File); t.tap(Button::File); });
 }
 
-TEST_CASE("Shift + Sample Playback and Sample Editor open TRACT and WOBBLE too") {
+TEST_CASE("Song opens SONG, pressed again RECORD, and from RECORD SONG; Shift + Sample Playback, Editor and Recorder open GROWL, TRACT and WOBBLE too (E1a)") {
   Hands t;
   t.shift_tap(Button::SamplePlay);
-  CHECK(is_title(t, "TRACT"));
+  CHECK(is_title(t, "GROWL"));
   t.to_home();
   t.shift_tap(Button::SampleEdit);
+  CHECK(is_title(t, "TRACT"));
+  t.to_home();
+  t.shift_tap(Button::SampleRec);
   CHECK(is_title(t, "WOBBLE"));
+  t.to_home();
+  t.tap(Button::Song);
+  CHECK(is_title(t, "SONG"));
+  t.tap(Button::Song);
+  CHECK(is_title(t, "RECORD"));
+  t.tap(Button::Song);
+  CHECK(is_title(t, "SONG"));
 }
 
 TEST_CASE("Sample Loader opens MODDED NOTES from every screen; again it flips NOTES and TONE and wraps; Params and the other Sample buttons leave it") {
@@ -148,7 +156,7 @@ TEST_CASE("Sample Loader opens MODDED NOTES from every screen; again it flips NO
   from("GROWL", [&] { t.to_growl(); });
   from("PERFORM", [&] { t.tap(Button::Performance); });
   from("MASTER", [&] { t.tap(Button::Master); });
-  from("RECORD", [&] { t.tap(Button::SampleRec); });
+  from("RECORD", [&] { t.to_record(); });
   from("SONG", [&] { t.tap(Button::Song); });
   from("FILE PROJECTS", [&] { t.tap(Button::File); });
   from("FILE LIBRARY", [&] { t.tap(Button::File); t.tap(Button::File); });
@@ -165,7 +173,7 @@ TEST_CASE("Sample Loader opens MODDED NOTES from every screen; again it flips NO
   t.tap(Button::Params);
   CHECK(is_title(t, "INSTRUMENT FX"));
   t.to_modded();
-  t.tap(Button::SampleEdit);
+  t.to_wobble();
   CHECK(is_title(t, "WOBBLE"));
 }
 
@@ -698,15 +706,15 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
   CHECK(std::strcmp(v.section[0].value[0], text) == 0);
   CHECK(std::strlen(v.section[0].value[0]) <= 11);
 
-  fill_sections(e, c, false, growl_group(), 1, v);  // GROWL (page 1 of the Sample Playback group, after TRACT) draws the growl large: the voice and the wobble are read-outs
+  fill_sections(e, c, false, growl_group(), 0, v);  // GROWL (Sample Playback, one page since E1a) draws the growl large: the voice and the wobble are read-outs
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
   CHECK(std::strcmp(v.section[1].title, "WOBBLE") == 0);
   CHECK(std::strcmp(v.section[1].label[3], "WOB") == 0);  // the wobble's state, ON or OFF
   CHECK(std::strcmp(v.section[1].value[3], "OFF") == 0);
-  fill_sections(e, c, true, growl_group(), 1, v);
+  fill_sections(e, c, true, growl_group(), 0, v);
   CHECK(std::strcmp(v.section[1].value[3], "ON") == 0);
-  fill_sections(e, c, false, growl_group(), 0, v);  // TRACT (page 0) shows the same two read-outs
+  fill_sections(e, c, false, tract_group(), 0, v);  // TRACT (Sample Editor) shows the same two read-outs
   REQUIRE(v.sections == 2);
   CHECK(std::strcmp(v.section[0].title, "VOICE") == 0);
   CHECK(std::strcmp(v.section[1].title, "WOBBLE") == 0);
@@ -740,6 +748,8 @@ TEST_CASE("read-out sections: the sections each page shows, their values as the 
 
   fill_sections(e, c, false, inst, inst.count, v);  // a page that does not exist: no sections
   CHECK(v.sections == 0);
-  fill_sections(e, c, false, growl_group(), 2, v);  // TRACT and GROWL are two pages (A2): a third does not exist
+  fill_sections(e, c, false, growl_group(), 1, v);  // GROWL and TRACT are one page each (E1a): a second does not exist
+  CHECK(v.sections == 0);
+  fill_sections(e, c, false, tract_group(), 1, v);
   CHECK(v.sections == 0);
 }

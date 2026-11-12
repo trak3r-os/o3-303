@@ -24,7 +24,8 @@ snap 02_wave_sqr
 tap master
 wait 100
 snap 03_master
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 wait 150
 snap 04_record
 tap song

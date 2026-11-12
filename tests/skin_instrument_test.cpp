@@ -47,9 +47,9 @@ InstrumentCell cell(bool on, bool accent, bool slide) {
   return c;
 }
 
-// The four skinned shapes of the one screen class: INSTRUMENT's pages VOICE and FX, then GROWL and WOBBLE (the Sample buttons', one page each).
-enum class Where : std::uint8_t { Voice, Fx, Notes, Tone, Growl, Wobble };
-constexpr Where kAllScreens[6] = {Where::Voice, Where::Fx, Where::Notes, Where::Tone, Where::Growl, Where::Wobble};
+// The skinned shapes of the one screen class: INSTRUMENT's pages VOICE and FX, MODDED's NOTES and TONE, then GROWL, TRACT and WOBBLE (the Sample buttons', one page each since E1a).
+enum class Where : std::uint8_t { Voice, Fx, Notes, Tone, Growl, Tract, Wobble };
+constexpr Where kAllScreens[7] = {Where::Voice, Where::Fx, Where::Notes, Where::Tone, Where::Growl, Where::Tract, Where::Wobble};
 // The screen's title, which is the name too (INSTRUMENT's two pages share the word, so these two are their tabs).
 const char* where_name(Where w) {
   switch (w) {
@@ -58,12 +58,13 @@ const char* where_name(Where w) {
     case Where::Notes: return "MODDED NOTES";
     case Where::Tone: return "MODDED TONE";
     case Where::Growl: return "GROWL";
+    case Where::Tract: return "TRACT";
     case Where::Wobble: return "WOBBLE";
   }
   return "";
 }
-// The page of the group the screen shows (GROWL and WOBBLE have the one): the second tab for VOICE (INSTRUMENT is FX, VOICE, S4), TONE and GROWL.
-unsigned where_page(Where w) { return w == Where::Voice || w == Where::Tone || w == Where::Growl ? 1u : 0u; }  // GROWL is the second page of the Sample Play pair, after TRACT
+// The page of the group the screen shows (GROWL, TRACT and WOBBLE have the one): the second tab for VOICE (INSTRUMENT is FX, VOICE, S4) and TONE.
+unsigned where_page(Where w) { return w == Where::Voice || w == Where::Tone ? 1u : 0u; }
 // Opens the screen from the 303 screen the way a finger does.
 void go_to(Hands& t, Where w) {
   switch (w) {
@@ -72,6 +73,7 @@ void go_to(Hands& t, Where w) {
     case Where::Notes: t.to_modded(0); break;
     case Where::Tone: t.to_modded(1); break;
     case Where::Growl: t.to_growl(); break;
+    case Where::Tract: t.to_tract(); break;
     case Where::Wobble: t.to_wobble(); break;
   }
 }
@@ -306,10 +308,10 @@ TEST_CASE("skin instrument: VOICE queues the eight knobs, sixteen keys, forty-ei
   o.intact();
 }
 
-TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT, MODDED and the Sample Play pair TRACT / GROWL, one on WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
+TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and MODDED, one on GROWL, TRACT and WOBBLE), the shown page's red and its name lit, and the sections of the page are boxes of read-outs") {
   for (const Where w : kAllScreens) {
     const unsigned page = where_page(w);
-    const unsigned tabs_expected = w == Where::Wobble ? 1u : 2u;
+    const unsigned tabs_expected = (w == Where::Wobble || w == Where::Growl || w == Where::Tract) ? 1u : 2u;
     OnInstrument o(w);
     if (w == Where::Voice || w == Where::Fx) {
       REQUIRE(std::strncmp(o.t.title(), "INSTRUMENT", 10) == 0);
@@ -701,7 +703,8 @@ TEST_CASE("skin instrument: the worst frame (every step a note with accent and s
       skin::Panel::TextInfo tx;
       message += q.text_at(i, tx) && tx.x == 626 && tx.color == ui::Color::Accent ? 1u : 0u;
     }
-    CHECK_MESSAGE(rings >= 16u, where_name(w));
+    // TRACT's pads are its own (the line, the palette, the live vowels): the 16 held pads are not 16 held steps there, one ring at least
+    CHECK_MESSAGE(rings >= (w == Where::Tract ? 1u : 16u), where_name(w));
     CHECK_MESSAGE(leds_on >= 32u + 15u, where_name(w));  // ACCENT and SLIDE of the 16 and the dim STEP of the 15 off the playhead (the playhead's is lit: also counted, so 48)
     CHECK_MESSAGE(message == 1u, where_name(w) << ": the toast is in the PAGE window (this counts the accent-coloured LEARN wait in the PAGE window, which an armed knob has: WOBBLE's keys arm too since D1)");
     CHECK_MESSAGE(q.dropped() == 0u, where_name(w));

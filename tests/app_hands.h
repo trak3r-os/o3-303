@@ -102,20 +102,17 @@ struct Hands {
     }
   }
   // GROWL (Sample Playback) and WOBBLE (Sample Editor), from any screen; to_home() leaves them.
-  // Sample Playback opens TRACT and again flips to GROWL and back (A2, TRACT-KNOBS-PLAN 11.1): both helpers press until the title is theirs.
-  void to_tract() {
-    tap(Button::SamplePlay);
-    if (std::strcmp(title(), "TRACT") != 0) {
-      tap(Button::SamplePlay);
+  // Sample Playback is GROWL, Sample Editor TRACT and Sample Recorder WOBBLE (E1a).
+  void to_tract() { tap(Button::SampleEdit); }
+  void to_growl() { tap(Button::SamplePlay); }
+  void to_wobble() { tap(Button::SampleRec); }
+  // RECORD (Song again, E1a): from SONG itself the Song button goes to RECORD, from any other screen it takes two.
+  void to_record() {
+    tap(Button::Song);
+    if (std::strcmp(title(), "RECORD") != 0) {
+      tap(Button::Song);
     }
   }
-  void to_growl() {
-    tap(Button::SamplePlay);
-    if (std::strcmp(title(), "GROWL") != 0) {
-      tap(Button::SamplePlay);
-    }
-  }
-  void to_wobble() { tap(Button::SampleEdit); }
   // Back to the 303 screen (Pattern).
   void to_home() { tap(Button::Pattern); }
   // A fresh line from HOME: PATTERN SETUP's Shift + F6 RANDOM (the generator's line, G1), then back on HOME. HOME's own Shift row is F1 CLEAR, F2 VARY,

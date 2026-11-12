@@ -403,15 +403,15 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
-    check_screen(h, Id::Tract, page_mask(inst->page_table()), kTractPads, "TRACT");  // Sample Playback opens TRACT (A2): F1 to F7 the knobs, F8 the on / off box
+    check_screen(h, Id::Growl, page_mask(inst->page_table()), kAllPads, "GROWL");  // Sample Playback opens GROWL (E1a): one page
   }
-  tap(h, app::Button::SamplePlay);  // again: GROWL
+  tap(h, app::Button::SampleEdit);
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
-    check_screen(h, Id::Growl, page_mask(inst->page_table()), kAllPads, "GROWL");
+    check_screen(h, Id::Tract, page_mask(inst->page_table()), kTractPads, "TRACT");  // Sample Editor opens TRACT: F1 to F7 the knobs, F8 the on / off box
   }
-  tap(h, app::Button::SampleEdit);
+  tap(h, app::Button::SampleRec);
   {
     app::Context& ctx = h.runtime().context();
     const auto* inst = static_cast<InstrumentScreen*>(ctx.screen());
@@ -419,53 +419,54 @@ TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT
   }
   tap(h, app::Button::Master);
   check_screen(h, Id::Master, 0x1Fu, kAllPads, "MASTER");  // the knob row of MASTER: F1 TEMPO, F2 TAP, F3 NUDGE, F4 MASTER, F5 DLY MODE (master_screen.cpp kPage and the two action boxes)
-  tap(h, app::Button::SampleRec);
-  check_screen(h, Id::Record, 0x0Fu, kAllPads, "RECORD");  // F1 ARM / STOP, F2 BARS, F3 SAVE, F4 DISCARD; F5 to F8 have no box (record_screen.cpp)
   tap(h, app::Button::Song);
   check_screen(h, Id::Song, 0x0Fu, kAllPads, "SONG");  // F1 PLAYS, F2 LOOP, F3 CHAIN, F4 CLEAR (song_screen.cpp song_knobs)
+  tap(h, app::Button::Song);
+  check_screen(h, Id::Record, 0x0Fu, kAllPads, "RECORD");  // Song again (E1a): F1 ARM / STOP, F2 BARS, F3 SAVE, F4 DISCARD; F5 to F8 have no box (record_screen.cpp)
   tap(h, app::Button::File);
   tap(h, app::Button::File);
   check_screen(h, Id::Library, 0u, kAllPads, "FILE LIBRARY");
 }
 
-TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift flips STOCK on every screen; Sample Playback opens TRACT (NEXT PAGE on TRACT and GROWL) and Sample Editor opens WOBBLE from every screen but its own") {
-  for (unsigned i = 0; i < kIdCount; ++i) {
-    const Text& t = text(static_cast<Id>(i));
-    const HelpButton* play = nullptr;
-    const HelpButton* edit = nullptr;
-    const HelpButton* load = nullptr;
-    for (unsigned b = 0; b < t.button_count; ++b) {
-      if (t.buttons[b].button == app::Button::SamplePlay) {
-        play = &t.buttons[b];
-      }
-      if (t.buttons[b].button == app::Button::SampleEdit) {
-        edit = &t.buttons[b];
-      }
-      if (t.buttons[b].button == app::Button::SampleLoad) {
-        load = &t.buttons[b];
+TEST_CASE("help texts: Sample Loader opens MODDED (NEXT PAGE on it) and with Shift flips STOCK on every screen; Sample Playback, Editor and Recorder open GROWL, TRACT and WOBBLE from every screen but their own; Song opens SONG, again RECORD") {
+  const auto find = [](const Text& t, app::Button b) -> const HelpButton* {
+    for (unsigned k = 0; k < t.button_count; ++k) {
+      if (t.buttons[k].button == b) {
+        return &t.buttons[k];
       }
     }
+    return nullptr;
+  };
+  struct One {
+    app::Button button;
+    Id own;
+    const char* open;
+  };
+  const One ones[] = {{app::Button::SamplePlay, Id::Growl, "OPEN GROWL"}, {app::Button::SampleEdit, Id::Tract, "OPEN TRACT"}, {app::Button::SampleRec, Id::Wobble, "OPEN WOBBLE"}};
+  for (unsigned i = 0; i < kIdCount; ++i) {
+    const Id id = static_cast<Id>(i);
+    const Text& t = text(id);
+    const HelpButton* load = find(t, app::Button::SampleLoad);
     REQUIRE_MESSAGE(load != nullptr, t.name << ": Sample Loader is not listed");
-    const bool on_modded = static_cast<Id>(i) == Id::ModdedNotes || static_cast<Id>(i) == Id::ModdedTone;
+    const bool on_modded = id == Id::ModdedNotes || id == Id::ModdedTone;
     CHECK_MESSAGE(std::strcmp(load->text, on_modded ? "NEXT PAGE: NOTES, TONE" : "OPEN MODDED") == 0, t.name);
     CHECK_MESSAGE(std::strcmp(load->shift, "MODS: HEARD / PLAIN 303") == 0, t.name << ": Shift + Sample Loader");
-    REQUIRE_MESSAGE(play != nullptr, t.name);
-    const bool on_play = static_cast<Id>(i) == Id::Tract || static_cast<Id>(i) == Id::Growl;
-    CHECK_MESSAGE(std::strcmp(play->text, on_play ? "NEXT PAGE: TRACT, GROWL" : "OPEN TRACT") == 0, t.name);
-    REQUIRE_MESSAGE(play->shift != nullptr, t.name << ": Shift + Sample Playback does the same, and HELP says so (U8)");
-    CHECK_MESSAGE(std::strcmp(play->shift, on_play ? "SAME: NEXT PAGE" : "SAME: OPEN TRACT") == 0, t.name);
-    if (static_cast<Id>(i) == Id::Wobble) {
-      CHECK_MESSAGE(edit == nullptr, t.name << ": Sample Editor does nothing on WOBBLE (it is drawn dimmed)");
-    } else {
-      REQUIRE_MESSAGE(edit != nullptr, t.name);
-      CHECK_MESSAGE(std::strcmp(edit->text, "OPEN WOBBLE") == 0, t.name);
-      REQUIRE_MESSAGE(edit->shift != nullptr, t.name << ": Shift + Sample Editor does the same, and HELP says so (U8)");
-      CHECK_MESSAGE(std::strcmp(edit->shift, "SAME: OPEN WOBBLE") == 0, t.name);
+    for (const One& o : ones) {
+      const HelpButton* hb = find(t, o.button);
+      if (id == o.own) {
+        CHECK_MESSAGE(hb == nullptr, t.name << ": the key of the sound's own screen does nothing (it is drawn dimmed)");
+        continue;
+      }
+      REQUIRE_MESSAGE(hb != nullptr, t.name);
+      CHECK_MESSAGE(std::strcmp(hb->text, o.open) == 0, t.name);
+      REQUIRE_MESSAGE(hb->shift != nullptr, t.name << ": Shift does the same, and HELP says so (U8)");
+      CHECK_MESSAGE(std::strncmp(hb->shift, "SAME: ", 6) == 0, t.name);
+      CHECK_MESSAGE(std::strcmp(hb->shift + 6, o.open) == 0, t.name);
     }
   }
 }
 
-TEST_CASE("help texts: the Song button opens SONG from every screen but SONG itself") {
+TEST_CASE("help texts: the Song button opens SONG, again RECORD, and from RECORD SONG") {
   for (unsigned i = 0; i < kIdCount; ++i) {
     const Text& t = text(static_cast<Id>(i));
     const HelpButton* song = nullptr;
@@ -474,12 +475,14 @@ TEST_CASE("help texts: the Song button opens SONG from every screen but SONG its
         song = &t.buttons[b];
       }
     }
+    REQUIRE_MESSAGE(song != nullptr, t.name << ": the Song button is not listed");
+    const char* want = "OPEN SONG, AGAIN RECORD";
     if (static_cast<Id>(i) == Id::Song) {
-      CHECK_MESSAGE(song == nullptr, t.name << ": the Song button does nothing on SONG (it is drawn dimmed)");
-    } else {
-      REQUIRE_MESSAGE(song != nullptr, t.name << ": the Song button is not listed");
-      CHECK_MESSAGE(std::strcmp(song->text, "OPEN SONG") == 0, t.name);
+      want = "OPEN RECORD";
+    } else if (static_cast<Id>(i) == Id::Record) {
+      want = "OPEN SONG";
     }
+    CHECK_MESSAGE(std::strcmp(song->text, want) == 0, t.name);
   }
 }
 

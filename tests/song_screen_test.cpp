@@ -354,8 +354,11 @@ TEST_CASE("song screen: the Song button opens it from every screen, and the pads
   o.t.tap(Button::Song);
   CHECK(std::strcmp(o.t.title(), "SONG") == 0);
   CHECK(o.s->cursor() == 2u);
-  o.t.tap(Button::Song);  // again: nothing
+  o.t.tap(Button::Song);  // again: RECORD (E1a), and again SONG, with the song and the cursor kept
+  CHECK(std::strcmp(o.t.title(), "RECORD") == 0);
+  o.t.tap(Button::Song);
   CHECK(std::strcmp(o.t.title(), "SONG") == 0);
+  CHECK(o.s->cursor() == 2u);
   for (Button b : {Button::Performance, Button::Params, Button::Master, Button::SampleRec, Button::File}) {
     o.t.tap(b);
     CHECK(std::strcmp(o.t.title(), "SONG") != 0);

@@ -32,11 +32,10 @@ tap params
 wait 50
 snap 02_fx
 # GROWL and WOBBLE take the place of the old MODS page: three taps (62 ms each) and the waits make the 224 ms the two Params taps and their waits took, so the later pictures keep their times.
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 wait 13
 snap 03_growl
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 wait 13
 snap 03b_wobble
 tap params   # S4: from WOBBLE Params opens FX; the second tap is VOICE (F4 is DECAY there)
@@ -170,8 +169,7 @@ snap help_01_instrument_pads
 tap config
 wait 50
 # GROWL with a lock and LEARN armed (growl_wobble.txt has the classic one): step 6 held, the latched F6 CMB MIX turned, then Shift + F6.
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 tap f6
 paddown 5
 turn 20

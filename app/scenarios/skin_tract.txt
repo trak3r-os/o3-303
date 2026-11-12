@@ -21,7 +21,7 @@ tap config
 wait 100
 tap params
 wait 50
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 wait 100
 snap 01_tract
 tap f8
@@ -40,20 +40,20 @@ press shift
 wait 100
 snap 04_shift_learn
 release shift
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 tap f3
 turn 50
 tap f4
 turn 1
 wait 100
 snap 05_wobble_mouth
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 wait 100
 snap 06_tract_back
 tap sampleplay
 wait 100
 snap 07_growl_tab
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 press shift
 tap config
 wait 100

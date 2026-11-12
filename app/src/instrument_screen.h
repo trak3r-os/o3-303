@@ -2,8 +2,8 @@
 #pragma once
 
 // INSTRUMENT (docs/UX-303.md 5.5) and its three siblings MODDED, GROWL and WOBBLE (docs/MODS-PLAN.md 5.1): one screen class, four instances (the app holds them), each with an InstrumentGroup that says
-// what it shows. Params opens INSTRUMENT on FX, Params again cycles the pages (FX, VOICE); Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens TRACT and again goes to GROWL and back (A2) and Sample Editor
-// WOBBLE (one page each):
+// what it shows. Params opens INSTRUMENT on FX, Params again cycles the pages (FX, VOICE); Sample Loader opens MODDED on NOTES and again goes to TONE and back; Sample Playback opens GROWL, Sample Editor TRACT and Sample Recorder
+// WOBBLE (E1a; one page each):
 //
 //   INSTRUMENT FX      DRIVE TONE MIX MODEL (the distortion), DLY TIME FB SEND TONE (the delay)
 //   INSTRUMENT VOICE   the sound knobs (the SOUND page on Rig::sound_keys: PERFORM's latch now, HOME's too from H4, D3)
@@ -64,6 +64,7 @@ struct InstrumentGroup {
 const InstrumentGroup& instrument_group() noexcept;
 const InstrumentGroup& modded_group() noexcept;
 const InstrumentGroup& growl_group() noexcept;
+const InstrumentGroup& tract_group() noexcept;
 const InstrumentGroup& wobble_group() noexcept;
 
 // The drawer's cells of the page of 16 steps that starts at step `first` of `p`: the note ("C2", "D#3", "--" a rest, "~" a tie) and the gate glyph
@@ -117,7 +118,7 @@ class InstrumentScreen final : public o3sdk::app::Screen {
   void learn_key(o3sdk::app::Context& ctx, unsigned k) noexcept;
   void learn_drop(o3sdk::app::Context& ctx) noexcept;
   void pad_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
-  bool tract_page() const noexcept;  // Sample Play's group on its TRACT page: the pads are the TRACT line, its palette and the live vowels
+  bool tract_page() const noexcept;  // the TRACT screen (Sample Editor): the pads are the TRACT line, its palette and the live vowels
   // ---- the TRACT page's pads (A2; TRACT-KNOBS-PLAN 11.4 and 11.6). Main loop only. The line is the selected pattern's (Bank::tract_line); its steps are shown 24 a page on rows 0 and 1.
   static constexpr unsigned kLinePage = 24;                // the line's steps on the pads of a page (pad n of rows 0 and 1 is step page * 24 + n)
   unsigned line_len() const noexcept;                      // the steps the selected pattern's line runs (its own length, else the pattern's)

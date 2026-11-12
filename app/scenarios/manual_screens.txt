@@ -30,7 +30,8 @@ wait 300
 tap master
 wait 700
 snap 03_master
-tap samplerec
+tap song 29   # RECORD is Song again (E1a): the two taps take the 62 ms the one did
+tap song 29
 wait 100
 snap 04_record
 tap f1
@@ -44,8 +45,7 @@ tap play
 tap f7
 tap f7
 wait 3000
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 wait 100
 snap 08_growl
 tap file

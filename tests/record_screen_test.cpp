@@ -106,7 +106,8 @@ struct Session {
     return pred();
   }
   void open_record() {
-    tap(Button::SampleRec);
+    tap(Button::Song);
+    tap(Button::Song);
     REQUIRE(std::strcmp(title(), "RECORD") == 0);
   }
   // F2 until the list shows `bars` (0: FREE).
@@ -263,24 +264,32 @@ TEST_CASE("Envelope: the columns of a span that does not divide by their count h
 
 // ---- The screens ---------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("the Sample buttons: Sample Recorder opens RECORD, Sample Playback and Sample Editor open TRACT and WOBBLE, Sample Loader MODDED; Rec alone stays the step record") {
+TEST_CASE("the Sample buttons (E1a): Song again opens RECORD, Sample Playback, Editor and Recorder open GROWL, TRACT and WOBBLE, Sample Loader MODDED; Rec alone stays the step record") {
   Session s;
-  s.tap(Button::SampleRec);
+  s.tap(Button::Song);
+  CHECK(std::strcmp(s.title(), "SONG") == 0);
+  s.tap(Button::Song);  // again: RECORD
   CHECK(std::strcmp(s.title(), "RECORD") == 0);
-  s.tap(Button::SampleRec);  // again: nothing
+  s.tap(Button::Song);  // and from RECORD, SONG
+  CHECK(std::strcmp(s.title(), "SONG") == 0);
+  s.tap(Button::Song);
   CHECK(std::strcmp(s.title(), "RECORD") == 0);
   s.tap(Button::SampleLoad);  // MODDED opens on NOTES, from RECORD as from any screen (docs/MODS-PLAN.md 4.3)
   CHECK(std::strcmp(s.title(), "MODDED NOTES") == 0);
   s.tap(Button::SampleLoad);  // again: TONE
   CHECK(std::strcmp(s.title(), "MODDED TONE") == 0);
   s.tap(Button::SamplePlay);
-  CHECK(std::strcmp(s.title(), "TRACT") == 0);
-  s.tap(Button::SamplePlay);  // again: GROWL (A2)
   CHECK(std::strcmp(s.title(), "GROWL") == 0);
-  s.tap(Button::SampleRec);
+  s.tap(Button::SamplePlay);  // again: nothing
+  CHECK(std::strcmp(s.title(), "GROWL") == 0);
   s.tap(Button::SampleEdit);
+  CHECK(std::strcmp(s.title(), "TRACT") == 0);
+  s.tap(Button::SampleEdit);
+  CHECK(std::strcmp(s.title(), "TRACT") == 0);
+  s.tap(Button::SampleRec);
   CHECK(std::strcmp(s.title(), "WOBBLE") == 0);
   s.tap(Button::SampleRec);
+  CHECK(std::strcmp(s.title(), "WOBBLE") == 0);
   s.tap(Button::Pattern);
   REQUIRE(std::strcmp(s.title(), "RECORD") != 0);
   auto& home = static_cast<MainScreen*>(s.ctx().screen())->home_map();
@@ -323,14 +332,14 @@ TEST_CASE("a one-bar take of the master starts on the bar's sample, is exactly a
     ++first_sound;
   }
   // The voice holds its amplifier down for 4.4 ms (194 samples at 44.1 kHz, kAmpDelay) on a note that starts it from quiet, so the first step's first sound is one exact sample, which this pins
-  // (measured: 198): a block (64 frames) early would read 64 less, and a change of kAmpDelay or of the de-clicker moves it.
+  // (measured: 197; 198 when RECORD opened with one Sample Recorder tap, before E1a: the oscillator runs free, so the onset moves by a sample with the two Song taps' 80 ms): a block (64 frames) early would read 64 less, and a change of kAmpDelay or of the de-clicker moves it.
   // This is the first sample that rounds to a whole 16-bit step, so it reads a level too: the onset rises smoothly (-1, -3, -6, -11, -17 from 198 on)
   // and a quieter one crosses half a step later. It read 195 (194 of the delay and one more) before the feedback high-pass went from 150 to 15 Hz and the
   // resonance began to roll off at a low cutoff (2026-11-07: 196 with the 15 Hz high-pass alone, 198 with both): the ladder's cutoff coefficient is
   // scaled by fc / sqrt(fc^2 + 500^2), so the onset is slower and smaller. Not the pitch: a note
   // that starts the voice sets its phase increment at once (acid_voice_behaviour_test.cpp, "slide: a note that starts the voice jumps"), and the unit's own
   // first sound is still exactly kAmpDelay (the "start" cases there).
-  CHECK(first_sound == 198u);
+  CHECK(first_sound == 197u);
   std::size_t out_first = 0;
   while (out_first < out.size() / 2 && out[out_first * 2] == 0 && out[out_first * 2 + 1] == 0) {
     ++out_first;
@@ -741,7 +750,7 @@ TEST_CASE("Shift + Rec that is refused says so on the status line of every scree
     unsigned taps;
   };
   const Where where[] = {{"HOME", Button::Pattern, 1}, {"INSTRUMENT", Button::Params, 1}, {"PERFORM", Button::Performance, 1}, {"FILE", Button::File, 1},
-                         {"LIBRARY", Button::File, 2}, {"GROWL", Button::SamplePlay, 1}, {"RECORD", Button::SampleRec, 1}};
+                         {"LIBRARY", Button::File, 2}, {"GROWL", Button::SamplePlay, 1}, {"RECORD", Button::Song, 2}};
   for (const Where& w : where) {
     CAPTURE(w.name);
     s.tap(Button::Pattern);  // (a known start, so that the taps below open the screen on its first page)
@@ -871,7 +880,8 @@ struct MemRig {
     mem.make_dir_now("Apps/o3_303");
     REQUIRE(h.start());
     h.run_ms(100);
-    tap(Button::SampleRec);
+    tap(Button::Song);
+    tap(Button::Song);
     rs = static_cast<RecordScreen*>(ctx.screen());
     for (unsigned i = 0; i < kBarChoices && rs->bars() != 0u; ++i) {
       tap(Button::F2);

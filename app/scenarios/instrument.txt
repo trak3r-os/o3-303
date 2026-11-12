@@ -45,15 +45,14 @@ snap 08_fx_edited
 tap f4
 turn -5
 snap 09_distortion_off
-tap sampleplay 29   # Sample Play opens TRACT, a second press GROWL: the two taps take the 62 ms the one did
-tap sampleplay 29
+tap sampleplay   # Sample Play opens GROWL (E1a): the one tap takes the 62 ms the two did
 snap 10_growl
 tap f1
 turn 30
 tap f7
 turn 50
 snap 11_growl_edited
-tap sampleedit
+tap samplerec   # WOBBLE (Sample Recorder, E1a)
 tap f3
 turn 40
 tap f4

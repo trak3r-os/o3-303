@@ -12,7 +12,7 @@ wait 300
 record on
 tap play
 wait 1900
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 wait 100
 snap 01_tract_first_press
 tap f8
@@ -57,7 +57,7 @@ wait 900
 tap sampleplay
 wait 100
 snap 06_growl_by_the_second_press
-tap sampleplay
+tap sampleedit   # TRACT (Sample Editor, E1a)
 wait 700
 snap 07_tract_back
 tap f8

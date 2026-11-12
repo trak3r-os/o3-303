@@ -117,13 +117,13 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Pattern** | HOME, the step screen, from any screen. On HOME a tap opens PATTERN SETUP, and held, the 48 pads are the 48 patterns |
 | **Params** | INSTRUMENT, on FX (page 1) and VOICE (page 2). Again: the other page |
 | **Performance** | PERFORM. Again: PERFORM KNOBS, and back. **Shift + Performance**: PERFORM SETUP, from any screen; Performance leaves it |
-| **Song** | SONG |
+| **Song** | SONG. Again: RECORD, and from RECORD, SONG |
 | **Master** | MASTER (tempo and level). Hold it and turn: nudge the tempo. **Shift + Master**: tap tempo, from any screen |
 | **File** | FILE PROJECTS. Again: FILE LIBRARY. **Shift + File**: save the project, from any screen |
-| **Sample Rec** | RECORD |
+| **Sample Rec** | WOBBLE |
 | **Sample Load** | MODDED: NOTES, then TONE (again). **Shift + Sample Load**: MODS, the mods heard or off, from any screen |
-| **Sample Play** | TRACT, then GROWL (again), then TRACT |
-| **Sample Edit** | WOBBLE |
+| **Sample Play** | GROWL |
+| **Sample Edit** | TRACT |
 | **Config** | The unit's settings. **Shift + Config**: HELP for the screen you are on |
 | **Play** | Play and stop. **Shift + Play**: restart from step 1 |
 | **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records knob and ladder moves. **Shift + Rec**: arm or stop an audio take, from any screen |
@@ -551,7 +551,7 @@ MODS is the A/B switch, lit while the mods are heard. Off, it sets the thirteen 
 
 ### TRACT
 
-Press **Sample Play**. TRACT is a mouth after the growl: F1 VOWEL (A E I O U morphed; the read-out is a letter on a vowel and "E 37%" between), F2 TONGUE,
+Press **Sample Edit**. TRACT is a mouth after the growl: F1 VOWEL (A E I O U morphed; the read-out is a letter on a vowel and "E 37%" between), F2 TONGUE,
 F3 LIPS, F4 RES, F5 GLIDE, F6 SIZE, F7 TRC MIX and F8, which switches the tract on and off (off is Mix 0, the dry sound bit for bit; on brings back the last
 mix). The tract also has a level on its wet sound (GAIN, -12 to +18 dB, +0.5 dB at first: the level match of the factory vowel); it has no knob on the page yet. Shift + F1 to F3 and F7 are MIDI learn (Shift + F4, F5 and F6 are the line's LEN, CLEAR and NEW, below). Another press of Sample Play flips to GROWL and back.
 
@@ -572,7 +572,7 @@ VOWEL knob as it is). With LINE on the line plays with the pattern; with LINE of
 
 ### GROWL
 
-Press **Sample Play**, then again. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
+Press **Sample Play**. GROWL is one page: the growl's seven knobs, in the order the sound passes through them (the vowel filter, the
 comb, then the mix), and F8 switches the growl on and off.
 
 ![GROWL: F1 VOWEL, F2 FMT Q, F3 FMT MIX, F4 CMB TUNE, F5 CMB FB, F6 CMB MIX, F7 GRL MIX; the VOICE and WOBBLE read-outs](manual/img/growl.png)
@@ -598,7 +598,7 @@ Like the other knobs, a growl knob can be locked per step and recorded as motion
 
 ### WOBBLE
 
-Press **Sample Edit**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The wobble runs while PERFORM's WOB
+Press **Sample Rec**. WOBBLE is one page: the wobble's five settings, F8 WOB, and two empty boxes. The wobble runs while PERFORM's WOB
 action is on. F8 latches that action here, the same as WOB on PERFORM, and ALL OFF on PERFORM lets it go.
 
 ![WOBBLE: F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET, F6 and F7 empty, F8 WOB](manual/img/wobble.png)
@@ -733,7 +733,7 @@ You stay on this screen after a load; press **Pattern** to go back to HOME.
 
 ### RECORD
 
-Press **Sample Rec**. RECORD makes a WAV of what you play (section 11).
+Press **Song** twice (the first press is SONG, the second RECORD; a third is SONG again). RECORD makes a WAV of what you play (section 11).
 
 ![RECORD idle: TAKE IDLE 0:00.0, BARS 4, the IN and OUT meters, and the F row ARM, BARS, SAVE, DISCARD](manual/img/record.png)
 
@@ -937,7 +937,7 @@ Known:
 
 ## 11. Recording a take
 
-1. Press **Sample Rec**. RECORD opens.
+1. Press **Song** twice. RECORD opens.
 2. **F2** picks the length: 1, 2, 4 or 8 bars, or FREE. (The take is always the master, what o3-303 plays.)
 3. Press **Play**, then **F1 ARM**. TAKE lights in the header; the take starts at the next bar and stops by itself after its bars. (A FREE
    take ends when you press F1.)
