@@ -19,6 +19,16 @@ namespace ui = o3sdk::ui;
 
 inline constexpr int kStatusH = 20;     // the status line, the first line of the screen's area
 inline constexpr int kPadsLineH = view::kKnobStripTopH;  // the PADS line takes the place of the knob row's tab line
+inline constexpr unsigned kSoundChips = 4;               // the sound chips: MOD GRL TRC WOB, in the order of the colour keys Note, Instr, Vol, Fx
+// The chip's word and the colour of its key (the PERFORM button colours of the skin: Note is Vol's, Instr the Accent, Vol the Fx's, Fx the Instr's).
+constexpr const char* sound_chip_text(unsigned i) noexcept {
+  constexpr const char* kText[kSoundChips] = {"MOD", "GRL", "TRC", "WOB"};
+  return kText[i % kSoundChips];
+}
+constexpr ui::Color sound_chip_colour(unsigned i) noexcept {
+  constexpr ui::Color kColour[kSoundChips] = {ui::Color::Vol, ui::Color::Accent, ui::Color::Fx, ui::Color::Instr};
+  return kColour[i % kSoundChips];
+}
 
 // The status line: the encoder's owner, the keyboard's mode and octave, REC, a chip for each live action that is on, a toast, a failed autosave.
 struct StatusView {
@@ -28,7 +38,7 @@ struct StatusView {
   int octave = 0;             // the keyboard's octave shift: 0 is "OCT 2-3"
   bool rec = false;           // write / record mode is on
   bool song = false;          // Play plays the SONG (SONG's F1 PLAYS), from whatever screen is up: a "SONG" chip in the Fx colour; PATTERN draws nothing (Rig, fill_take_status)
-  bool stock = false;         // STOCK is on (docs/MODS-PLAN.md 5.12): every mod is out and the voice is the plain 303: a "STOCK" chip in the Accent colour after SONG's; the skin's tagline says so too
+  std::uint8_t sounds = 0x01;  // the four sounds the colour keys flip (E1b), a bit per key (Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE; sound_bits): the four chips MOD GRL TRC WOB after SONG's, filled while on (E1c); MODS on is the plain bit 0 of a fresh rig
   const char* take = "";      // an audio take is armed or under way ("TAKE ARMED", "TAKE REC 0:05", Rig::take), "" none (UX-303 2.2, 5.10)
   const char* take_msg = "";  // what the take just said ("8 BARS TOO LONG AT 55.0", Rig::take_msg), from every screen; "" none
   bool take_msg_off = false;  // the message says something did not happen: an outline

@@ -45,8 +45,8 @@ struct HeaderView {
   char message[28] = "";       // a toast or a take message for its life, in the PAGE window in amber; "" none
   bool message_off = false;    // it says something did not happen: outlined in red
   bool save_failed = false;    // the tagline turns red: "SAVE FAILED"
-  bool no_autosave = false;    // autosave is suspended: the tagline says "NO AUTOSAVE" in Accent (after a failed save, before STOCK)
-  bool stock = false;          // STOCK is on: the tagline says "STOCK . MODS OFF" in Accent (a failed save, which is red, wins)
+  bool no_autosave = false;    // autosave is suspended: the logo is tinted in Accent (the tagline's place is the chips', or "SAVE FAILED")
+  std::uint8_t sounds = 0x01;  // the four sounds that are on (StatusView::sounds): the chips MOD GRL TRC WOB under the logo, in the key's colour while on, ChromeDim while off
 };
 
 // What the header needs besides the StatusView: the context's, as plain values.

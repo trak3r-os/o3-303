@@ -168,9 +168,22 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
     row.chip(Face::Label, "SONG", Color::Fx, Color::SelText);
     row.skip(8);
   }
-  if (view.stock) {  // the mods are out (STOCK): on every screen, as the song mode is
-    row.chip(Face::Label, "STOCK", Color::Accent, Color::AccentText);
-    row.skip(8);
+  {  // the four sounds on every screen (E1c): a chip filled in the key's colour while the sound is on, an outline while it is off
+    const ui::Metrics& m = r.theme().metrics;
+    const int cap_h = r.theme().geometry(Face::Label).cap_h;
+    for (unsigned i = 0; i < kSoundChips; ++i) {
+      const char* word = sound_chip_text(i);
+      if ((view.sounds >> i & 1u) != 0u) {
+        row.chip(Face::Label, word, sound_chip_colour(i), Color::SelText);
+      } else {  // the chip's own box, drawn as a frame
+        r.frame(Rect{row.x(), baseline - cap_h - 2 * m.border, r.text_width(word, Face::Label) + 2 * m.gap, cap_h + 4 * m.border}, Color::ChromeDim);
+        row.skip(m.gap);
+        row.put(Face::Label, word, Color::ChromeDim);
+        row.skip(m.gap);
+      }
+      row.skip(4);
+    }
+    row.skip(4);
   }
   if (view.rec) {
     row.chip(Face::Label, "REC", Color::Rec, Color::SelText);
@@ -196,7 +209,9 @@ void draw_status(ui::Renderer& r, const Rect& line, const StatusView& view) noex
   if (view.take_msg[0] != '\0') {
     reserved += width_of(view.take_msg);
   }
-  (void)draw_action_chips(r, row.x(), x - reserved, baseline, view.actions);
+  // WOB has its chip among the four sounds: the action chip of the same latch is left out.
+  const std::uint16_t wobble_bit = static_cast<std::uint16_t>(1u << static_cast<unsigned>(PerfAction::Wobble));
+  (void)draw_action_chips(r, row.x(), x - reserved, baseline, static_cast<std::uint16_t>(view.actions & ~wobble_bit));
   const auto put_right = [&](const char* s, Color fill, Color ink, bool outline) {
     const int w = r.text_width(s, Face::Label) + 12;
     x -= w;

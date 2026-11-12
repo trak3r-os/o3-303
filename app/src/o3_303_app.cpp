@@ -424,6 +424,13 @@ class O3_303App final : public app::App {
     sequencer_.update();
     master_.service(ctx);  // a tempo restore that the command ring refused
     live_.update(ctx);  // the live actions and the snapshots' morph go on whatever screen is up
+    {  // the sound chips of every header (E1c): a change from anywhere (a key, a snapshot, ALL OFF, a project) is drawn
+      const std::uint8_t sounds = o3_303::sound_bits(rig_, ctx.engine());
+      if (sounds != rig_.sounds) {
+        rig_.sounds = sounds;
+        ctx.redraw();
+      }
+    }
     wob_learn_.mirror(ctx.engine(), rig_.wiring.wob_learn, rig_.wiring.wobble, live_.wobble_on());  // D1: the learnable copy of WOBBLE's values follows the settings
     record_.settle(ctx);   // a WAV job that ended: its result is read before the project's next job can replace it in the files service
     project_.update(ctx);  // the project on the card: the boot load, autosave, SAVE (after the actions, so a morph's last value is the one it sees)

@@ -8,7 +8,8 @@
 # 02 playing: PLAY green and the playhead; 03 a toast in the PAGE window (VARIED, Shift + F2); 04 TRNSP on and the octave up; 05 REC lit; 06 PATTERN SETUP (the generator line over
 # the glass, the knobs of its page); 06b Shift on it (its row of action keys); 07 F3 held (the amber rim) with F1 still latched; 07b a p-lock written
 # on step 5 (LOCK 5 in the accent colour, amber LED); 07c the WAVE switch latched and turned to SQR; 08 Shift held on HOME (the Shift row as action keys, REDO dim, the red
-# banner); 09 Pattern held (the 48 patterns in the glass).
+# banner); 09 Pattern held (the 48 patterns in the glass); 12 to 14 the sound chips under the logo (E1c): Note, Instr and Vol flipped (MOD dark, GRL and TRC lit in their key's colours), then
+# Fx too (all four lit but MOD), the PAGE window saying the last flip.
 wait 300
 tap config
 tap left
@@ -82,3 +83,14 @@ turn 2
 wait 100
 snap 11_shift_turn
 release shift
+wait 2600
+tap note
+wait 100
+snap 12_chip_mods_off
+tap instr
+tap vol
+wait 100
+snap 13_chips_growl_tract
+tap fx
+wait 100
+snap 14_chips_wobble

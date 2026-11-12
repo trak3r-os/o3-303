@@ -36,7 +36,7 @@ Sources: the skin spike (`gen_skin.py`, `NOTES.md`, `budget.json`, mockups A and
 | Element | Where (px) | Drawn as | Shows |
 |---|---|---|---|
 | Panel | header y 0-66, F row y 384-480 (INSTRUMENT: full height) | CLEAR to the glass colour, base RECTS, the `tex_obsidian` tile (L4, REPEAT in x, tinted) as two bands, two translucent sheen LINES scissored to the header | nothing; the material |
-| Brand | x 12-162, y 7-57 | the `logo` sprite (the "O3-303" wordmark), with the tagline as live 6x12 text under it | "ACID BASS VOICE"; red "SAVE FAILED" while the last autosave failed (`StatusView::save_failed`) |
+| Brand | x 12-162, y 7-57 | the `logo` sprite (the "O3-303" wordmark), with the sound chips as live 6x12 text under it | "MOD GRL TRC WOB" (E1c: each word in its colour key while on, ChromeDim while off; was the tagline "ACID BASS VOICE"); red "SAVE FAILED" while the last autosave failed (`StatusView::save_failed`) |
 | PATTERN display | x 168-248 | window plus three `seg` sprites | the selected pattern, "A01" |
 | TEMPO display | x 256-358 | window plus four `seg` sprites, the decimal point as a POINT, "BPM" | the engine's tempo ("125.0"; a leading blank is a ghost 8); the master's tempo while following a MIDI clock |
 | TRANSPORT | x 368-424 | `led` sprites plus glow POINTS; live 6x12 captions | PLAY green while playing; REC red in write/record mode (`rec`); TAKE amber with the take as its caption ("ARMED" blinking, "0:05" red, "READY", "SAVING") |
@@ -62,7 +62,7 @@ action keys. Primitives: windows (round rects), rules, sheen, knob pointers, glo
 | `take`, `take_msg`, `take_msg_off` | TAKE LED and caption; the message in the PAGE window for its 2.5 s |
 | `actions` | PERFORM LEDs (2.1) |
 | `toast`, `toast_off` | PAGE window, amber; outlined red when `_off` |
-| `save_failed` | the tagline turns red "SAVE FAILED" |
+| `save_failed` | "SAVE FAILED" in red takes the chips' place under the logo |
 
 HOME's own status (LEN, SW, GATE, TR, SCALE, NEXT and the STEP box) stays a line at the top of the glass, as in mockup 01.
 

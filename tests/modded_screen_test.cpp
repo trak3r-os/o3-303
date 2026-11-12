@@ -55,7 +55,7 @@ Status status_on_home(Hands& t) {
   t.to_home();
   frame::StatusView v;
   home_of(t).status(v);
-  return Status{v.stock, v.take_msg};
+  return Status{(v.sounds & 1u) == 0u, v.take_msg};  // the MOD chip is out: the mods are off (STOCK)
 }
 
 // The page's knob `k` as the screen draws it.
@@ -476,7 +476,7 @@ struct Session {
   bool chip() {
     frame::StatusView v;
     static_cast<MainScreen*>(h->runtime().context().screen())->home_map().status(v);
-    return v.stock;
+    return (v.sounds & 1u) == 0u;  // the MOD chip is dark: STOCK is on
   }
 };
 

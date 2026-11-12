@@ -357,58 +357,62 @@ TEST_CASE("skin instrument: each group draws its own tabs (two on INSTRUMENT and
   }
 }
 
-TEST_CASE("skin instrument: F8 of MODDED and WOBBLE is a key where a knob would be (no pointer), dark while off and lit red while on; GROWL's is dark while the Mix is 0") {
-  const auto keys = [](const OnInstrument& o, bool lit) {
+TEST_CASE("skin instrument: F8 of MODDED and GROWL is an empty well (E1b): no action key and no cap, whatever the sound's state; WOBBLE's F8 is the WOB key, dark while off and lit while on") {
+  const auto keys = [](const OnInstrument& o) {
     unsigned n = 0;
     for (unsigned i = 0; i < o.q().shapes(); ++i) {
       skin::Panel::SpriteInfo sp;
       if (o.q().sprite_at(i, sp) && sp.layer == skin::Layer::ActKey && sp.id == skin_assets::Id::ActKey) {
-        n += same(sp.rgb, lit ? skin::pal::kFocusFill : skin::pal::kKey) ? 1u : 0u;
+        ++n;
       }
     }
     return n;
   };
-  for (const Where w : {Where::Notes, Where::Tone}) {  // STOCK
-    OnInstrument o(w);
-    INFO(where_name(w));
-    CHECK(keys(o, true) == 1u);  // MODS: lit while the mods are heard, which they are at boot
-    CHECK(keys(o, false) == 0u);
-    // Seven knobs on NOTES, six on TONE (F6 RANGE is a switch): the key and the empty boxes have no cap (the sprites of the knob row are the 58 px caps).
-    CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) == (w == Where::Notes ? 7u : 6u));
-    o.t.tap(Button::F8);  // MODS off: the key goes dark
+  const struct {
+    Where w;
+    Button key;
+  } cases[] = {{Where::Notes, Button::Note}, {Where::Tone, Button::Note}, {Where::Growl, Button::Instr}};
+  for (const auto& c : cases) {
+    OnInstrument o(c.w);
+    INFO(where_name(c.w));
+    const unsigned caps = o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap);
+    CHECK(keys(o) == 0u);
+    CHECK(caps > 0u);
+    o.t.tap(c.key);  // the sound flips
     o.t.wait(60);
-    CHECK(keys(o, false) == 1u);
-    CHECK(keys(o, true) == 0u);
-    o.t.tap(Button::F8);
-    o.t.wait(60);
-    CHECK(keys(o, true) == 1u);
+    CHECK(keys(o) == 0u);
+    CHECK(o.sprites(skin::Layer::KnobCap, skin_assets::Id::Knob58Cap) == caps);
     o.intact();
   }
-  {  // WOB: the latch of PERFORM's wobble action
+  {  // WOB: the latch of PERFORM's wobble action, F8 or the Fx key
     OnInstrument o(Where::Wobble);
-    CHECK(keys(o, false) == 1u);
+    const auto dark_or_lit = [&](bool lit) {
+      unsigned n = 0;
+      for (unsigned i = 0; i < o.q().shapes(); ++i) {
+        skin::Panel::SpriteInfo sp;
+        if (o.q().sprite_at(i, sp) && sp.layer == skin::Layer::ActKey && sp.id == skin_assets::Id::ActKey) {
+          n += same(sp.rgb, lit ? skin::pal::kFocusFill : skin::pal::kKey) ? 1u : 0u;
+        }
+      }
+      return n;
+    };
+    CHECK(dark_or_lit(false) == 1u);
     o.t.tap(Button::F8);
     o.t.wait(60);
-    CHECK(keys(o, true) == 1u);
+    CHECK(dark_or_lit(true) == 1u);
+    o.t.tap(Button::Fx);  // the colour key is the same latch
+    o.t.wait(60);
+    CHECK(dark_or_lit(false) == 1u);
     o.intact();
-  }
-  {
-    OnInstrument o(Where::Growl);  // F8 is the growl's key since B5a: dark while the Mix is 0, lit once it is heard
-    CHECK(keys(o, false) == 1u);
-    CHECK(keys(o, true) == 0u);
-    o.t.tap(Button::F8);
-    o.t.wait(60);
-    CHECK(keys(o, true) == 1u);
-    CHECK(keys(o, false) == 0u);
   }
 }
 
 TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and no label, latch LED or readout; the other slots have all three") {
   struct Blanks {
     Where w;
-    unsigned count;  // F6 and F7 on WOBBLE; INSTRUMENT, NOTES and GROWL have none (F8 of NOTES is the MODS key, GROWL's the growl's)
+    unsigned count;  // F8 of NOTES, TONE and GROWL (the colour keys flip the sounds, E1b); F6 and F7 on WOBBLE (its F8 is the WOB key); INSTRUMENT has none
   };
-  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 0}, {Where::Tone, 0}, {Where::Growl, 0}, {Where::Wobble, 2}};
+  constexpr Blanks kBlanks[6] = {{Where::Voice, 0}, {Where::Fx, 0}, {Where::Notes, 1}, {Where::Tone, 1}, {Where::Growl, 1}, {Where::Wobble, 2}};
   for (const Blanks& expect : kBlanks) {
     OnInstrument o(expect.w);
     INFO(where_name(expect.w));
@@ -438,38 +442,27 @@ TEST_CASE("skin instrument: a blank slot is an empty well with its F number, and
   }
 }
 
-TEST_CASE("skin instrument: the ON under a lit key is read at full strength, the OFF under a dark one is quiet") {
-  // The hint window of F8 (x 700..800, y 457..479): its text's colour.
-  const auto hint = [](const OnInstrument& o) {
+TEST_CASE("skin instrument: the F8 well has no readout text on MODDED and GROWL (E1b)") {
+  // The F8 well (x 700..800, y 457..479): its readout used to be the action key's ON / OFF.
+  const auto texts_in_f8 = [](const OnInstrument& o) {
     unsigned n = 0;
-    ui::Color c = ui::Color::Empty;
     for (unsigned i = 0; i < o.q().texts(); ++i) {
       skin::Panel::TextInfo tx;
       if (o.q().text_at(i, tx) && tx.x >= 700 && tx.y >= 457 && tx.y < 479) {
-        c = tx.color;
         ++n;
       }
     }
-    REQUIRE(n == 1u);
-    return c;
+    return n;
   };
-  for (const Where w : {Where::Notes, Where::Tone, Where::Wobble}) {  // MODS on both pages of MODDED (heard at boot), WOB on WOBBLE (off at boot)
+  for (const Where w : {Where::Notes, Where::Tone, Where::Growl}) {
     OnInstrument o(w);
     INFO(where_name(w));
-    const ui::Color boot = w == Where::Wobble ? ui::Color::TextDim : ui::Color::Text;
-    const ui::Color other = w == Where::Wobble ? ui::Color::Text : ui::Color::TextDim;
-    CHECK(hint(o) == boot);
-    o.t.tap(Button::F8);
-    o.t.wait(60);
-    CHECK(hint(o) == other);
-    o.t.tap(Button::F8);
-    o.t.wait(60);
-    CHECK(hint(o) == boot);
+    CHECK(texts_in_f8(o) == 0u);
   }
 }
 
-TEST_CASE("skin instrument: the tagline says STOCK . MODS OFF in amber while STOCK is on, and SAVE FAILED in red wins over it") {
-  // The colour of the brand's line (the one text at x 14, y 52) in the last frame.
+TEST_CASE("skin instrument: the MOD chip under the logo is lit while the mods are on and dark with STOCK, and SAVE FAILED in red takes the line") {
+  // The colour of the brand's line (the one text at x 14, y 52: the MOD chip, or SAVE FAILED) in the last frame.
   const auto tagline = [](const OnInstrument& o) {
     unsigned n = 0;
     ui::Color c = ui::Color::Empty;
@@ -491,10 +484,10 @@ TEST_CASE("skin instrument: the tagline says STOCK . MODS OFF in amber while STO
   std::filesystem::create_directories(folder);
   { std::ofstream out(folder / ".deleted"); }
   OnInstrument o(Where::Notes, card);
-  CHECK(tagline(o) == ui::Color::ChromeDim);  // ACID BASS VOICE
-  o.t.shift_tap(Button::SampleLoad);          // the same switch as F8, from any screen
+  CHECK(tagline(o) == ui::Color::Vol);        // MOD, in Note's colour: the mods are on
+  o.t.tap(Button::Note);                      // the MODS switch, from any screen
   o.t.wait(60);
-  CHECK(tagline(o) == ui::Color::Accent);
+  CHECK(tagline(o) == ui::Color::ChromeDim);  // STOCK: the chip is dark
   app_project().set_autosave_period(1'000);
   REQUIRE(seq::project_bank().set_note(0, 3, seq::project_bank().pattern(0).steps[3].note == 40u ? 41u : 40u));
   o.t.wait(2'500);

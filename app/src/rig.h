@@ -57,6 +57,9 @@ struct Rig {
   // The audio take's chip for every screen's status line (RecordScreen::service writes it every pass, the screens copy it into their StatusView): "TAKE ARMED", "TAKE REC 0:05",
   // "TAKE READY", "TAKE SAVING"; "" when no take is held. Main loop only.
   char take[20] = "";
+  // The four sounds that are on, a bit per colour key (sound_bits(): bit 0 MODS, 1 GROWL, 2 TRACT, 3 WOBBLE), for the chips of every screen's header (E1c). O3_303App::update writes it every pass; a rig that has not been
+  // updated yet shows the mods on, as a fresh voice. Main loop only.
+  std::uint8_t sounds = 0x01;
   // What the take last said, for every screen's status line ("8 BARS TOO LONG AT 55.0", "SAVED", "NO CARD"): RecordScreen::say() writes it, service() clears it once `take_msg_until_ms`
   // (Context::uptime_ms) has passed. `take_msg_off`: it says something did not happen. Main loop only.
   char take_msg[40] = "";
@@ -77,7 +80,7 @@ inline void say_on_status(Rig& rig, o3sdk::app::Context& ctx, const char* text, 
 // The eleven mods (voice ids 8..18), RANGE and SUSTAIN: turning one (or tapping a ladder row that holds one) while STOCK is on ends STOCK. DECAY is the 303's own knob and STOCK itself is not one.
 constexpr bool is_mod(const Entry& entry) noexcept { return entry.item == Item::Voice && entry.id >= AcidVoice::kFirstMod && entry.id < AcidVoice::kParamCount && entry.id != AcidVoice::Stock; }
 
-// MODS (docs/MODS-PLAN.md 4.1, 5.11; B5a): the voice's Stock switch flips, and the status line says which way ("MODS OFF": the eleven mods are out and the voice is the plain 303; lit while heard). Shift + Sample Loader
+// MODS (docs/MODS-PLAN.md 4.1, 5.11; B5a): the voice's Stock switch flips, and the status line says which way ("MODS OFF": the eleven mods are out and the voice is the plain 303; lit while heard). the Note key
 // (the app) and MODDED's F8 are this one gesture. If the engine's command ring refused the write the mirror did not move and the message says so.
 inline void toggle_stock(Rig& rig, o3sdk::app::Context& ctx) noexcept {
   const bool before = rig.wiring.stock;
@@ -89,11 +92,11 @@ inline void toggle_stock(Rig& rig, o3sdk::app::Context& ctx) noexcept {
   say_on_status(rig, ctx, rig.wiring.stock ? "MODS OFF" : "MODS ON", false);
 }
 
-// The take's chip and message, the song mode and STOCK, into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks and Play's mode and
-// STOCK show wherever the player is).
+// The take's chip and message, the song mode and the sound chips, into a screen's StatusView (every screen that draws a status line calls it, so the audio take speaks and Play's mode and
+// the sounds show wherever the player is).
 inline void fill_take_status(const Rig& rig, frame::StatusView& status) noexcept {
   status.song = rig.seq != nullptr && rig.seq->play_song();  // PLAYS: SONG is the sequencer's, whatever screen is up (SONG's F1)
-  status.stock = rig.wiring.stock;
+  status.sounds = rig.sounds;
   status.take = rig.take;
   status.take_msg = rig.take_msg;
   status.take_msg_off = rig.take_msg_off;

@@ -593,7 +593,7 @@ TEST_CASE("skin screens: Shift on MASTER and RECORD leaves the F row's slots as 
 }
 
 // The chip is wired in every screen's status: with no card the autosave is suspended, and each skinned screen's header says NO AUTOSAVE.
-TEST_CASE("skin screens: the NO AUTOSAVE chip reaches the header of every screen that has one") {
+TEST_CASE("skin screens: the NO AUTOSAVE logo tint reaches the header of every screen that has one") {
   Hands t;
   t.skin_on();
   struct Screen {
@@ -611,11 +611,12 @@ TEST_CASE("skin screens: the NO AUTOSAVE chip reaches the header of every screen
     }
     t.wait(80);
     const skin::Panel& p = skin::panel();
-    unsigned chips = 0;
-    for (unsigned i = 0; i < p.texts(); ++i) {
-      skin::Panel::TextInfo tx;
-      chips += p.text_at(i, tx) && std::strcmp(tx.s, "NO AUTOSAVE") == 0 ? 1u : 0u;
+    unsigned tinted = 0;  // E1c: the header says it by tinting the logo in the accent colour, there is no NO AUTOSAVE text any more
+    const ui::Rgb accent = skin::theme().rgb(ui::Color::Accent);
+    for (unsigned i = 0; i < p.shapes(); ++i) {
+      skin::Panel::SpriteInfo sp;
+      tinted += p.sprite_at(i, sp) && sp.id == skin_assets::Id::Logo && sp.rgb.r == accent.r && sp.rgb.g == accent.g && sp.rgb.b == accent.b ? 1u : 0u;
     }
-    CHECK_MESSAGE(chips == 1u, s.name << ": one NO AUTOSAVE chip in the header");
+    CHECK_MESSAGE(tinted == 1u, s.name << ": the logo is tinted in the header");
   }
 }

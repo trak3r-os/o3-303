@@ -231,11 +231,11 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   CHECK(str(v.page) == "PATTERN SETUP");
   CHECK(str(v.enc) == "F1 CUTOFF");
   CHECK(v.save_failed);
-  CHECK_FALSE(v.stock);
-  st.stock = true;  // STOCK has the mods out: the header carries it (the tagline says so, see the next test)
+  CHECK(v.sounds == 0x01);  // a fresh view: the mods on
+  st.sounds = 0x0A;         // GROWL and WOBBLE on, the mods out: the header carries it (the chips say so, see the next test)
   fill_header(v, st, in);
-  CHECK(v.stock);
-  st.stock = false;
+  CHECK(v.sounds == 0x0A);
+  st.sounds = 0x01;
   CHECK(v.take == Take::None);
   CHECK_FALSE(v.take_lit);
   CHECK(str(v.take_text) == "TAKE");
@@ -352,8 +352,16 @@ TEST_CASE("header: PLAYS: SONG changes the TRANSPORT legend and nothing else") {
   CHECK(p.texts() == texts);
 }
 
-TEST_CASE("header: the tagline is ACID BASS VOICE, STOCK . MODS OFF in the accent colour while STOCK is on, and a failed save (red) wins over both") {
-  const auto taglines = [](const frame::StatusView& st, unsigned& dim, unsigned& accent, unsigned& red) {
+TEST_CASE("header: the sound chips MOD GRL TRC WOB under the logo are in their key's colour while on and ChromeDim while off, SAVE FAILED (red) takes their place, NO AUTOSAVE tints the logo") {
+  const auto same_rgb = [](const ui::Rgb& a, const ui::Rgb& b) { return a.r == b.r && a.g == b.g && a.b == b.b; };
+  struct Seen {
+    ui::Color chip[frame::kSoundChips] = {};
+    unsigned chips = 0;      // texts of the chips' line that are one of the four words
+    unsigned failed = 0;     // "SAVE FAILED" texts at the line's place
+    unsigned other = 0;      // any other text at the line's place: the old taglines must be gone
+    ui::Rgb logo{};
+  };
+  const auto seen = [](const frame::StatusView& st) {
     Panel p;
     p.clear();
     queue_panel(p, kHeaderH, 384);
@@ -365,46 +373,77 @@ TEST_CASE("header: the tagline is ACID BASS VOICE, STOCK . MODS OFF in the accen
     HeaderView v;
     fill_header(v, st, in);
     draw_header(p, v);
-    dim = accent = red = 0;
+    Seen out;
     for (unsigned i = 0; i < p.texts(); ++i) {
       Panel::TextInfo tx;
-      if (p.text_at(i, tx) && tx.x == 14 && tx.y == 52) {  // the brand's line
-        dim += tx.color == ui::Color::ChromeDim ? 1u : 0u;
-        accent += tx.color == ui::Color::Accent ? 1u : 0u;
-        red += tx.color == ui::Color::Rec ? 1u : 0u;
+      if (!p.text_at(i, tx) || tx.y != 52) {
+        continue;
+      }
+      bool known = false;
+      for (unsigned c = 0; c < frame::kSoundChips; ++c) {
+        if (std::strcmp(tx.s, frame::sound_chip_text(c)) == 0 && tx.x == 14 + static_cast<int>(c) * 4 * 6) {
+          out.chip[c] = tx.color;
+          ++out.chips;
+          known = true;
+        }
+      }
+      if (!known && std::strcmp(tx.s, "SAVE FAILED") == 0 && tx.x == 14) {
+        ++out.failed;
+      } else if (!known) {
+        ++out.other;
       }
     }
+    for (unsigned i = 0; i < p.shapes(); ++i) {
+      Panel::SpriteInfo sp;
+      if (p.sprite_at(i, sp) && sp.id == skin_assets::Id::Logo) {
+        out.logo = sp.rgb;
+      }
+    }
+    return out;
   };
   frame::StatusView st;
-  unsigned dim = 0;
-  unsigned accent = 0;
-  unsigned red = 0;
-  taglines(st, dim, accent, red);
-  CHECK(dim == 1u);
-  CHECK(accent == 0u);
-  CHECK(red == 0u);
-  st.stock = true;
-  taglines(st, dim, accent, red);
-  CHECK(dim == 0u);
-  CHECK(accent == 1u);
-  CHECK(red == 0u);
+  // A fresh view: the mods on, the other three off.
+  Seen n = seen(st);
+  CHECK(n.chips == 4u);
+  CHECK(n.failed == 0u);
+  CHECK(n.other == 0u);
+  CHECK(n.chip[0] == ui::Color::Vol);
+  CHECK(n.chip[1] == ui::Color::ChromeDim);
+  CHECK(n.chip[2] == ui::Color::ChromeDim);
+  CHECK(n.chip[3] == ui::Color::ChromeDim);
+  // Every sound on: each in the colour of its key (Note Vol's, Instr the Accent, Vol the Fx's, Fx the Instr's); none on: all dim.
+  st.sounds = 0x0F;
+  n = seen(st);
+  CHECK(n.chip[0] == ui::Color::Vol);
+  CHECK(n.chip[1] == ui::Color::Accent);
+  CHECK(n.chip[2] == ui::Color::Fx);
+  CHECK(n.chip[3] == ui::Color::Instr);
+  st.sounds = 0x00;
+  n = seen(st);
+  for (unsigned c = 0; c < frame::kSoundChips; ++c) {
+    CHECK(n.chip[c] == ui::Color::ChromeDim);
+  }
+  // A failed save takes the line: "SAVE FAILED" in red, no chip.
+  st.sounds = 0x0F;
   st.save_failed = true;
-  taglines(st, dim, accent, red);
-  CHECK(dim == 0u);
-  CHECK(accent == 0u);
-  CHECK(red == 1u);
-  // NO AUTOSAVE (autosave suspended) takes the tagline in the Accent colour, under a failed save and over STOCK.
+  n = seen(st);
+  CHECK(n.chips == 0u);
+  CHECK(n.failed == 1u);
+  CHECK(n.other == 0u);
+  // NO AUTOSAVE: the logo takes the Accent tint and the chips stay; a failed save over it still wins the line.
   st.save_failed = false;
-  st.stock = false;
+  const ui::Rgb plain = n.logo;
+  n = seen(st);
+  CHECK(same_rgb(n.logo, plain));
   st.no_autosave = true;
-  taglines(st, dim, accent, red);
-  CHECK(dim == 0u);
-  CHECK(accent == 1u);
-  CHECK(red == 0u);
+  n = seen(st);
+  CHECK(n.chips == 4u);
+  CHECK(same_rgb(n.logo, theme().rgb(ui::Color::Accent)));
+  CHECK_FALSE(same_rgb(n.logo, plain));
   st.save_failed = true;
-  taglines(st, dim, accent, red);
-  CHECK(red == 1u);
-  CHECK(accent == 0u);
+  n = seen(st);
+  CHECK(n.failed == 1u);
+  CHECK(n.chips == 0u);
 }
 
 TEST_CASE("header: a full header, with every lamp and window lit, is far inside the queue") {

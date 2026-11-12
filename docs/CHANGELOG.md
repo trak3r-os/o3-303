@@ -22,6 +22,10 @@ hear says so in plain words.
   F7 TRSP and F8 MUTE (before, the colour buttons). Before, on PERFORM the plain buttons were the actions and Shift only latched them.
   The sound pages lose their on / off key in F8 (MODDED TONE's STOCK, GROWL's and TRACT's ON): the colour button is that key. **WOBBLE keeps F8 WOB** (same latch as Fx), so Shift + F8 still MIDI-learns it.
 
+- **Four sound chips on every screen (E1c).** MOD GRL TRC WOB show which of MODS, GROWL, TRACT and WOBBLE are on: under the logo in OBSIDIAN (the tagline "ACID BASS VOICE" and "STOCK . MODS OFF" are gone;
+  a word is in its button's colour while on, dim while off), after SONG on the CLASSIC status line (a filled chip is on, an outline is off; the STOCK chip and the WOB action chip are gone). SAVE FAILED still
+  takes the OBSIDIAN line; NO AUTOSAVE now tints the logo amber.
+
 - **TRACT is a fifth set on PERFORM KNOBS (F1).** A second tap on F3 flips SET 3 between GROWL and TRACT (VOWEL, TONGUE, LIPS and TRC MIX on the four rows of pads; the key and the
   toast say TRACT), so the mouth can be played from the pads. Shift + F3 puts the one that is up back to its factory knobs. The TRACT set is saved with the project (format 2.0).
 

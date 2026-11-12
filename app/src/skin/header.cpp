@@ -233,20 +233,19 @@ void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderI
   }
   out.save_failed = status.save_failed;
   out.no_autosave = status.no_autosave;
-  out.stock = status.stock;
+  out.sounds = status.sounds;
 }
 
 void draw_header(Panel& p, const HeaderView& v) noexcept {
-  // The brand and its tagline (red while the last autosave has failed, amber while autosave is off, amber while STOCK has the mods out).
-  p.sprite(Layer::Logo, Id::Logo, 0, 12, 4, pal::kLogo);
+  // The brand, and under it the four sound chips MOD GRL TRC WOB (E1c): a word is in its key's colour while the sound is on, ChromeDim while off. A failed save (red) takes their place; autosave off tints the logo
+  // in Accent. The chips are one text each, at a four-glyph pitch: the line is the 15 glyphs the tagline was.
+  p.sprite(Layer::Logo, Id::Logo, 0, 12, 4, v.no_autosave ? theme().rgb(Color::Accent) : pal::kLogo);
   if (v.save_failed) {
     p.text(14, 52, "SAVE FAILED", Color::Rec, Face::Micro);
-  } else if (v.no_autosave) {
-    p.text(14, 52, "NO AUTOSAVE", Color::Accent, Face::Micro);
-  } else if (v.stock) {
-    p.text(14, 52, "STOCK . MODS OFF", Color::Accent, Face::Micro);
   } else {
-    p.text(14, 52, "ACID BASS VOICE", Color::ChromeDim, Face::Micro);
+    for (unsigned i = 0; i < frame::kSoundChips; ++i) {
+      p.text(14 + static_cast<int>(i) * 4 * kMicroW, 52, frame::sound_chip_text(i), (v.sounds >> i & 1u) != 0u ? frame::sound_chip_colour(i) : Color::ChromeDim, Face::Micro);
+    }
   }
 
   // PATTERN and TEMPO.
