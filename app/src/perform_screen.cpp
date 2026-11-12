@@ -139,7 +139,11 @@ void PerformScreen::init(Rig& rig, MainScreen& home) noexcept {
   setup_keys_ = PageKeys{};
   setup_keys_.set_page(kPagePerfSetup);
   page_ = PerformPage::Perform;
-  walk_row_ = -1;
+  knobs_page_ = Page{"KNOBS", {}};
+  knobs_keys_ = PageKeys{};
+  knobs_keys_.set_table(&knobs_page_, 1);
+  sync_knobs();
+  (void)knobs_keys_.latch(4);
   perf_down_ = 0;
   morph_ = false;
   for (int& n : key_note_) {
@@ -152,7 +156,17 @@ void PerformScreen::init(Rig& rig, MainScreen& home) noexcept {
   toast_until_ms_ = 0;
 }
 
-void PerformScreen::enter(app::Context& ctx) noexcept { ctx.redraw(); }
+void PerformScreen::enter(app::Context& ctx) noexcept {
+  sync_knobs();
+  ctx.redraw();
+}
+
+// KNOBS' F5..F8 are the four rows' knobs (the rows of the set in use); the page follows whatever changed them (a set, a re-pointed row, a project, HOME's FILT rows).
+void PerformScreen::sync_knobs() noexcept {
+  for (unsigned k = 0; k < kKnobsRows; ++k) {
+    knobs_page_.entry[4u + k] = ladder_entry(*controls_, rig_->wiring, kKnobsRowId[k]);
+  }
+}
 
 void PerformScreen::leave(app::Context& ctx) noexcept {
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
@@ -162,15 +176,16 @@ void PerformScreen::leave(app::Context& ctx) noexcept {
   }
   rig_->sound_keys.release_all();
   setup_keys_.release_all();
+  knobs_keys_.release_all();
   live_->snap_finish(ctx, true);
   live_->leave(ctx);  // the actions held end with the screen (their releases would reach another one); the latched ones stay on (D4)
   tool_mask_ = 0;
   perf_down_ = 0;
-  walk_row_ = -1;
 }
 
 void PerformScreen::update(app::Context& ctx) noexcept {
   playing_ = ctx.engine().playing();
+  sync_knobs();
   if (toast_[0] != '\0' && ctx.uptime_ms() >= toast_until_ms_) {
     toast_[0] = '\0';
     ctx.redraw();
@@ -188,6 +203,7 @@ void PerformScreen::toast(app::Context& ctx, const char* text, bool off) noexcep
 
 void PerformScreen::input(app::Context& ctx, const Input& in) noexcept {
   playing_ = ctx.engine().playing();
+  sync_knobs();
   if (in.kind == core::InputKind::Pad) {
     pad_input(ctx, in);
   } else if (in.kind == core::InputKind::Encoder) {
@@ -308,24 +324,15 @@ void PerformScreen::ladder_press(app::Context& ctx, unsigned col) noexcept {
 }
 
 // KNOBS: row `row` (0..3, top to bottom) is a ladder row of its own (kKnobsRowId: rows 3 and 4 are HOME's FILT rows). A tap on place `col` jumps its knob there as PERFORM's row 3 does (a slew, a switch at
-// once, REC writes the jump, a mod switches MODS on); with an F key held the tap only gives the row that key's knob (again: back to its default).
+// once, REC writes the jump, a mod switches MODS on) and gives the encoder that row's knob (Q1-A: the latch moves to F5..F8; with an F key held the latch stays where it is).
 void PerformScreen::knobs_press(app::Context& ctx, unsigned row, unsigned col) noexcept {
   if (row >= kKnobsRows) {
     return;
   }
-  walk_row_ = -1;
   Wiring& w = rig_->wiring;
   const unsigned id = kKnobsRowId[row];
-  const Entry latched = rig_->sound_keys.focused();
-  if (rig_->sound_keys.held() != 0u) {
-    const LadderAssign a = ladder_assign(w, *controls_, id, latched);
-    if (a == LadderAssign::NoLane) {
-      toast(ctx, "THAT KNOB HAS NO LADDER", true);
-    } else {
-      knobs_toast(ctx, row, a == LadderAssign::Default ? "BACK TO " : "", ladder_short_name(ctx.engine(), *controls_, w, id));
-    }
-    ctx.redraw();
-    return;
+  if (knobs_keys_.latch(4u + row)) {
+    morph_ = false;  // the encoder is a knob again
   }
   const LadderTap t = ladder_tap(ctx, *rig_, home_->recording_motion(), sel(), ladder_entry(*controls_, w, id), col);
   if (t.lanes_full) {
@@ -333,36 +340,71 @@ void PerformScreen::knobs_press(app::Context& ctx, unsigned row, unsigned col) n
   }
 }
 
-// "ROW 2: DECAY", "ROW 2: BACK TO DECAY".
-void PerformScreen::knobs_toast(app::Context& ctx, unsigned row, const char* before, const char* after) noexcept {
+// "ROW 2: GROWL / FMT Q".
+void PerformScreen::knobs_toast(app::Context& ctx, unsigned row, const char* family, const char* knob) noexcept {
   char text[32];  // toast_'s size
   text[0] = '\0';
   append(text, sizeof text, "ROW ");
   const char num[2] = {static_cast<char>('1' + row), '\0'};
   append(text, sizeof text, num);
   append(text, sizeof text, ": ");
-  append(text, sizeof text, before);
-  append(text, sizeof text, after);
+  if (family != nullptr && family[0] != '\0') {
+    append(text, sizeof text, family);
+    append(text, sizeof text, " / ");
+  }
+  append(text, sizeof text, knob);
   toast(ctx, text);
 }
 
-// KNOBS with Shift held: F1..F4 point the encoder at that row's list of knobs (a turn walks it), F8 puts the four rows back.
+// F1..F4: the set in use becomes `set`; the four rows swap at once (the knob pads and the F row show the new knobs).
+void PerformScreen::knobs_set(app::Context& ctx, unsigned set) noexcept {
+  morph_ = false;
+  knob_set_use(rig_->wiring, set);
+  sync_knobs();
+  char text[32];
+  text[0] = '\0';
+  append(text, sizeof text, "SET ");
+  const char num[3] = {static_cast<char>('1' + set), ' ', '\0'};
+  append(text, sizeof text, num);
+  append(text, sizeof text, knob_set_name(set));
+  toast(ctx, text);
+}
+
+// KNOBS with Shift held: F1..F4 put set 1..4 back to its factory knobs (the set in use follows at once), F7 and F8 are the pattern's REDO and UNDO as on PERFORM.
 void PerformScreen::knobs_shift_key(app::Context& ctx, unsigned k) noexcept {
   morph_ = false;
-  if (k < kKnobsRows) {
-    walk_row_ = static_cast<int>(k);
-    knobs_toast(ctx, k, "", ladder_short_name(ctx.engine(), *controls_, rig_->wiring, kKnobsRowId[k]));
+  if (k < kKnobSets) {
+    knob_set_factory(rig_->wiring, k);
+    sync_knobs();
+    char text[32];
+    text[0] = '\0';
+    append(text, sizeof text, "SET ");
+    const char num[3] = {static_cast<char>('1' + k), ' ', '\0'};
+    append(text, sizeof text, num);
+    append(text, sizeof text, "FACTORY: ");
+    append(text, sizeof text, knob_set_name(k));
+    toast(ctx, text);
+  } else if (k == 6u) {
+    variation(ctx, PerformRole::Redo);
   } else if (k == 7u) {
-    walk_row_ = -1;
-    ladder_reset_knobs(rig_->wiring);
-    toast(ctx, "ROWS BACK TO DEFAULTS");
+    variation(ctx, PerformRole::Undo);
   }
 }
 
-void PerformScreen::walk_turn(app::Context& ctx, int delta) noexcept {
-  const unsigned row = static_cast<unsigned>(walk_row_);
-  const Entry en = ladder_walk(rig_->wiring, *controls_, kKnobsRowId[row], delta);
-  knobs_toast(ctx, row, "", controls_->label(ctx.engine(), en));
+// A row's F key (F5..F8) held and Up / Down: the row holds the next (Up) or previous (Down) knob of the list of every knob a lane can drive, in family order; with Shift the first knob of the next or
+// previous family. The set in use keeps it (the rows are the set's, written through). The F key stays latched: the encoder is that row's new knob after the release.
+bool PerformScreen::knobs_repoint(app::Context& ctx, const Input& in) noexcept {
+  const PageKeys& pk = knobs_keys_;
+  if (pk.held() == 0u || pk.focus() < 4u || in.type != Input::Type::Press || !(in.is(app::Button::Up) || in.is(app::Button::Down))) {
+    return false;
+  }
+  const unsigned row = pk.focus() - 4u;
+  const int delta = in.is(app::Button::Up) ? 1 : -1;
+  const char* family = "";
+  const Entry en = in.shift ? ladder_walk_family(rig_->wiring, *controls_, kKnobsRowId[row], delta, &family) : ladder_walk(rig_->wiring, *controls_, kKnobsRowId[row], delta, &family);
+  sync_knobs();
+  knobs_toast(ctx, row, family, controls_->label(ctx.engine(), en));
+  return true;
 }
 
 // Row 4: a key plays the voice, or (the keyboard in its transposing mode while the pattern runs) transposes the pattern: the bottom left C is no
@@ -400,10 +442,6 @@ void PerformScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     }
     return;
   }
-  if (page_ == PerformPage::Knobs && walk_row_ >= 0) {  // Shift + F1..F4 pointed the encoder at a row's list of knobs
-    walk_turn(ctx, in.delta());
-    return;
-  }
   PageKeys& pk = keys();
   const std::uint32_t affected = pk.held() != 0u ? pk.held() : (1u << pk.focus());
   const Page& pg = pk.page();
@@ -431,7 +469,11 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
     keys().end_press();
     return;
   }
-  if (page_ == PerformPage::Perform) {  // KN2: Left and Right move the latch, Up and Down the latched knob by 1/20 (repeating while held)
+  if (page_ == PerformPage::Knobs && knobs_repoint(ctx, in)) {  // KN3: a row's F key held and Up / Down: that row's next knob
+    ctx.redraw();
+    return;
+  }
+  if (page_ != PerformPage::Setup) {  // KN2: Left and Right move the latch, Up and Down the latched knob by 1/20 (repeating while held)
     if (keys().move_latch(in)) {
       morph_ = false;  // the encoder is the knob again
       ctx.redraw();
@@ -446,13 +488,10 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   if (in.repeat) {  // a held arrow's repeat with no F key held: nothing (a press of a key does its own thing)
     return;
   }
-  if (in.type == Input::Type::Press && !(app::is_fkey(in.which()) && in.shift)) {  // any other key ends the walk of a row's list of knobs
-    walk_row_ = -1;
-  }
   if (app::is_fkey(in.which())) {
     const unsigned k = app::fkey_index(in.which());
     if (in.type == Input::Type::Press) {
-      if (in.shift) {  // the Shift row: REDO on F7 and UNDO on F8, the others empty (KNOBS: the rows' lists on F1..F4 and DEFAULTS on F8); PERFORM SETUP has none
+      if (in.shift) {  // the Shift row: REDO on F7 and UNDO on F8, the others empty (KNOBS: FACTORY 1..4 on F1..F4, and the same REDO and UNDO); PERFORM SETUP has none
         tool_mask_ |= 1u << k;
         if (page_ == PerformPage::Knobs) {
           knobs_shift_key(ctx, k);
@@ -464,11 +503,19 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
         ctx.redraw();
         return;
       }
+      if (page_ == PerformPage::Knobs && k < kKnobSets) {  // KNOBS' F1..F4 are the sets
+        knobs_set(ctx, k);
+        ctx.redraw();
+        return;
+      }
       morph_ = false;  // an F key gives the encoder back to the knob
       (void)keys().input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
       if ((tool_mask_ >> k & 1u) != 0u) {
         tool_mask_ &= ~(1u << k);
+        return;
+      }
+      if (page_ == PerformPage::Knobs && k < kKnobSets) {
         return;
       }
       (void)keys().input(ctx, in, *controls_);
@@ -499,12 +546,10 @@ void PerformScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
     return;
   }
   if (page_ == PerformPage::Knobs) {
-    static constexpr const char* kRowLabels[kKnobsRows] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
-    for (unsigned k = 0; k < kKnobsRows; ++k) {
-      out.label[k] = kRowLabels[k];
+    static constexpr const char* kFactoryLabels[kKnobSets] = {"FACTORY 1", "FACTORY 2", "FACTORY 3", "FACTORY 4"};
+    for (unsigned k = 0; k < kKnobSets; ++k) {
+      out.label[k] = kFactoryLabels[k];
     }
-    out.label[7] = "DEFAULTS";
-    return;
   }
   out.label[6] = "REDO";
   out.label[7] = "UNDO";
@@ -519,13 +564,13 @@ void PerformScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
 void PerformScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
   (void)ctx;
   help_texts::fill(h, help_texts::text(page_ == PerformPage::Setup ? help_texts::Id::PerformSetup : (page_ == PerformPage::Knobs ? help_texts::Id::Knobs : help_texts::Id::Perform)));
-  if (page_ == PerformPage::Knobs) {  // the Shift row of KNOBS (soft_keys()): the rows' lists on F1..F4, DEFAULTS on F8
-    static constexpr const char* kRowLabels[kKnobsRows] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
-    for (unsigned k = 0; k < kKnobsRows; ++k) {
-      h.fkey_shift[k] = kRowLabels[k];
+  if (page_ == PerformPage::Knobs) {  // the Shift row of KNOBS (soft_keys()): FACTORY 1..4 on F1..F4, REDO and UNDO as on PERFORM
+    static constexpr const char* kFactoryLabels[kKnobSets] = {"FACTORY 1", "FACTORY 2", "FACTORY 3", "FACTORY 4"};
+    for (unsigned k = 0; k < kKnobSets; ++k) {
+      h.fkey_shift[k] = kFactoryLabels[k];
     }
-    h.fkey_shift[7] = "DEFAULTS";
-  } else if (page_ == PerformPage::Perform) {  // the Shift row of PERFORM: REDO on F7 and UNDO on F8 (soft_keys())
+  }
+  if (page_ != PerformPage::Setup) {  // the Shift row's REDO on F7 and UNDO on F8 (soft_keys())
     h.fkey_shift[6] = "REDO";
     h.fkey_shift[7] = "UNDO";
   }
@@ -558,7 +603,6 @@ void PerformScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept {
 // KNOBS: four ladder rows (kKnobsRowId), each lamp the value its pad jumps to; the row's knob and where it stands go in `row_knob` and `row_value`.
 void PerformScreen::fill_knobs_view(app::Context& ctx, PerformView& view) const noexcept {
   const dsp::Engine& e = ctx.engine();
-  const bool assigning = rig_->sound_keys.held() != 0u && app::PadLeds::blink(ctx.now(), 250);  // an F key is down: the rows blink, a tap assigns
   view.knobs = true;
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
     view.lamp[pad] = PadLamp{};
@@ -570,7 +614,7 @@ void PerformScreen::fill_knobs_view(app::Context& ctx, PerformView& view) const 
     KnobSpan span;
     const KnobSpan* sp = controls_->live_span(e, en, span) ? &span : nullptr;
     std::uint8_t levels[kLadderSteps];
-    ladder_levels(kd, value, assigning, levels, sp);
+    ladder_levels(kd, value, false, levels, sp);
     for (unsigned col = 0; col < kLadderSteps; ++col) {
       PadLamp& lamp = view.lamp[app::pad_at(row, col)];
       lamp.level = levels[col];
@@ -720,14 +764,7 @@ void PerformScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const n
     append(out, cap, num);
     return;
   }
-  if (page_ == PerformPage::Knobs && walk_row_ >= 0) {  // Shift + F1..F4: the encoder walks a row's list of knobs
-    append(out, cap, "ROW ");
-    const char num[3] = {static_cast<char>('1' + walk_row_), ' ', '\0'};
-    append(out, cap, num);
-    append(out, cap, "LIST");
-    return;
-  }
-  const PageKeys& pk = page_ == PerformPage::Setup ? setup_keys_ : rig_->sound_keys;
+  const PageKeys& pk = page_ == PerformPage::Setup ? setup_keys_ : (page_ == PerformPage::Knobs ? knobs_keys_ : rig_->sound_keys);
   char fk[4] = {'F', static_cast<char>('1' + pk.focus()), ' ', '\0'};
   append(out, cap, fk);
   append(out, cap, controls_->label(ctx.engine(), pk.focused()));
@@ -809,26 +846,15 @@ void PerformScreen::fill_chips(PerformView& view) const noexcept {
 // The F row: the sound knobs (PERFORM), the setup page's (PERFORM SETUP), or, with Shift held, the Shift row (REDO and UNDO).
 bool PerformScreen::fill_knob_row(app::Context& ctx, view::Knob (&knobs)[view::kKnobs], bool skin) noexcept {
   static constexpr const char* kFKeys[kKeys] = {"F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"};
-  if (page_ == PerformPage::Knobs && ctx.panel().shift()) {  // F1..F4 point the encoder at a row's list of knobs, F8 puts the four rows back
+  if (page_ != PerformPage::Setup && ctx.panel().shift()) {  // the Shift row: REDO and UNDO, and on KNOBS FACTORY 1..4 under F1..F4
     for (unsigned k = 0; k < kKeys; ++k) {
-      static constexpr const char* kRowLabels[kKnobsRows] = {"ROW 1", "ROW 2", "ROW 3", "ROW 4"};
       knobs[k].fkey = kFKeys[k];
-      knobs[k].blank = k >= kKnobsRows && k < 7u;
-      if (k < kKnobsRows) {
-        knobs[k].label = kRowLabels[k];
-        cut(ladder_short_name(ctx.engine(), *controls_, rig_->wiring, kKnobsRowId[k]), 7, knobs[k].value, sizeof knobs[k].value);
-        knobs[k].focus = walk_row_ == static_cast<int>(k);
-      } else if (k == 7u) {
-        knobs[k].label = "DEFAULTS";
-        cut("RESET", 7, knobs[k].value, sizeof knobs[k].value);
+      knobs[k].blank = k < 6u && !(page_ == PerformPage::Knobs && k < kKnobSets);
+      if (k < kKnobSets && page_ == PerformPage::Knobs) {
+        const char num[7] = {'S', 'E', 'T', ' ', static_cast<char>('1' + k), '\0', '\0'};
+        knobs[k].label = "FACTORY";
+        cut(num, 7, knobs[k].value, sizeof knobs[k].value);
       }
-    }
-    return true;
-  }
-  if (page_ == PerformPage::Perform && ctx.panel().shift()) {
-    for (unsigned k = 0; k < kKeys; ++k) {
-      knobs[k].fkey = kFKeys[k];
-      knobs[k].blank = k < 6u;
       if (k == 6u || k == 7u) {
         const bool can = k == 6u ? rig_->bank->can_redo() : rig_->bank->can_undo();
         knobs[k].label = k == 6u ? "REDO" : "UNDO";
@@ -842,6 +868,16 @@ bool PerformScreen::fill_knob_row(app::Context& ctx, view::Knob (&knobs)[view::k
   const Page& pg = pk.page();
   for (unsigned k = 0; k < kKeys; ++k) {
     view::Knob& kn = knobs[k];
+    if (page_ == PerformPage::Knobs && k < kKnobSets) {  // F1..F4 are the sets: the one in use lit, "OWN n" once a row of it was re-pointed
+      kn = view::Knob{};
+      kn.fkey = kFKeys[k];
+      kn.label = knob_set_name(k);
+      const char num[8] = {knob_set_is_factory(rig_->wiring, k) ? 'S' : 'O', knob_set_is_factory(rig_->wiring, k) ? 'E' : 'W', knob_set_is_factory(rig_->wiring, k) ? 'T' : 'N', ' ',
+                           static_cast<char>('1' + k), '\0', '\0', '\0'};
+      cut(num, 7, kn.value, sizeof kn.value);
+      kn.lit = k == rig_->wiring.knob_set;
+      continue;
+    }
     frame::fill_knob(ctx, *controls_, k, pg.entry[k], kn);
     if (kn.blank) {
       continue;

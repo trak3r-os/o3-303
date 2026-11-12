@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // PERFORM KNOBS (the KNOBS pads mode, K2): PERFORM's second page, four ladder rows of pads. ROW 1 ENV MOD and ROW 2 DECAY are its own, ROW 3 CUTOFF and ROW 4 RESO are HOME's FILT rows; an F key
-// held + a tap on a row binds it, Shift + F1..F4 points the encoder at the row's list of every bindable knob, Shift + F8 puts the four rows back. The page is the second of three:
+// held + Up / Down re-points it along the list of every bindable knob (KN3), F1..F4 are the four sets and Shift + F1..F4 puts a set back. The page is the second of three:
 // PERFORM, KNOBS, SETUP.
 #include <doctest/doctest.h>
 
@@ -40,20 +40,15 @@ void to_knobs(Hands& t) {
   REQUIRE(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
 }
 
-// Hold `f`, tap the pad, let go: the binding gesture.
-void bind(Hands& t, Button f, unsigned pad) {
+// Hold the F key of `row` (0..3 = F5..F8) and tap Up (or Down) `n` times: the row moves along the list of knobs (KN3). The latch stays where it was.
+void repoint(Hands& t, unsigned row, bool up, unsigned n = 1) {
+  const Button f = app::fkey(4 + row);
   t.press(f);
   t.wait(30);
-  t.pad(pad, 10);
+  for (unsigned i = 0; i < n; ++i) {
+    t.tap(up ? Button::Up : Button::Down);
+  }
   t.release(f);
-  t.wait(30);
-}
-
-// Shift + F<row+1>, then Shift up: the encoder is the row's list.
-void point_at_row(Hands& t, unsigned row) {
-  t.press(Button::Shift);
-  t.tap(app::fkey(row));
-  t.release(Button::Shift);
   t.wait(30);
 }
 
@@ -133,34 +128,29 @@ TEST_CASE("PERFORM KNOBS: ROW 3 and ROW 4 are HOME's FILT rows") {
   CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(goal(t, AcidVoice::Cutoff, 3)).epsilon(0.001));
 }
 
-TEST_CASE("PERFORM KNOBS: an F key held + a tap binds a row, the tap moves nothing; again, back to its default") {
+TEST_CASE("PERFORM KNOBS: an F key held + Up / Down re-points a row, the pads then move the new knob; walking back, the old one") {
   Hands t;
   to_knobs(t);
-  const float accent = val(t, AcidVoice::Accent);
   const float envmod = val(t, AcidVoice::EnvMod);
-  bind(t, Button::F5, row_pad(0, 3));  // ACCENT on ROW 1
-  CHECK(val(t, AcidVoice::Accent) == accent);
-  CHECK(val(t, AcidVoice::EnvMod) == envmod);
+  repoint(t, 0, true);  // the knob after ENV MOD on the list
+  CHECK(val(t, AcidVoice::EnvMod) == envmod);  // re-pointing moves nothing
   t.pad(row_pad(0, 9), 10);
   t.wait(150);
-  CHECK(val(t, AcidVoice::Accent) == doctest::Approx(goal(t, AcidVoice::Accent, 9)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::EnvMod) == envmod);
-  bind(t, Button::F5, row_pad(0, 3));  // again: ENV MOD
+  CHECK(val(t, AcidVoice::EnvMod) == envmod);  // ROW 1 is not ENV MOD any more
+  repoint(t, 0, false);  // back to ENV MOD
   t.pad(row_pad(0, 2), 10);
   t.wait(150);
   CHECK(val(t, AcidVoice::EnvMod) == doctest::Approx(goal(t, AcidVoice::EnvMod, 2)).epsilon(0.001));
 }
 
-TEST_CASE("PERFORM KNOBS: Shift + F2 walks ROW 2's list of knobs, Shift + F8 puts the rows back") {
+TEST_CASE("PERFORM KNOBS: re-pointing ROW 2 moves one other knob; Shift + F1 puts set 1 back") {
   Hands t;
   to_knobs(t);
   float before[AcidVoice::kParamCount];
   for (unsigned i = 0; i < AcidVoice::kParamCount; ++i) {
     before[i] = val(t, i);
   }
-  point_at_row(t, 1);
-  t.h->turn(1);
-  t.wait(30);
+  repoint(t, 1, true);
   t.pad(row_pad(1, 11), 10);  // the walked knob, to the top of its range
   t.wait(200);
   unsigned moved = 0;
@@ -169,9 +159,9 @@ TEST_CASE("PERFORM KNOBS: Shift + F2 walks ROW 2's list of knobs, Shift + F8 put
   }
   CHECK(moved == 1u);
   CHECK(val(t, AcidVoice::Decay) == before[AcidVoice::Decay]);  // ROW 2 is not DECAY any more
-  // DEFAULTS: Shift + F8; ROW 2 is DECAY again.
+  // FACTORY 1: Shift + F1; ROW 2 is DECAY again.
   t.press(Button::Shift);
-  t.tap(Button::F8);
+  t.tap(Button::F1);
   t.release(Button::Shift);
   t.wait(30);
   t.pad(row_pad(1, 5), 10);
@@ -187,9 +177,7 @@ TEST_CASE("PERFORM KNOBS: the walk's list ends with the TRACT knobs (KN0): ROW 2
   const float mix0 = t.param(kTract, TractFx::Mix);
   bool found = false;
   for (unsigned i = 0; i < 100 && !found; ++i) {
-    point_at_row(t, 1);  // a tap on a pad lets the encoder go: point it at the row again
-    t.h->turn(1);
-    t.wait(20);
+    repoint(t, 1, true);
     t.pad(row_pad(1, 11), 10);  // the walked knob, to the top of its range
     t.wait(30);
     found = t.param(kTract, TractFx::Vowel) == 1.0f;
@@ -208,19 +196,14 @@ TEST_CASE("PERFORM KNOBS: a tap on a row that holds a mod ends MODS OFF (STOCK),
   t.wait(40);
   REQUIRE(val(t, AcidVoice::Stock) == 1.0f);
   to_knobs(t);
-  // A tap on ROW 1 (ENV MOD, not a mod) leaves STOCK on.
+  // A tap on ROW 1 of SET 1 (ENV MOD, not a mod) leaves STOCK on.
   t.pad(row_pad(0, 5), 10);
   t.wait(60);
   CHECK(val(t, AcidVoice::Stock) == 1.0f);
-  // Walk ROW 2 along the list until a tap on it ends STOCK: a mod is on the list.
-  bool ended = false;
-  for (unsigned i = 0; i < 80 && !ended; ++i) {
-    point_at_row(t, 1);  // a tap on a pad lets the encoder go: point it at the row again
-    t.h->turn(1);
-    t.wait(20);
-    t.pad(row_pad(1, 11), 10);
-    t.wait(30);
-    ended = val(t, AcidVoice::Stock) == 0.0f;
-  }
-  CHECK(ended);
+  // SET 2 (MODDED) holds ACC DECAY on ROW 1: a tap on it ends STOCK.
+  t.tap(Button::F2);
+  t.wait(30);
+  t.pad(row_pad(0, 5), 10);
+  t.wait(60);
+  CHECK(val(t, AcidVoice::Stock) == 0.0f);
 }

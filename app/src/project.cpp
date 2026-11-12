@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "project.h"
 
+#include "ladder_rows.h"
+
 #include <o3sdk/core/placement.h>
 #include <o3sdk/core/scales.h>
 #include <o3sdk/formats/chunk_file.h>
@@ -40,7 +42,8 @@ constexpr unsigned kGenPayload = 2 + 7;
 constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
 constexpr unsigned kLadderBytes = kLadderRows * 2;  // the ladder rows after the buttons (PERF, appended): target u8, id u8 each
-constexpr unsigned kPerfPayload = 2 + kPerfButtons + kLadderBytes;
+constexpr unsigned kKnobSetBytes = 1 + (kKnobSets - 1) * kKnobsPerSet * 2;  // PERF 1.2: the set in use, then sets 2..4 (target u8, id u8 a row)
+constexpr unsigned kPerfPayload = 2 + kPerfButtons + kLadderBytes + kKnobSetBytes;
 constexpr unsigned kTrctPayload = 2 + 1 + 2 + kPatternCount * sizeof(TractLine);  // TRCT (appended): version, count, bytes a line, the lines
 constexpr unsigned kSongPayload = 2 + 1 + seq::kSongRows * sizeof(seq::SongRow);  // version, length, the rows (at most)
 constexpr unsigned kSongReserve = 4096;  // room kept for the SONG chunk (kSongPayload and its header, 267 bytes, fit it many times over)
@@ -423,6 +426,23 @@ bool read_snap(chunk::Fields& f, ProjectState& out) noexcept {
   return true;
 }
 
+// A knob a ladder row can hold: only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
+bool lane_ref_ok(std::uint8_t target, std::uint8_t id) noexcept {
+  switch (target) {
+    case kLaneVoice:
+      return id < seq::kKnobs && id != kLaneVoiceStock;
+    case kLaneDist:
+    case kLaneDelay:
+    case kLaneGrowl:
+    case kLaneTract:
+      return id < seq::kKnobs;
+    case kLaneMixer:
+      return id == kMixerLevel || id == kMixerSendA;
+    default:
+      return false;
+  }
+}
+
 void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
   for (unsigned b = 0; b < kPerfButtons && f.left() > 0; ++b) {
     const std::uint8_t a = f.u8();
@@ -437,27 +457,27 @@ void read_perf(chunk::Fields& f, ProjectState& out) noexcept {
     const std::uint8_t id = f.u8();
     // Every row holds a knob; the retired slot (kLadderRetired: PERFORM's row 3 followed the latch before KN1) is read and ignored: it keeps its default, so a project saved in follow mode
     // loads with CUTOFF on PERFORM (HOME's row 3). The voice's Stock switch has no lane.
-    // Only what Controls::lane_entry() can drive (the same set as lane_ref() accepts): unit knobs below seq::kKnobs, the mixer's level and send A.
-    bool ok = false;
-    switch (target) {
-      case kLaneNone:
-        break;
-      case kLaneVoice:
-        ok = id < seq::kKnobs && id != kLaneVoiceStock;
-        break;
-      case kLaneDist:
-      case kLaneDelay:
-      case kLaneGrowl:
-      case kLaneTract:
-        ok = id < seq::kKnobs;
-        break;
-      case kLaneMixer:
-        ok = id == kMixerLevel || id == kMixerSendA;
-        break;
-      default:
-        break;
+    out.ladder[r] = lane_ref_ok(target, id) && r != kLadderRetired ? LaneRef{target, id} : kDefaultLadder[r];
+  }
+  // KN3: the set in use and sets 2..4 follow the five rows; a file without them has the factory sets and set 1.
+  for (unsigned s = 0; s + 1u < kKnobSets; ++s) {
+    for (unsigned i = 0; i < kKnobsPerSet; ++i) {
+      out.sets[s][i] = kKnobFactory.row[s + 1u][i];
     }
-    out.ladder[r] = ok && r != kLadderRetired ? LaneRef{target, id} : kDefaultLadder[r];
+  }
+  out.knob_set = 0;
+  if (f.left() >= kKnobSetBytes) {
+    const std::uint8_t use = f.u8();
+    out.knob_set = use < kKnobSets ? use : 0u;
+    for (unsigned s = 0; s + 1u < kKnobSets; ++s) {
+      for (unsigned i = 0; i < kKnobsPerSet; ++i) {
+        const std::uint8_t target = f.u8();
+        const std::uint8_t id = f.u8();
+        if (lane_ref_ok(target, id)) {
+          out.sets[s][i] = LaneRef{target, id};
+        }
+      }
+    }
   }
 }
 
@@ -524,9 +544,17 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     out.perf[b] = w.perf[b];
   }
+  // KNOBS' set 1 in the file's slot order, sets 2..4 and the set in use (KN3): w.knob_sets is the store, w.ladder its live copy of the set in use
   for (unsigned r = 0; r < kLadderRows; ++r) {
-    out.ladder[r] = w.ladder[r];
+    const unsigned pos = knob_row_pos(r);
+    out.ladder[r] = pos < kKnobsRows ? w.knob_sets.row[0][pos] : kDefaultLadder[r];
   }
+  for (unsigned s = 0; s + 1u < kKnobSets; ++s) {
+    for (unsigned i = 0; i < kKnobsPerSet; ++i) {
+      out.sets[s][i] = w.knob_sets.row[s + 1u][i];
+    }
+  }
+  out.knob_set = w.knob_set;
   if (rig.bank != nullptr) {
     out.song = rig.bank->song();
   }
@@ -568,6 +596,12 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   }
   for (unsigned r = 0; r < kLadderRows && ok; ++r) {
     ok = w.u8(s.ladder[r].target) && w.u8(s.ladder[r].id);
+  }
+  ok = ok && w.u8(s.knob_set);
+  for (unsigned t = 0; t + 1u < kKnobSets; ++t) {
+    for (unsigned i = 0; i < kKnobsPerSet && ok; ++i) {
+      ok = w.u8(s.sets[t][i].target) && w.u8(s.sets[t][i].id);
+    }
   }
   ok = ok && w.end();
 
@@ -880,9 +914,15 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
   for (unsigned b = 0; b < kPerfButtons; ++b) {
     w.perf[b] = s.perf[b] < kPerfActionCount ? s.perf[b] : kDefaultPerf[b];
   }
-  for (unsigned r = 0; r < kLadderRows; ++r) {
-    w.ladder[r] = s.ladder[r];
+  for (unsigned i = 0; i < kKnobsRows; ++i) {
+    w.knob_sets.row[0][i] = s.ladder[kKnobsRowId[i]];
   }
+  for (unsigned t = 0; t + 1u < kKnobSets; ++t) {
+    for (unsigned i = 0; i < kKnobsPerSet; ++i) {
+      w.knob_sets.row[t + 1u][i] = s.sets[t][i];
+    }
+  }
+  knob_set_use(w, s.knob_set);
 
   // The snapshots, after the sound: a slot with fewer values than the targets of today is filled from the sound as it is now.
   w.snaps.clear();

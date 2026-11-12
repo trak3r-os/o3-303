@@ -1,7 +1,6 @@
 # PERFORM KNOBS (docs/UX-303.md, the KNOBS pads mode): Perform again is PERFORM's second page, drawn here in the CLASSIC look (skin_knobs.txt shows the obsidian one). Its four rows of pads are four
 # knobs: ROW 1 ENV MOD, ROW 2 DECAY, ROW 3 CUTOFF and ROW 4 RESO, the last two being HOME's FILT rows. One pad is one value of the knob's range; a list (the wave) or a switch has a pad a value.
-# The colour buttons stay PERFORM's four actions and the F row stays the sound page's knobs. Hold an F key and tap a row to give it that knob; Shift + F1..F4 points the encoder at that row's list of
-# every knob (a turn walks it, a tap on a pad uses it), Shift + F8 puts the four rows back. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47. The WAV: the four taps and the knobs bound.
+# The colour buttons stay PERFORM's four actions and the F row is the sets and the rows' knobs. F1..F4 are four sets of knobs (KN3) and F5..F8 the rows' knobs: an F5..F8 key held and Up / Down re-points the row, Shift + F1 puts set 1 back. Pads: row 1 0..11, row 2 12..23, row 3 24..35, row 4 36..47. The WAV: the four taps and the knobs bound.
 wait 300
 tap config
 tap left
@@ -26,27 +25,32 @@ pad 31
 pad 43
 wait 400
 snap 02_four_taps
-# F5 held and a tap on ROW 1 binds that row to F5's knob; the F row is unchanged.
-press f5
-pad 3
-release f5
+# A row's F key held and Up / Down gives that row the next knob of the list of every knob (KN3); with Shift, the first knob of the next family. The set keeps it ("OWN 1" under F1).
+press f6
+tap up
+tap up
+release f6
 wait 100
-pad 9
-wait 300
-snap 03_row_bound_to_f5
-# Shift + F2 points the encoder at ROW 2's list of knobs: a turn walks it, a tap on a pad moves the knob that is shown.
-press shift
-tap f2
-release shift
-turn 3
-wait 100
-snap 04_walk_row_2
 pad 15
 wait 300
-snap 05_walked_knob_set
-# Shift + F8: the four rows go back to ENV MOD, DECAY, CUTOFF and RESO.
+snap 03_row_2_repointed
+press f6
 press shift
-tap f8
+tap up
+release shift
+release f6
+wait 100
+snap 04_row_2_next_family
+# F2 is SET 2 (MODDED): the four rows swap at once; a pad moves the knob that is shown and the latch.
+tap f2
+wait 100
+pad 3
+wait 300
+snap 05_set_2_modded
+# Shift + F1: set 1 goes back to its factory knobs (ENV MOD, DECAY, CUTOFF and RESO).
+tap f1
+press shift
+tap f1
 release shift
 wait 100
 snap 06_defaults_again

@@ -6,6 +6,7 @@
 
 #include "hands.h"
 #include "../app/src/ladder_rows.h"
+#include "../app/src/perform_screen.h"
 
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
@@ -153,11 +154,19 @@ TEST_CASE("KNOBS: a list takes a pad a value, the same value as the encoder's de
       t.to_perform();
       t.tap(Button::Performance);
       t.wait(60);
-      // Hold F6 (WAVE) and tap ROW 1: the row is the WAVE list.
-      t.press(Button::F6);
+      // Hold F5 (ROW 1) and walk Up until the row is the WAVE list: WAVE is value 0 of its pads, SQR value 1.
+      t.press(Button::F5);
       t.wait(30);
-      t.pad(row_pad(0, 0), 10);
-      t.release(Button::F6);
+      auto* scr = static_cast<PerformScreen*>(t.h->runtime().context().screen());
+      for (unsigned i = 0; i < 100; ++i) {
+        t.tap(Button::Up);
+        t.wait(40);
+        if (std::strcmp(scr->last_view().row_knob[0], "WAVE") == 0) {
+          break;
+        }
+      }
+      REQUIRE(std::strcmp(scr->last_view().row_knob[0], "WAVE") == 0);
+      t.release(Button::F5);
       t.wait(30);
     } else {
       t.tap(Button::F6);

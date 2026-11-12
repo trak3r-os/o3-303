@@ -438,3 +438,81 @@ TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and DECAY") {
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
   CHECK(w.ladder[kLadderRetired].target == kLaneNone);
 }
+
+TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the set in use, an assignment writes through to its set, FACTORY puts a set back") {
+  Wiring w;
+  Controls c;
+  c.init(w);
+  CHECK(w.knob_set == 0u);
+  for (unsigned s = 0; s < kKnobSets; ++s) {
+    CHECK(knob_set_is_factory(w, s));
+    CHECK(std::strlen(knob_set_name(s)) > 0u);
+  }
+  CHECK(std::strcmp(knob_set_name(0), "FILTER") == 0);
+  CHECK(std::strcmp(knob_set_name(3), "FX") == 0);
+  CHECK(std::strlen(knob_set_name(kKnobSets)) == 0u);
+  // Set 2 (MODDED): ACC DECAY, SLIDE, OVERDRIVE, FILTER FM.
+  knob_set_use(w, 1);
+  CHECK(w.knob_set == 1u);
+  CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::AccDecay);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Slide);
+  CHECK(w.ladder[kLadderHome3].id == AcidVoice::Overdrive);
+  CHECK(w.ladder[kLadderHome4].id == AcidVoice::FilterFm);
+  // An assignment on the set in use is the set's.
+  const Entry cutoff{Item::Voice, AcidVoice::Cutoff, nullptr};
+  CHECK(ladder_assign(w, c, kLadderKnobs2, cutoff) == LadderAssign::Held);
+  CHECK(w.knob_sets.row[1][1].id == AcidVoice::Cutoff);
+  CHECK(!knob_set_is_factory(w, 1));
+  CHECK(knob_set_is_factory(w, 0));
+  knob_set_use(w, 0);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Decay);  // set 1 is untouched
+  knob_set_use(w, 1);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Cutoff);
+  // Shift + FILT resets rows 3 and 4 to the set in use's factory knobs.
+  CHECK(ladder_assign(w, c, kLadderHome3, cutoff) == LadderAssign::Held);
+  ladder_reset_home(w);
+  CHECK(w.ladder[kLadderHome3].id == AcidVoice::Overdrive);
+  CHECK(w.knob_sets.row[1][2].id == AcidVoice::Overdrive);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Cutoff);  // row 2 is not a HOME row
+  // FACTORY of the set in use: the live rows follow; of another set: only its store.
+  knob_set_factory(w, 1);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Slide);
+  CHECK(knob_set_is_factory(w, 1));
+  CHECK(ladder_assign(w, c, kLadderKnobs1, cutoff) == LadderAssign::Held);
+  knob_set_factory(w, 2);
+  CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::Cutoff);
+  // Out of range: clamped to set 1, FACTORY a no-op.
+  knob_set_use(w, 9);
+  CHECK(w.knob_set == 0u);
+  knob_set_factory(w, 9);
+  CHECK(knob_set_is_factory(w, 0));
+  CHECK(knob_row_pos(kLadderKnobs1) == 0u);
+  CHECK(knob_row_pos(kLadderHome4) == 3u);
+  CHECK(knob_row_pos(kLadderRetired) == kKnobsRows);
+}
+
+TEST_CASE("KNOBS walk (KN3): the family comes out with the knob, and a family jump lands on the first knob of the next or previous family") {
+  Wiring w;
+  Controls c;
+  c.init(w);
+  const char* fam = nullptr;
+  const Entry first = ladder_walk(w, c, kLadderKnobs1, 1, &fam);
+  REQUIRE(fam != nullptr);
+  CHECK(std::strlen(fam) > 0u);
+  CHECK(w.knob_sets.row[0][0].id == w.ladder[kLadderKnobs1].id);  // written through
+  (void)first;
+  const char* fam0 = fam;
+  unsigned jumps = 0;
+  do {
+    (void)ladder_walk_family(w, c, kLadderKnobs1, 1, &fam);
+    ++jumps;
+  } while (std::strcmp(fam, fam0) != 0 && jumps < 12);
+  CHECK(jumps > 1u);   // a different family each jump
+  CHECK(jumps < 12u);  // and the walk wraps back
+  const char* back = nullptr;
+  (void)ladder_walk_family(w, c, kLadderKnobs1, -1, &back);
+  REQUIRE(back != nullptr);
+  CHECK(std::strcmp(back, fam0) != 0);
+  (void)ladder_walk(w, c, kLadderRetired, 1, &fam);  // the retired slot: nothing is stored for it
+  CHECK(w.knob_set == 0u);
+}

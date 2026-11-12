@@ -138,6 +138,22 @@ enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderRetired
 // voice ids 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay
 inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneNone, 0}, {kLaneVoice, 2}, {kLaneVoice, 3}};
 
+// KNOBS' four live sets (KN3, REVIEW-KNOBS Q3-A): each set is four rows (top to bottom: KNOBS' rows 1 and 2, then HOME's FILT rows 3 and 4), each row a knob stored as its lane
+// target and parameter. Set 1 is the four rows the PERF chunk always had; the others are factory-filled and the player re-points any row of any set. The ids below are the units'
+// parameter ids (ladder_rows.cpp static_asserts them): voice 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay, 8 Acc Decay, 10 Slide, 13 Filter FM, 17 Overdrive; growl 0 Vowel, 1 Fmt Q, 3 Cmb Tune,
+// 7 Mix; distortion 2 Drive; delay 0 Time, 1 Feedback; mixer send A.
+inline constexpr unsigned kKnobSets = 4;
+inline constexpr unsigned kKnobsPerSet = 4;
+struct KnobSets {
+  LaneRef row[kKnobSets][kKnobsPerSet];
+};
+inline constexpr KnobSets kKnobFactory = {{
+    {{kLaneVoice, 2}, {kLaneVoice, 3}, {kLaneVoice, 0}, {kLaneVoice, 1}},      // 1 FILTER: ENV MOD, DECAY, CUTOFF, RESO
+    {{kLaneVoice, 8}, {kLaneVoice, 10}, {kLaneVoice, 17}, {kLaneVoice, 13}},   // 2 MODDED: ACC DECAY, SLIDE, OVERDRIVE, FILTER FM
+    {{kLaneGrowl, 0}, {kLaneGrowl, 1}, {kLaneGrowl, 3}, {kLaneGrowl, 7}},      // 3 GROWL: VOWEL, FMT Q, CMB TUNE, GRL MIX
+    {{kLaneDist, 2}, {kLaneDelay, 1}, {kLaneMixer, kMixerSendA}, {kLaneDelay, 0}},  // 4 FX: DRIVE, DLY FB, DLY SEND, DLY TIME
+}};
+
 struct Wiring {
   o3sdk::dsp::UnitId voice = o3sdk::dsp::kNoUnit;
   o3sdk::dsp::UnitId dist = o3sdk::dsp::kNoUnit;
@@ -161,6 +177,10 @@ struct Wiring {
   float growl_last_mix = 0.5f;  // B5a: GROWL's F8 gives Mix this back (Mix as a 0..1 fraction); the Mix F8 read from the engine when it last turned the growl off, 50 % at a boot, never stored. Main loop only
   float tract_last_mix = 0.5f;  // A1: what TractOn gives Mix back (0..1); 50 % at a boot, saved with the project (kAppTractLastMix). Main loop only
   LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3], kDefaultLadder[4]};  // what each ladder row holds (main loop; saved in the project's PERF chunk)
+  // KN3: the four sets and the one in use (0..3; main loop; saved in the PERF chunk). `ladder` is the live copy of the set in use (kKnobsRowId order: slots 3, 4, 0, 1): the writers in
+  // ladder_rows.cpp keep the two the same, so the HOME rows, the lane code and the tests read `ladder` as before and a set change swaps the four rows.
+  KnobSets knob_sets = kKnobFactory;
+  std::uint8_t knob_set = 0;
 };
 
 // How many fine detents one press of Left or Right moves a knob with an F key held: 1/20 of the range (twenty presses from minimum to maximum),
@@ -283,6 +303,8 @@ class PageKeys {
   // that moves the focused knob by 1/20 of its range, a switch flips; true and `out` the encoder turn, which goes through the screen's turn path and then
   // end_press() as for arrow_turn.
   bool move_latch(const o3sdk::app::Input& in) noexcept;
+  // The latch to F`key`+1 (KN3: a pad tap on a row of KNOBS gives the encoder that row's knob); not while a key is held, nor onto a blank or missing key. true when it moved.
+  bool latch(unsigned key) noexcept;
   bool value_arrow(const o3sdk::app::Input& in, o3sdk::app::Input& out) noexcept;
   // The buttons a screen with F-key knobs asks the kit to repeat while held (Screen::repeat_buttons): Left and Right. The mask does not depend on an F key being
   // held; a repeat with none held (or let go meanwhile) is dropped by the screen (arrow_turn is false and the screen returns on Input::repeat), so Left and Right

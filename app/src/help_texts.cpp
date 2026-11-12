@@ -109,6 +109,11 @@ constexpr Buttons make_perform(Where w) noexcept {
     b.add(Button::Right, "HELD F: +1/20. ELSE LATCH >");
     b.add(Button::Up, "LATCHED KNOB +1/20 (FLIP)");
     b.add(Button::Down, "LATCHED KNOB -1/20 (FLIP)");
+  } else if (w == Where::Knobs) {  // KN3: the same, and with a row's F key held Up and Down re-point that row
+    b.add(Button::Left, "LATCH < (F5-F8)");
+    b.add(Button::Right, "LATCH > (F5-F8)");
+    b.add(Button::Up, "+1/20; F HELD: NEXT KNOB", "F HELD: NEXT FAMILY");
+    b.add(Button::Down, "-1/20; F HELD: LAST KNOB", "F HELD: LAST FAMILY");
   }
   return b;
 }
@@ -208,8 +213,8 @@ constexpr HelpPadGroup kPerformGroups[] = {
     {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
 };
 constexpr HelpPadGroup kKnobsGroups[] = {
-    {"ROWS 1-2", "F KEY + TAP: ASSIGN. SHIFT + F1-F4: LIST", Color::Accent},
-    {"ROWS 3-4", "HOME'S FILT ROWS. SHIFT + F8: ALL FOUR BACK", Color::Fx},
+    {"ROWS 1-2", "TAP: JUMP THE KNOB, ENCODER FOLLOWS", Color::Accent},
+    {"ROWS 3-4", "HOME'S FILT ROWS: THE SAME KNOBS", Color::Fx},
 };
 constexpr HelpPadGroup kLibraryGroups[] = {
     {"SLOTS", "TAP: SLOT 0-47. SHIFT + TAP: SLOT 16-63", Color::Sel},
@@ -272,15 +277,15 @@ constexpr Text kTexts[kIdCount] = {
      "WOBBLE ON: ROW 3 PICKS ITS RATE. A LATCHED ACTION STAYS ON WHEN YOU LEAVE THE SCREEN."},
     // Knobs
     {"PERFORM KNOBS",
-     "EACH ROW OF PADS IS ONE KNOB, LOWEST AT THE LEFT. HOLD AN F KEY AND TAP A ROW TO GIVE IT THAT KNOB; SHIFT + F1-F4 PICKS FROM A LIST. REC RECORDS THE TAPS.",
-     SOUND_KEYS,
+     "F1-F4 ARE FOUR SETS OF FOUR KNOBS, ONE PER ROW OF PADS, LOWEST AT THE LEFT. F5-F8 ARE THE ROWS: TAP ONE FOR THE ENCODER. HOLD ONE AND PRESS UP OR DOWN TO PICK ITS KNOB.",
+     {"SET 1: FILTER", "SET 2: MODDED", "SET 3: GROWL", "SET 4: FX", "ROW 1'S KNOB", "ROW 2'S KNOB", "ROW 3'S KNOB", "ROW 4'S KNOB"},
      {},
      "KNOB; MORPH AFTER A RECALL",
      kKnobsButtons.row,
      kKnobsButtons.n,
      kKnobsGroups,
      count_of(sizeof kKnobsGroups / sizeof kKnobsGroups[0]),
-     "ROWS 3 AND 4 ARE HOME'S FILT ROWS. THE FOUR COLOUR BUTTONS ARE PERFORM'S ACTIONS."},
+     "A TAP ON A ROW LATCHES IT. ROWS 3 AND 4 ARE HOME'S FILT ROWS. REC RECORDS THE TAPS."},
     // PerformSetup
     {"PERFORM SETUP",
      "WHAT THE FOUR COLOUR BUTTONS DO (F1-F4), WHAT FILL PLAYS (F5), THE FREEZE LENGTH (F6), THE ROLL MODE (F7) AND THE STOP TIME (F8). THE PADS STAY PERFORM'S.",

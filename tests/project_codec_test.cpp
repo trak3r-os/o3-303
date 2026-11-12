@@ -5,6 +5,7 @@
 // engine (the units attached in the order of o3_303_app.cpp), without the screens.
 #include <doctest/doctest.h>
 
+#include "../app/src/ladder_rows.h"
 #include "../app/src/project.h"
 
 #include <o3sdk/dsp/engine.h>
@@ -2184,14 +2185,96 @@ TEST_CASE("project: HEAD 1.1 carries the save counter; a 1.0 HEAD reads as 0; sm
   CHECK(project::small_crc(st) == project::small_crc(other));
 }
 
+TEST_CASE("project: KNOBS' four sets and the set in use round-trip (PERF 1.2); a file without them gives the factory sets; a damaged row falls back to its factory knob") {
+  Session a;
+  scramble(a);
+  Wiring& w = a.rig.wiring;
+  w.knob_sets.row[1][0] = LaneRef{kLaneGrowl, Growl::Mix};  // set 2, row 1 re-pointed
+  w.knob_sets.row[3][3] = LaneRef{kLaneDelay, 1};           // set 4, row 4 re-pointed
+  knob_set_use(w, 2);                                       // set 3 in use
+  const std::vector<std::uint8_t> img = encode_session(a);
+  project::ProjectState s;
+  REQUIRE(load(img, s).status == project::Status::Ok);
+  CHECK(s.knob_set == 2);
+  CHECK(s.sets[0][0].target == kLaneGrowl);
+  CHECK(s.sets[0][0].id == Growl::Mix);
+  CHECK(s.sets[2][3].target == kLaneDelay);
+  CHECK(s.sets[2][3].id == 1);
+  Session b;
+  REQUIRE(project::apply(b.rig, b.engine, s));
+  CHECK(b.rig.wiring.knob_set == 2);
+  for (unsigned set = 0; set < kKnobSets; ++set) {
+    for (unsigned pos = 0; pos < kKnobsPerSet; ++pos) {
+      CHECK(b.rig.wiring.knob_sets.row[set][pos].target == w.knob_sets.row[set][pos].target);
+      CHECK(b.rig.wiring.knob_sets.row[set][pos].id == w.knob_sets.row[set][pos].id);
+    }
+  }
+  for (unsigned r = 0; r < kLadderRows; ++r) {  // the live rows are the set in use's
+    if (r == kLadderRetired) {
+      continue;
+    }
+    const LaneRef want = b.rig.wiring.knob_sets.row[2][knob_row_pos(r)];
+    CHECK(b.rig.wiring.ladder[r].target == want.target);
+    CHECK(b.rig.wiring.ladder[r].id == want.id);
+  }
+  CHECK(!knob_set_is_factory(b.rig.wiring, 1));
+  CHECK(knob_set_is_factory(b.rig.wiring, 2));
+
+  // The chunk of PERF 1.1 (the five slots, nothing after): sets 2..4 are the factory sets and set 1 is in use.
+  const auto old = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      p[1] = 1;
+      p.resize(2 + kPerfButtons + 2 * kLadderRows);
+    }
+    return true;
+  });
+  project::ProjectState o;
+  REQUIRE(load(old, o).status == project::Status::Ok);
+  CHECK(o.knob_set == 0);
+  for (unsigned t = 0; t < kKnobSets - 1; ++t) {
+    for (unsigned pos = 0; pos < kKnobsPerSet; ++pos) {
+      CHECK(o.sets[t][pos].target == kKnobFactory.row[t + 1][pos].target);
+      CHECK(o.sets[t][pos].id == kKnobFactory.row[t + 1][pos].id);
+    }
+  }
+  Session c;
+  scramble(c);
+  knob_set_use(c.rig.wiring, 3);
+  REQUIRE(project::apply(c.rig, c.engine, o));
+  CHECK(c.rig.wiring.knob_set == 0);
+  CHECK(knob_set_is_factory(c.rig.wiring, 1));
+  CHECK(knob_set_is_factory(c.rig.wiring, 3));
+
+  // A damaged row (a target past the table, then the voice's Stock) and a set in use past the last: the factory knob, and set 1.
+  const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
+    if (is(id, "PERF")) {
+      const std::size_t at = 2 + kPerfButtons + 2 * kLadderRows;
+      p[at] = 9;                                                       // the set in use
+      p[at + 1] = static_cast<std::uint8_t>(kLaneTargetCount);         // set 2 row 1
+      p[at + 2] = 0;
+      p[at + 3] = kLaneVoice;                                          // set 2 row 2
+      p[at + 4] = kLaneVoiceStock;
+    }
+    return true;
+  });
+  project::ProjectState g;
+  REQUIRE(load(bad, g).status == project::Status::Ok);
+  CHECK(g.knob_set == 0);
+  CHECK(g.sets[0][0].target == kKnobFactory.row[1][0].target);
+  CHECK(g.sets[0][0].id == kKnobFactory.row[1][0].id);
+  CHECK(g.sets[0][1].target == kKnobFactory.row[1][1].target);
+  CHECK(g.sets[0][1].id == kKnobFactory.row[1][1].id);
+}
+
 TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier format (the buttons only) loads with the default rows; bad rows fall back") {
   Session a;
   scramble(a);
-  a.rig.wiring.ladder[kLadderHome3] = LaneRef{kLaneDist, 2};
-  a.rig.wiring.ladder[kLadderHome4] = LaneRef{kLaneVoice, 12};
+  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderHome3)] = LaneRef{kLaneDist, 2};  // set 1 is the set in use: the live rows follow it (KN3)
+  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderHome4)] = LaneRef{kLaneVoice, 12};
+  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderKnobs1)] = LaneRef{kLaneGrowl, 2};
+  a.rig.wiring.knob_sets.row[0][knob_row_pos(kLadderKnobs2)] = LaneRef{kLaneMixer, kMixerSendA};
+  knob_set_use(a.rig.wiring, 0);
   a.rig.wiring.ladder[kLadderRetired] = LaneRef{kLaneDelay, 1};
-  a.rig.wiring.ladder[kLadderKnobs1] = LaneRef{kLaneGrowl, 2};
-  a.rig.wiring.ladder[kLadderKnobs2] = LaneRef{kLaneMixer, kMixerSendA};
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
   REQUIRE(load(img, s).status == project::Status::Ok);
@@ -2225,7 +2308,7 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
     }
     return true;
   });
-  REQUIRE(perf_now == 2 + kPerfButtons + 2 * kLadderRows);
+  REQUIRE(perf_now == 2 + kPerfButtons + 2 * kLadderRows + 1 + 3 * kKnobsPerSet * 2);  // KN3: the set in use and sets 2..4 after the five slots
   project::ProjectState o;
   const project::Result res = load(old, o);
   REQUIRE(res.status == project::Status::Ok);
@@ -2263,19 +2346,19 @@ TEST_CASE("project: the ladder rows round-trip; a PERF chunk of the earlier form
   CHECK(t3.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
   CHECK(t3.ladder[kLadderKnobs2].target == kLaneVoice);
   CHECK(t3.ladder[kLadderKnobs2].id == AcidVoice::Decay);
-  // The file of today writes PERF as minor 1, and the first three rows sit where a v0.6.0 reader (which takes three and stops) looks for them.
+  // The file of today writes PERF as minor 2, and the first three rows sit where a v0.6.0 reader (which takes three and stops) looks for them.
   bool seen_perf = false;
   (void)rebuild(img, [&](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
       seen_perf = true;
       CHECK(p[0] == 1);
-      CHECK(p[1] == 1);
+      CHECK(p[1] == 2);
       const std::size_t at = 2 + kPerfButtons;
       CHECK(p[at + 0] == kLaneDist);
       CHECK(p[at + 1] == 2);
-      CHECK(p[at + 4] == kLaneDelay);
+      CHECK(p[at + 4] == kLaneNone);  // the retired slot is written as its default (KN3)
       CHECK(p[at + 6] == kLaneGrowl);
-      CHECK(p.size() == at + 10);
+      CHECK(p.size() == at + 10 + 1 + 3 * kKnobsPerSet * 2);
     }
     return true;
   });

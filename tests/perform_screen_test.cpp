@@ -7,6 +7,7 @@
 #include "hands.h"
 
 #include "../app/src/ladder_rows.h"
+#include "../app/src/perform_screen.h"
 
 #include <o3sdk/app/pad_leds.h>
 #include <o3sdk/core/param.h>
@@ -14,9 +15,11 @@
 #include <o3_303/seq/ops.h>
 #include <o3_303/seq/sequencer.h>
 #include <o3_303/units/freeze/freeze.h>
+#include <o3_303/units/growl/growl.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
 #include <cmath>
+#include <string>
 #include <vector>
 #include <cstdint>
 #include <cstring>
@@ -857,4 +860,143 @@ TEST_CASE("PERFORM plays and does not record: the keys write no notes, with REC 
   CHECK(same_pattern(t.pat(), before));
   t.tap(Button::Play);
   t.tap(Button::Rec);
+}
+
+// ---- KN3: four live sets of four knobs on KNOBS ------------------------------------------------------------------------------------------------------------------------------------------
+
+namespace {
+
+struct OnKnobs {
+  Hands t;
+  PerformScreen* s = nullptr;
+  OnKnobs() {
+    t.skin_on();
+    t.to_perform();
+    t.to_perform();
+    t.wait(60);
+    s = static_cast<PerformScreen*>(t.h->runtime().context().screen());
+    REQUIRE(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
+  }
+  std::string row(unsigned r) {
+    t.wait(60);
+    return s->last_view().row_knob[r];
+  }
+  std::string toast() const { return s->toast_text(); }
+};
+
+}  // namespace
+
+TEST_CASE("KNOBS (KN3): F1..F4 are SET 1..4, factory-filled: FILTER, MODDED, GROWL, FX; a set change toasts and swaps the four rows") {
+  OnKnobs o;
+  CHECK(o.row(0) == "ENV MOD");
+  CHECK(o.row(1) == "DECAY");
+  CHECK(o.row(2) == "CUTOFF");
+  CHECK(o.row(3) == "RESO");
+  o.t.tap(Button::F2);
+  CHECK(o.toast() == "SET 2 MODDED");
+  CHECK(o.row(0) == "ACC DECAY");
+  CHECK(o.row(1) == "SLIDE");
+  CHECK(o.row(2) == "OVERDRIVE");
+  CHECK(o.row(3) == "FILTER FM");
+  o.t.tap(Button::F3);
+  CHECK(o.toast() == "SET 3 GROWL");
+  CHECK(o.row(0) == "VOWEL");
+  CHECK(o.row(1) == "FORMANT Q");
+  CHECK(o.row(2) == "COMB TUNE");
+  CHECK(o.row(3) == "MIX");
+  o.t.tap(Button::F4);
+  CHECK(o.toast() == "SET 4 FX");
+  CHECK(o.row(0) == "DRIVE");
+  CHECK(o.row(1) == "FEEDBACK");
+  CHECK(o.row(2) == "DLY SEND");
+  CHECK(o.row(3) == "TIME");
+  o.t.tap(Button::F1);
+  CHECK(o.row(2) == "CUTOFF");
+}
+
+TEST_CASE("KNOBS (KN3): F5..F8 latch the encoder on their row's knob; a pad tap on a row moves the latch there (Q1-A); the set's knob is what the encoder moves") {
+  OnKnobs o;
+  o.t.tap(Button::F3);  // set 3 GROWL
+  const float mix = o.t.param(kGrowl, Growl::Mix);
+  o.t.tap(Button::F8);  // GRL MIX
+  CHECK(o.s->knobs_keys().focus() == 7u);
+  o.t.turn(3);
+  CHECK(o.t.param(kGrowl, Growl::Mix) > mix);
+  const float vowel = o.t.param(kGrowl, Growl::Vowel);
+  o.t.pad(pp(kRow1, 5), 10);  // a tap on row 1 (VOWEL): the latch follows
+  o.t.wait(100);
+  CHECK(o.s->knobs_keys().focus() == 4u);
+  CHECK(o.t.param(kGrowl, Growl::Vowel) != doctest::Approx(vowel));
+  const float v1 = o.t.param(kGrowl, Growl::Vowel);
+  o.t.turn(-2);
+  CHECK(o.t.param(kGrowl, Growl::Vowel) < v1);
+}
+
+TEST_CASE("KNOBS (KN3): an F5..F8 key held + Up / Down re-points the row (toast ROW n: FAMILY / KNOB), Shift + Up / Down a family; the set keeps it, FACTORY puts it back") {
+  OnKnobs o;
+  const std::string first = o.row(1);
+  o.t.press(Button::F6);
+  o.t.tap(Button::Up);
+  o.t.release(Button::F6);
+  CHECK(o.row(1) != first);
+  CHECK(o.toast().rfind("ROW 2: ", 0) == 0);
+  CHECK(o.toast().find(" / ") != std::string::npos);
+  CHECK(o.toast().find(o.row(1)) != std::string::npos);
+  CHECK(o.s->knobs_keys().focus() == 5u);  // the latch stays on the held key
+  const std::string walked = o.row(1);
+  o.t.press(Button::F6);
+  o.t.press(Button::Shift);
+  o.t.tap(Button::Up);
+  o.t.release(Button::Shift);
+  o.t.release(Button::F6);
+  CHECK(o.row(1) != walked);
+  const std::string family = o.toast();
+  // The set keeps it: another set and back.
+  o.t.tap(Button::F2);
+  o.t.tap(Button::F1);
+  CHECK(o.row(1) == family.substr(family.rfind(" / ") + 3));
+  // Shift + F1 puts set 1 back.
+  o.t.shift_tap(Button::F1);
+  CHECK(o.toast() == "SET 1 FACTORY: FILTER");
+  CHECK(o.row(1) == "DECAY");
+  CHECK(o.row(0) == "ENV MOD");
+}
+
+TEST_CASE("KNOBS (KN3): HOME's FILT rows are rows 3 and 4 of the set in use") {
+  OnKnobs o;
+  o.t.tap(Button::F2);  // set 2: row 3 OVERDRIVE, row 4 FILTER FM
+  o.t.to_home();
+  o.t.pad(role_pad(PadRole::Filt));
+  o.t.wait(60);
+  const float c0 = cutoff(o.t);
+  const float od0 = o.t.param(kVoice, AcidVoice::Overdrive);
+  const float fm0 = o.t.param(kVoice, AcidVoice::FilterFm);
+  o.t.pad(pp(kRow3, 11), 10);
+  o.t.wait(150);
+  CHECK(o.t.param(kVoice, AcidVoice::Overdrive) != doctest::Approx(od0));
+  CHECK(cutoff(o.t) == doctest::Approx(c0));
+  o.t.pad(pp(kRow4, 11), 10);
+  o.t.wait(150);
+  CHECK(o.t.param(kVoice, AcidVoice::FilterFm) != doctest::Approx(fm0));
+}
+
+TEST_CASE("KNOBS (KN3): the Shift row is FACTORY 1..4 on F1..F4 (the set in use stays), REDO and UNDO on F7 and F8; a plain tap of F1..F4 after it is the set") {
+  OnKnobs o;
+  o.t.press(Button::F6);
+  o.t.tap(Button::Up);
+  o.t.release(Button::F6);
+  const std::string moved = o.row(1);
+  o.t.shift_tap(Button::F3);
+  CHECK(o.toast() == "SET 3 FACTORY: GROWL");
+  CHECK(o.row(1) == moved);  // set 1 still in use, not touched
+  o.t.shift_tap(Button::F1);
+  CHECK(o.row(1) == "DECAY");
+  // UNDO and REDO act on the pattern as on PERFORM: a NEW, then UNDO gives the line back.
+  const Pattern before = seqr().bank().pattern(seqr().bank().selected());
+  o.t.pad(pp(kRow2, 8), 10);  // a knob pad of row 2: the pattern is not touched
+  o.t.shift_tap(Button::F8);
+  o.t.shift_tap(Button::F7);
+  CHECK(same_pattern(before, seqr().bank().pattern(seqr().bank().selected())));
+  o.t.tap(Button::F2);
+  CHECK(o.toast() == "SET 2 MODDED");
 }

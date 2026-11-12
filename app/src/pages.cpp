@@ -902,6 +902,14 @@ bool PageKeys::move_latch(const app::Input& in) noexcept {
   return true;
 }
 
+bool PageKeys::latch(unsigned key) noexcept {
+  if (held_ != 0u || key >= kKeys || page().entry[key].item == Item::Blank) {
+    return false;
+  }
+  latched_ = key;
+  return true;
+}
+
 bool PageKeys::value_arrow(const app::Input& in, app::Input& out) noexcept {
   if (in.shift || in.type != app::Input::Type::Press || !(in.is(app::Button::Up) || in.is(app::Button::Down))) {
     return false;

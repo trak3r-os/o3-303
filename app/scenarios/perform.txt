@@ -118,3 +118,39 @@ snap 16_arrows_up_accent
 tap down
 wait 100
 snap 17_arrows_down_accent
+# KN3: on KNOBS F1..F4 are SET 1..4 (FILTER, MODDED, GROWL, FX), live sets of four knobs; F5..F8 are the rows' knobs. A row's F key held and Up / Down re-points it (toast ROW n: FAMILY / KNOB),
+# Shift + F1..F4 puts a set back to its factory knobs.
+tap performance 5
+wait 100
+snap 18_set1_filter
+tap f2
+wait 200
+snap 19_set2_modded
+tap f3
+wait 200
+snap 20_set3_growl
+tap f4
+wait 200
+snap 21_set4_fx
+tap f1
+press f6
+tap up
+tap up
+wait 100
+snap 22_row2_repointed
+release f6
+press f6
+press shift
+tap up
+release shift
+release f6
+wait 100
+snap 23_row2_next_family
+press shift
+tap f1
+release shift
+wait 100
+snap 24_set1_factory
+pad 28
+wait 150
+snap 25_pad_tap_moves_latch

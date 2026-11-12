@@ -45,21 +45,33 @@ Entry ladder_entry(const Controls& controls, const Wiring& wiring, unsigned row)
 // Hold an F key and tap a pad of the row: the row holds `knob`; again with the knob it holds, the row returns to its default.
 LadderAssign ladder_assign(Wiring& wiring, const Controls& controls, unsigned row, const Entry& knob) noexcept;
 
-// Shift + FILT: both HOME rows back to CUTOFF and RESO.
+// Shift + FILT: both HOME rows (rows 3 and 4 of the set in use) back to that set's factory knobs.
 void ladder_reset_home(Wiring& wiring) noexcept;
 
-// KNOBS (PERFORM's second page): the four rows' ids, top to bottom. Rows 3 and 4 are HOME's FILT rows.
-inline constexpr unsigned kKnobsRows = 4;
+// KNOBS (PERFORM's second page): the four rows' ids, top to bottom. Rows 3 and 4 are HOME's FILT rows. Which knobs they hold is the set in use (KN3, Wiring::knob_sets).
+inline constexpr unsigned kKnobsRows = kKnobsPerSet;
 inline constexpr unsigned kKnobsRowId[kKnobsRows] = {kLadderKnobs1, kLadderKnobs2, kLadderHome3, kLadderHome4};
 
-// Shift + F8 on KNOBS: its four rows back to ENV MOD, DECAY, CUTOFF and RESO (HOME's two with them: they are the same rows).
-void ladder_reset_knobs(Wiring& wiring) noexcept;
+// The row's place (0..3) in a set, or kKnobsRows for the retired slot and an unknown row.
+unsigned knob_row_pos(unsigned row) noexcept;
+// The knob a set's row holds when the set is factory-filled.
+LaneRef knob_factory(unsigned set, unsigned pos) noexcept;
+// Make set `set` (0..3, clamped) the one in use: the four live rows (Wiring::ladder) take its knobs.
+void knob_set_use(Wiring& wiring, unsigned set) noexcept;
+// Put set `set` back to its factory knobs (a copy of the four rows for UNDO is the caller's); the live rows follow when it is the one in use.
+void knob_set_factory(Wiring& wiring, unsigned set) noexcept;
+// What a set is called while it holds its factory knobs ("FILTER", "MODDED", "GROWL", "FX"), and whether it does (a re-pointed row makes it the player's own).
+const char* knob_set_name(unsigned set) noexcept;
+bool knob_set_is_factory(const Wiring& wiring, unsigned set) noexcept;
 
-// The list the Shift + F1..F4 binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL), a knob once.
+// The list the hold + Up/Down binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL, TRACT), a knob once.
 unsigned ladder_knob_count(const Controls& controls) noexcept;
 Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept;
-// Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now.
-Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta) noexcept;
+// Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now. `family` (if not null) gets the
+// name of the family that knob is in.
+Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family = nullptr) noexcept;
+// Shift + Up/Down: moves `row` to the first knob of the next (delta > 0) or previous family; returns the entry it holds now. `family` (if not null) gets the family's name.
+Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family) noexcept;
 
 // "CUTOFF": the name of the knob the row holds. At most cap-1 characters, cut at the end.
 void ladder_caption(const o3sdk::dsp::Engine& e, const Controls& controls, const Wiring& wiring, unsigned row, char* out, unsigned cap) noexcept;

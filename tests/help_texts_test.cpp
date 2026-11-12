@@ -557,13 +557,14 @@ TEST_CASE("help screens: the Shift row is the screen's own") {
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }
-  tap(h, app::Button::Performance);  // PERFORM KNOBS: the four rows' lists on F1..F4 and DEFAULTS on F8
+  tap(h, app::Button::Performance);  // PERFORM KNOBS: FACTORY 1..4 on F1..F4, REDO and UNDO as on PERFORM
   {
     const Help& help = open_help(h);
-    CHECK(std::strcmp(help.fkey_shift[0], "ROW 1") == 0);
-    CHECK(std::strcmp(help.fkey_shift[3], "ROW 4") == 0);
+    CHECK(std::strcmp(help.fkey_shift[0], "FACTORY 1") == 0);
+    CHECK(std::strcmp(help.fkey_shift[3], "FACTORY 4") == 0);
     CHECK(help.fkey_shift[4] == nullptr);
-    CHECK(std::strcmp(help.fkey_shift[7], "DEFAULTS") == 0);
+    CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);
+    CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }
   shift_tap(h, app::Button::Performance);  // PERFORM SETUP has no Shift row

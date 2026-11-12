@@ -343,8 +343,8 @@ motion. Tap FILT again for the keys.
 
 Each ladder row can hold another knob. Hold an F key (on any screen that shares the home map) and tap a pad of the row: the row now holds that
 key's knob, and the tap only assigns, the value does not move. Do it again with the same knob held and the row goes back to its default.
-**Shift + FILT** puts both rows back to CUTOFF and RESO. The rows blink while an F key is held. The PADS line names both rows. The rows are
-saved in the project (an older project loads with the defaults); snapshots do not take them. PERFORM's row 3 and PERFORM KNOBS' rows 3 and 4 are these same rows: a knob assigned on one screen is on all of them. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it.
+**Shift + FILT** puts both rows back to the knobs of the set in use (CUTOFF and RESO in set 1; PERFORM KNOBS has four sets, and these rows are its rows 3 and 4). The rows blink while an F key is held. The PADS line names both rows. The rows are
+saved in the project (an older project loads with the defaults); snapshots do not take them. PERFORM's row 3 and PERFORM KNOBS' rows 3 and 4 (of the set in use) are these same rows: a knob assigned on one screen is on all of them. With REC on, PERFORM's row 3 claims a lane of the pattern, as the F row does, so the limit of eight lanes applies to it.
 
 ![FILT on: rows 3 and 4 of the pads lit as two bars up to the place tapped; the PADS line says ROW 3 CUTOFF . ROW 4 RESO](manual/img/home-filt.png)
 
@@ -437,20 +437,22 @@ Press **Performance** again for PERFORM KNOBS (and again to come back). **Shift 
 
 PERFORM's second page turns the four rows of pads into four knobs. One pad is one value, left the lowest and right the highest, and a tap glides there as on HOME's FILT (Config's LADDER SLEW). The title says PERFORM KNOBS.
 
-| Row | Knob at first |
-|---|---|
-| 1 | ENV MOD |
-| 2 | DECAY |
-| 3 | CUTOFF (HOME's FILT row 3) |
-| 4 | RESO (HOME's FILT row 4) |
+**Four sets of four knobs.** **F1 to F4 are SET 1 to SET 4**: a tap on one swaps all four rows at once (a toast says SET 2 MODDED) and the key shows which set is up. They start filled like this:
+
+| Set | Row 1 | Row 2 | Row 3 | Row 4 |
+|---|---|---|---|---|
+| 1 FILTER | ENV MOD | DECAY | CUTOFF | RESO |
+| 2 MODDED | ACC DECAY | SLIDE | OVERDRIVE | FILTER FM |
+| 3 GROWL | VOWEL | FORMANT Q | COMB TUNE | MIX |
+| 4 FX | DRIVE | FEEDBACK | DLY SEND | TIME |
 
 A knob that is a list or a switch, the wave for one, has a pad for each value instead of twelve steps. A tap on a row that holds a MODDED mod while MODS is off (STOCK) switches MODS on, as the encoder does.
 
-**Give a row another knob.** Hold an F key and tap a pad of the row: the row now holds that key's knob, and the tap only assigns, the value does not move. Do it again with the same knob held and the row goes back to its own default. **Shift + F1 to F4** points the encoder at ROW 1 to ROW 4 (the ENC window says ROW 2 LIST): a turn walks the list of every knob that can be recorded (the sound page's, then the delay and distortion, MODDED's NOTES and TONE, GROWL's, and TRACT's last), and the toast names it. Tap a pad to use it. **Shift + F8** puts the four rows back to ENV MOD, DECAY, CUTOFF and RESO. The rows are saved in the project (an older project loads with the defaults for rows 1 and 2); snapshots do not take them.
+**F5 to F8 are the four rows' knobs.** A tap on one gives the encoder that knob, and a tap on a pad of a row moves the encoder to that row's knob too, so you can tap a value and then fine-tune it with the encoder or Up and Down. **Give a row another knob:** hold its F key (F5 to F8) and press **Up** or **Down**: the row takes the next or previous knob of the list of every knob that can be recorded (the sound page's, then the delay and distortion, MODDED's NOTES and TONE, GROWL's, and TRACT's last), and the toast names it (ROW 2: GROWL / FORMANT Q). With **Shift** it jumps to the first knob of the next or previous family. The set keeps what you chose (its key then says OWN 1 instead of SET 1). **Shift + F1 to F4 is FACTORY 1 to 4**: that set goes back to the knobs in the table. Shift + F7 and Shift + F8 are REDO and UNDO of the line, as on PERFORM. The sets are saved in the project (a project saved by an older version loads with the factory sets 2 to 4, and its own set 1); snapshots do not take them. Rows 3 and 4 of the set in use are HOME's FILT rows.
 
 **Rec** records the taps while the line plays. Each knob a row holds takes a lane of the pattern the first time it is tapped with REC on, so the limit of eight lanes applies: a ninth knob says "8 LANES USED: CLEAR LOCKS (SETUP)" and its tap still sounds. Rows 3 and 4 write the lanes HOME's FILT does.
 
-The colour buttons are PERFORM's four actions here too, and the F row is the sound page: it shows the knobs and an F key latches one for the encoder. HELP (Shift + Config) shows the page's pad map.
+The colour buttons are PERFORM's four actions here too. HELP (Shift + Config) shows the page's pad map.
 
 ### PERFORM SETUP
 

@@ -50,7 +50,7 @@ inline constexpr unsigned kMaxSound = 128;                  // SND entries a Pro
 
 inline constexpr std::uint16_t kVersion = 0x0100;      // every chunk's version: major 1, minor 0
 inline constexpr std::uint16_t kHeadVersion = 0x0101;  // HEAD's: minor 1 added the save counter
-inline constexpr std::uint16_t kPerfVersion = 0x0101;  // PERF's: minor 1 added the two KNOBS rows (five ladder rows; minor 0 had three, and a reader of it stops after them)
+inline constexpr std::uint16_t kPerfVersion = 0x0102;  // PERF's: minor 1 added the two KNOBS rows (five ladder rows; minor 0 had three, and a reader of it stops after them); minor 2 the KNOBS sets 2..4 and the set in use (KN3)
 inline constexpr unsigned kMajor = 1;
 inline constexpr char kSongId[5] = "SONG";
 
@@ -105,6 +105,12 @@ struct ProjectState {
   std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
   // The ladder rows (PERF chunk, appended after the buttons: target u8 and id u8 for each of kLadderRows; a file without them gives the defaults)
   LaneRef ladder[kLadderRows] = {kDefaultLadder[0], kDefaultLadder[1], kDefaultLadder[2], kDefaultLadder[3], kDefaultLadder[4]};
+  // KN3, after the ladder rows (PERF 1.2: the set in use u8, then sets 2..4 of four rows, target u8 and id u8 each). `ladder` is KNOBS' set 1 in the file's slot order (kKnobsRowId: slots 3, 4, 0, 1); a file
+  // without these fields gives the factory sets 2..4 and set 1 in use.
+  LaneRef sets[kKnobSets - 1][kKnobsPerSet] = {{kKnobFactory.row[1][0], kKnobFactory.row[1][1], kKnobFactory.row[1][2], kKnobFactory.row[1][3]},
+                                               {kKnobFactory.row[2][0], kKnobFactory.row[2][1], kKnobFactory.row[2][2], kKnobFactory.row[2][3]},
+                                               {kKnobFactory.row[3][0], kKnobFactory.row[3][1], kKnobFactory.row[3][2], kKnobFactory.row[3][3]}};
+  std::uint8_t knob_set = 0;
   // SONG (canonical: seq::song_normalize() has been applied; an empty song unless the file has the chunk)
   seq::Song song = [] {
     seq::Song s;
