@@ -3,7 +3,7 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
-## Unreleased
+## v0.10.0 (2026-11-13), a pre-release
 
 ### What you can do that you could not before
 
