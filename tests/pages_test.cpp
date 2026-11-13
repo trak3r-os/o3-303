@@ -94,7 +94,7 @@ TEST_CASE("pages: the global table (SOUND, PERF SETUP) and the INSTRUMENT screen
     unsigned blank_mask;  // the free keys
     std::size_t max_label;
   };
-  const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0, 8}, {&kFxPage, 0, 9},
+  const Shown shown[] = {{&page_at(kPageSound), 0, 8},  {&page_at(kPagePerfSetup), 0x0Fu, 8}, {&kFxPage, 0, 9},
                          {&kNotesPage, 1u << 7, 9},     {&kTonePage, 1u << 7, 9},
                          {&kTractPage, 0, 9},           {&kGrowlPage, 0, 9},     {&kWobblePage, (1u << 5) | (1u << 6), 9}};
   for (const Shown& sh : shown) {
@@ -210,23 +210,14 @@ TEST_CASE("pages: a motion point is scaled with the target's own descriptor: a u
   CHECK(rig.controls.to_point(rig.engine, Entry{Item::Tempo, 0, nullptr}, 120.0f) == 0);
 }
 
-TEST_CASE("pages: PERFORM SETUP's page (the four assignments, FILL, the freeze's length) (F5 FILL's variant, F6 the freeze's length)") {
+TEST_CASE("pages: PERFORM SETUP's page (F1..F4 blank since PF1, FILL, the freeze's length) (F5 FILL's variant, F6 the freeze's length)") {
   Rig rig;
-  // F1..F4: Note, Instr, Vol, Fx with the defaults of C4.
-  const char* const want_label[4] = {"NOTE", "INSTR", "VOL", "FX"};
-  const char* const want_text[4] = {"MUTE", "ACC ALL", "FILL", "FREEZE"};
+  // F1..F4 are blank: the colour keys are the sounds' keys, with or without Shift (PF1).
   for (unsigned b = 0; b < 4; ++b) {
-    CHECK(std::strcmp(rig.controls.label(rig.engine, rig.entry(page_at(kPagePerfSetup), b)), want_label[b]) == 0);
-    CHECK(rig.text(rig.entry(page_at(kPagePerfSetup), b)) == want_text[b]);
+    const Entry e = rig.entry(page_at(kPagePerfSetup), b);
+    CHECK(e.item == Item::Blank);
+    CHECK(rig.controls.desc(rig.engine, e) == nullptr);
   }
-  Entry vol = rig.entry(page_at(kPagePerfSetup), 2);
-  rig.controls.step(rig.engine, vol, -1, false);  // FILL -> OCT UP
-  CHECK(rig.wiring.perf[2] == static_cast<std::uint8_t>(PerfAction::OctUp));
-  CHECK(rig.text(vol) == "OCT UP");
-  rig.controls.set(rig.engine, vol, 2.0f);
-  CHECK(rig.text(vol) == "SLD ALL");
-  rig.controls.set(rig.engine, vol, 99.0f);  // clamped to the last action
-  CHECK(static_cast<unsigned>(rig.wiring.perf[2]) == kPerfActionCount - 1u);
   // F5: what FILL plays, through the sequencer.
   const Entry fill = rig.entry(page_at(kPagePerfSetup), 4);
   CHECK(rig.text(fill) == "MUTATE");
@@ -252,6 +243,10 @@ TEST_CASE("pages: PERFORM SETUP's page (the four assignments, FILL, the freeze's
   CHECK(rig.controls.get(rig.engine, len) == 2.0f);
   // Every entry has a descriptor and a label that fits.
   for (unsigned k = 0; k < kKeys; ++k) {
+    if (k < 4) {
+      CHECK(rig.entry(page_at(kPagePerfSetup), k).item == Item::Blank);  // F1..F4 carried the colour keys' actions until PF1
+      continue;
+    }
     CHECK(rig.controls.desc(rig.engine, setup_page().entry[k]) != nullptr);
     CHECK(rig.controls.desc(rig.engine, rig.entry(page_at(kPagePerfSetup), k)) != nullptr);  // F5..F8: FILL, the freeze's length, ROLL, STOP
   }

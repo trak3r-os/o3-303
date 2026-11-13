@@ -368,7 +368,7 @@ TEST_CASE("project service: a project from a newer o3-303 is never written over"
   s.shift_file();
   s.settle();
   Bytes live = s.read("UNTITLED/live.o3a");
-  live[20] = 3;  // HEAD's version: major 3
+  live[20] = static_cast<std::uint8_t>(project::kMajor + 1u);  // HEAD's version: a major past this build's
   fix_crc(live);
   s.write("UNTITLED/live.o3a", live);
 
@@ -444,7 +444,7 @@ TEST_CASE("project service: a project whose PATS is of another major is damaged:
   Bytes live = s.read("UNTITLED/live.o3a");
   const std::size_t pats = find_chunk(live, "PATS");
   REQUIRE(pats != 0);
-  live[pats + 8] = 3;  // PATS's version: major 3, this build does not read it
+  live[pats + 8] = static_cast<std::uint8_t>(project::kMajor + 1u);  // PATS's version: a major past this build's, which it does not read
   fix_crc(live);
   s.write("UNTITLED/live.o3a", live);
 
@@ -690,7 +690,7 @@ TEST_CASE("project service: small_crc follows the small chunks and ignores the p
   sn.snap[1][1] = 0.5f;
   CHECK(project::small_crc(sn) != base);
   project::ProjectState p = a;
-  p.perf[0] = static_cast<std::uint8_t>(p.perf[0] + 1u);
+  p.knob_set = static_cast<std::uint8_t>(p.knob_set + 1u);
   CHECK(project::small_crc(p) != base);
   // The patterns are not in it: an edit of one leaves it as it was.
   edit_note(0, 3);

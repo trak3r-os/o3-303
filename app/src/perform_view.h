@@ -21,23 +21,15 @@ struct PadLamp {
   bool latched = false;    // an action latched: drawn with a frame
 };
 
-// What one of the four colour buttons does now: the chip under the lamps (the PERF page assigns it).
-enum class ChipState : std::uint8_t { Idle, Held, Latched };
-struct PerformChip {
-  char name[6] = "";     // "NOTE", "INSTR", "VOL", "FX"
-  char action[10] = "";  // the assigned action's name ("MUTE", "ACC ALL"); "" when none
-  ChipState state = ChipState::Idle;
-};
-
 struct PerformView {
   PadLamp lamp[o3sdk::app::kPadCount];
-  // KNOBS (PERFORM's second page): all four rows are ladders. `knobs` says so; each row is named "ROW n" and says its knob (`row_knob`) and where it stands (`row_value`, "62 %").
-  bool knobs = false;
+  // A row that is a ladder of one knob (all four on KNOBS; PERFORM's rows 3 and 4 when SEL3 / SEL4 picked a knob, PF1): `ladder[row]`. Such a row is named "ROW n" and says its knob
+  // (`row_knob`) and where it stands (`row_value`, "62 %").
+  bool ladder[4] = {};
   char row_knob[4][16] = {};
   char row_value[4][12] = {};
   char row_name[4][12] = {};      // the four rows' names ("LINE+TONE", "REPEAT" or "SNAPSHOTS" on PERFORM SETUP, "WOBBLE", "KEYS")
   char row_caption[4][16] = {};   // under each name what the row is now ("BEAT FREEZE", "PLAY VOICE" or "TRANSPOSE"); "" for none
-  PerformChip chip[kPerfButtons];  // filled by PerformScreen::fill_chips(), for the drawings that show them
 };
 
 // A lamp's brightness in four tones, from the pad's LED level: off is an outline alone (classic) or a dark cap, dim a grey one, low and mid (two levels) one blue, on the green one. One rule

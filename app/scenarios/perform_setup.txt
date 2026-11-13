@@ -1,7 +1,7 @@
-# PERFORM SETUP (docs/UX-303.md 5.4, slice P2): Shift + Perform opens it. Eight knobs over an empty panel with a reminder of row 1: F1..F4 what each colour
-# button does, F5 what FILL plays, F6 the freeze's length, F7 ROLL (the rate and the accelerate in one list: 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR; BUILD
+# PERFORM SETUP (docs/UX-303.md 5.4, slice P2): Shift + Perform opens it. Eight knobs over an empty panel with a reminder of row 1: F1..F4 are blank (the colour keys are the sounds' switches since PF1),
+# F5 what FILL plays, F6 the freeze's length, F7 ROLL (the rate and the accelerate in one list: 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR; BUILD
 # starts at 1/8) and F8 STOP's time. No Shift row (Shift held shows the same knobs); row 2 of the pads is the snapshots and NEW, VARY, UNDO, REDO (H1), the rest PERFORM's. The WAV is the evidence for ROLL:
-# the pattern plays, the Note button (made ROLL here) is held at 1/32, then at BLD BAR, which starts slow and speeds up every bar.
+# the pattern plays, the RPT 32 pad is held, then BLD BAR, which starts slow and speeds up every bar.
 wait 300
 record on
 press shift
@@ -46,38 +46,20 @@ press shift
 wait 60
 snap 10_shift_held_same_knobs
 release shift
-# Note becomes ROLL (F1: the eleven actions, down to the first, then up eight); on to PERFORM and play: ROLL at 1/32, then BLD BAR.
-tap f1
-turn -16
-turn 8
-wait 60
-snap 11_note_is_roll
-tap f7
-turn -3
+# On to PERFORM and play: the row-2 pads are the roll: RPT 32 (pad 15) held, then BLD BAR (pad 18), which starts slow and speeds up every bar.
 tap performance
 wait 100
 tap play
 wait 1500
-press shift
-press note
-release shift
+paddown 15
 wait 700
-snap 12_roll_thirty_second_held
-release note
+snap 11_roll_thirty_second_held
+padup 15
 wait 700
-press shift
-tap performance
-release shift
-tap f7
-turn 3
-tap performance
-wait 100
-press shift
-press note
-release shift
+paddown 18
 wait 2200
-snap 13_roll_build_bar_held
-release note
+snap 12_roll_build_bar_held
+padup 18
 wait 800
 tap play
 wait 300

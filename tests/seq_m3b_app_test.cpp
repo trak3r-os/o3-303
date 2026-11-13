@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The M3b sequencer features as the app wires them (docs/M3B-PLAN.md; app/seq/tests/seq_m3b_test.cpp has the engine-level tests): the
-// lanes and slews reach the distortion, the delay and the mixer, and FILL (the Vol button) plays the variant the PERF page chose. The checks
+// lanes and slews reach the distortion, the delay and the mixer, and FILL (PERFORM's FILL pad) plays the variant the PERF page chose. The checks
 // read the sequencer's readback and the engine's values.
 #include <doctest/doctest.h>
 
@@ -53,15 +53,25 @@ struct Hands {
     tap(b);
     release(Button::Shift);
   }
-  // A PERFORM action held (E1b): Shift + the colour key, Shift let go at once, the key kept down; `action_release` waits past the tap time and lets the key go.
-  void action_press(Button b) {
-    press(Button::Shift);
-    press(b);
-    release(Button::Shift);
+  // PERFORM's FILL pad (row 1, col 5): held while the pad is down, Shift + a press latches it, a tap on a latched one lets it go (PF1: the colour keys carry no action).
+  static constexpr unsigned kFillPad = app::pad_at(0, 5);
+  void fill_down() {
+    h->pad_down(kFillPad);
+    h->run_ms(2);
   }
-  void action_release(Button b) {
-    h->run_ms(310);
-    release(b);
+  void fill_up() {
+    h->pad_up(kFillPad);
+    h->run_ms(2);
+  }
+  void fill_tap() {
+    fill_down();
+    h->run_ms(10);
+    fill_up();
+  }
+  void fill_latch() {
+    press(Button::Shift);
+    fill_tap();
+    release(Button::Shift);
   }
 };
 
@@ -113,7 +123,7 @@ TEST_CASE("the app gives the sequencer the distortion, the delay and the mixer: 
   CHECK(e.param(kVoice, AcidVoice::Cutoff) == doctest::Approx(1000.0f));
 }
 
-TEST_CASE("FILL is Shift + the Vol button (C4's default; E1b: Shift + a colour key runs its PERFORM action on every screen) and its variant is PERFORM SETUP's F5; the demo line's FILL conditions follow it") {
+TEST_CASE("FILL is PERFORM's FILL pad (held; Shift + a press latches) and its variant is PERFORM SETUP's F5; the demo line's FILL conditions follow it") {
   Hands hands;
   seq::Sequencer& s = app_sequencer();
   load_demo_line();
@@ -140,20 +150,20 @@ TEST_CASE("FILL is Shift + the Vol button (C4's default; E1b: Shift + a colour k
   hands.tap(Button::Play);
   hands.h->run_ms(300);
   CHECK_FALSE(s.playhead().fill);
-  hands.action_press(Button::Vol);
+  hands.fill_down();
   CHECK(s.fill_held());
   hands.h->run_ms(400);  // a step is 120 ms at 125 BPM: the variant starts at the next one
   CHECK(s.playhead().fill);
-  hands.action_release(Button::Vol);
+  hands.fill_up();
   CHECK_FALSE(s.fill_held());
   hands.h->run_ms(400);
   CHECK_FALSE(s.playhead().fill);
   // Shift latches it; Shift again lets it go.
-  hands.shift_tap(Button::Vol);
+  hands.fill_latch();
   CHECK(s.fill_held());
   hands.h->run_ms(400);
   CHECK(s.playhead().fill);
-  hands.shift_tap(Button::Vol);
+  hands.fill_tap();
   CHECK_FALSE(s.fill_held());
   hands.tap(Button::Play);
 }

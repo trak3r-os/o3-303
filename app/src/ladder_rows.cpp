@@ -270,6 +270,15 @@ unsigned ladder_knob_count(const Controls& controls) noexcept {
 
 Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept { return walk_at(controls, index, nullptr); }
 
+Entry ladder_knob_at_family(const Controls& controls, unsigned index, const char** family) noexcept {
+  unsigned fam = 0;
+  const Entry en = walk_at(controls, index, nullptr, &fam);
+  if (family != nullptr) {
+    *family = walk_page(fam).name;
+  }
+  return en;
+}
+
 Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family) noexcept {
   const unsigned n = ladder_knob_count(controls);
   if (row >= kLadderRows || n == 0u) {

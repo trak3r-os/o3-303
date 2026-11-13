@@ -46,7 +46,6 @@ constexpr Entry growl(Growl::Param id, const char* label) noexcept { return Entr
 constexpr Entry tract(TractFx::Param id, const char* label) noexcept { return Entry{Item::Tract, static_cast<std::uint16_t>(id), label}; }
 constexpr Entry wobble(WobbleField field, const char* label) noexcept { return Entry{Item::Wobble, static_cast<std::uint16_t>(field), label}; }
 constexpr Entry app_item(Item item, const char* label = nullptr) noexcept { return Entry{item, 0, label}; }
-constexpr Entry perf(unsigned button, const char* label) noexcept { return Entry{Item::Perf, static_cast<std::uint16_t>(button), label}; }
 
 // The global table: HOME's knobs (SOUND, on Rig::sound_keys) and PERFORM SETUP's keys. The INSTRUMENT, MODDED, GROWL and WOBBLE pages are the five
 // tables below (pages.h), one each; the screens take their keys from them, in this order.
@@ -54,10 +53,10 @@ constexpr Page kPages[kPageCount] = {
     {"SOUND",
      {voice(AcidVoice::Cutoff), voice(AcidVoice::Reso), voice(AcidVoice::EnvMod), voice(AcidVoice::Decay), voice(AcidVoice::Accent), voice(AcidVoice::Wave),
       voice(AcidVoice::Tune), app_item(Item::Level, "VOLUME")}},
-    // PERFORM SETUP (UX-303 5.4): F1..F4 the colour buttons' assignments (the button's name, its action as the value), F5 what FILL plays, F6 the beat
+    // PERFORM SETUP (UX-303 5.4): F1..F4 are blank (the colour keys are the sounds' since E1b and PF1), F5 what FILL plays, F6 the beat
     // freeze's length, F7 the ROLL mode (the rate and the accelerate in one list), F8 STOP's time.
     {"PERF SETUP",
-     {perf(0, "NOTE"), perf(1, "INSTR"), perf(2, "VOL"), perf(3, "FX"), app_item(Item::FillVariant, "FILL"), freeze(Freeze::Length, "FREEZE"),
+     {Entry{}, Entry{}, Entry{}, Entry{}, app_item(Item::FillVariant, "FILL"), freeze(Freeze::Length, "FREEZE"),
       app_item(Item::RollMode, "ROLL"), freeze(Freeze::StopTime, "STOP")}},
 };
 
@@ -135,9 +134,6 @@ constexpr const char* kRollModeNames[kRollModeCount] = {"1/8", "1/16", "1/32", "
 constexpr core::ParamDesc kRollMode = {"ROLL", "", kRollModeNames, nullptr, 0.0f, static_cast<float>(kRollModeCount - 1u), 1.0f,
                                        static_cast<std::uint16_t>(kRollModeCount - 1u), 1, static_cast<std::uint8_t>(kRollModeCount), ParamUnit::Enum,
                                        ParamCurve::Linear, 0, 0};
-constexpr core::ParamDesc kPerfAssign = {"ACTION", "", kPerfActionNames, nullptr, 0.0f, static_cast<float>(kPerfActionCount - 1u), 0.0f,
-                                         static_cast<std::uint16_t>(kPerfActionCount - 1u), 1, static_cast<std::uint8_t>(kPerfActionCount),
-                                         ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 
 // The wobble's settings (M3c W); the order is WobbleField's. Rate and shape are the sequencer's own tables (seq/wobble.h).
 constexpr const char* kOffOnNames[] = {"OFF", "ON"};
@@ -263,8 +259,6 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return e.param_desc(w_->freeze, entry.id);
     case Item::FillVariant:
       return &kFillVariant;
-    case Item::Perf:
-      return entry.id < kPerfButtons ? &kPerfAssign : nullptr;
     case Item::RollMode:
       return &kRollMode;
     case Item::Growl:
@@ -329,8 +323,6 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return e.param(w_->freeze, entry.id);
     case Item::FillVariant:
       return w_->seq != nullptr ? static_cast<float>(w_->seq->fill_variant()) : 0.0f;
-    case Item::Perf:
-      return entry.id < kPerfButtons ? static_cast<float>(w_->perf[entry.id]) : 0.0f;
     case Item::RollMode: {
       const int accel = round_to_int(e.param(w_->freeze, Freeze::Accelerate));
       if (accel > 0) {  // BUILD BEAT (Accelerate BEAT) or BUILD BAR
@@ -445,11 +437,6 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
     case Item::FillVariant:
       if (w_->seq != nullptr) {
         w_->seq->set_fill_variant(static_cast<seq::FillVariant>(round_to_int(v)));
-      }
-      break;
-    case Item::Perf:
-      if (entry.id < kPerfButtons) {
-        w_->perf[entry.id] = static_cast<std::uint8_t>(round_to_int(v));
       }
       break;
     case Item::RollMode: {

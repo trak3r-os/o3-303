@@ -40,7 +40,7 @@ constexpr unsigned kGenPayload = 2 + 7;
 constexpr unsigned kSoundEntryBytes = 8;  // target u8, 0 u8, id u16, value f32
 constexpr unsigned kSnapHeader = 2 + 3;
 constexpr unsigned kKnobSetBytes = 1 + kKnobSets * kKnobsPerSet * 2;  // PERF: the set in use, then every set (target u8, id u8 a row)
-constexpr unsigned kPerfPayload = 2 + kPerfButtons + kKnobSetBytes;
+constexpr unsigned kPerfPayload = 2 + kKnobSetBytes;
 constexpr unsigned kSongPayload = 2 + 1 + seq::kSongRows * sizeof(seq::SongRow);  // version, length, the rows (at most)
 constexpr unsigned kSongReserve = 4096;  // room kept for the SONG chunk (kSongPayload and its header, 267 bytes, fit it many times over)
 static_assert(8 + kSongPayload + (kSongPayload & 1u) <= kSongReserve, "the SONG chunk must fit its reserve");
@@ -431,10 +431,6 @@ bool read_perf(chunk::Fields& f, ProjectState& out) noexcept {
   if (f.left() < kPerfPayload - 2u) {
     return false;
   }
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    const std::uint8_t a = f.u8();
-    out.perf[b] = a < kPerfActionCount ? a : kDefaultPerf[b];
-  }
   const std::uint8_t use = f.u8();
   out.knob_set = use < kKnobSets ? use : 0u;
   for (unsigned s = 0; s < kKnobSets; ++s) {
@@ -505,9 +501,6 @@ void gather(const Rig& rig, const dsp::Engine& e, ProjectState& out) noexcept {
     }
   }
 
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    out.perf[b] = w.perf[b];
-  }
   out.sets = w.knob_sets;  // the store of every set; w.ladder is the live copy of the set in use
   out.knob_set = w.knob_set;
   if (rig.bank != nullptr) {
@@ -545,9 +538,6 @@ bool write_tail(chunk::Writer& w, const ProjectState& s) noexcept {
   ok = ok && w.end();
 
   ok = ok && w.begin("PERF") && w.u16(kVersion);
-  for (unsigned b = 0; b < kPerfButtons && ok; ++b) {
-    ok = w.u8(s.perf[b]);
-  }
   ok = ok && w.u8(s.knob_set);
   for (unsigned t = 0; t < kKnobSets; ++t) {
     for (unsigned i = 0; i < kKnobsPerSet && ok; ++i) {
@@ -831,9 +821,6 @@ bool apply(Rig& rig, dsp::Engine& e, const ProjectState& s, bool patterns) noexc
 
   (void)e.set_tempo(s.tempo_mbpm);
   w.gen = s.gen;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    w.perf[b] = s.perf[b] < kPerfActionCount ? s.perf[b] : kDefaultPerf[b];
-  }
   w.knob_sets = s.sets;
   knob_set_use(w, s.knob_set);
 

@@ -3,6 +3,23 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## Unreleased
+
+### What you can do that you could not before
+
+- **The sounds' state is on the screen (PF1).** Where the title PERFORM was, four chips MOD, GRL, TRC and WOB show MODDED, GROWL, TRACT and WOBBLE: filled in the sound's colour when on, a dim
+  outline when off. On the CLASSIC drawing PERFORM has a band of four big boxes (MODDED, GROWL, TRACT, WOBBLE) under the pads.
+- **Rows 3 and 4 of PERFORM can play something else (PF1).** The two spare pads of row 2 (columns 11 and 12) step what row 3 and row 4 play: a tap steps forward, Shift + a tap steps back, and a toast
+  names it. Row 3 starts as the wobble rates and row 4 as the keys; both can also be the other one or any knob of PERFORM KNOBS (its ladder: a pad is a value of that knob). The lamps follow, the
+  keys still record and transpose on either row, and the choice lives until power-off (it is not saved with the project). Both rows may play the same thing.
+
+### What changed
+
+- **The colour buttons are the sounds only (PF1).** Note, Instr, Vol and Fx flip MODDED, GROWL, TRACT and WOBBLE, with or without Shift. They no longer run MUTE, ACC ALL, FILL or FREEZE (those
+  stay on PERFORM's pads), so PERFORM SETUP's F1 to F4 are blank. The FRZ pad always freezes at 1/4, so PERFORM SETUP's F6 (freeze length) has no effect for now.
+- **Project file: format 3.0.** The four bytes that held the colour buttons' assignments are gone from the PERF chunk. **Projects saved by v0.9.0 or earlier do not load**: they are refused
+  with PROJECT FROM AN OLDER O3-303, nothing of them is read and the file on the card is left untouched. There is no converter. The unit's settings and MIDI bindings (`system.o3s`) are not affected.
+
 ## v0.9.0 (2026-11-12), a pre-release
 
 ### What you can do that you could not before

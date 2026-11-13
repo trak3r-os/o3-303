@@ -56,21 +56,33 @@ struct Hands {
     tap(b);
     release(Button::Shift);
   }
-  // A PERFORM action held (E1b): Shift + the colour key, Shift let go at once, the key kept down; `action_release` waits past the tap time (a shorter press latches).
-  void action_press(Button b) {
+  // PERFORM's FRZ 1/4 pad (row 2, col 0): the beat freeze at a quarter of a bar. Held while the pad is down; Shift + a press latches it (PF1: the colour keys carry no action).
+  static constexpr unsigned kFrzPad = app::pad_at(1, 0);
+  void frz_down() {
+    h->pad_down(kFrzPad);
+    h->run_ms(2);
+  }
+  void frz_up() {
+    h->pad_up(kFrzPad);
+    h->run_ms(2);
+  }
+  void frz_latch() {
     press(Button::Shift);
-    press(b);
+    frz_down();
+    h->run_ms(10);
+    frz_up();
     release(Button::Shift);
   }
-  void action_release(Button b) {
-    h->run_ms(310);
-    release(b);
+  void frz_tap() {
+    frz_down();
+    h->run_ms(10);
+    frz_up();
   }
   void turn(int d) {
     h->turn(d);
     h->run_ms(2);
   }
-  // PERFORM, where Note / Instr / Vol / Fx are the live actions (on the 303 screen they are the drawer's rows). From the 303 screen.
+  // PERFORM, whose pads are the live actions. From the 303 screen.
   void to_perform() { tap(Button::Performance); }
   // The beat freeze's Length from PERFORM SETUP (F6, FREEZE): from the 303 screen Shift + Perform (SETUP), and Perform once more for PERFORM. The encoder walks 1/4, 1/8,
   // 1/16 and stops at the ends.
@@ -86,8 +98,8 @@ struct Hands {
   std::size_t frames() const { return h->audio().size() / 2u; }
 };
 
-// One run of the app at 125 BPM (the factory line A01): the Length chosen on PERFORM SETUP (when it is not the default 1/8), Play, 1.5 s,
-// then Fx held for `hold_ms` (or, with `freeze` false, the same time passing without the key), then 1.2 s more. The interleaved samples
+// One run of the app at 125 BPM (the factory line A01): Play, 1.5 s, then the FRZ 1/4 pad held for `hold_ms` (or, with `freeze` false, the same time
+// passing without the pad), then 1.2 s more. The interleaved samples
 // and the frames of the key's press and release. The two kinds of run take the same time, so their samples line up.
 struct Run {
   std::vector<std::int16_t> audio;
@@ -95,23 +107,20 @@ struct Run {
   std::size_t release_frame = 0;
 };
 
-Run play_run(bool freeze, unsigned hold_ms = 900, Freeze::LengthValue length = Freeze::Eighth) {
+Run play_run(bool freeze, unsigned hold_ms = 900) {
   Hands t;
   t.h->record(true);
   t.to_perform();
-  if (length != Freeze::Eighth) {
-    t.choose_length(length);
-  }
   t.tap(Button::Play);
   t.wait(1500);
   Run r;
   r.press_frame = t.frames();
   if (freeze) {
-    t.action_press(Button::Fx);  // Shift + Fx, Shift let go (6 ms), held past the tap time
+    t.frz_down();
     t.wait(hold_ms);
-    t.release(Button::Fx);
+    t.frz_up();
   } else {
-    t.wait(6 + hold_ms + 2);  // the press takes 6 ms, the release 2
+    t.wait(2 + hold_ms + 2);  // the pad's press takes 2 ms (PF1: it was the colour key's 6), the release 2
   }
   r.release_frame = t.frames();
   t.wait(1200);
@@ -175,27 +184,32 @@ TEST_CASE("one voice: the engine has the voice, the distortion, the delay, the f
   CHECK(others == 0.0f);
 }
 
-TEST_CASE("freeze: off at boot with the unit's defaults; Shift + Fx is FREEZE on every screen: held = on, Shift + tap latches; the Song key does nothing now") {
+TEST_CASE("freeze: off at boot with the unit's defaults; the FRZ 1/4 pad is FREEZE: held = on, Shift + tap latches; the Fx key and the Song key do nothing to it") {
   Hands t;
   t.to_perform();
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   CHECK(t.param(kFreeze, Freeze::Length) == 1.0f);  // 1/8 of a bar
   CHECK(t.param(kFreeze, Freeze::Mix) == 1.0f);
-  t.action_press(Button::Fx);
+  t.frz_down();
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);
-  t.action_release(Button::Fx);
+  CHECK(t.param(kFreeze, Freeze::Length) == 0.0f);  // the FRZ 1/4 pad is the unit's 1/4
+  t.frz_up();
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
+  // The Fx key flips WOBBLE now (PF1) and touches no freeze, with or without Shift.
+  t.tap(Button::Fx);
+  CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
+  t.tap(Button::Fx);
   // The provisional Song key is gone (M3b ui-1): it opens SONG (SG2) and freezes nothing, with or without Shift; back on PERFORM for the rest.
   t.press(Button::Song);
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   t.release(Button::Song);
   t.shift_tap(Button::Song);
-  CHECK(t.param(kFreeze, Freeze::Length) == 1.0f);
+  CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   t.to_perform();
-  // Shift + Fx latches the freeze, again unlatches; the button's own release does not undo the latch.
-  t.shift_tap(Button::Fx);
+  // Shift + the pad latches the freeze, a tap on the latched pad unlatches it.
+  t.frz_latch();
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);
-  t.shift_tap(Button::Fx);
+  t.frz_tap();
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   // The Length is PERFORM SETUP's F6: 1/8 -> 1/16 -> 1/4 -> 1/8, and the freeze never turns on by it.
   const float want[] = {2.0f, 0.0f, 1.0f};
@@ -205,13 +219,13 @@ TEST_CASE("freeze: off at boot with the unit's defaults; Shift + Fx is FREEZE on
     CHECK(t.param(kFreeze, Freeze::Length) == want[i]);
     CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   }
-  // Fx pressed with Shift held, then released after Shift: the freeze was latched, not held; the release leaves it as it is.
+  // The pad pressed with Shift held, then Shift let go before the pad: the freeze was latched, not held; the release leaves it as it is.
   t.press(Button::Shift);
-  t.press(Button::Fx);
+  t.frz_down();
   t.release(Button::Shift);
-  t.release(Button::Fx);
+  t.frz_up();
   CHECK(t.param(kFreeze, Freeze::Active) == 1.0f);
-  t.shift_tap(Button::Fx);
+  t.frz_tap();
   CHECK(t.param(kFreeze, Freeze::Active) == 0.0f);
   // A run starts with it off again.
   Hands again;
@@ -219,30 +233,39 @@ TEST_CASE("freeze: off at boot with the unit's defaults; Shift + Fx is FREEZE on
   CHECK(again.param(kFreeze, Freeze::Length) == 1.0f);
 }
 
-TEST_CASE("freeze: off it is invisible; held it loops the master at 1/8 of a bar (125 BPM: 10,584 frames) and then the run is the unfrozen one") {
+TEST_CASE("freeze: off it is invisible; held (the FRZ 1/4 pad) it loops the master at a quarter of a bar (125 BPM: 21,168 frames) and then the run is the unfrozen one") {
   const Run dry = play_run(false);
   const Run frozen = play_run(true);
   NEED(dry.audio.size() == frozen.audio.size());
   NEED(dry.press_frame == frozen.press_frame);
   const std::size_t n0 = dry.press_frame;
   const std::size_t n1 = frozen.release_frame;
-  // Until the key, the same run; after it (and the 5 ms exit) the same run again: the freeze touches nothing else.
+  // Until the pad, the same run; after it (and the 5 ms exit) the same run again: the freeze touches nothing else.
   CHECK(same(dry.audio, frozen.audio, 0, n0));
   CHECK(same(dry.audio, frozen.audio, n1 + 400, dry.audio.size() / 2u));
   // Held, it differs from the run, and it repeats at the loop: after the entry crossfade, one loop later, and every loop after.
   CHECK_FALSE(same(dry.audio, frozen.audio, n0 + 800, n1));
-  CHECK(repeats(frozen.audio, n0 + 800, n1 - 10584u - 400u, 10584));
-  CHECK_FALSE(repeats(dry.audio, n0 + 800, n1 - 10584u - 400u, 10584));  // the pattern itself does not repeat at 1/8 of a bar here
-  CHECK_FALSE(repeats(frozen.audio, n0 + 800, n1 - 10584u - 400u, 10583));
+  CHECK(repeats(frozen.audio, n0 + 800, n1 - 21168u - 400u, 21168));
+  CHECK_FALSE(repeats(dry.audio, n0 + 800, n1 - 21168u - 400u, 21168));  // the pattern itself does not repeat at a quarter of a bar here
+  CHECK_FALSE(repeats(frozen.audio, n0 + 800, n1 - 21168u - 400u, 21167));
 }
 
-TEST_CASE("freeze: the Length is 1/4 or 1/16 of a bar after the PERFORM SETUP's FREEZE (F6) picks it") {
-  // 1/16 is 5,292 frames at 125 BPM, 1/4 a whole beat (21,168).
-  const Run sixteenth = play_run(true, 900, Freeze::Sixteenth);
-  CHECK(repeats(sixteenth.audio, sixteenth.press_frame + 800, sixteenth.release_frame - 5292u - 400u, 5292));
-  const Run quarter = play_run(true, 900, Freeze::Quarter);
-  CHECK(repeats(quarter.audio, quarter.press_frame + 800, quarter.release_frame - 21168u - 400u, 21168));
-  CHECK_FALSE(repeats(quarter.audio, quarter.press_frame + 800, quarter.release_frame - 21168u - 400u, 10584));
+TEST_CASE("freeze: the pad's quarter is not PERFORM SETUP's F6 Length: after F6 picks 1/16 the FRZ 1/4 pad still loops a quarter and writes the unit's 1/4") {
+  Hands t;
+  t.h->record(true);
+  t.to_perform();
+  t.choose_length(Freeze::Sixteenth);
+  CHECK(t.param(kFreeze, Freeze::Length) == 2.0f);
+  t.tap(Button::Play);
+  t.wait(1500);
+  const std::size_t p0 = t.frames();
+  t.frz_down();
+  t.wait(900);
+  const std::size_t p1 = t.frames();
+  CHECK(t.param(kFreeze, Freeze::Length) == 0.0f);
+  t.frz_up();
+  t.wait(300);
+  CHECK(repeats(t.h->audio(), p0 + 800, p1 - 21168u - 400u, 21168));
 }
 
 TEST_CASE("freeze: a tempo change while frozen leaves the loop; the next entry takes the new tempo") {
@@ -252,21 +275,21 @@ TEST_CASE("freeze: a tempo change while frozen leaves the loop; the next entry t
   t.tap(Button::Play);
   t.wait(1500);
   const std::size_t n0 = t.frames();
-  t.action_press(Button::Fx);
-  t.wait(400);
+  t.frz_down();
+  t.wait(600);
   (void)t.h->engine().set_tempo(200'000);  // from the main loop, as the encoder or a tap does
   t.wait(500);
   const std::size_t mid = t.frames();
-  t.release(Button::Fx);
+  t.frz_up();
   t.wait(300);
-  // At 125 BPM 1/8 is 10,584 frames; the loop went on at that length while the transport moved to 200 BPM.
-  CHECK(repeats(t.h->audio(), n0 + 800, mid - 10584u - 400u, 10584));
+  // At 125 BPM a quarter of a bar is 21,168 frames; the loop went on at that length while the transport moved to 200 BPM.
+  CHECK(repeats(t.h->audio(), n0 + 800, mid - 21168u - 400u, 21168));
   const std::size_t p2 = t.frames();
-  t.action_press(Button::Fx);
+  t.frz_down();
   t.wait(900);
   const std::size_t n2 = t.frames();
-  t.release(Button::Fx);
-  // 1/8 of a bar at 200 BPM: 6,615 frames.
-  CHECK(repeats(t.h->audio(), p2 + 800, n2 - 6615u - 400u, 6615));
-  CHECK_FALSE(repeats(t.h->audio(), p2 + 800, n2 - 6615u - 400u, 10584));
+  t.frz_up();
+  // A quarter of a bar at 200 BPM: 13,230 frames.
+  CHECK(repeats(t.h->audio(), p2 + 800, n2 - 13230u - 400u, 13230));
+  CHECK_FALSE(repeats(t.h->audio(), p2 + 800, n2 - 13230u - 400u, 21168));
 }

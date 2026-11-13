@@ -99,7 +99,7 @@ TEST_CASE("help texts: MODDED's summary says what ends STOCK and what does not (
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
   // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD four (ARM BARS SAVE DISCARD),
   // GROWL and TRACT eight (F8 is GAIN; the sound's on / off is a colour key), WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE five; MODDED NOTES names seven (the rest are empty wells).
-  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::PerformSetup, Id::Fx, Id::Library}) {
+  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::Fx, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
       CHECK_MESSAGE(text(id).fkey[k] != nullptr, text(id).name << " F" << k + 1);
     }
@@ -110,6 +110,9 @@ TEST_CASE("help texts: the F keys' texts are where there is something to add") {
     CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
     CHECK_MESSAGE((text(Id::ModdedTone).fkey[k] != nullptr) == (k < 5), "MODDED TONE F" << k + 1);
     CHECK_MESSAGE((text(Id::ModdedNotes).fkey[k] != nullptr) == (k < 7), "MODDED NOTES F" << k + 1);
+  }
+  for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    CHECK_MESSAGE((text(Id::PerformSetup).fkey[k] != nullptr) == (k >= 4), "PERFORM SETUP F" << k + 1);  // PF1: F1..F4 are blank
   }
   CHECK(text(Id::Master).fkey[3] != nullptr);
   CHECK(text(Id::Master).fkey[4] != nullptr);  // DLY MODE (S0 of docs/MODS-PLAN.md)
@@ -225,14 +228,14 @@ TEST_CASE("help pads: PERFORM's rows, FILE LIBRARY's slots, the list's rows and 
         used |= std::uint64_t{1} << pad;
       }
     }
-    CHECK(used == kAllPads - ((std::uint64_t{0x3} << 22) | (std::uint64_t{1} << 35)));  // the dark pads: row 2 columns 11 and 12, row 3 column 12
+    CHECK(used == kAllPads - (std::uint64_t{1} << 35));  // the dark pad: row 3 column 12 (SEL3 and SEL4, PF1, are on row 2 columns 11 and 12)
     check_pads_grouped(h, used, "perform pads");
     for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
       if ((used >> pad & 1u) == 0u) {
         CHECK_MESSAGE(h.pad_group[pad] == 0u, "pad " << pad << " is dark and has no group");
       }
     }
-    CHECK(h.group_count == 5);
+    CHECK(h.group_count == 6);
     // Row 1: the line and tone actions in the order of the pads (perform.h), ALL OFF last; row 2 the repeats; row 3 the wobble rates; row 4 the keys.
     for (unsigned col = 0; col < kLineActionCount; ++col) {
       CHECK(h.pad_group[col] == 1);
@@ -246,6 +249,10 @@ TEST_CASE("help pads: PERFORM's rows, FILE LIBRARY's slots, the list's rows and 
     CHECK(h.pad_group[12] == 3);
     CHECK(h.pad_group[21] == 3);
     CHECK(std::strcmp(h.pad_label[21], "REV") == 0);
+    CHECK(h.pad_group[22] == 6);
+    CHECK(h.pad_group[23] == 6);
+    CHECK(std::strcmp(h.pad_label[22], "SEL3") == 0);
+    CHECK(std::strcmp(h.pad_label[23], "SEL4") == 0);
     CHECK(h.pad_group[24] == 4);
     CHECK(h.pad_group[34] == 4);
     CHECK(h.pad_group[36] == 5);

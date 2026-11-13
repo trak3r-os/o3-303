@@ -343,9 +343,6 @@ TEST_CASE("frow: the header and a row of every kind and state fit the queue with
     frame::StatusView st;
     HeaderInputs hi;
     hi.title = "STEPS";
-    for (unsigned b = 0; b < kPerfButtons; ++b) {
-      hi.perf[b] = kDefaultPerf[b];
-    }
     std::strcpy(st.enc, "F1 CUTOFF");
     st.keys = true;
     st.rec = true;

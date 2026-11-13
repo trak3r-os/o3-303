@@ -42,9 +42,6 @@ void append(char* out, unsigned cap, const char* s) noexcept {
 void LiveActions::init(Rig& rig) noexcept {
   rig_ = &rig;
   controls_ = &rig.controls;
-  button_held_ = 0;
-  button_latched_ = 0;
-  button_pending_ = 0;
   pad_held_ = 0;
   pad_latched_ = 0;
   applied_ = 0;
@@ -57,9 +54,6 @@ void LiveActions::init(Rig& rig) noexcept {
   punch_cut_ = -1;
   punch_reso_ = false;
   cut_last_ = PerfAction::CutLo;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    seen_[b] = rig.wiring.perf[b];
-  }
   trnsp_ = false;
   ladder_slew_ms_ = kLadderSlewMs;
   live_trn_ = 0;
@@ -81,7 +75,6 @@ void LiveActions::update(app::Context& ctx) noexcept {
   if (snap_pending_ && ctx.uptime_ms() >= snap_deadline_ms_) {
     snap_finish(ctx, false);
   }
-  sync_assignments(ctx);
   if (rig_->wiring.wob_want >= 0) {  // a project load or a snapshot recall asked for the WOB latch (B5a): bring it there, as the key would
     const bool want = rig_->wiring.wob_want == 1;
     rig_->wiring.wob_want = -1;
@@ -92,8 +85,6 @@ void LiveActions::update(app::Context& ctx) noexcept {
 }
 
 void LiveActions::leave(app::Context& ctx) noexcept {
-  button_held_ = 0;
-  button_pending_ = 0;  // the release that follows is no tap
   pad_held_ = 0;
   rpt_.release_held();
   wob_.release_held();
@@ -104,38 +95,6 @@ void LiveActions::leave(app::Context& ctx) noexcept {
 std::uint32_t LiveActions::next_seed(app::Context& ctx) noexcept {
   seed_ = seed_ * 1664525u + 1013904223u + static_cast<std::uint32_t>(ctx.uptime_ms()) * 2654435761u;
   return seed_;
-}
-
-// ---- The four colour buttons (C4) -----------------------------------------------------------------------------------------------
-
-// Shift + a colour key (E1b): a tap (under kButtonTapMs) latches its action, or lets it go when it is latched (by this key or by a PERFORM pad); a hold is the action while it is down.
-void LiveActions::action_button_press(app::Context& ctx, unsigned button, std::uint64_t now_ms) noexcept {
-  if (button >= kPerfButtons) {
-    return;
-  }
-  const unsigned a = rig_->wiring.perf[button];
-  if (a < kPerfActionCount && latched(static_cast<PerfAction>(a))) {
-    unlatch(static_cast<PerfAction>(a));  // a latched action's key lets it go at once, and its release has nothing to give
-  } else {
-    button_held_ |= 1u << button;
-    button_pending_ |= 1u << button;
-    button_down_ms_[button] = static_cast<std::uint32_t>(now_ms);
-  }
-  apply(ctx);
-}
-
-void LiveActions::action_button_release(app::Context& ctx, unsigned button, std::uint64_t now_ms) noexcept {
-  if (button >= kPerfButtons) {
-    return;
-  }
-  const unsigned bit = 1u << button;
-  const bool tap = (button_pending_ & bit) != 0u && static_cast<std::uint32_t>(now_ms) - button_down_ms_[button] < kButtonTapMs;
-  button_pending_ &= ~bit;
-  button_held_ &= ~bit;
-  if (tap) {
-    button_latched_ |= bit;
-  }
-  apply(ctx);
 }
 
 // ---- PERFORM's pads -------------------------------------------------------------------------------------------------------------
@@ -152,11 +111,6 @@ bool LiveActions::latched(PerfAction a) const noexcept {
       return true;
     }
   }
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    if ((button_latched_ >> b & 1u) != 0u && rig_->wiring.perf[b] == static_cast<std::uint8_t>(a)) {
-      return true;
-    }
-  }
   return false;
 }
 
@@ -168,11 +122,6 @@ void LiveActions::unlatch(PerfAction a) noexcept {
   for (unsigned c = 0; c < kRepeatPadCount; ++c) {
     if (kRepeatPads[c].action == a && (rpt_.latched() >> c & 1u) != 0u) {
       rpt_.press(c, false);  // a latched column's press lets it go
-    }
-  }
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    if (rig_->wiring.perf[b] == static_cast<std::uint8_t>(a)) {
-      button_latched_ &= ~(1u << b);
     }
   }
 }
@@ -206,7 +155,6 @@ void LiveActions::toggle_latch(app::Context& ctx, PerfAction a) noexcept { actio
 
 void LiveActions::all_off(app::Context& ctx) noexcept {
   pad_latched_ = 0;
-  button_latched_ = 0;
   rpt_.clear_latched();
   wob_.clear_latched();
   rig_->seq->wobble_rate_override(seq::kWobbleRateNone);
@@ -241,7 +189,7 @@ void LiveActions::wobble_release(app::Context& ctx, unsigned col) noexcept {
   }
 }
 
-// What the buttons and pads held or latched say, put on the sequencer's flags, the delay send, the live transpose and the freeze. An action two
+// What the pads held or latched say, put on the sequencer's flags, the delay send, the live transpose and the freeze. An action two
 // of them carry is on while either is. The freeze is only written when it changes (a command to the engine each time would be noise).
 void LiveActions::apply(app::Context& ctx) noexcept {
   // The rate pads are actions too: an active column of row 2 is its action on, any active column of row 3 is the wobble.
@@ -261,7 +209,7 @@ void LiveActions::apply(app::Context& ctx) noexcept {
   if (wob_.latched() != 0u) {
     latched_bits = static_cast<std::uint16_t>(latched_bits | perf_bit(PerfAction::Wobble));
   }
-  const std::uint16_t on = live_actions_on(rig_->wiring.perf, button_held_, button_latched_, held, latched_bits);
+  const std::uint16_t on = live_actions_on(held, latched_bits);
   const auto is_set = [&](PerfAction a) { return (on & perf_bit(a)) != 0u; };
   seq::Sequencer& sequencer = *rig_->seq;
   sequencer.set_perf_flag(seq::kPerfMute, is_set(PerfAction::Mute));
@@ -367,8 +315,6 @@ void LiveActions::apply_punches(std::uint16_t on) noexcept {
   }
 }
 
-// A button PERFORM SETUP gave another action lets go of its latch (a latched MUTE must not turn into a latched FREEZE under the hand); a
-// held one goes on, now with the new action.
 static_assert(kPunchCutLoHz == AcidVoice::kCutoffLiveLoHz && kPunchCutHiHz == AcidVoice::kCutoffLiveHiHz, "the cutoff punches are the voice's live span");
 
 // The row-2 pads' unit values are the unit's enums (perform.h kRepeatPads holds the raw numbers so it need not include the unit).
@@ -378,20 +324,6 @@ static_assert(static_cast<unsigned>(Freeze::Quarter) == 0u && static_cast<unsign
 static_assert(static_cast<unsigned>(Freeze::kAccelOff) == 0u && static_cast<unsigned>(Freeze::kAccelBeat) == 1u && static_cast<unsigned>(Freeze::kAccelBar) == 2u &&
                   static_cast<unsigned>(Freeze::kStopHalf) == 2u && static_cast<unsigned>(Freeze::kStopTwo) == 4u,
               "kRepeatPads: the Accelerate and Stop Time values");
-
-void LiveActions::sync_assignments(app::Context& ctx) noexcept {
-  bool changed = false;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    if (rig_->wiring.perf[b] != seen_[b]) {
-      seen_[b] = rig_->wiring.perf[b];
-      button_latched_ &= ~(1u << b);
-      changed = true;
-    }
-  }
-  if (changed) {
-    apply(ctx);
-  }
-}
 
 // ---- The keyboard's transposition -----------------------------------------------------------------------------------------------
 

@@ -25,9 +25,15 @@ constexpr int kTitleY = 3;
 constexpr int kRuleY = 9;
 constexpr int kRowY[3] = {27, 41, 55};
 
-// The PERFORM slots' captions: the actions' chips, cut to the 28 px a slot has (kPerfActionChips has "THROW" and "FREEZE").
-constexpr const char* kSlotCaps[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THRW", "FRZ", "WOB", "ROLL", "STOP", "REV", "OCT-", "DIST", "CLO", "CHI", "RES"};
-constexpr int kSlotCx[4] = {512, 540, 568, 596};
+// The MODS chips (PF1): a 2 x 2 grid under the group's title, in the place the PERFORM slots had (x 498 to 612).
+constexpr int kLabelW = 8;  // the Label face (8x16): a character's advance and its height
+constexpr int kLabelH = 16;
+constexpr int kModsX = 502;
+constexpr int kModsY = 13;
+constexpr int kModW = 53;
+constexpr int kModH = 24;
+constexpr int kModGap = 3;
+static_assert(kModsX + 2 * kModW + kModGap <= 612 && kModsY + 2 * kModH + kModGap <= kHeaderH, "the MODS chips fit the PERFORM group's place");
 
 bool starts_with(const char* s, const char* prefix) noexcept {
   while (*prefix != '\0') {
@@ -114,49 +120,6 @@ const char* tempo_display(std::uint32_t mbpm, char (&out)[6]) noexcept {
   return out;
 }
 
-void fill_perform_slots(PerformSlot (&slots)[4], std::uint16_t on, const std::uint8_t (&assigned)[kPerfButtons]) noexcept {
-  for (PerformSlot& s : slots) {
-    s = PerformSlot{};
-  }
-  unsigned total = 0;
-  for (unsigned a = 0; a < kPerfActionCount; ++a) {
-    total += (on >> a & 1u) != 0u ? 1u : 0u;
-  }
-  unsigned slot = 0;
-  std::uint16_t used = 0;  // the actions a slot already names
-  for (unsigned a = 0; a < kPerfActionCount && slot < 4u; ++a) {
-    if ((on >> a & 1u) == 0u) {
-      continue;
-    }
-    if (total > 4u && slot == 3u) {  // the last slot stands for every action that did not get one
-      slots[slot].cap[0] = '+';
-      const unsigned more = total - 3u;
-      unsigned n = 1;
-      if (more >= 10u) {
-        slots[slot].cap[n++] = static_cast<char>('0' + more / 10u);
-      }
-      slots[slot].cap[n++] = static_cast<char>('0' + more % 10u);
-      slots[slot].cap[n] = '\0';
-      slots[slot].lit = true;
-      ++slot;
-      break;
-    }
-    cut_to(slots[slot].cap, sizeof slots[slot].cap, kSlotCaps[a], 5);
-    slots[slot].lit = true;
-    used = static_cast<std::uint16_t>(used | (1u << a));
-    ++slot;
-  }
-  for (unsigned b = 0; b < kPerfButtons && slot < 4u; ++b) {  // the buttons' own actions, dark, where there is room
-    const unsigned a = assigned[b];
-    if (a >= kPerfActionCount || (used >> a & 1u) != 0u) {
-      continue;
-    }
-    cut_to(slots[slot].cap, sizeof slots[slot].cap, kSlotCaps[a], 5);
-    used = static_cast<std::uint16_t>(used | (1u << a));
-    ++slot;
-  }
-}
-
 ui::Face message_face(unsigned length) noexcept { return length <= kMessageLabelMax ? Face::Label : Face::Micro; }
 
 void cut_message(char* out, unsigned cap, const char* s) noexcept {
@@ -220,7 +183,6 @@ void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderI
     out.keys = !status.trnsp;
     frame::octave_text(status.octave, out.octave, sizeof out.octave);
   }
-  fill_perform_slots(out.perform, status.actions, in.perf);
   cut_to(out.page, sizeof out.page, in.title, 17);
   cut_to(out.enc, sizeof out.enc, status.enc, 17);
   // One message at a time in the PAGE window: the screen's toast, else what the take said. Fitted to the window by cut_message().
@@ -237,15 +199,10 @@ void fill_header(HeaderView& out, const frame::StatusView& status, const HeaderI
 }
 
 void draw_header(Panel& p, const HeaderView& v) noexcept {
-  // The brand, and under it the four sound chips MOD GRL TRC WOB (E1c): a word is in its key's colour while the sound is on, ChromeDim while off. A failed save (red) takes their place; autosave off tints the logo
-  // in Accent. The chips are one text each, at a four-glyph pitch: the line is the 15 glyphs the tagline was.
+  // The brand. A failed save (red) is the tagline; autosave off tints the logo in Accent.
   p.sprite(Layer::Logo, Id::Logo, 0, 12, 4, v.no_autosave ? theme().rgb(Color::Accent) : pal::kLogo);
   if (v.save_failed) {
     p.text(14, 52, "SAVE FAILED", Color::Rec, Face::Micro);
-  } else {
-    for (unsigned i = 0; i < frame::kSoundChips; ++i) {
-      p.text(14 + static_cast<int>(i) * 4 * kMicroW, 52, frame::sound_chip_text(i), (v.sounds >> i & 1u) != 0u ? frame::sound_chip_colour(i) : Color::ChromeDim, Face::Micro);
-    }
   }
 
   // PATTERN and TEMPO.
@@ -276,14 +233,23 @@ void draw_header(Panel& p, const HeaderView& v) noexcept {
     p.text(436, kRowY[2] - 6, v.octave, Color::ChromeDim, Face::Micro);
   }
 
-  // PERFORM: four slots.
-  group(p, "PERFORM", 498, 612);
-  for (unsigned i = 0; i < 4; ++i) {
-    const PerformSlot& s = v.perform[i];
-    led(p, kSlotCx[i], 30, s.lit, pal::kLedRed);
-    if (s.cap[0] != '\0') {
-      p.text(kSlotCx[i] - static_cast<int>(std::strlen(s.cap)) * kMicroW / 2, 42, s.cap, s.lit ? Color::ChromeText : Color::ChromeDim, Face::Micro);
+  // MODS (PF1): the four sounds MOD GRL TRC WOB, where PERFORM's slots were. A sound that is on is a chip filled in its key's colour with dark ink, one that is off an outline in the dim chrome
+  // colour with dim ink, so the state reads at a glance. A 2 x 2 grid in the 8x16 Label face (the colour keys' order: Note, Instr over Vol, Fx).
+  group(p, "MODS", 498, 612);
+  for (unsigned i = 0; i < frame::kSoundChips; ++i) {
+    const Rect box{kModsX + static_cast<int>(i % 2u) * (kModW + kModGap), kModsY + static_cast<int>(i / 2u) * (kModH + kModGap), kModW, kModH};
+    const bool on = (v.sounds >> i & 1u) != 0u;
+    const char* word = frame::sound_chip_text(i);
+    if (on) {
+      p.round_rect(Layer::Fill, box, 3 * 16, theme().rgb(frame::sound_chip_colour(i)));
+    } else {
+      const ui::Rgb dim = theme().rgb(Color::ChromeDim);
+      p.rect(Layer::Outline, Rect{box.x, box.y, box.w, 1}, dim);
+      p.rect(Layer::Outline, Rect{box.x, box.y + box.h - 1, box.w, 1}, dim);
+      p.rect(Layer::Outline, Rect{box.x, box.y, 1, box.h}, dim);
+      p.rect(Layer::Outline, Rect{box.x + box.w - 1, box.y, 1, box.h}, dim);
     }
+    p.text(box.x + (box.w - 3 * kLabelW) / 2, box.y + (box.h - kLabelH) / 2, word, on ? Color::Chrome : Color::ChromeDim, Face::Label);
   }
 
   // PAGE and ENC. A message takes the PAGE window for its life: amber, or outlined in red when it says something did not happen.

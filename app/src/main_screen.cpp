@@ -762,9 +762,6 @@ void MainScreen::draw_skin_frame(app::Context& ctx, ui::Renderer& r) noexcept {
   in.pattern = sel();
   in.tempo_mbpm = ctx.engine().tempo();
   in.playing = rig_->seq->playhead().playing;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    in.perf[b] = rig_->wiring.perf[b];
-  }
   in.now_ms = ctx.uptime_ms();
   skin::HeaderView view;
   skin::fill_header(view, status, in);

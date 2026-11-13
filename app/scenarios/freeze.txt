@@ -1,90 +1,43 @@
-# The beat freeze (docs/M3B-PLAN.md R6, units/freeze) on master insert 0, driven by the real gesture (C4), on PERFORM (a plain colour key is a sound's switch, E1b): the Fx performance button is FREEZE by default (Shift + the key held = on, Shift + a tap latches), and PERFORM SETUP's F6 picks the Length. While it is on, the last 1/4, 1/8 or 1/16 of a bar of the
-# master loops, pitch kept, with 5 ms crossfades at entry, at the loop point and at exit; off, the master passes through bit for bit.
-# The header's FREEZE chip lights while it is held; the evidence for the loop is the WAV (tests/freeze_app_test.cpp checks that it loops at the
-# tempo; units/freeze/tests that it has no click).
+# The beat freeze (docs/M3B-PLAN.md R6, units/freeze) on master insert 0, driven by the real gesture on PERFORM (H1, PF1): the FRZ 1/4 pad (row 2, pad 12) holds the freeze at a quarter of a bar
+# while it is down and Shift + the pad latches it; the colour keys are the sounds' switches and no longer carry it. The master loops, pitch kept, with 5 ms crossfades at entry, at the loop
+# point and at exit; off, the master passes through bit for bit. The pad's lamp lights while it is held; the evidence for the loop is the WAV (tests/freeze_app_test.cpp checks that it loops at
+# the tempo; units/freeze/tests that it has no click). The other lengths are the Length knob of PERFORM SETUP (F6) for a freeze the screen owns; the pad is the quarter.
 wait 238
 tap performance
 record on
 tap play
 wait 2400
 snap 01_playing
-press shift
-press fx
-release shift
+paddown 12
 wait 1700
-snap 02_frozen_eighth
-release fx
+snap 02_frozen_quarter
+padup 12
 wait 1300
-# 1/16 of a bar: PERFORM SETUP (Shift + Perform; Perform comes PERFORM back), F6 FREEZE, down to the first entry and up two.
-press shift
-tap performance
-release shift
-wait 62
-tap f6
-turn -3
-turn 2
-snap 03_perform_setup_sixteenth
-tap performance
-wait 248
-press shift
-press fx
-release shift
-wait 1300
-release fx
-wait 1200
-# 1/4 of a bar, a whole beat
-press shift
-tap performance
-release shift
-wait 62
-turn -3
-tap performance
-wait 248
-press shift
-press fx
-release shift
-wait 2200
-release fx
-wait 1200
-# a stutter by hand: short holds, the Length back to 1/8; the last one latched with Shift and let go again
-press shift
-tap performance
-release shift
-wait 62
-turn 1
-tap performance
-wait 248
-press shift
-press fx
-release shift
+# a stutter by hand: short holds
+paddown 12
 wait 340
-release fx
+padup 12
 wait 260
-press shift
-press fx
-release shift
+paddown 12
 wait 340
-release fx
+padup 12
 wait 260
-press shift
-press fx
-release shift
+paddown 12
 wait 340
-release fx
+padup 12
 wait 90
-press shift
-press fx
-release shift
+paddown 12
 wait 400
-release fx
+padup 12
 wait 1000
+# latched with Shift, then let go with a second Shift + tap
 press shift
-tap fx
+pad 12
 release shift
 wait 700
 snap 04_latched
 press shift
-tap fx
+pad 12
 release shift
 wait 800
 snap 05_released

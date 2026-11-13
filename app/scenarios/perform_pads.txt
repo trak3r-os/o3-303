@@ -8,7 +8,7 @@ pad 22
 tap performance
 wait 100
 snap 01_perform
-# The pattern plays; MUTE (pad 0) is held: its lamp and the chip say so, and it ends at the release.
+# The pattern plays; MUTE (pad 0) is held: its lamp says so, and it ends at the release.
 tap play
 wait 700
 paddown 0
@@ -100,13 +100,16 @@ pad 43
 wait 500
 snap 13_keys_transpose
 pad 36
-# The colour buttons are the four assigned actions: ACC ALL held on Instr.
+# The colour keys are the sounds' switches (PF1): Shift + Instr flips GROWL, no action is held; ACC ALL is its pad's (pad 1).
 press shift
-press instr
+tap instr
 release shift
+wait 100
+tap instr
+paddown 1
 wait 350
-snap 14_instr_acc_all_held
-release instr
+snap 14_acc_all_held_growl_flipped
+padup 1
 # Shift held: the Shift row, REDO and UNDO on F7 and F8, the others empty.
 press shift
 wait 100

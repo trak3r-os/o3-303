@@ -2,8 +2,8 @@
 #pragma once
 
 // The project codec (docs/UX-303.md 8.1 and 8.3, docs/UX-PLAN.md F1): everything needed to come back to the jam, as bytes. No file I/O, no screen:
-// the project service (F2) moves the image to and from the card. Format 2.0 (docs/PADS-TRACT-PLAN.md P): a chunk file (o3sdk/formats/chunk_file.h) of FORM
-// type "303P", every chunk's payload starting with a u16 version (major high byte, minor low, kVersion = 2.0 for all), then the CRC chunk. Seven chunks, each
+// the project service (F2) moves the image to and from the card. Format 3.0 (2.0 was docs/PADS-TRACT-PLAN.md P; 3.0 dropped PERF's colour-key bytes, PF1): a chunk file (o3sdk/formats/chunk_file.h) of FORM
+// type "303P", every chunk's payload starting with a u16 version (major high byte, minor low, kVersion = 3.0 for all), then the CRC chunk. Seven chunks, each
 // present once:
 //
 //   HEAD  selected pattern u8, tempo u32 (milli-BPM), flags u8 (0), name char[16], the save counter u32: it counts the writes of one project (the service's), so
@@ -13,14 +13,14 @@
 //   SND   n u16; n entries of {target u8, 0 u8, id u16, value f32}: the units' parameters by id (targets 1 voice, 2 distortion, 3 delay, 5 growl, 7 tract,
 //         16 the freeze's four settings) and the app's values (target 32, ids AppValue)
 //   SNAP  slots u8 (8), values a slot u8 (the snapshot targets), used mask u8, then slots x values f32
-//   PERF  the PerfAction of Note, Instr, Vol and Fx, u8 each; the KNOBS set in use u8; every KNOBS set (kKnobSets x kKnobsPerSet rows, target u8 and id u8 each)
+//   PERF  the KNOBS set in use u8; every KNOBS set (kKnobSets x kKnobsPerSet rows, target u8 and id u8 each)
 //   SONG  length u8 (0..64), then length rows of {pattern u8, repeat u8, transpose i8, flags u8} (seq::SongRow; the song is the Bank's, on the undo stack)
 //
 // The image is built in one buffer of kProjectBytes (buffer(), O3SDK_BIG), the only one: a save and a load never overlap. The patterns are never copied
 // into a ProjectState (112 KB): encode() reads them from the Bank and decode() leaves a pointer into the image, which apply() restores from.
 //
-// Reading (decode): the container and its CRC are checked first; a damaged image gives nothing. HEAD of an older major (a project of format 1) is refused
-// whole as FromOlder, one of a newer major as FromNewer: nothing of such a file is ever read or applied, and there is no converter. Of a 2.x file all seven
+// Reading (decode): the container and its CRC are checked first; a damaged image gives nothing. HEAD of an older major (a project of format 1 or 2) is refused
+// whole as FromOlder, one of a newer major as FromNewer: nothing of such a file is ever read or applied, and there is no converter. Of a 3.x file all seven
 // chunks must be there once, whole and with this build's record sizes, or the file is Damaged (the service then tries the .bak): there is no half-load.
 // An unknown chunk, a repeated one or an entry past kMaxSound is skipped (counted in Result::skipped), a newer minor is read as far as this build knows
 // it, an SND entry this build has no parameter for is skipped when applied, and a parameter the file does not have keeps its default. A ProjectState that
@@ -48,8 +48,8 @@ inline constexpr std::size_t kProjectBytes = 128u * 1024u;  // the one image buf
 inline constexpr unsigned kNameChars = 16;                  // with the terminating NUL (a valid_name is at most 15)
 inline constexpr unsigned kMaxSound = 128;                  // SND entries a ProjectState holds (about 40 are in use)
 
-inline constexpr std::uint16_t kVersion = 0x0200;  // every chunk's version: major 2, minor 0
-inline constexpr unsigned kMajor = 2;
+inline constexpr std::uint16_t kVersion = 0x0300;  // every chunk's version: major 3, minor 0
+inline constexpr unsigned kMajor = 3;
 inline constexpr char kSongId[5] = "SONG";
 
 // SND's targets: the lane targets (pattern.h) by parameter id, the freeze, the app's own values.
@@ -81,8 +81,8 @@ struct SoundEntry {
   float value = 0.0f;
 };
 
-// The small parts of a project (about 2.3 KB). A default one is a new project's: the default sound (no SND entry), no snapshot, the default
-// assignments, the generator's defaults, 125 BPM, pattern 0, no patterns (apply() then gives every pattern the fresh one).
+// The small parts of a project (about 2.3 KB). A default one is a new project's: the default sound (no SND entry), no snapshot, the
+// generator's defaults, 125 BPM, pattern 0, no patterns (apply() then gives every pattern the fresh one).
 struct ProjectState {
   // HEAD
   std::uint8_t selected = 0;
@@ -98,7 +98,6 @@ struct ProjectState {
   std::uint8_t snap_used = 0;  // bit s: slot s holds a snapshot
   float snap[kSnapSlots][kSnapValues] = {};
   // PERF
-  std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
   // KNOBS: every set of four rows, and the set in use (PERF chunk). Set 1 is `Wiring::knob_sets.row[0]`, the store; `Wiring::ladder` is only the live copy of the set in use.
   KnobSets sets = kKnobFactory;
   std::uint8_t knob_set = 0;
@@ -164,7 +163,7 @@ enum class Status : std::uint8_t {
   Ok,
   Damaged,    // the container, its CRC, HEAD or a required chunk is bad or missing ("PROJECT DAMAGED"; the .bak is the service's next try)
   FromNewer,  // HEAD's major is newer than this build's ("PROJECT FROM A NEWER O3-303")
-  FromOlder,  // HEAD's major is older (a project of format 1: no converter; "PROJECT FROM AN OLDER O3-303"): refused whole, the file is left as it is
+  FromOlder,  // HEAD's major is older (a project of format 1 or 2: no converter; "PROJECT FROM AN OLDER O3-303"): refused whole, the file is left as it is
 };
 
 struct Result {

@@ -1,66 +1,42 @@
-# ROLL, STOP and REV (docs/M3C-PLAN.md R) through the performance actions: Note, Instr and Vol are given ROLL, STOP and REV on PERFORM SETUP (F1..F3),
-# and F7 there is ROLL (1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR: the rate and the accelerate in one list) and F8 the stop time. Held, an action puts the freeze unit in
-# its mode and turns it on; the release turns it off and leaves the mode. ROLL holds the last note value and repeats it (here BLD BEAT, which starts at 1/8:
+# ROLL, STOP and REV (docs/M3C-PLAN.md R) on PERFORM's row 2 (H1): the pads are the beat freeze at a rate (ROLL at 1/8..1/64 or BLD BT / BLD BAR, STOP at 1/2 or 2 bars, REV). Held, a pad puts
+# the freeze unit in its mode and turns it on; the release turns it off and leaves the mode. ROLL holds the last note value and repeats it (here BLD BT, which starts at 1/8:
 # each beat the loop halves, the build-up roll), STOP is the tape stop (1/2 bar, then the spin-up back at the release), REV plays the ring backwards.
 # The WAV is the evidence; the freeze unit's own tests check the sound (units/freeze/tests).
 wait 300
 record on
-# PERFORM SETUP (Shift + Perform; Perform comes PERFORM back, where the colour buttons are the live actions): F1 Note = ROLL, F2 Instr = STOP, F3 Vol = REV (the eleven actions: down to the first, then up eight, nine, ten).
-press shift
-tap performance
-release shift
-tap f1
-turn -16
-turn 8
-tap f2
-turn -16
-turn 9
-tap f3
-turn -16
-turn 10
-tap f7
-turn 3
-wait 100
-snap 01_perf_roll_stop_rev
 tap performance
 wait 248
 tap play
 wait 2100
-# ROLL held for two beats and a half with BLD BEAT.
-press shift
-press note
-release shift
+# ROLL held for two beats and a half with BLD BT (pad 17).
+paddown 17
 wait 1300
 snap 02_roll_held
 wait 1000
-release note
+padup 17
 wait 1200
-# STOP held for a bar: the tape stop in 1/2 bar, silence, and the spin-up at the release.
-press shift
-press instr
-release shift
+# STOP held for a bar: STP 1/2 (pad 19), the tape stop in 1/2 bar, silence, and the spin-up at the release.
+paddown 19
 wait 1100
 snap 03_stop_held
 wait 900
-release instr
+padup 19
 wait 1500
-# REV held for a beat and a half.
-press shift
-press vol
-release shift
+# REV (pad 21) held for a beat and a half.
+paddown 21
 wait 700
 snap 04_rev_held
 wait 400
-release vol
+padup 21
 wait 1500
-# FREEZE (Shift + Fx: latched) is still the old freeze after the others, then let go.
+# FRZ 1/4 (pad 12) latched with Shift is still the old freeze after the others, then let go.
 press shift
-tap fx
+pad 12
 release shift
 wait 900
 snap 05_freeze_latched
 press shift
-tap fx
+pad 12
 release shift
 wait 800
 tap play

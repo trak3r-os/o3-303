@@ -10,71 +10,69 @@
 #include <cstring>
 #include <utility>
 
-TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on the four buttons (assigned), momentary, and Shift + the button latches") {
+TEST_CASE("performance: MUTE, ACC ALL, SLIDE ALL and DELAY THROW on their pads, momentary, and Shift + the pad latches") {
   Hands t;
-  // The defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (tests/perf_buttons_test.cpp); SLIDE ALL and THROW, which
-  // this test checks as it did before C4, are one assignment each away.
-  t.assign_perf(Button::Vol, PerfAction::SlideAll);
-  t.assign_perf(Button::Fx, PerfAction::Throw, true);  // on PERFORM: there the colour buttons are the live actions
+  // PERFORM's row 1 carries the actions (PF1: the colour keys are the sounds' keys).
+  t.tap(Button::Performance);
   seq::Sequencer& sequencer = app_sequencer();
   const std::uint8_t kMute = seq::kPerfMute;
   const std::uint8_t kAcc = seq::kPerfAccAll;
   const std::uint8_t kSlide = seq::kPerfSlideAll;
   CHECK(sequencer.perf() == 0);
 
-  // Momentary: the flag is on while the button is down.
-  t.action_press(Button::Note);
+  // Momentary: the flag is on while the pad is down.
+  t.action_press(PerfAction::Mute);
   CHECK(sequencer.perf() == kMute);
-  t.action_release(Button::Note);
+  t.action_release(PerfAction::Mute);
   CHECK(sequencer.perf() == 0);
-  t.action_press(Button::Instr);
+  t.action_press(PerfAction::AccAll);
   CHECK(sequencer.perf() == kAcc);
-  t.action_release(Button::Instr);
-  t.action_press(Button::Vol);
+  t.action_release(PerfAction::AccAll);
+  t.action_press(PerfAction::SlideAll);
   CHECK(sequencer.perf() == kSlide);
-  t.action_press(Button::Instr);
+  t.action_press(PerfAction::AccAll);
   CHECK(sequencer.perf() == (kSlide | kAcc));  // together
-  t.action_release(Button::Vol);
-  t.action_release(Button::Instr);
+  t.action_release(PerfAction::SlideAll);
+  t.action_release(PerfAction::AccAll);
   CHECK(sequencer.perf() == 0);
 
   // DELAY THROW is the engine's send A, not a sequencer flag.
   const float base = t.h->engine().mix(0, dsp::MixField::SendA);
   CHECK(base == doctest::Approx(0.0f));
-  t.action_press(Button::Fx);
+  t.action_press(PerfAction::Throw);
   t.wait(10);
   CHECK(sequencer.perf() == 0);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(1.0f));
-  t.action_release(Button::Fx);
+  t.action_release(PerfAction::Throw);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(base));
 
-  // Latched with Shift, off with Shift again; the button's own release does not undo the latch.
-  t.shift_tap(Button::Note);
+  // Latched with Shift, off with a tap; the pad's own release does not undo the latch.
+  t.latch(PerfAction::Mute);
   CHECK(sequencer.perf() == kMute);
-  t.shift_tap(Button::Instr);
+  t.latch(PerfAction::AccAll);
   CHECK(sequencer.perf() == (kMute | kAcc));
-  t.shift_tap(Button::Note);
+  t.pad(perform_pad_of(PerfAction::Mute), 10);
   CHECK(sequencer.perf() == kAcc);
-  t.shift_tap(Button::Fx);
+  t.latch(PerfAction::Throw);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(1.0f));
-  t.shift_tap(Button::Fx);
+  t.pad(perform_pad_of(PerfAction::Throw), 10);
   t.wait(10);
   CHECK(t.h->engine().mix(0, dsp::MixField::SendA) == doctest::Approx(base));
 
-  // A latch stays when the screen is left; a button held when it is left is let go (its release would reach another screen).
-  t.action_press(Button::Vol);
+  // A latch stays when the screen is left; a pad held when it is left is let go (its release would reach another screen).
+  t.action_press(PerfAction::SlideAll);
   CHECK(sequencer.perf() == (kAcc | kSlide));
   t.tap(Button::Params);  // INSTRUMENT (the File button is the 303 screen's and INSTRUMENT's)
   CHECK(std::strcmp(t.title(), "INSTRUMENT FX") == 0);
   CHECK(sequencer.perf() == kAcc);
-  t.action_release(Button::Vol);
+  t.action_release(PerfAction::SlideAll);
   t.tap(Button::Pattern);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   CHECK(sequencer.perf() == kAcc);
   t.tap(Button::Performance);
-  t.shift_tap(Button::Instr);
+  t.pad(perform_pad_of(PerfAction::AccAll), 10);
   CHECK(sequencer.perf() == 0);
 }
 
@@ -145,8 +143,8 @@ TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the botto
     t.pad(36);
   }
   t.tap(Button::Rec);
-  t.assign_perf(Button::Vol, PerfAction::SlideAll, true);
-  t.shift_tap(Button::Vol);  // (on PERFORM: the latch stays on when the screen is left)
+  t.tap(Button::Performance);
+  t.latch(PerfAction::SlideAll);  // (on PERFORM: the latch stays on when the screen is left)
   CHECK(sequencer.perf() == seq::kPerfSlideAll);
   t.to_home();
   // A plain saw so that the pitch can be measured: the filter wide open with no resonance and no envelope, the distortion off, no delay
@@ -223,6 +221,6 @@ TEST_CASE("playing with TRNSP on, the keyboard transposes the pattern (the botto
   CHECK_FALSE(t.h->engine().playing());
   CHECK(sequencer.live_transpose() == 0);
   t.tap(Button::Performance);
-  t.shift_tap(Button::Vol);
+  t.pad(perform_pad_of(PerfAction::SlideAll), 10);  // a tap on the latched pad lets it go
   CHECK(sequencer.perf() == 0);
 }

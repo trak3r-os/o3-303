@@ -77,28 +77,28 @@ TEST_CASE("the wiring: the first four unit ids are as they were, the growl is th
   CHECK(diff / static_cast<double>(a.size()) > 20.0);
 }
 
-TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; latched with Shift it stays until the next Shift + tap; HOME's pads stay keys") {
+TEST_CASE("WOBBLE: a wobble pad held runs at its rate and the release ends it; the Fx key flips it at the page's settings (PF1); HOME's pads stay keys") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Fx, PerfAction::Wobble, true);  // on PERFORM, where the colour buttons are the live actions
+  t.to_perform();
   CHECK_FALSE(s.wobble().on);
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
 
-  t.action_press(Button::Fx);
+  t.action_press(PerfAction::Wobble);  // PERFORM's row 3, column 1: the wobble at 1/4
   t.wait(30);
-  CHECK(s.wobble().on);  // its set rate for the hold (the rate picker is PERFORM's row 3, perform_screen_test.cpp)
-  CHECK(s.wobble().rate == seq::kWobble1_8);
+  CHECK(s.wobble().on);
+  CHECK(s.wobble().rate == seq::kWobble1_8);  // the page's rate is what it was
   CHECK(s.wobble().target.target == o3_303::kLaneVoice);
   CHECK(s.wobble().target.id == o3_303::AcidVoice::Cutoff);
-  CHECK(s.wobble_rate_now() == seq::kWobble1_8);
+  CHECK(s.wobble_rate_now() == seq::kWobble1_4);  // the pad's rate overrides it for the hold
 
-  t.action_release(Button::Fx);
+  t.action_release(PerfAction::Wobble);
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
   CHECK(s.wobble_rate_now() == -1);
 
-  // Latched with Shift: it stays after the release, and the next Shift + tap ends it.
-  t.shift_tap(Button::Fx);
+  // The Fx key flips it on, at the page's rate: it stays after the release, and the next press ends it.
+  t.tap(Button::Fx);
   t.wait(30);
   CHECK(s.wobble().on);
   CHECK(s.wobble_rate_now() == seq::kWobble1_8);
@@ -111,7 +111,7 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
   CHECK(s.wobble_rate_now() == seq::kWobble1_8);
   t.to_perform();
-  t.shift_tap(Button::Fx);
+  t.tap(Button::Fx);
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
   CHECK(s.wobble().override_rate == seq::kWobbleRateNone);
@@ -120,8 +120,7 @@ TEST_CASE("WOBBLE: held it runs at the page's settings and the release ends it; 
 TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a latched wobble goes on across the screens), and the Vowel is a growl target") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Fx, PerfAction::Wobble, true);
-  t.shift_tap(Button::Fx);  // latched on PERFORM: the colour buttons are the drawer's rows on INSTRUMENT, a hold cannot cross the change
+  t.tap(Button::Fx);  // on, from any screen (PF1: the key flips the wobble)
   t.to_wobble();  // WOBBLE (Sample Editor): F1 RATE, F2 SHAPE, F3 DEPTH, F4 TARGET, F5 RESET
   t.tap(Button::F5);  // RESET on (it defaults off since B5a; it was Config DEEP's WOB RESET until MODS-PLAN S0)
   t.turn(1);
@@ -148,7 +147,7 @@ TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a la
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_16);
   t.to_perform();
-  t.shift_tap(Button::Fx);
+  t.tap(Button::Fx);
   t.wait(10);
   CHECK_FALSE(s.wobble().on);
   // Changed with the wobble off: the settings wait for the next hold.
@@ -156,10 +155,10 @@ TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a la
   t.turn(-2);
   CHECK_FALSE(s.wobble().on);
   t.to_perform();
-  t.action_press(Button::Fx);
+  t.tap(Button::Fx);
   t.wait(10);
   CHECK(s.wobble().rate == seq::kWobble1_8);
-  t.action_release(Button::Fx);
+  t.tap(Button::Fx);
   t.to_home();
   // A fresh run starts with the defaults (setup() resets the wiring and the sequencer's wobble).
   Hands again;
@@ -169,80 +168,76 @@ TEST_CASE("WOBBLE: the screen's target, rate and reset apply while it runs (a la
 
 TEST_CASE("ROLL, STOP and REV: each writes the freeze's Mode, then Active, while held; the release clears Active and leaves the Mode") {
   Hands t;
-  t.assign_perf(Button::Note, PerfAction::Roll);
-  t.assign_perf(Button::Instr, PerfAction::Stop);
-  t.assign_perf(Button::Vol, PerfAction::Reverse, true);
+  t.to_perform();
   CHECK(freeze_mode(t) == doctest::Approx(0.0f));
   CHECK(freeze_active(t) == 0.0f);
 
-  t.action_press(Button::Note);
+  t.action_press(PerfAction::Roll);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));
   CHECK(freeze_active(t) == 1.0f);
-  t.action_release(Button::Note);
+  t.action_release(PerfAction::Roll);
   CHECK(freeze_active(t) == 0.0f);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));  // left as it was: nothing is written while the unit leaves
 
-  t.action_press(Button::Instr);
+  t.action_press(PerfAction::Stop);
   CHECK(freeze_mode(t) == doctest::Approx(2.0f));
   CHECK(freeze_active(t) == 1.0f);
-  t.action_release(Button::Instr);
+  t.action_release(PerfAction::Stop);
   CHECK(freeze_active(t) == 0.0f);
 
-  t.action_press(Button::Vol);
+  t.action_press(PerfAction::Reverse);
   CHECK(freeze_mode(t) == doctest::Approx(3.0f));
   CHECK(freeze_active(t) == 1.0f);
-  t.action_release(Button::Vol);
+  t.action_release(PerfAction::Reverse);
   CHECK(freeze_active(t) == 0.0f);
 
   // The one that went on first has the unit: a second press does nothing, and the first one's release ends it; the second needs a new press.
-  t.action_press(Button::Note);
-  t.action_press(Button::Instr);
+  t.action_press(PerfAction::Roll);
+  t.action_press(PerfAction::Stop);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));
   CHECK(freeze_active(t) == 1.0f);
-  t.action_release(Button::Instr);
+  t.action_release(PerfAction::Stop);
   CHECK(freeze_active(t) == 1.0f);  // the second one's release is nothing either
-  t.action_press(Button::Instr);
-  t.action_release(Button::Note);
+  t.action_press(PerfAction::Stop);
+  t.action_release(PerfAction::Roll);
   CHECK(freeze_active(t) == 0.0f);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));
-  t.action_release(Button::Instr);
+  t.action_release(PerfAction::Stop);
   CHECK(freeze_active(t) == 0.0f);
 
-  // Shift + tap latches ROLL and again lets it go.
-  t.shift_tap(Button::Note);
+  // Shift + tap latches ROLL and a tap lets it go.
+  t.latch(PerfAction::Roll);
   CHECK(freeze_active(t) == 1.0f);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));
-  t.shift_tap(Button::Note);
+  t.pad(hands::perform_pad_of(PerfAction::Roll), 10);
   CHECK(freeze_active(t) == 0.0f);
 
   // Leaving the screen lets go of a held one.
-  t.action_press(Button::Vol);
+  t.action_press(PerfAction::Reverse);
   CHECK(freeze_active(t) == 1.0f);
   t.tap(Button::Params);  // INSTRUMENT
   t.wait(10);
   CHECK(freeze_active(t) == 0.0f);
-  t.action_release(Button::Vol);
+  t.action_release(PerfAction::Reverse);
   t.tap(Button::Pattern);
 }
 
 TEST_CASE("FREEZE after a ROLL is a FREEZE again: it writes its own Mode at the entry") {
   Hands t;
-  t.assign_perf(Button::Note, PerfAction::Roll);
-  t.assign_perf(Button::Vol, PerfAction::Freeze, true);
-  t.action_press(Button::Note);
-  t.action_release(Button::Note);
+  t.to_perform();
+  t.action_press(PerfAction::Roll);
+  t.action_release(PerfAction::Roll);
   CHECK(freeze_mode(t) == doctest::Approx(1.0f));
-  t.action_press(Button::Vol);
+  t.action_press(PerfAction::Freeze);
   CHECK(freeze_mode(t) == doctest::Approx(0.0f));
   CHECK(freeze_active(t) == 1.0f);
-  t.action_release(Button::Vol);
+  t.action_release(PerfAction::Freeze);
   CHECK(freeze_active(t) == 0.0f);
-  // The two buttons carry the same action: it is on while either is (as before).
-  t.assign_perf(Button::Instr, PerfAction::Freeze, true);
-  t.action_press(Button::Instr);
-  t.action_press(Button::Vol);
-  t.action_release(Button::Instr);
+  // Two pads carry the same action (RPT 8 and RPT 16: ROLL): it is on while either is.
+  t.down(app::pad_at(1, 1));
+  t.down(app::pad_at(1, 2));
+  t.up(app::pad_at(1, 1));
   CHECK(freeze_active(t) == 1.0f);
-  t.action_release(Button::Vol);
+  t.up(app::pad_at(1, 2));
   CHECK(freeze_active(t) == 0.0f);
 }

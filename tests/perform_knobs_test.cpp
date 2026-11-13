@@ -102,11 +102,11 @@ TEST_CASE("PERFORM KNOBS: a pad of each row sets ENV MOD, DECAY, CUTOFF and RESO
   // The lamp of each row sits at the knob's pad.
   t.wait(40);
   CHECK(t.led(row_pad(0, 7)) > t.led(row_pad(0, 10)));
-  // Shift + Note is MUTE here, as on every screen: held, it mutes the sequencer and does not touch the rows.
+  // Shift + Note flips MODS here, as on every screen (PF1: it is no performance action any more), and does not touch the rows.
   const float decay = val(t, AcidVoice::Decay);
-  t.action_press(Button::Note);
+  t.shift_tap(Button::Note);
   t.wait(20);
-  t.action_release(Button::Note);
+  t.shift_tap(Button::Note);
   CHECK(val(t, AcidVoice::Decay) == decay);
   CHECK(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
 }

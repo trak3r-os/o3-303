@@ -301,7 +301,7 @@ TEST_CASE("the Master button's nudge on MASTER itself: the status line says TEMP
   CHECK(is_title(t, "MASTER"));
 }
 
-TEST_CASE("the colour buttons flip no performance flag on MASTER (a plain press is a sound's toggle); on PERFORM Shift + the key is the live action") {
+TEST_CASE("the colour buttons flip no performance flag on MASTER (a plain press is a sound's toggle); on PERFORM the MUTE pad is the live action") {
   Hands t;
   open_master(t);
   const Button colours[4] = {Button::Note, Button::Instr, Button::Vol, Button::Fx};
@@ -315,10 +315,10 @@ TEST_CASE("the colour buttons flip no performance flag on MASTER (a plain press 
   CHECK(is_title(t, "MASTER"));
   t.to_perform();
   REQUIRE(is_title(t, "PERFORM"));
-  t.action_press(Button::Note);  // MUTE by default
+  t.action_press(o3_303::PerfAction::Mute);
   t.wait(5);
   CHECK(app_sequencer().perf() != 0u);
-  t.action_release(Button::Note);
+  t.action_release(o3_303::PerfAction::Mute);
 }
 
 TEST_CASE("the pads are HOME's: ACC held + a step pad toggles its accent, a key pad plays the voice") {

@@ -492,7 +492,7 @@ TEST_CASE("learn_target: the unit parameters of the pages, and nothing for the a
   CHECK(learn_target(w, Entry{Item::WobOn, 0, nullptr}, unit, param));
   CHECK(unit == 6);
   CHECK(param == 5);
-  for (const Item item : {Item::Blank, Item::Level, Item::SendA, Item::DistMode, Item::Tempo, Item::Master, Item::Perf, Item::FillVariant}) {
+  for (const Item item : {Item::Blank, Item::Level, Item::SendA, Item::DistMode, Item::Tempo, Item::Master, Item::FillVariant}) {
     CHECK_FALSE(learn_target(w, Entry{item, 0, nullptr}, unit, param));
   }
 }
@@ -546,17 +546,7 @@ TEST_CASE("VOICE's latch is HOME's and PERFORM's: one SOUND latch on Rig::sound_
 TEST_CASE("Params ends the momentary live actions held on PERFORM and leaves the latched ones on (D4)") {
   Hands t;
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
-  t.to_perform();
-  t.action_press(Button::Fx);  // FREEZE, held on PERFORM
-  t.wait(20);
-  CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
-  t.tap(Button::Params);  // the screen changes: the hold ends
-  t.wait(20);
-  CHECK(on_instrument(t));
-  CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
-  t.release(Button::Fx);
-
-  t.to_perform();  // held on PERFORM's own pad (FRZ, row 2)
+  t.to_perform();  // held on PERFORM's pad (FRZ, row 2)
   t.down(app::pad_at(1, 0));
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
@@ -567,14 +557,15 @@ TEST_CASE("Params ends the momentary live actions held on PERFORM and leaves the
   t.up(app::pad_at(1, 0));
 
   t.to_perform();
-  t.shift_tap(Button::Fx);  // latched: it stays on across the change
+  t.latch(PerfAction::Freeze);  // latched (Shift + the FRZ pad): it stays on across the change
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
   t.tap(Button::Params);
   t.wait(20);
   CHECK(on_instrument(t));
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(1.0f));
-  t.shift_tap(Button::Fx);  // Shift + Fx is the action on every screen (E1b): on a latched action it lets it go
+  t.to_perform();
+  t.pad(app::pad_at(1, 0), 10);  // a tap on the latched pad lets it go
   t.wait(20);
   CHECK(t.param(kFreeze, Freeze::Active) == doctest::Approx(0.0f));
 }

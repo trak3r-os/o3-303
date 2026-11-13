@@ -57,13 +57,13 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::SamplePlay, w == Where::Growl ? nullptr : "OPEN GROWL", w == Where::Growl ? nullptr : "SAME: OPEN GROWL");
   b.add(Button::SampleEdit, w == Where::Tract ? "NEXT LAYER: STEPS, LINE" : "OPEN TRACT", w == Where::Tract ? "SAME: NEXT LAYER" : "SAME: OPEN TRACT");
   b.add(Button::SampleRec, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
-  // The four colour keys (E1b), the same on every screen: each flips its sound (sound_buttons.h), and with Shift runs the PERFORM action assigned on PERFORM SETUP (a tap latches it, a hold is momentary).
+  // The four colour keys (E1b), the same on every screen: each flips its sound (sound_buttons.h); Shift does the same (PF1: the PERFORM assignments are gone, MUTE, ACC, FILL and FRZ stay on the pads).
   // On the screens with the drawer a step held down gives the plain press to the drawer row instead.
   const bool drawer = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble;
-  b.add(Button::Note, drawer ? "MODS. STEP HELD: NOTE ROW" : "MODS ON / OFF", "NOTE ACTION. TAP: LATCH");
-  b.add(Button::Instr, drawer ? "GROWL. STEP HELD: GATE ROW" : "GROWL ON / OFF", "INSTR ACTION. TAP: LATCH");
-  b.add(Button::Vol, drawer ? "TRACT. STEP HELD: PLAYS ROW" : "TRACT ON / OFF", "VOL ACTION. TAP: LATCH");
-  b.add(Button::Fx, drawer ? "WOBBLE. STEP HELD: LOCK ROW" : "WOBBLE ON / OFF", "FX ACTION. TAP: LATCH");
+  b.add(Button::Note, drawer ? "MODS. STEP HELD: NOTE ROW" : "MODS ON / OFF");
+  b.add(Button::Instr, drawer ? "GROWL. STEP HELD: GATE ROW" : "GROWL ON / OFF");
+  b.add(Button::Vol, drawer ? "TRACT. STEP HELD: PLAYS ROW" : "TRACT ON / OFF");
+  b.add(Button::Fx, drawer ? "WOBBLE. STEP HELD: LOCK ROW" : "WOBBLE ON / OFF");
   b.add(Button::Song, w == Where::Song ? "OPEN RECORD" : (w == Where::Record ? "OPEN SONG" : "OPEN SONG, AGAIN RECORD"));
 }
 
@@ -208,10 +208,11 @@ constexpr HelpPadGroup kPerformGroups[] = {
     {"LINE + TONE", "HOLD A PAD FOR ITS ACTION. SHIFT: LATCH", Color::Accent},
     {"ALL OFF", "LETS EVERY LATCHED ACTION GO", Color::Rec},
     {"REPEAT", "FREEZE, ROLLS, BUILDS, STOPS, REVERSE", Color::Vol},
-    {"WOBBLE", "RUNS THE WOBBLE AT THAT RATE. SHIFT: LATCH", Color::Fx},
-    {"KEYS", "PLAY THE VOICE; TRANSPOSE IF TRNSP IS ON (HOME)", Color::Instr},
+    {"ROW 3", "RATES, KEYS OR A KNOB: SEL3. SHIFT: LATCH RATE", Color::Fx},
+    {"ROW 4", "KEYS, RATES OR A KNOB: SEL4. SHIFT: LATCH RATE", Color::Instr},
+    {"SEL3 SEL4", "TAP: NEXT CONTENT OF ROW 3 OR 4. SHIFT: PREVIOUS", Color::Sel},
 };
-// PERFORM SETUP: the same pads, and the snapshots and variations on row 2 in place of REPEAT.
+// PERFORM SETUP: the same pads, and the snapshots and variations on row 2 in place of REPEAT (there are no selectors there: row 2 is all snapshots and variations).
 constexpr HelpPadGroup kPerformSetupGroups[] = {
     kPerformGroups[0],
     kPerformGroups[1],
@@ -274,7 +275,7 @@ constexpr Text kTexts[kIdCount] = {
      "HOLD PATTERN: THE 48 PADS ARE THE PATTERNS. REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Perform
     {"PERFORM",
-     "PLAY WITHOUT A MENU: THE 48 PADS ARE LIVE. ROW 1 LINE AND TONE ACTIONS, ROW 2 REPEAT AND FREEZE, ROW 3 WOBBLE RATES, ROW 4 KEYS. THE PATTERN KEEPS PLAYING.",
+     "PLAY WITHOUT A MENU: 48 LIVE PADS. ROW 1 ACTIONS, ROW 2 REPEAT AND FREEZE, ROWS 3-4 RATES, KEYS OR A KNOB (SEL3, SEL4 STEP IT). COLOUR KEYS: SOUNDS.",
      SOUND_KEYS,
      {},
      "KNOB; MORPH AFTER A RECALL",
@@ -296,8 +297,8 @@ constexpr Text kTexts[kIdCount] = {
      "A TAP LATCHES A ROW. ROWS 3-4 ARE HOME'S FILT. REC SKIPS WOB AND SWITCH KNOBS."},
     // PerformSetup
     {"PERFORM SETUP",
-     "WHAT THE FOUR COLOUR BUTTONS DO (F1-F4), WHAT FILL PLAYS (F5), THE FREEZE LENGTH (F6), THE ROLL MODE (F7) AND THE STOP TIME (F8). ROW 2 OF THE PADS IS THE SNAPSHOTS.",
-     {"NOTE BUTTON'S ACTION", "INSTR BUTTON'S ACTION", "VOL BUTTON'S ACTION", "FX BUTTON'S ACTION", "WHAT FILL PLAYS", "FREEZE LENGTH", "ROLL RATE OR BUILD", "STOP TIME"},
+     "WHAT FILL PLAYS (F5), THE FREEZE LENGTH (F6), THE ROLL MODE (F7) AND THE STOP TIME (F8). ROW 2 OF THE PADS IS THE SNAPSHOTS.",
+     {nullptr, nullptr, nullptr, nullptr, "WHAT FILL PLAYS", "FREEZE LENGTH", "ROLL RATE OR BUILD", "STOP TIME"},
      {},
      "VALUE; SHIFT = COARSE",
      kPerformSetupButtons.row,
@@ -470,6 +471,7 @@ constexpr const char* kRepeatLabels[kRepeatPadCount] = {"FRZ", "RPT8", "RPT16", 
 constexpr const char* kWobbleLabels[kWobblePadCount] = {"1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/8D", "1/16D", "1/2", "1/1"};
 constexpr const char* kVariationPads[4] = {"RAND", "VARY", "UNDO", "REDO"};
 constexpr const char* kLadderPads[app::kPadCols] = {"MIN", nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, "MAX"};
+constexpr const char* kSelectLabels[2] = {"SEL3", "SEL4"};
 constexpr const char* kPerformKeyPads[app::kPadCols] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 constexpr const char* kModifierPads[2][4] = {{"ACC", "SLIDE", "TIE", "REST"}, {"OCT-", "OCT+", "TRNSP", "FILT"}};
 
@@ -626,7 +628,18 @@ void fill_wobble_pads(Help& h) noexcept {
   h.group_count = count_of(sizeof kWobblePageGroups / sizeof kWobblePageGroups[0]);
 }
 
-void fill_perform_pads(Help& h, bool knobs, bool setup) noexcept {
+// One of PERFORM's rows 3 and 4 (SEL3 and SEL4 step what it plays): the wobble's rates, the keys, or the ladder of a knob (MIN .. MAX).
+static void fill_content_row(Help& h, unsigned row, unsigned content, std::uint8_t group) noexcept {
+  if (content == kContentWobRates) {
+    app::help_pads(h, row, 0, row, kWobblePadCount - 1, group, kWobbleLabels);
+  } else if (content == kContentKeys) {
+    app::help_pads(h, row, 0, row, 11, group, kPerformKeyPads);
+  } else {
+    app::help_pads(h, row, 0, row, 11, group, kLadderPads);
+  }
+}
+
+void fill_perform_pads(Help& h, bool knobs, bool setup, unsigned row3, unsigned row4) noexcept {
   if (knobs) {
     for (unsigned row = 0; row < 4; ++row) {
       app::help_pads(h, row, 0, row, 11, row < 2 ? 1 : 2, kLadderPads);
@@ -641,9 +654,10 @@ void fill_perform_pads(Help& h, bool knobs, bool setup) noexcept {
     app::help_pads(h, 1, 8, 1, 11, 4, kVariationPads);
   } else {
     app::help_pads(h, 1, 0, 1, kRepeatPadCount - 1, 3, kRepeatLabels);
+    app::help_pads(h, 1, kSelectCol[0], 1, kSelectCol[1], 6, kSelectLabels);
   }
-  app::help_pads(h, 2, 0, 2, kWobblePadCount - 1, setup ? 5 : 4, kWobbleLabels);
-  app::help_pads(h, 3, 0, 3, 11, setup ? 6 : 5, kPerformKeyPads);
+  fill_content_row(h, 2, row3, setup ? 5 : 4);
+  fill_content_row(h, 3, row4, setup ? 6 : 5);
 }
 
 void fill_library_pads(Help& h) noexcept { app::help_pads(h, 0, 0, kRows - 1, kCols - 1, 1, kSlotNumbers); }

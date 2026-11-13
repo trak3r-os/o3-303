@@ -313,8 +313,7 @@ TEST_CASE("Rec playing: REST and TIE are punched in at the playhead's step, like
 
 TEST_CASE("a latched WOBBLE does not turn HOME's key row into the rate picker: a bottom-row pad plays the voice") {
   Hands t;
-  t.assign_perf(Button::Note, PerfAction::Wobble, true);
-  t.shift_tap(Button::Note);  // WOBBLE latched by the Shift + Note action; it stays on across the change
+  t.tap(Button::Fx);  // WOBBLE on (the Fx key flips it from every screen); it stays on across the change
   t.to_home();
   t.wait(50);
   t.h->record(true);
@@ -329,8 +328,8 @@ TEST_CASE("a latched WOBBLE does not turn HOME's key row into the rate picker: a
   CHECK(peak > 300.0f);
   CHECK(t.led(key_pad(36 + 1)) == app::kLedOff);  // and the LEDs are the keyboard's: the default Penta Min lit (root full, scale mid), the rest off
   CHECK(t.led(key_pad(36 + 3)) == app::kLedMid);
-  t.to_perform();
-  t.shift_tap(Button::Note);
+  t.tap(Button::Fx);
+  CHECK_FALSE(app_sequencer().wobble().on);
 }
 
 TEST_CASE("Pattern held + Delete, Shift + Delete, Insert and Copy change nothing: CLEAR LOCKS, DUP>NEXT and COPY PAT are PATTERN SETUP's (UX-303 D30)") {

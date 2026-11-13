@@ -92,7 +92,7 @@ TEST_CASE("Note, Instr, Vol and Fx with a step held latch the NOTE, GATE, PLAYS 
   t.tap(Button::Fx);
   CHECK(home.row() == DrawerRow::None);
   t.tap(Button::Fx);
-  // Shift + the key is the PERFORM action of that key, a tap latches it; no row is latched either.
+  // Shift + the key is the sound's toggle as well (PF1: no PERFORM action); no row is latched either.
   t.shift_tap(Button::Vol);
   CHECK(home.row() == DrawerRow::None);
   t.shift_tap(Button::Vol);

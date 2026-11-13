@@ -609,9 +609,6 @@ void MasterScreen::draw_skinned(app::Context& ctx, ui::Renderer& r) noexcept {
   in.pattern = rig_->bank->selected();
   in.tempo_mbpm = ctx.engine().tempo();
   in.playing = rig_->seq->playhead().playing;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    in.perf[b] = rig_->wiring.perf[b];
-  }
   in.now_ms = ctx.uptime_ms();
   in.covered = ctx.strip_area();
   char line[128];

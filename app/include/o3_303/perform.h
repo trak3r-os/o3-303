@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
-// The pure parts of the performance gestures (docs/M3B-PLAN.md C4, R1, R7, R8): what the four performance buttons can be assigned to
-// and which actions are on for a state of the buttons, the filter ladders' positions, the tempo nudge, the scale lock of the keyboard
-// and the text of a trig condition; and, for the PERFORM screen (P1), the pad map and which actions are on for buttons and pads. No engine, no
-// screen: tests/perform_test.cpp checks them, live_actions.cpp, home_map.cpp, master_screen.cpp and perform_screen.cpp apply them.
+// The pure parts of the performance gestures (docs/M3B-PLAN.md C4, R1, R7, R8): the live actions, the filter ladders' positions, the tempo nudge, the scale
+// lock of the keyboard and the text of a trig condition; and, for the PERFORM screen (P1), the pad map, which actions are on for the pads, and what rows 3 and 4
+// play (PF1). No engine, no screen: tests/perform_test.cpp checks them, live_actions.cpp, home_map.cpp, master_screen.cpp and perform_screen.cpp apply them.
 
 #include <o3sdk/app/panel.h>
 #include <o3sdk/core/scales.h>
@@ -15,10 +14,10 @@
 
 namespace o3_303 {
 
-// ---- C4: the four performance buttons -----------------------------------------------------------------------------------------------
+// ---- C4: the live actions ---------------------------------------------------------------------------------------------------------------
 //
-// Note, Instr, Vol and Fx (buttons 0..3 below) each do one action while held; Shift + the button latches it (and again unlatches). Two
-// buttons may carry the same action: it is on while either is. The assignment is Wiring::perf (pages.h), edited on the PERF page.
+// Each is on while its pad is held, or latched (Shift + a press; a tap on a latched one lets it go). The four colour keys do not carry them any more (PF1): they flip the four
+// sounds (sound_buttons.h).
 
 enum class PerfAction : std::uint8_t {
   Mute,      // no new notes (the playhead goes on)
@@ -39,14 +38,8 @@ enum class PerfAction : std::uint8_t {
   Reso,      // H2: a punch: the resonance at kPunchReso
 };
 inline constexpr unsigned kPerfActionCount = 16;
-inline constexpr unsigned kPerfButtons = 4;  // Note, Instr, Vol, Fx
 
-// The defaults: Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (docs/M3B-PLAN.md C4; SLIDE ALL and THROW are one assignment away).
-inline constexpr std::uint8_t kDefaultPerf[kPerfButtons] = {
-    static_cast<std::uint8_t>(PerfAction::Mute), static_cast<std::uint8_t>(PerfAction::AccAll), static_cast<std::uint8_t>(PerfAction::Fill),
-    static_cast<std::uint8_t>(PerfAction::Freeze)};
-
-// The names on the PERF page's strip (at most eight characters) and in the header's chips (as short as they can be).
+// The names of the actions (at most eight characters) and the chips of the status line (as short as they can be).
 inline constexpr const char* kPerfActionNames[kPerfActionCount] = {"MUTE", "ACC ALL", "SLD ALL", "OCT UP", "FILL", "THROW", "FREEZE",
                                                                   "WOBBLE", "ROLL", "STOP", "REV", "OCT DOWN", "DIST", "CUT LO", "CUT HI", "RESO"};
 inline constexpr const char* kPerfActionChips[kPerfActionCount] = {"MUTE", "ACC", "SLD", "OCT+", "FILL", "THROW", "FREEZE", "WOB", "ROLL", "STOP", "REV", "OCT-", "DIST", "CLO", "CHI", "RESO"};
@@ -59,28 +52,15 @@ inline constexpr float kPunchReso = 0.9f;
 
 constexpr std::uint16_t perf_bit(PerfAction a) noexcept { return static_cast<std::uint16_t>(1u << static_cast<unsigned>(a)); }
 
-// The actions that are on (a bit per PerfAction): those of the buttons that are held or latched (`held` and `latched`: bit b = button b).
-// An assignment outside 0..kPerfActionCount-1 does nothing.
-constexpr std::uint16_t perf_actions_on(const std::uint8_t (&assign)[kPerfButtons], unsigned held, unsigned latched) noexcept {
-  unsigned on = 0;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    if (((held | latched) >> b & 1u) != 0u && assign[b] < kPerfActionCount) {
-      on |= 1u << assign[b];
-    }
-  }
-  return static_cast<std::uint16_t>(on);
-}
-
 // ---- P1: the live actions of the PERFORM screen (docs/UX-303.md 5.3, 6.3) ---------------------------------------------------------------
 //
-// The same actions are also on pads (H1: the line and tone actions on row 1, the freeze unit's rates on row 2, the wobble's rates on row 3). A pad is held or latched per action (a bit per PerfAction); the four colour buttons stay
-// held or latched per button (above). An action is on while a button that carries it or its own pad is held or latched.
+// The actions are on pads (H1: the line and tone actions on row 1, the freeze unit's rates on row 2, the wobble's rates on row 3). A pad is held or latched per action (a bit per
+// PerfAction); an action is on while its pad is held or latched.
 
 inline constexpr std::uint16_t kAllActionsMask = static_cast<std::uint16_t>((1u << kPerfActionCount) - 1u);
 
-constexpr std::uint16_t live_actions_on(const std::uint8_t (&assign)[kPerfButtons], unsigned button_held, unsigned button_latched,
-                                        std::uint16_t pad_held, std::uint16_t pad_latched) noexcept {
-  return static_cast<std::uint16_t>((perf_actions_on(assign, button_held, button_latched) | pad_held | pad_latched) & kAllActionsMask);
+constexpr std::uint16_t live_actions_on(std::uint16_t pad_held, std::uint16_t pad_latched) noexcept {
+  return static_cast<std::uint16_t>((pad_held | pad_latched) & kAllActionsMask);
 }
 
 // ---- M3c R: ROLL, STOP and REV ride the beat freeze ---------------------------------------------------------------------------------------
@@ -116,7 +96,7 @@ struct FreezeCmd {
 
 class FreezeOwner {
  public:
-  // `on`: the actions that are on now (perf_actions_on); `changed`: those whose state changed since the last call.
+  // `on`: the actions that are on now (live_actions_on); `changed`: those whose state changed since the last call.
   FreezeCmd step(std::uint16_t on, std::uint16_t changed) noexcept;
   int owner() const noexcept { return owner_; }  // a PerfAction, -1 when none
   void reset() noexcept { owner_ = -1; }
@@ -151,17 +131,37 @@ constexpr unsigned ladder_col(float norm) noexcept {
 //
 //   col      1     2     3     4     5     6     7     8     9     10    11    12
 //   row 1   MUTE  ACC   SLD   OCT-  OCT+  FILL  THRW  DIST  CUTLO CUTHI RESO  ALL OFF        the line and the tone, then the four punches (H2)
-//   row 2   FRZ   RPT   RPT   RPT   RPT   BLD   BLD   STOP  STOP  REV   .     .              the beat freeze's rates (one unit, one owner); the last two are dark
-//   row 3   1/4   1/8   1/16  1/32  1/4T  1/8T  1/16T 1/8D  1/16D 1/2   1/1   .              the wobble's rates (kWobblePadRates)
-//   row 4   the keys: one octave, C..B
+//   row 2   FRZ   RPT   RPT   RPT   RPT   BLD   BLD   STOP  STOP  REV   SEL3  SEL4           the beat freeze's rates (one unit, one owner); the last two pick what rows 3 and 4 play (PF1)
+//   row 3   1/4   1/8   1/16  1/32  1/4T  1/8T  1/16T 1/8D  1/16D 1/2   1/1   .              the wobble's rates (kWobblePadRates), or what SEL3 picked
+//   row 4   the keys: one octave, C..B                                                       or what SEL4 picked
 //
-// PERFORM SETUP carries the same map with row 2 swapped for the snapshots (perform_setup_pad).
+// PF1: rows 3 and 4 each play a content: WOB RATES (the wobble's rates), KEYS (one octave) or a knob's ladder (twelve places of one knob of ladder_knob_at(), as KNOBS' rows). A tap on SEL3
+// steps row 3's content to the next one, a tap on SEL4 row 4's, Shift + a tap steps back. The contents are numbered 0 = WOB RATES, 1 = KEYS, 2 + k = the knob k of the ladder list; row 3 starts
+// on WOB RATES and row 4 on KEYS. Two rows may play the same content.
+//
+// PERFORM SETUP carries the same map with row 2 swapped for the snapshots (perform_setup_pad): it has no selectors, and rows 3 and 4 play what PERFORM chose.
 
-enum class PerformRole : std::uint8_t { Action, AllOff, Snapshot, New, Vary, Undo, Redo, Repeat, WobRate, Key, None };
+inline constexpr unsigned kContentWobRates = 0;
+inline constexpr unsigned kContentKeys = 1;
+inline constexpr unsigned kContentKnobBase = 2;  // content 2 + k is the knob at place k of the ladder list
+inline constexpr unsigned kRowContentRows = 2;   // rows 3 and 4
+inline constexpr unsigned kDefaultRowContent[kRowContentRows] = {kContentWobRates, kContentKeys};
+inline constexpr unsigned kSelectCol[kRowContentRows] = {10, 11};  // the columns (0-based) of row 2 that step row 3 and row 4
+
+// The content after (or, `back`, before) `content` of `count` contents (wrapping); a content past the end is taken as the first. `count` 0 gives 0.
+constexpr unsigned row_content_step(unsigned content, unsigned count, bool back) noexcept {
+  if (count == 0u) {
+    return 0;
+  }
+  const unsigned at = content >= count ? 0u : content;
+  return back ? (at == 0u ? count - 1u : at - 1u) : (at + 1u == count ? 0u : at + 1u);
+}
+
+enum class PerformRole : std::uint8_t { Action, AllOff, Snapshot, New, Vary, Undo, Redo, Repeat, WobRate, Key, Ladder, Select, None };
 
 struct PerformPad {
   PerformRole role = PerformRole::None;
-  std::uint8_t index = 0;  // Action: a PerfAction; Snapshot: the slot 0..7; Repeat, WobRate and Key: the column
+  std::uint8_t index = 0;  // Action: a PerfAction; Snapshot: the slot 0..7; Repeat, WobRate, Key and Ladder: the column; Select: the row it steps (0 row 3, 1 row 4)
 };
 
 // Row 1, column by column, columns 1..11 (column 12 is ALL OFF).
@@ -192,7 +192,16 @@ inline constexpr std::uint8_t kWobblePadRates[kWobblePadCount] = {seq::kWobble1_
                                                                  seq::kWobble1_4T, seq::kWobble1_8T, seq::kWobble1_16T, seq::kWobble1_8D,
                                                                  seq::kWobble1_16D, seq::kWobble1_2, seq::kWobble1_1};
 
-constexpr PerformPad perform_pad(unsigned pad) noexcept {
+// What a pad of rows 3 and 4 does for the content of its row.
+constexpr PerformPad content_pad(unsigned content, unsigned col) noexcept {
+  if (content == kContentWobRates) {
+    return col < kWobblePadCount ? PerformPad{PerformRole::WobRate, static_cast<std::uint8_t>(col)} : PerformPad{};
+  }
+  return PerformPad{content == kContentKeys ? PerformRole::Key : PerformRole::Ladder, static_cast<std::uint8_t>(col)};
+}
+
+// `row3` and `row4`: the contents rows 3 and 4 play now (the defaults are the map above).
+constexpr PerformPad perform_pad(unsigned pad, unsigned row3 = kDefaultRowContent[0], unsigned row4 = kDefaultRowContent[1]) noexcept {
   if (pad >= o3sdk::app::kPadCount) {
     return PerformPad{};
   }
@@ -205,16 +214,19 @@ constexpr PerformPad perform_pad(unsigned pad) noexcept {
       }
       return col == 11u ? PerformPad{PerformRole::AllOff, 0} : PerformPad{};
     case 1:
+      if (col == kSelectCol[0] || col == kSelectCol[1]) {
+        return PerformPad{PerformRole::Select, static_cast<std::uint8_t>(col == kSelectCol[0] ? 0 : 1)};
+      }
       return col < kRepeatPadCount ? PerformPad{PerformRole::Repeat, static_cast<std::uint8_t>(col)} : PerformPad{};
     case 2:
-      return col < kWobblePadCount ? PerformPad{PerformRole::WobRate, static_cast<std::uint8_t>(col)} : PerformPad{};
+      return content_pad(row3, col);
     default:
-      return PerformPad{PerformRole::Key, static_cast<std::uint8_t>(col)};
+      return content_pad(row4, col);
   }
 }
 
 // PERFORM SETUP's map: PERFORM's with row 2 the snapshots 1..8 and then the pattern variations.
-constexpr PerformPad perform_setup_pad(unsigned pad) noexcept {
+constexpr PerformPad perform_setup_pad(unsigned pad, unsigned row3 = kDefaultRowContent[0], unsigned row4 = kDefaultRowContent[1]) noexcept {
   if (pad < o3sdk::app::kPadCount && o3sdk::app::pad_row(pad) == 1u) {
     const unsigned col = o3sdk::app::pad_col(pad);
     if (col < 8u) {
@@ -222,7 +234,7 @@ constexpr PerformPad perform_setup_pad(unsigned pad) noexcept {
     }
     return PerformPad{col == 8u ? PerformRole::New : (col == 9u ? PerformRole::Vary : (col == 10u ? PerformRole::Undo : PerformRole::Redo)), 0};
   }
-  return perform_pad(pad);
+  return perform_pad(pad, row3, row4);
 }
 
 // The pad of an action on row 1 (past the panel for an action that has none there).

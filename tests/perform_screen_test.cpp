@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The PERFORM screen (docs/UX-303.md 5.3 and 5.4, slice P1): the Perform button and its two pages, the 48 live pads (actions, snapshots and the
-// morph, NEW / VARY / UNDO / REDO, the ladder, the keys), the four colour buttons, the encoder, the Shift row, what leaving does, and PageKeys over a
+// morph, NEW / VARY / UNDO / REDO, the ladder, the keys), the colour buttons (the sounds' keys), the encoder, the Shift row, what leaving does, and PageKeys over a
 // table of its own. The pure pad map is perform_test.cpp's; the 303 screen's own gestures are the older tests' (they run unchanged).
 #include <doctest/doctest.h>
 
@@ -217,47 +217,40 @@ TEST_CASE("leaving PERFORM: the momentary actions end, the latched ones stay on,
   CHECK(lamp(t, action_pad(PerfAction::Mute)) == app::kLedDim);
   t.pad(action_pad(PerfAction::Freeze), 10);
   CHECK(freeze_active(t) == 0.0f);
-  // A colour button held (Shift + the key) on PERFORM ends when the screen goes.
-  t.action_press(Button::Note);
+  // A pad held on PERFORM ends when the screen goes (the colour buttons carry no action: PF1).
+  t.action_press(PerfAction::Mute);
   CHECK(seqr().perf() == seq::kPerfMute);
   t.to_home();
   CHECK(seqr().perf() == 0);
-  t.action_release(Button::Note);
+  t.action_release(PerfAction::Mute);
   CHECK(seqr().perf() == 0);
-  // On the 303 screen (E1b) a plain press is the key's sound, not an action; Shift + the key is the action there too, on every screen.
-  t.press(Button::Note);
-  CHECK(seqr().perf() == 0);
-  t.release(Button::Note);
-  t.shift_tap(Button::Fx);
-  CHECK(freeze_active(t) == 1.0f);
-  t.shift_tap(Button::Fx);
-  CHECK(freeze_active(t) == 0.0f);
 }
 
-TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift latches, and ALL OFF unlatches them too") {
+TEST_CASE("the colour buttons on PERFORM flip the sounds and run no action (PF1); a pad latch stays until its pad or ALL OFF lets it go") {
   Hands t;
   t.to_perform();
-  t.action_press(Button::Note);
-  CHECK(seqr().perf() == seq::kPerfMute);
-  CHECK(lamp(t, action_pad(PerfAction::Mute)) == app::kLedOn);  // the pad of the action mirrors the button
-  t.action_release(Button::Note);
+  // Note, Instr, Vol and Fx are the sounds' keys, with or without Shift: no PERFORM action goes on or off.
+  t.tap(Button::Note);
+  t.shift_tap(Button::Note);
+  t.tap(Button::Fx);
+  t.shift_tap(Button::Fx);
   CHECK(seqr().perf() == 0);
-  t.shift_tap(Button::Fx);
-  CHECK(freeze_active(t) == 1.0f);  // (the rate pads of row 2 light for their own press only)
-  t.pad(all_off_pad(), 10);  // D27: also the colour buttons' latches
   CHECK(freeze_active(t) == 0.0f);
-  t.shift_tap(Button::Fx);
+  // A pad latch is not touched by a colour key.
+  shift_pad(t, action_pad(PerfAction::Mute));
+  CHECK(seqr().perf() == seq::kPerfMute);
+  t.shift_tap(Button::Note);
+  CHECK(seqr().perf() == seq::kPerfMute);
+  t.pad(action_pad(PerfAction::Mute), 10);  // a tap on the latched pad lets it go
+  CHECK(seqr().perf() == 0);
+  shift_pad(t, action_pad(PerfAction::Freeze));
   CHECK(freeze_active(t) == 1.0f);
-  t.shift_tap(Button::Fx);  // the same key again lets it go (the freeze has no pad of its own on row 1: its pads are row 2's rates)
+  t.tap(Button::Fx);
+  CHECK(freeze_active(t) == 1.0f);
+  t.pad(all_off_pad(), 10);  // D27
   CHECK(freeze_active(t) == 0.0f);
-  t.pad(action_pad(PerfAction::Mute), 10);  // the pad of an action a button latched lets it go, whoever latched it
-  CHECK(seqr().perf() == 0);
-  t.shift_tap(Button::Note);
-  CHECK(seqr().perf() == seq::kPerfMute);
-  t.pad(action_pad(PerfAction::Mute), 10);
-  CHECK(seqr().perf() == 0);
   // A latch stays on across the change of screen, and its pad is lit on return.
-  t.shift_tap(Button::Note);
+  shift_pad(t, action_pad(PerfAction::Mute));
   t.to_home();
   CHECK(seqr().perf() == seq::kPerfMute);
   t.to_perform();
@@ -267,30 +260,24 @@ TEST_CASE("the colour buttons on PERFORM are the four assigned actions, Shift la
   CHECK(seqr().perf() == 0);
 }
 
-TEST_CASE("PERFORM SETUP: F1 assigns the Note button, and the pads stay PERFORM's") {
+TEST_CASE("PERFORM SETUP: F1..F4 are blank (PF1), and the pads stay PERFORM's") {
   Hands t;
   t.to_perform();
   t.to_setup();    // SETUP
   CHECK(std::strcmp(t.title(), "PERFORM SETUP") == 0);
   t.tap(Button::F1);
-  t.turn(1);  // MUTE -> ACC ALL
-  t.action_press(Button::Note);
-  CHECK(seqr().perf() == seq::kPerfAccAll);
-  t.action_release(Button::Note);
+  t.turn(1);  // nothing is behind a blank key
+  CHECK(seqr().perf() == 0);
+  t.tap(Button::Note);  // the colour key is the MODS flip here as everywhere
+  CHECK(seqr().perf() == 0);
   t.down(action_pad(PerfAction::Mute));  // the pads are PERFORM's here too
   CHECK(seqr().perf() == seq::kPerfMute);
   t.up(action_pad(PerfAction::Mute));
-  // The latch of the setup page is its own: the sound knobs' latch is still F1.
   t.to_perform();
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);
   const float before = cutoff(t);
   t.turn(1);
   CHECK(cutoff(t) != before);
-  t.to_setup();    // SETUP again: it comes back as it was left, latch and all
-  t.turn(1);
-  t.action_press(Button::Note);
-  CHECK(seqr().perf() == seq::kPerfSlideAll);  // ACC ALL -> SLD ALL
-  t.action_release(Button::Note);
 }
 
 TEST_CASE("PERFORM SETUP's F5..F8 (5.4): FILL, the freeze's length, ROLL as one list (rate and accelerate), STOP's time; no Shift row") {
@@ -437,7 +424,7 @@ TEST_CASE("row 2: Shift + a snapshot pad stores the sound, a tap recalls it and 
   t.turn(-16);
   t.wait(150);
   CHECK(cutoff(t) == doctest::Approx(live).epsilon(0.01));
-  // An F key gives the encoder back: the next turn is the setup page's (F1's assignment), not a morph, so the cutoff stays.
+  // An F key gives the encoder back: the next turn is the setup page's (F1 is blank), not a morph, so the cutoff stays.
   t.tap(Button::F1);
   const float before = cutoff(t);
   t.turn(-5);
@@ -790,28 +777,6 @@ TEST_CASE("every frame of PERFORM, its setup page and the 303 screen fits well u
   t.tap(Button::Play);
 }
 
-TEST_CASE("Shift + a colour button lets go of an action latched on a PERFORM pad") {
-  Hands t;
-  t.to_perform();
-  shift_pad(t, action_pad(PerfAction::Mute));  // Note carries MUTE
-  CHECK(seqr().perf() == seq::kPerfMute);
-  t.shift_tap(Button::Note);  // not a second latch on the button: the action goes
-  CHECK(seqr().perf() == 0);
-  t.shift_tap(Button::Note);  // now it is the button's own latch
-  CHECK(seqr().perf() == seq::kPerfMute);
-  t.shift_tap(Button::Note);
-  CHECK(seqr().perf() == 0);
-  // The same with a pad latch and a button latch on Freeze: both go.
-  shift_pad(t, action_pad(PerfAction::Freeze));
-  CHECK(freeze_active(t) == 1.0f);
-  t.shift_tap(Button::Fx);
-  CHECK(freeze_active(t) == 0.0f);
-  t.shift_tap(Button::Fx);
-  CHECK(freeze_active(t) == 1.0f);
-  t.pad(all_off_pad(), 10);
-  CHECK(freeze_active(t) == 0.0f);
-}
-
 TEST_CASE("an F key held across the page change does not stay held: the next turn moves the latched knob") {
   Hands t;
   t.to_perform();
@@ -1067,4 +1032,57 @@ TEST_CASE("KNOBS (KN4): hold + Up / Down walks a row on to the wobble's family: 
   o.t.tap(Button::F2);
   o.t.tap(Button::F1);
   CHECK(o.row(0) == name);
+}
+
+TEST_CASE("PERFORM (PF1): SEL3 and SEL4 step what rows 3 and 4 play, a tap forward, Shift + a tap back, a toast names it, the lamps follow") {
+  Hands t;
+  t.skin_on();
+  t.to_perform();
+  t.wait(60);
+  auto* s = static_cast<PerformScreen*>(t.h->runtime().context().screen());
+  REQUIRE(std::strcmp(t.title(), "PERFORM") == 0);
+  const unsigned sel3 = pp(kRow2, 10);
+  const unsigned sel4 = pp(kRow2, 11);
+  CHECK(lamp(t, sel3) > 0);  // the selectors are lit
+  CHECK(lamp(t, sel4) > 0);
+
+  // Row 3 starts on the wobble rates and row 4 on the keys: the lamps differ (the keys light the scale, the rates the eleven pads).
+  const std::uint8_t row3_rate = lamp(t, pp(2, 0));
+  CHECK(row3_rate > 0);
+  CHECK(lamp(t, pp(2, 11)) == 0);  // a twelfth pad past the eleven rates is dark
+
+  // SEL3: the next content is KEYS; the same keys then light on both rows.
+  t.pad(sel3, 10);
+  CHECK(std::string(s->toast_text()) == "ROW 3: KEYS");
+  for (unsigned col = 0; col < 12; ++col) {
+    CHECK(lamp(t, pp(2, col)) == lamp(t, pp(3, col)));
+  }
+  // Once more: the first knob of the ladder list, a ladder of twelve places (every pad lit as a ladder).
+  t.pad(sel3, 10);
+  CHECK(std::string(s->toast_text()).rfind("ROW 3: ", 0) == 0);
+  CHECK(std::string(s->toast_text()).find(" / ") != std::string::npos);
+  unsigned lit = 0;  // a ladder lights the places of the knob (the value's pad at full, the places below it or a list's dimmed), not the pad past the eleven rates only
+  for (unsigned col = 0; col < 12; ++col) {
+    lit += lamp(t, pp(2, col)) > 0 ? 1u : 0u;
+  }
+  CHECK(lit > 0u);
+  // Shift + a tap steps back, twice to WOB RATES, which wraps on the third to the last knob.
+  shift_pad(t, sel3);
+  CHECK(std::string(s->toast_text()) == "ROW 3: KEYS");
+  shift_pad(t, sel3);
+  CHECK(std::string(s->toast_text()) == "ROW 3: WOB RATES");
+  CHECK(lamp(t, pp(2, 11)) == 0);
+  shift_pad(t, sel3);
+  CHECK(std::string(s->toast_text()).rfind("ROW 3: ", 0) == 0);
+  CHECK(std::string(s->toast_text()).find(" / ") != std::string::npos);
+
+  // SEL4 is row 4's own: it steps from KEYS to WOB RATES, and the two rows may play the same.
+  t.pad(sel4, 10);
+  CHECK(std::string(s->toast_text()).rfind("ROW 4: ", 0) == 0);
+  shift_pad(t, sel4);
+  CHECK(std::string(s->toast_text()) == "ROW 4: KEYS");
+  shift_pad(t, sel4);
+  CHECK(std::string(s->toast_text()) == "ROW 4: WOB RATES");  // both rows on the rates now: allowed
+  t.pad(sel4, 10);
+  CHECK(std::string(s->toast_text()) == "ROW 4: KEYS");
 }

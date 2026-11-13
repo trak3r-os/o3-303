@@ -49,7 +49,6 @@ enum class Item : std::uint8_t {
   DistMode,   // the distortion's Active and Type as one key: OFF, GRIT, TUBE, HARD, FUZZ, FOLD
   Freeze,     // a parameter of the beat freeze on master insert 0 (id = its parameter id)
   FillVariant,  // what FILL plays (seq::FillVariant)
-  Perf,       // the action of a performance button (id 0 Note, 1 Instr, 2 Vol, 3 Fx): a PerfAction
   Growl,      // M3c: a parameter of the growl on slot 0's insert 1 (id = its parameter id)
   Wobble,     // M3c: a setting of the wobble (id = a WobbleField), the sequencer's LFO; the settings are Wiring::wobble
   AccPct,     // H2: the generator's accent chance (project-wide, UX-303 D1); PATTERN SETUP's F7
@@ -90,7 +89,7 @@ struct Page {
 };
 
 // The global table, two pages: SOUND is HOME's eight knobs (Rig::sound_keys; INSTRUMENT VOICE shares it) and PERF SETUP is PERFORM SETUP's page
-// (UX-303 5.4): the four performance buttons' assignments, what FILL plays, the beat freeze's length, the ROLL mode (rate and accelerate in one
+// (UX-303 5.4): what FILL plays, the beat freeze's length, the ROLL mode (rate and accelerate in one
 // list) and the STOP time. A PageKeys with no table of its own runs over it. The transport and the pattern's own settings are MASTER's and
 // PATTERN SETUP's (`setup_page()`, the generator's settings too); a step's ratchet and condition are the PLAYS row (UX-303 D8); the SNAP page (R2)
 // is PERFORM's row 2 now. The INSTRUMENT screen's pages are tables of their own, below.
@@ -191,7 +190,6 @@ struct Wiring {
   float level_db = -3.0f;    // slot 0's level in dB (SOUND F8): the voice peaks at 1 on its accents; headroom for the delay's wet signal
   bool throw_on = false;
   bool stock = false;        // the voice's Stock is on (the mirror of its parameter, for the chip of every screen): Controls::set(Item::Mods) is its one writer. Main loop only
-  std::uint8_t perf[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};  // PerfAction of Note, Instr, Vol, Fx
   bool keys_in_scale = false;  // Config's KEYS: IN SCALE (a setting, not the project's; main loop only): the keys outside the scale (HOME's Shift + F6) are dark and do nothing. ALL (false) is the default: every key plays and writes, the scale only lights them
   SnapBank snaps;            // the eight snapshots and the morph (PERFORM's row 2; saved in the project; the screens read and write it from the main loop)
   WobbleSettings wobble;     // the WOBBLE page's settings (main loop)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The obsidian skin's core (docs/SKIN-PLAN.md section 7, slice SK2): the 7-segment mapping, the header's mapping from the StatusView and the context (2.1, 2.2), the PERFORM slots,
+// The obsidian skin's core (docs/SKIN-PLAN.md section 7, slice SK2): the 7-segment mapping, the header's mapping from the StatusView and the context (2.1, 2.2), the MODS chips,
 // the layer queue's order (shapes by layer, texts by token colour) and its bounds. Pure logic and words; the pictures are app/scenarios/skin_home.txt.
 #include <doctest/doctest.h>
 
@@ -30,9 +30,6 @@ namespace {
 std::string str(const char* s) { return std::string(s); }
 
 constexpr std::uint16_t bit(PerfAction a) { return perf_bit(a); }
-
-// The default assignment of the four colour buttons: MUTE, ACC ALL, FILL, FREEZE.
-const std::uint8_t (&defaults())[kPerfButtons] { return kDefaultPerf; }
 
 // The COLOR_RGB words of a frame drawn by `draw`, in order, after the Renderer's own preamble.
 template <typename Fn>
@@ -129,48 +126,23 @@ TEST_CASE("header: the tempo display is four cells and the point, a leading blan
   CHECK(run.cell[0] == kSegCellBlank);
 }
 
-TEST_CASE("header: the PERFORM slots: the actions that are on first, lit; then the buttons' own, dark; \"+N\" when more are on than there are slots") {
-  PerformSlot s[4];
-  fill_perform_slots(s, 0, defaults());  // nothing on: the four buttons' actions, dark
-  CHECK(str(s[0].cap) == "MUTE");
-  CHECK(str(s[1].cap) == "ACC");
-  CHECK(str(s[2].cap) == "FILL");
-  CHECK(str(s[3].cap) == "FRZ");
-  for (const PerformSlot& x : s) {
-    CHECK_FALSE(x.lit);
-  }
-  fill_perform_slots(s, bit(PerfAction::Fill) | bit(PerfAction::Freeze), defaults());
-  CHECK(str(s[0].cap) == "FILL");
-  CHECK(s[0].lit);
-  CHECK(str(s[1].cap) == "FRZ");
-  CHECK(s[1].lit);
-  CHECK(str(s[2].cap) == "MUTE");
-  CHECK_FALSE(s[2].lit);
-  CHECK(str(s[3].cap) == "ACC");
-  CHECK_FALSE(s[3].lit);
-  // An action no button carries (THROW, from a pad) is shown all the same.
-  fill_perform_slots(s, bit(PerfAction::Throw), defaults());
-  CHECK(str(s[0].cap) == "THRW");
-  CHECK(s[0].lit);
-  CHECK(str(s[1].cap) == "MUTE");
-  CHECK_FALSE(s[1].lit);
-  // Four on: all four lit, none left over. Five: three lit and "+2" for the other two.
-  fill_perform_slots(s, bit(PerfAction::Mute) | bit(PerfAction::AccAll) | bit(PerfAction::Fill) | bit(PerfAction::Freeze), defaults());
-  CHECK(s[3].lit);
-  CHECK(str(s[3].cap) == "FRZ");
-  fill_perform_slots(s, bit(PerfAction::Mute) | bit(PerfAction::AccAll) | bit(PerfAction::Fill) | bit(PerfAction::Freeze) | bit(PerfAction::Roll), defaults());
-  CHECK(str(s[0].cap) == "MUTE");
-  CHECK(str(s[2].cap) == "FILL");
-  CHECK(str(s[3].cap) == "+2");
-  CHECK(s[3].lit);
-  fill_perform_slots(s, 0x7FF, defaults());  // all eleven
-  CHECK(str(s[3].cap) == "+8");
-  // A button with the same action as another shows it once; an assignment out of range shows nothing.
-  const std::uint8_t twice[kPerfButtons] = {0, 0, 200, 4};
-  fill_perform_slots(s, 0, twice);
-  CHECK(str(s[0].cap) == "MUTE");
-  CHECK(str(s[1].cap) == "FILL");
-  CHECK(str(s[2].cap) == "");
+TEST_CASE("header: the MODS chips come from StatusView::sounds, a bit per colour key") {
+  frame::StatusView st;
+  HeaderInputs in;
+  in.title = "STEPS";
+  HeaderView v;
+  fill_header(v, st, in);
+  CHECK(v.sounds == 0x01);  // a fresh rig: MODS on, the rest off
+  st.sounds = 0x0A;
+  fill_header(v, st, in);
+  CHECK(v.sounds == 0x0A);
+  st.sounds = 0xFF;  // bits past the four chips are not drawn: the chips read bits 0..3 only
+  fill_header(v, st, in);
+  CHECK(v.sounds == 0xFF);
+  CHECK(std::string(frame::sound_chip_text(0)) == "MOD");
+  CHECK(std::string(frame::sound_chip_text(1)) == "GRL");
+  CHECK(std::string(frame::sound_chip_text(2)) == "TRC");
+  CHECK(std::string(frame::sound_chip_text(3)) == "WOB");
 }
 
 TEST_CASE("header: a message is Label to 20 characters, Micro to 27, and cut at 26 with a dot after that") {
@@ -211,9 +183,6 @@ TEST_CASE("header: fill_header maps the StatusView and the context: LEDs, octave
   in.pattern = 16;  // B05
   in.tempo_mbpm = 125'000;
   in.playing = true;
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    in.perf[b] = kDefaultPerf[b];
-  }
   std::strcpy(st.enc, "F1 CUTOFF");
   st.keys = true;
   st.octave = 1;
@@ -352,45 +321,53 @@ TEST_CASE("header: PLAYS: SONG changes the TRANSPORT legend and nothing else") {
   CHECK(p.texts() == texts);
 }
 
-TEST_CASE("header: the sound chips MOD GRL TRC WOB under the logo are in their key's colour while on and ChromeDim while off, SAVE FAILED (red) takes their place, NO AUTOSAVE tints the logo") {
+TEST_CASE("header: the MODS chips MOD GRL TRC WOB (PF1) are a filled chip in their key's colour while on and a ChromeDim outline while off, SAVE FAILED (red) is alone under the logo, NO AUTOSAVE tints the logo") {
   const auto same_rgb = [](const ui::Rgb& a, const ui::Rgb& b) { return a.r == b.r && a.g == b.g && a.b == b.b; };
+  // The 2 x 2 grid where PERFORM's slots were (header.cpp: kModsX 502, kModsY 13, 53 x 24, gap 3), in the colour keys' order; the word is centred in the 8x16 Label face.
+  const auto box_of = [](unsigned c) { return ui::Rect{502 + static_cast<int>(c % 2u) * 56, 13 + static_cast<int>(c / 2u) * 27, 53, 24}; };
   struct Seen {
-    ui::Color chip[frame::kSoundChips] = {};
-    unsigned chips = 0;      // texts of the chips' line that are one of the four words
-    unsigned failed = 0;     // "SAVE FAILED" texts at the line's place
-    unsigned other = 0;      // any other text at the line's place: the old taglines must be gone
+    ui::Color ink[frame::kSoundChips] = {};
+    bool word[frame::kSoundChips] = {};
+    bool filled[frame::kSoundChips] = {};
+    ui::Rgb fill[frame::kSoundChips] = {};
+    unsigned outline_dim[frame::kSoundChips] = {};  // the four edge rects of an off chip, in ChromeDim
+    unsigned brand_line = 0;                        // chips of the old brand line (y 52): gone
+    unsigned failed = 0;                            // "SAVE FAILED" texts at the line's place
+    unsigned other = 0;                             // any other text at the line's place
     ui::Rgb logo{};
   };
-  const auto seen = [](const frame::StatusView& st) {
+  const auto seen = [&](const frame::StatusView& st) {
     Panel p;
     p.clear();
     queue_panel(p, kHeaderH, 384);
     HeaderInputs in;
     in.title = "STEPS";
-    for (unsigned b = 0; b < kPerfButtons; ++b) {
-      in.perf[b] = kDefaultPerf[b];
-    }
     HeaderView v;
     fill_header(v, st, in);
     draw_header(p, v);
     Seen out;
     for (unsigned i = 0; i < p.texts(); ++i) {
       Panel::TextInfo tx;
-      if (!p.text_at(i, tx) || tx.y != 52) {
+      if (!p.text_at(i, tx)) {
         continue;
       }
-      bool known = false;
       for (unsigned c = 0; c < frame::kSoundChips; ++c) {
-        if (std::strcmp(tx.s, frame::sound_chip_text(c)) == 0 && tx.x == 14 + static_cast<int>(c) * 4 * 6) {
-          out.chip[c] = tx.color;
-          ++out.chips;
-          known = true;
+        const ui::Rect bx = box_of(c);
+        if (std::strcmp(tx.s, frame::sound_chip_text(c)) == 0) {
+          if (tx.y == 52) {
+            ++out.brand_line;
+          } else if (tx.x == bx.x + (bx.w - 3 * 8) / 2 && tx.y == bx.y + (bx.h - 16) / 2 && tx.face == ui::Face::Label) {
+            out.word[c] = true;
+            out.ink[c] = tx.color;
+          }
         }
       }
-      if (!known && std::strcmp(tx.s, "SAVE FAILED") == 0 && tx.x == 14) {
-        ++out.failed;
-      } else if (!known) {
-        ++out.other;
+      if (tx.y == 52) {
+        if (std::strcmp(tx.s, "SAVE FAILED") == 0 && tx.x == 14) {
+          ++out.failed;
+        } else {
+          ++out.other;
+        }
       }
     }
     for (unsigned i = 0; i < p.shapes(); ++i) {
@@ -398,52 +375,81 @@ TEST_CASE("header: the sound chips MOD GRL TRC WOB under the logo are in their k
       if (p.sprite_at(i, sp) && sp.id == skin_assets::Id::Logo) {
         out.logo = sp.rgb;
       }
+      Panel::RoundRectInfo rr;
+      Panel::RectInfo re;
+      for (unsigned c = 0; c < frame::kSoundChips; ++c) {
+        const ui::Rect bx = box_of(c);
+        if (p.round_rect_at(i, rr) && rr.box.x == bx.x && rr.box.y == bx.y && rr.box.w == bx.w && rr.box.h == bx.h) {
+          out.filled[c] = true;
+          out.fill[c] = rr.rgb;
+        }
+        if (p.rect_at(i, re) && re.box.x >= bx.x && re.box.y >= bx.y && re.box.x + re.box.w <= bx.x + bx.w && re.box.y + re.box.h <= bx.y + bx.h &&
+            same_rgb(re.rgb, theme().rgb(ui::Color::ChromeDim)) && (re.box.w == 1 || re.box.h == 1)) {
+          ++out.outline_dim[c];
+        }
+      }
     }
     return out;
   };
   frame::StatusView st;
-  // A fresh view: the mods on, the other three off.
+  // A fresh view: MODS on, the other three off. On: filled in the key's colour with Chrome ink; off: four ChromeDim edges and ChromeDim ink, no fill.
   Seen n = seen(st);
-  CHECK(n.chips == 4u);
+  CHECK(n.brand_line == 0u);
   CHECK(n.failed == 0u);
   CHECK(n.other == 0u);
-  CHECK(n.chip[0] == ui::Color::Vol);
-  CHECK(n.chip[1] == ui::Color::ChromeDim);
-  CHECK(n.chip[2] == ui::Color::ChromeDim);
-  CHECK(n.chip[3] == ui::Color::ChromeDim);
-  // Every sound on: each in the colour of its key (Note Vol's, Instr the Accent, Vol the Fx's, Fx the Instr's); none on: all dim.
+  for (unsigned c = 0; c < frame::kSoundChips; ++c) {
+    CHECK(n.word[c]);
+    if (c == 0) {
+      CHECK(n.filled[c]);
+      CHECK(same_rgb(n.fill[c], theme().rgb(frame::sound_chip_colour(c))));
+      CHECK(n.ink[c] == ui::Color::Chrome);
+      CHECK(n.outline_dim[c] == 0u);
+    } else {
+      CHECK_FALSE(n.filled[c]);
+      CHECK(n.ink[c] == ui::Color::ChromeDim);
+      CHECK(n.outline_dim[c] == 4u);
+    }
+  }
+  // Every sound on: each filled in the colour of its key (Note Vol's, Instr the Accent, Vol the Fx's, Fx the Instr's); none on: all outlines.
   st.sounds = 0x0F;
   n = seen(st);
-  CHECK(n.chip[0] == ui::Color::Vol);
-  CHECK(n.chip[1] == ui::Color::Accent);
-  CHECK(n.chip[2] == ui::Color::Fx);
-  CHECK(n.chip[3] == ui::Color::Instr);
+  for (unsigned c = 0; c < frame::kSoundChips; ++c) {
+    CHECK(n.filled[c]);
+    CHECK(same_rgb(n.fill[c], theme().rgb(frame::sound_chip_colour(c))));
+    CHECK(n.ink[c] == ui::Color::Chrome);
+  }
+  CHECK(frame::sound_chip_colour(0) == ui::Color::Vol);
+  CHECK(frame::sound_chip_colour(1) == ui::Color::Accent);
+  CHECK(frame::sound_chip_colour(2) == ui::Color::Fx);
+  CHECK(frame::sound_chip_colour(3) == ui::Color::Instr);
   st.sounds = 0x00;
   n = seen(st);
   for (unsigned c = 0; c < frame::kSoundChips; ++c) {
-    CHECK(n.chip[c] == ui::Color::ChromeDim);
+    CHECK_FALSE(n.filled[c]);
+    CHECK(n.ink[c] == ui::Color::ChromeDim);
+    CHECK(n.outline_dim[c] == 4u);
   }
-  // A failed save takes the line: "SAVE FAILED" in red, no chip.
+  // A failed save: "SAVE FAILED" in red under the logo; the MODS chips stay where they are (they are not on the brand line any more).
   st.sounds = 0x0F;
   st.save_failed = true;
   n = seen(st);
-  CHECK(n.chips == 0u);
   CHECK(n.failed == 1u);
   CHECK(n.other == 0u);
-  // NO AUTOSAVE: the logo takes the Accent tint and the chips stay; a failed save over it still wins the line.
+  CHECK(n.word[0]);
+  // NO AUTOSAVE: the logo takes the Accent tint; a failed save over it still shows.
   st.save_failed = false;
   const ui::Rgb plain = n.logo;
   n = seen(st);
   CHECK(same_rgb(n.logo, plain));
+  CHECK(n.failed == 0u);
   st.no_autosave = true;
   n = seen(st);
-  CHECK(n.chips == 4u);
+  CHECK(n.word[3]);
   CHECK(same_rgb(n.logo, theme().rgb(ui::Color::Accent)));
   CHECK_FALSE(same_rgb(n.logo, plain));
   st.save_failed = true;
   n = seen(st);
   CHECK(n.failed == 1u);
-  CHECK(n.chips == 0u);
 }
 
 TEST_CASE("header: a full header, with every lamp and window lit, is far inside the queue") {
@@ -453,9 +459,6 @@ TEST_CASE("header: a full header, with every lamp and window lit, is far inside 
   frame::StatusView st;
   HeaderInputs in;
   in.title = "STEPS";
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    in.perf[b] = kDefaultPerf[b];
-  }
   std::strcpy(st.enc, "F1 CUTOFF");
   st.keys = true;
   st.rec = true;

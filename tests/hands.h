@@ -41,6 +41,24 @@ inline o3_303::seq::Bank& bank() { return o3_303::seq::project_bank(); }
 // The key pad of a note at octave shift 0: the bottom row is C2 (36) .. B2, the row above it C3 (48) .. B3.
 inline unsigned key_pad(unsigned note) { return note >= 48u ? 24u + (note - 48u) : 36u + (note - 36u); }
 inline unsigned step_pad_of(unsigned k) { return o3_303::step_pad(k); }
+// The pad of a PERFORM action: row 1's own, and for the freeze family and the wobble the pad of row 2 or 3 that is it at a rate (H1): FRZ 1/4, RPT 8, STP 1/2, REV, the wobble's 1/4.
+inline unsigned perform_pad_of(o3_303::PerfAction a) {
+  using o3_303::PerfAction;
+  switch (a) {
+    case PerfAction::Freeze:
+      return app::pad_at(1, 0);
+    case PerfAction::Roll:
+      return app::pad_at(1, 1);
+    case PerfAction::Stop:
+      return app::pad_at(1, 7);
+    case PerfAction::Reverse:
+      return app::pad_at(1, 9);
+    case PerfAction::Wobble:
+      return app::pad_at(2, 0);
+    default:
+      return app::pad_at(0, o3_303::perform_action_pad(a));
+  }
+}
 
 struct Hands {
   std::unique_ptr<sim::Harness> h = std::make_unique<sim::Harness>(o3sdk_app());
@@ -101,15 +119,13 @@ struct Hands {
     tap(b);
     up(step_pad_of(k));
   }
-  // A PERFORM action held (E1b): Shift + the colour key, Shift let go at once, the key kept down; `action_release` waits past the tap time (a shorter press latches) and lets the key go.
-  void action_press(Button b) {
+  // A PERFORM action on its pad (PF1: the colour keys carry no action any more): held while the pad is down, latched with Shift + a press.
+  void action_press(o3_303::PerfAction a) { down(perform_pad_of(a)); }
+  void action_release(o3_303::PerfAction a) { up(perform_pad_of(a)); }
+  void latch(o3_303::PerfAction a) {
     press(Button::Shift);
-    press(b);
+    pad(perform_pad_of(a), 10);
     release(Button::Shift);
-  }
-  void action_release(Button b) {
-    h->run_ms(310);
-    release(b);
   }
   void turn(int d) {
     h->turn(d);
@@ -207,25 +223,6 @@ struct Hands {
     tap(Button::Pattern);
     tap(Button::Pattern);
     wait(40);
-  }
-  // A performance button's action, set on PERFORM SETUP (F1..F4 are Note, Instr, Vol, Fx; the encoder walks the eleven actions: down to the first,
-  // then up). From any screen; it ends on the 303 screen, or on PERFORM with `stay`, where the four buttons are the live actions (on the 303 screen they
-  // are the drawer's rows).
-  void assign_perf(Button which, o3_303::PerfAction action, bool stay = false) {
-    if (std::strncmp(title(), "PERFORM", 7) == 0) {
-      to_home();
-    }
-    to_setup();  // Performance leaves it for PERFORM
-    tap(app::fkey(static_cast<unsigned>(which) - static_cast<unsigned>(Button::Note)));
-    turn(-16);
-    if (action != o3_303::PerfAction::Mute) {
-      turn(static_cast<int>(action));
-    }
-    if (stay) {
-      tap(Button::Performance);
-    } else {
-      to_home();
-    }
   }
 };
 

@@ -18,7 +18,7 @@ enum class Sound : std::uint8_t { Mods, Growl, Tract, Wobble };
 
 inline constexpr unsigned kSoundCount = 4;
 
-// The sound's key on the panel: Note, Instr, Vol, Fx = 0..3, the index of Wiring::perf as well.
+// The sound's key on the panel: Note, Instr, Vol, Fx = 0..3.
 constexpr unsigned sound_key(Sound s) noexcept { return static_cast<unsigned>(s); }
 constexpr std::uint8_t sound_bit(Sound s) noexcept { return static_cast<std::uint8_t>(1u << static_cast<unsigned>(s)); }
 

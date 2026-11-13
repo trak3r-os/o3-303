@@ -68,6 +68,8 @@ bool knob_set_is_factory(const Wiring& wiring, unsigned set) noexcept;
 // The list the hold + Up/Down binding walks: every knob a lane can drive and a page of the app shows, in family order (SOUND, FX, MODDED NOTES, MODDED TONE, GROWL, TRACT, WOBBLE); KN4: with the row-only knobs (RowOnlyTarget), a knob once.
 unsigned ladder_knob_count(const Controls& controls) noexcept;
 Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept;
+// The same, and `family` (if not null) gets the name of the family the knob is in (PF1: PERFORM's rows 3 and 4 name what they play).
+Entry ladder_knob_at_family(const Controls& controls, unsigned index, const char** family) noexcept;
 // Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now. `family` (if not null) gets the
 // name of the family that knob is in.
 Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family = nullptr) noexcept;

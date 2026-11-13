@@ -126,7 +126,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 | **Config** | The unit's settings. **Shift + Config**: HELP for the screen you are on |
 | **Play** | Play and stop. **Shift + Play**: restart from step 1 |
 | **Rec** | Write mode on HOME (the keys write notes); on PERFORM, records the encoder's knob moves (the pad effects are not recorded). **Shift + Rec**: arm or stop an audio take, from any screen |
-| **Note, Instr, Vol, Fx** | The four colour buttons, on every screen. A tap flips a sound: **Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE**. **Shift + the button**: the PERFORM action set on PERFORM SETUP (MUTE, ACC ALL, FILL, FREEZE at first): a tap latches it, a hold is momentary. With a step pad held on HOME they give the encoder one row of that step (NOTE, GATE, PLAYS, LOCK) |
+| **Note, Instr, Vol, Fx** | The four colour buttons, on every screen. A tap flips a sound: **Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE**. **Shift + the button** flips it the same way (the colour buttons carry no PERFORM action: MUTE, ACC, FILL and FRZ are pads). With a step pad held on HOME they give the encoder one row of that step (NOTE, GATE, PLAYS, LOCK) |
 | **Copy, Insert, Delete** | Step editing on HOME (copy, make a tie, clear; Shift + Insert pushes the steps right) |
 | **Arrows** | The cursor; Up and Down change the note. With an F key held, Left and Right move that knob by a twentieth of its range |
 | **F1 to F8** | The eight keys under the screen. Their names are always on the screen, just above them |
@@ -145,7 +145,7 @@ With the OBSIDIAN look (section 13), the top of the screen is a 303-style panel 
 - **TRANSPORT**: PLAY (green while it plays; it reads SONG while Play plays the song), REC (write mode), TAKE (an audio take is armed
   or recording).
 - **KEYBOARD**: KEYS (the keys play the voice) or TRNSP (the keys transpose the line), and the two octaves the keys play (OCT 2-3).
-- **PERFORM**: four lights for the live actions (at first, the colour buttons' Shift actions MUTE, ACC, FILL and FRZ); a lit one is on.
+- **MODS**: four chips, MOD, GRL, TRC and WOB, where PERFORM's lights were. A sound that is on is a chip filled in its colour (the colour of its button); one that is off is a dim outline. The colour buttons flip them.
 - **PAGE**: the screen's name, or a short message for a moment ("SAVED", "NEW LINE").
 - **ENC**: what the encoder turns now ("F1 CUTOFF"). With Shift held on HOME and PATTERN SETUP it also gives the value ("CUTOFF 456 Hz"), because the Shift row hides the knobs.
 
@@ -387,29 +387,30 @@ The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back.
 
 Press **Performance**. There is no menu here: the 48 pads are live, and the line keeps playing.
 
-![PERFORM: four rows of lamps, LINE+TONE, REPEAT, WOBBLE and KEYS, the four colour buttons' actions under them, and the sound knobs](manual/img/perform.png)
+![PERFORM: four rows of lamps, LINE+TONE, REPEAT, WOBBLE and KEYS, the four sound chips (MOD GRL TRC WOB) under them, and the sound knobs](manual/img/perform.png)
 
 *PERFORM. Each lamp on the screen is the pad under it. A lit lamp is an effect that is on.*
 
 | Row | Pads |
 |---|---|
 | 1, line and tone | MUTE, ACC (every note accented), SLD (every step slides), OCT- and OCT+ (an octave down or up), FILL (the fill variant), THRW (the delay send opens all the way). Columns 8 to 11 are the **punches**: DIST (the distortion on, full mix), CUTLO (the cutoff at 200 Hz), CUTHI (at 2,394 Hz) and RESO (the resonance at 0.9). A punch wins over the knobs, the step locks and the wobble while it lasts; then the sound is as it was. Of CUTLO and CUTHI the last pressed wins. Punches are not recorded. Column 12 is ALL OFF |
-| 2, repeat | FRZ (freeze the beat, 1/4), RPT 8, 16, 32 and 64 (a roll at that rate), BLD BT and BLD BAR (a roll that speeds up every beat or bar), STP 1/2 and STP 2 (tape stop over half a bar or two bars), REV (reverse). Columns 11 and 12 are dark |
-| 3, wobble | The wobble at a rate: 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T, 1/8D, 1/16D, 1/2, 1/1. Column 12 is dark |
-| 4, keys | One octave, C to B. They play the voice, or transpose the line while it plays if TRNSP is on (set on HOME) |
+| 2, repeat | FRZ (freeze the beat, 1/4), RPT 8, 16, 32 and 64 (a roll at that rate), BLD BT and BLD BAR (a roll that speeds up every beat or bar), STP 1/2 and STP 2 (tape stop over half a bar or two bars), REV (reverse). Columns 11 and 12 are the **selectors** for rows 3 and 4 (below) |
+| 3, wobble | The wobble at a rate: 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T, 1/8D, 1/16D, 1/2, 1/1. Column 12 is dark. This is what row 3 plays at first; its selector (row 2, column 11) changes it |
+| 4, keys | One octave, C to B. They play the voice, or transpose the line while it plays if TRNSP is on (set on HOME). This is what row 4 plays at first; its selector (row 2, column 12) changes it |
 
 **A pad is an effect while you hold it.** **Shift + pad** latches it: it stays on (a ring around its lamp) until you tap it again
 or tap ALL OFF. A latched effect stays on when you leave the screen. Effects on different rows combine (a wobble over a roll over a mute). On a row the
 last pad you pressed wins, and when you let it go the one still held below takes over. FRZ, RPT, BLD, STP and REV share one effect, the beat freeze: while a roll runs, another RPT or BLD pad only changes its rate,
 and FRZ, STP and REV wait (their lamps go dark) until it ends. The pads leave the freeze's settings where they played them, so PERFORM SETUP's F6 to F8 show the last rate. **Pad effects are not recorded**,
-even with Rec on. The four sounds (MODS, GROWL, TRACT, WOBBLE) have no pads: the plain colour buttons flip them.
+even with Rec on. The four sounds (MODS, GROWL, TRACT, WOBBLE) have no pads: the colour buttons flip them, and the MODS chips (header, or the band over the pads in the CLASSIC look) show which are on.
 
 ![PERFORM with SLD, FILL, FRZ and ROLL latched (green with a ring) and the Vol chip filled; the PERFORM lights in the header show SLD FILL FRZ ROLL](manual/img/perform-latched.png)
 
 *Effects latched. The header's PERFORM lights show what is on.*
 
-**The colour buttons** are four more actions, held or latched with **Shift + the button**. At first: Note is MUTE, Instr is ACC ALL, Vol is FILL, Fx is
-FREEZE. PERFORM SETUP changes them. A tap under 300 ms latches the action (Shift + the button again lets it go), a hold is momentary. A plain tap of the same button flips a sound instead: Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE (the PAGE window says MODS ON, GROWL OFF and so on).
+**What rows 3 and 4 play.** The two last pads of row 2 (columns 11 and 12, lit as selectors) change the content of rows 3 and 4. A tap goes to the next content, **Shift + a tap** to the previous one, and a toast names it (ROW 3: KEYS). Row 3 offers WOB RATES (at first), KEYS and then every knob of PERFORM KNOBS' list (as a ladder, a pad a value, as KNOBS does); row 4 offers KEYS (at first), WOB RATES and every knob. The lamps and the captions follow the content, KEYS work on either row (they play the row 4 octave; Rec and TRNSP behave as they do on row 4), and the same content may be on both rows (the two then share the wobble's state). The choice lives in RAM: it is not saved in the project and goes back to WOB RATES / KEYS when the unit starts. A wobble you latched stays on if you then give its row another content; ALL OFF lets it go.
+
+**The colour buttons** are the sounds' keys, with or without Shift: Note MODS, Instr GROWL, Vol TRACT, Fx WOBBLE (the PAGE window says MODS ON, GROWL OFF and so on, and the chips show it). They carry no PERFORM action: MUTE, ACC, FILL and FRZ are pads of rows 1 and 2.
 
 ![PERFORM with a wobble pad held: row 3 is WOBBLE, 1/8 in green](manual/img/perform-wobble.png)
 
@@ -441,21 +442,21 @@ Set 4 was FX before: DRIVE and DLY SEND stay, and the wobble's own settings come
 
 **Rec** records the taps while the line plays. Each knob a row holds takes a lane of the pattern the first time it is tapped with REC on, so the limit of eight lanes applies: a ninth knob says "8 LANES USED: CLEAR LOCKS (SETUP)" and its tap still sounds. Rows 3 and 4 write the lanes HOME's FILT does. **The wobble's settings and the four switches have no lane**: a tap sets them at once, but REC does not record them, and the toast says REC DOES NOT RECORD IT (record a wobble with the WOBBLE action, or the knob it moves, instead).
 
-Shift + a colour button is PERFORM's action here too; a plain tap flips a sound. HELP (Shift + Config) shows the page's pad map.
+The colour buttons flip the sounds here too. HELP (Shift + Config) shows the page's pad map.
 
 ### PERFORM SETUP
 
 Press **Shift + Performance**, from PERFORM, PERFORM KNOBS or any other screen. Row 1 stays on screen as a reminder, and the F row sets what PERFORM does. **Row 2 of the pads is the snapshots here**, and the other rows are PERFORM's.
 
-![PERFORM SETUP: row 1 of actions, a short text, the four colour buttons' actions, and the F row NOTE, INSTR, VOL, FX, FILL, FREEZE, ROLL and STOP](manual/img/perform-setup.png)
+![PERFORM SETUP: row 1 of actions, a short text, and the F row FILL, FREEZE, ROLL and STOP](manual/img/perform-setup.png)
 
 *PERFORM SETUP. Row 2 of the pads is the snapshots 1 to 8 and NEW, VARY, UNDO, REDO; the other rows are PERFORM's.*
 
 | Key | What | Values |
 |---|---|---|
-| F1 NOTE, F2 INSTR, F3 VOL, F4 FX | The action of each colour button | MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE, WOBBLE, ROLL, STOP, REV |
+| F1 to F4 | Blank (they set the colour buttons' actions until the colour buttons became the sounds' keys) | |
 | F5 FILL | What FILL plays | MUTATE, OCT UP, RATCHET, ACC ROT |
-| F6 FREEZE | The length FREEZE loops | 1/4, 1/8, 1/16 |
+| F6 FREEZE | The length FREEZE loops. The FRZ pad writes 1/4 each time it plays, so with the colour buttons off the actions this key shows the last length and changes only the next knob move (the FRZ pad plays 1/4) | 1/4, 1/8, 1/16 |
 | F7 ROLL | The roll's rate, or a build that starts at 1/8 and speeds up every beat or bar | 1/8, 1/16, 1/32, 1/64, BLD BEAT, BLD BAR |
 | F8 STOP | How long the tape stop takes | 1/8, 1/4, 1/2, 1, 2 bars |
 
@@ -867,7 +868,7 @@ hold a project with the same name.
 All on FILE PROJECTS (see [FILE PROJECTS](#file-projects)): F1 LOAD, F3 SAVE AS, F4 NEW, F5 REVERT, F6 DELETE.
 
 Config's **RESET PROJECT** (F1, then F1 again) starts the project you are in again from the factory line, keeping its name. It stops the
-transport and resets everything else too: the sound (the mods, the growl and the wobble included; the voice and distortion go to the library's LAST first, Shift + F3 on FILE LIBRARY brings them back), the snapshots, PERFORM's assignments,
+transport and resets everything else too: the sound (the mods, the growl and the wobble included; the voice and distortion go to the library's LAST first, Shift + F3 on FILE LIBRARY brings them back), the snapshots,
 the generator's settings, the tempo (125 BPM) and the song. The PAGE window says PROJECT RESET - LAST: SHIFT F3. UNDO brings back only the patterns and the song; the rest is gone
 unless you REVERT to your last save.
 
@@ -891,7 +892,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 | KEYS AT BOOT | Whether TRNSP is on when the unit starts | **PLAY**, TRANSPOSE |
 | LADDER SLEW | How long a ladder tap glides | 10 to 100 ms (**30 ms**) |
 | PAD LEGEND | The PADS line on every screen | OFF, **ON** |
-| RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, assignments, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
+| RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
 | SKIN | The look (section 13) | CLASSIC, **OBSIDIAN** |
 | KEYS | Whether the keys outside the scale (HOME's Shift + F6) play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
 | KNOB SPEED | How far one click of the encoder moves a knob: the factor on every continuous knob (CUTOFF, RESO, a level), on top of DISPLAY's ENCODER acceleration. Lists, switches, Shift's coarse step and the arrows are not changed | **X1**, X2, X3, X4, X6, X8 |
@@ -1013,7 +1014,7 @@ button.
 | LOADED THE SAVED COPY | One copy was broken; the other one loaded |
 | PART OF THE PROJECT SKIPPED | The project loaded, but some of it could not be read |
 | PROJECT FROM A NEWER O3-303 | Made by a newer o3-303. Install that version to open it; nothing is written over it |
-| PROJECT FROM AN OLDER O3-303 | Saved by a version before this project format (2.0), which cannot read it and has no converter; nothing is written over the file. SAVE or LOAD another project to go on |
+| PROJECT FROM AN OLDER O3-303 | Saved by a version before this project format (3.0), which cannot read it and has no converter; nothing is written over the file. SAVE or LOAD another project to go on |
 | NOTHING SAVED YET | REVERT has no save to go back to |
 | LOAD ANOTHER FIRST | DELETE never deletes the project that is open |
 | NAME TAKEN | A project of that name is on the card. Pick another |

@@ -25,7 +25,7 @@
 //   - A card at boot: `last.txt` names the project; the newest valid of its live.o3a and project.o3a (the higher save counter of HEAD, live.o3a on a tie) is loaded and applied, but only if the player has not edited anything
 //     and the sequencer is not running when it arrives; otherwise it is dropped and the session goes on as with no card. No last.txt: UNTITLED if it is
 //     there, else the session is a new project called UNTITLED that autosaves there (and writes last.txt with its first save).
-//   - A file that is damaged, from a newer or an older o3-303 (format 2.0 reads nothing earlier) or too big is never written over: the session has no project on the card (autosave off, a notice)
+//   - A file that is damaged, from a newer or an older o3-303 (format 3.0 reads nothing earlier) or too big is never written over: the session has no project on the card (autosave off, a notice)
 //     until SAVE. So is a boot where any read fails for another reason than NOT FOUND (an I/O error says nothing about what the card holds), and a
 //     boot load dropped because the player had already edited or played. A project with a part skipped (Result::skipped) is loaded and autosaves once
 //     the player has changed anything.

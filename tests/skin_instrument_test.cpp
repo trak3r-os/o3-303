@@ -520,14 +520,26 @@ TEST_CASE("skin instrument: the F8 well has no readout text on MODDED (E1b)") {
   }
 }
 
-TEST_CASE("skin instrument: the MOD chip under the logo is lit while the mods are on and dark with STOCK, and SAVE FAILED in red takes the line") {
-  // The colour of the brand's line (the one text at x 14, y 52: the MOD chip, or SAVE FAILED) in the last frame.
-  const auto tagline = [](const OnInstrument& o) {
+TEST_CASE("skin instrument: the MOD chip of the MODS group is lit while the mods are on and dark with STOCK, and SAVE FAILED in red is alone under the logo (PF1)") {
+  // The brand's line (the one text at x 14, y 52): empty unless SAVE FAILED takes it (PF1: the MOD chip moved to the MODS group).
+  const auto tagline = [](const OnInstrument& o, ui::Color& c) {
+    unsigned n = 0;
+    for (unsigned i = 0; i < o.q().texts(); ++i) {
+      skin::Panel::TextInfo tx;
+      if (o.q().text_at(i, tx) && tx.x == kTaglineX && tx.y == kTaglineY) {
+        c = tx.color;
+        ++n;
+      }
+    }
+    return n;
+  };
+  // The MOD word of the first chip of the MODS grid (header.cpp: the box at 502, 13, 53 x 24, the 3-letter word centred in the 8x16 face): Chrome ink on a filled chip, ChromeDim on an outline.
+  const auto mod_ink = [](const OnInstrument& o) {
     unsigned n = 0;
     ui::Color c = ui::Color::Empty;
     for (unsigned i = 0; i < o.q().texts(); ++i) {
       skin::Panel::TextInfo tx;
-      if (o.q().text_at(i, tx) && tx.x == kTaglineX && tx.y == kTaglineY) {
+      if (o.q().text_at(i, tx) && tx.x == 516 && tx.y == 17) {
         c = tx.color;
         ++n;
       }
@@ -543,10 +555,12 @@ TEST_CASE("skin instrument: the MOD chip under the logo is lit while the mods ar
   std::filesystem::create_directories(folder);
   { std::ofstream out(folder / ".deleted"); }
   OnInstrument o(Where::Notes, card);
-  CHECK(tagline(o) == ui::Color::Vol);        // MOD, in Note's colour: the mods are on
-  o.t.tap(Button::Note);                      // the MODS switch, from any screen
+  ui::Color c = ui::Color::Empty;
+  CHECK(mod_ink(o) == ui::Color::Chrome);  // the mods are on: a filled chip
+  CHECK(tagline(o, c) == 0u);
+  o.t.tap(Button::Note);                   // the MODS switch, from any screen
   o.t.wait(60);
-  CHECK(tagline(o) == ui::Color::ChromeDim);  // STOCK: the chip is dark
+  CHECK(mod_ink(o) == ui::Color::ChromeDim);  // STOCK: the chip is an outline
   app_project().set_autosave_period(1'000);
   REQUIRE(seq::project_bank().set_note(0, 3, seq::project_bank().pattern(0).steps[3].note == 40u ? 41u : 40u));
   o.t.wait(2'500);
@@ -554,7 +568,8 @@ TEST_CASE("skin instrument: the MOD chip under the logo is lit while the mods ar
   go_to(o.t, Where::Tone);
   o.t.wait(60);
   CHECK(o.t.param(kVoice, AcidVoice::Stock) >= 0.5f);
-  CHECK(tagline(o) == ui::Color::Rec);
+  CHECK(tagline(o, c) == 1u);
+  CHECK(c == ui::Color::Rec);
   o.intact();
 }
 

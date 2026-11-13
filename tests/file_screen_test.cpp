@@ -546,13 +546,13 @@ TEST_CASE("file: a project from a newer o3-303 is refused and the session stays"
   Session s;
   s.save_as("jam");
   Bytes live = s.read("jam/live.o3a");
-  // HEAD's version (the u16 after its 8 byte chunk header): major 3.
+  // HEAD's version (the u16 after its 8 byte chunk header): a major past this build's.
   std::size_t pos = formats::chunk::kHeaderBytes;
   while (pos + 8 <= live.size() && std::memcmp(&live[pos], "HEAD", 4) != 0) {
     pos += 8 + ((std::size_t{live[pos + 4]} << 24) | (std::size_t{live[pos + 5]} << 16) | (std::size_t{live[pos + 6]} << 8) | live[pos + 7]);
   }
   REQUIRE(pos + 10 <= live.size());
-  live[pos + 8] = 3;
+  live[pos + 8] = static_cast<std::uint8_t>(project::kMajor + 1u);
   const std::size_t body = live.size() - formats::chunk::kCrcChunkBytes;
   const std::uint32_t crc = formats::crc32(live.data(), body);
   for (unsigned i = 0; i < 4; ++i) {

@@ -1,0 +1,58 @@
+# PF1: the MODS chips and the row selectors on PERFORM. The four sounds MOD GRL TRC WOB are chips in the header where the PERFORM slots were (a sound that is on is filled in its key's colour, one that is off an
+# outline), flipped by the colour keys (a plain tap or Shift + the key; they carry no performance action any more). Row 2's last two pads (pads 22 and 23) step what rows 3 and 4 play: a tap forward, Shift + a tap
+# back, a toast names the content; row 3 offers WOB RATES, KEYS and every KNOBS knob, row 4 KEYS, WOB RATES and every knob. The pads are lit as selectors; the lamps and captions follow the content.
+#
+#   mkdir -p <dir> && build-host/app/o3_303_sim --scenario app/scenarios/perform_mods.txt --out <dir>
+#
+# 01 idle on the obsidian skin: MOD filled, GRL TRC WOB outlined; 02 MOD, GRL and WOB on, TRC off (Instr tapped, Shift + Fx); 03 row 3 stepped to KEYS (the keys on two rows); 04 row 3 stepped on to the first knob's ladder;
+# 05 a ladder place tapped (the toast); 06 row 4 stepped to WOB RATES and row 3 back to the wobble's rates (swapped); 07 Shift + the selector steps back; 08 the same screen in the classic drawing (the mods band
+# above the pads); 09 classic with every sound off.
+wait 300
+tap performance
+wait 100
+snap 01_idle
+tap instr
+press shift
+tap fx
+release shift
+wait 100
+snap 02_sounds_flipped
+pad 22
+wait 100
+snap 03_row3_keys
+pad 22
+wait 100
+snap 04_row3_first_knob
+pad 28
+wait 100
+snap 05_ladder_tapped
+pad 23
+wait 100
+press shift
+pad 22
+pad 22
+release shift
+wait 100
+snap 06_row4_wob_rates
+press shift
+pad 23
+release shift
+wait 100
+snap 07_row4_back_to_keys
+# CLASSIC drawing (Config returns to PERFORM; Config, SKIN: Left once is "303", five Downs reach SKIN, the encoder clamps at CLASSIC).
+tap config
+tap left
+tap down
+tap down
+tap down
+tap down
+tap down
+turn -4
+tap config
+wait 100
+snap 08_classic
+tap instr
+tap fx
+tap note
+wait 100
+snap 09_classic_sounds_off

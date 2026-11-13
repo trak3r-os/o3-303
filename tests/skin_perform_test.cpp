@@ -238,28 +238,21 @@ TEST_CASE("skin perform: each lamp is drawn in the tone of its pad's LED in ever
   o.mirrors();
 }
 
-TEST_CASE("skin perform: the chips say what each colour button does, held and latched") {
+TEST_CASE("skin perform: the colour keys flip the sounds, not actions; the view has no chips and the selectors are lit") {
   OnPerform o;
   o.t.wait(60);
   const PerformView& v = o.s->last_view();
-  static constexpr const char* kNames[kPerfButtons] = {"NOTE", "INSTR", "VOL", "FX"};
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    CHECK(std::string(v.chip[b].name) == kNames[b]);
-    CHECK(std::string(v.chip[b].action) == kPerfActionNames[kDefaultPerf[b]]);
-    CHECK(v.chip[b].state == ChipState::Idle);
-  }
-  o.t.action_press(Button::Instr);
-  o.t.wait(60);
-  CHECK(v.chip[1].state == ChipState::Held);
-  CHECK(v.chip[0].state == ChipState::Idle);
-  o.t.action_release(Button::Instr);
+  // Rows 3 and 4 start as WOB RATES and KEYS; the selectors on row 2 are lit at the mid level.
+  CHECK(v.lamp[app::pad_at(1, 10)].level == kLedMid);
+  CHECK(v.lamp[app::pad_at(1, 11)].level == kLedMid);
+  // Shift + a colour key flips a sound; no action pad lights for it (it was an action latch until PF1).
   o.t.press(Button::Shift);
   o.t.tap(Button::Vol, 10);
   o.t.release(Button::Shift);
   o.t.wait(60);
-  CHECK(v.chip[2].state == ChipState::Latched);
-  CHECK(v.chip[1].state == ChipState::Idle);
-  CHECK(o.s->last_view().lamp[action_pad(static_cast<PerfAction>(kDefaultPerf[2]))].level == kLedOn);
+  for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
+    CHECK_FALSE(v.lamp[pad].latched);
+  }
 }
 
 TEST_CASE("skin perform: the Shift row is REDO and UNDO as action keys, and SETUP has none") {
@@ -285,10 +278,7 @@ TEST_CASE("skin perform: the worst frame (every action on, every button latched,
   OnPerform o;
   o.t.pad(app::pad_at(0, 11), 10);  // ALL OFF: a toast that is still up when the frame is read
   o.t.press(Button::Shift);
-  for (Button b : {Button::Note, Button::Instr, Button::Vol, Button::Fx}) {  // the buttons first: Shift + a button on an action already latched lets it go
-    o.t.tap(b, 10);
-  }
-  for (unsigned pad : {2u, 3u, 4u, 6u, 7u, 8u, 9u, 10u, app::pad_at(2, 3)}) {  // the line actions the buttons do not carry (the punches among them), and a wobble rate
+  for (unsigned pad : {0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u, 9u, 10u, app::pad_at(2, 3)}) {  // the eleven line actions (the punches among them), and a wobble rate
     o.t.pad(pad, 10);
   }
   o.t.release(Button::Shift);
@@ -298,12 +288,9 @@ TEST_CASE("skin perform: the worst frame (every action on, every button latched,
   for (unsigned pad = 0; pad < app::kPadCount; ++pad) {
     latched += v.lamp[pad].latched ? 1u : 0u;
   }
-  CHECK(latched == 12u);  // a button's latch rings its action's lamp too: the eleven line pads and the wobble rate
+  CHECK(latched == 12u);  // the eleven line pads and the wobble rate
   for (unsigned pad = 0; pad < kLineActionCount; ++pad) {
     CHECK_MESSAGE(v.lamp[pad].level == kLedOn, "action pad " << pad);
-  }
-  for (unsigned b = 0; b < kPerfButtons; ++b) {
-    CHECK(v.chip[b].state == ChipState::Latched);
   }
   MESSAGE("worst frame: " << skin::panel().shapes() << " shapes of " << skin::Panel::kShapes << ", " << skin::panel().texts() << " texts of " << skin::Panel::kTexts);
   CHECK(skin::panel().shapes() <= 210u);  // measured 202 of 256

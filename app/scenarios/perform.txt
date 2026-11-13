@@ -1,60 +1,40 @@
-# Performance (DESIGN-303 section 4): on PERFORM, Note / Instr / Vol / Fx are MUTE, ACC ALL, SLIDE ALL and DELAY THROW while held (Shift + the button
-# latches; on HOME they are the drawer's rows); with TRNSP on (HOME's pad) the keyboard transposes the running pattern (PERFORM's row 4 here), with it off (the default)
+# Performance (DESIGN-303 section 4): on PERFORM, row 1's pads are MUTE, ACC ALL, SLIDE ALL, OCT DOWN, OCT UP, FILL, DELAY THROW and the punches: held while the pad is down (Shift + the pad
+# latches; the colour keys are the sounds' switches, PF1); with TRNSP on (HOME's pad) the keyboard transposes the running pattern (PERFORM's row 4 here), with it off (the default)
 # it plays the voice; Shift + Master taps the tempo; CONFIG opens the kit's system screen (DISPLAY changes the theme).
 # Choices made here: CONFIG, then the encoder in DISPLAY, cycles the theme (amiga, black, white) (the kit's system screen); MUTE is the sequencer's (no new notes), DELAY THROW opens
-# send A to unity for as long as it is held or latched.
-# Since M3b (docs/M3B-PLAN.md C4) the four buttons are assignable and Vol and Fx default to FILL and FREEZE; this scenario shows SLIDE ALL and
-# DELAY THROW, so it first gives them to Vol and Fx on PERFORM SETUP (Shift + Perform; F3 and F4 are Vol and Fx; the
-# encoder walks MUTE, ACC ALL, SLD ALL, OCT UP, FILL, THROW, FREEZE), turns TRNSP on (pad 22) on the 303 screen, and comes to PERFORM for the buttons.
-press shift
-tap performance 5
-release shift
-tap f3 5
-turn -8
-turn 2
-tap f4 5
-turn -8
-turn 5
+# send A to unity for as long as it is held or latched. TRNSP is turned on (pad 22) on the 303 screen first.
 tap pattern 5
 pad 22
 tap performance 5
 wait 135
 tap play
 wait 700
-press shift
-press note
-release shift
+paddown 0
 wait 350
 snap 01_mute_held
-release note
+padup 0
 wait 300
-press shift
-press instr
-release shift
+paddown 1
 wait 350
 snap 02_acc_all_held
-release instr
-press shift
-press vol
-release shift
+padup 1
+paddown 2
 wait 350
 snap 03_slide_all_held
-release vol
-press shift
-press fx
-release shift
+padup 2
+paddown 6
 wait 350
 snap 04_delay_throw_held
-release fx
+padup 6
 press shift
-tap instr
-tap fx
+pad 1
+pad 6
 release shift
 wait 300
 snap 05_latched
 press shift
-tap instr
-tap fx
+pad 1
+pad 6
 release shift
 pad 43
 wait 500

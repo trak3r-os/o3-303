@@ -56,13 +56,13 @@ TEST_CASE("sound: MUTE holds the notes back while the pattern runs; VOLUME is th
   REQUIRE(playing > 0.03);  // 0.0386 measured (above 0.05 before the quieter feedback filter, see the first case)
 
   t.tap(Button::Performance);
-  t.action_press(Button::Note);  // Shift + Note, held: MUTE
+  t.action_press(o3_303::PerfAction::Mute);  // the MUTE pad, held
   t.wait(1500);                // the echoes of the last notes die away
   const std::size_t m0 = t.h->audio().size();
   t.wait(1500);
   const double muted = rms(std::vector<std::int16_t>(t.h->audio().begin() + static_cast<std::ptrdiff_t>(m0), t.h->audio().end()), 0);
   CHECK(muted < playing * 0.15);
-  t.action_release(Button::Note);
+  t.action_release(o3_303::PerfAction::Mute);
   t.wait(2000);
   const std::size_t b0 = t.h->audio().size();
   t.wait(1500);

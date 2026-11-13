@@ -217,14 +217,14 @@ TEST_CASE("The Note key flips MODS on MODDED (E1b): STOCK flips at the press, F8
   CHECK_FALSE(knob_of(t, 2).lit);
   t.tap(Button::Note);
   CHECK_FALSE(stock(t));
-  // The same key on TONE; F8 is nothing there, and Shift + Note is the PERFORM action (no STOCK).
+  // The same key on TONE; F8 is nothing there, and Shift + Note flips MODS as a plain press does.
   t.tap(Button::SampleLoad);
   t.tap(Button::Note);
   CHECK(stock(t));
   t.tap(Button::F8);
   CHECK(stock(t));
   t.shift_tap(Button::Note);
-  CHECK(stock(t));
+  CHECK_FALSE(stock(t));
 }
 
 TEST_CASE("a turn of a mod ends STOCK with the words MODS ON; DECAY, a lock and a controller do not end it") {
@@ -591,10 +591,9 @@ TEST_CASE("a new project starts with eight factory snapshots: a boot, NEW and RE
 
 // ---- the Fx key and LiveActions::toggle_latch() -----------------------------------------------------------------------------------------
 
-TEST_CASE("the Fx key flips WOB (PERFORM's WOB action, latched): a screen change keeps it, a Shift + Fx hold ends with the release, ALL OFF lets it go; F8 of the page is the same latch") {
+TEST_CASE("the Fx key flips WOB (PERFORM's WOB action, latched): a screen change keeps it, Shift + Fx is the same flip, ALL OFF lets it go; F8 of the page is the same latch") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
-  t.assign_perf(Button::Fx, PerfAction::Wobble);
   t.to_wobble();
   t.tap(Button::Fx);  // on, whatever the screen
   t.wait(30);
@@ -606,10 +605,10 @@ TEST_CASE("the Fx key flips WOB (PERFORM's WOB action, latched): a screen change
   t.tap(Button::Fx);  // off
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
-  t.action_press(Button::Fx);  // Shift + the key held does what a hold does, and nothing stays after it
+  t.shift_tap(Button::Fx);  // Shift + the key does what a plain press does (PF1)
   t.wait(30);
   CHECK(s.wobble().on);
-  t.action_release(Button::Fx);
+  t.shift_tap(Button::Fx);
   t.wait(30);
   CHECK_FALSE(s.wobble().on);
 

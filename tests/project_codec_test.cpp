@@ -40,6 +40,9 @@ namespace dsp = o3sdk::dsp;
 
 namespace {
 
+// The format's major as the first byte of a chunk's version (the minor is 0).
+constexpr std::uint8_t kMajor8 = static_cast<std::uint8_t>(project::kMajor);
+
 // A session: the engine with the five units, the bank and the sequencer, and the Rig the screens share.
 struct Session {
   static constexpr std::uint32_t kCap = 4096;
@@ -191,10 +194,6 @@ void scramble(Session& t) {
   w.wobble.target = kWobbleVowel;
   w.wob_want = 1;         // the WOB latch is saved too (B5a)
   t.sequencer->set_tract_line(true);  // LINE on (A1b), away from the default
-  w.perf[0] = static_cast<std::uint8_t>(PerfAction::Reverse);
-  w.perf[1] = static_cast<std::uint8_t>(PerfAction::Wobble);
-  w.perf[2] = static_cast<std::uint8_t>(PerfAction::Throw);
-  w.perf[3] = static_cast<std::uint8_t>(PerfAction::Stop);
   float values[kSnapValues] = {};
   for (const unsigned slot : {0u, 3u, 7u}) {
     for (unsigned i = 0; i < kSnapValues; ++i) {
@@ -269,8 +268,6 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(s.gen.density == 61);
   CHECK(s.gen.accent_pct == 33);
   CHECK(s.gen.slide_pct == 26);
-  CHECK(s.perf[0] == static_cast<std::uint8_t>(PerfAction::Reverse));
-  CHECK(s.perf[3] == static_cast<std::uint8_t>(PerfAction::Stop));
   CHECK(s.snap_used == ((1u << 0) | (1u << 3) | (1u << 7)));
   CHECK(s.pats != nullptr);
   CHECK(s.song.length == 9);
@@ -279,7 +276,6 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   // A second session, with other values everywhere, takes the project.
   Session b;
   (void)b.bank->song_append(seq::SongRow{1, 3, 2, 0});  // a song of its own: the project's replaces it
-  b.rig.wiring.perf[0] = static_cast<std::uint8_t>(PerfAction::Mute);
   b.rig.wiring.gen.density = 5;
   float junk[kSnapValues] = {};
   b.rig.wiring.snaps.store(5, junk);
@@ -311,9 +307,6 @@ TEST_CASE("project: every field of 8.1 survives encode, decode and apply, bit fo
   CHECK(wb.wobble.target == kWobbleVowel);
   CHECK(wb.wob_want == 1);  // the latch comes back as a request: LiveActions::update latches it
   CHECK(b.sequencer->tract_line_on());  // LINE (A1b)
-  for (unsigned k = 0; k < kPerfButtons; ++k) {
-    CHECK(wb.perf[k] == wa.perf[k]);
-  }
   for (const dsp::UnitId u : {wa.voice, wa.dist, wa.delay, wa.growl, wa.freeze}) {
     for (unsigned id = 0; id < param_count(a.engine, u); ++id) {
       if (carried(wa, u, id)) {
@@ -387,16 +380,18 @@ TEST_CASE("project: HEAD of a newer major or an older one refuses the project; H
       return true;
     });
   };
-  CHECK(load(with_major(3), s).status == project::Status::FromNewer);
-  CHECK(load(with_major(2), s).status == project::Status::Ok);
-  // An earlier format (1.x, the one before 2.0) is refused whole: the state stays as it was, and there is no converter.
+  CHECK(load(with_major(4), s).status == project::Status::FromNewer);
+  CHECK(load(with_major(3), s).status == project::Status::Ok);
+  // An earlier format (1.x, or 2.x of v0.9.0) is refused whole: the state stays as it was, and there is no converter.
   const project::ProjectState untouched;
-  s = untouched;
-  const project::Result older = load(with_major(1), s);
-  CHECK(older.status == project::Status::FromOlder);
-  CHECK(s.pats == nullptr);
-  CHECK(s.sound_n == 0);
-  CHECK(std::strcmp(s.name, untouched.name) == 0);
+  for (const std::uint8_t major : {std::uint8_t{1}, std::uint8_t{2}}) {
+    s = untouched;
+    const project::Result older = load(with_major(major), s);
+    CHECK(older.status == project::Status::FromOlder);
+    CHECK(s.pats == nullptr);
+    CHECK(s.sound_n == 0);
+    CHECK(std::strcmp(s.name, untouched.name) == 0);
+  }
   CHECK(load(with_major(0), s).status == project::Status::Damaged);
 
   const auto nohead = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, "HEAD"); });
@@ -417,7 +412,7 @@ TEST_CASE("project: a chunk of the format missing, or of another major, makes th
   const std::vector<std::uint8_t> img = encode_session(a);
   project::ProjectState s;
 
-  // Format 2.0 has seven chunks, each once: HEAD, GEN, PATS, SND, SNAP, PERF, SONG. Each one is needed.
+  // Format 3.0 has seven chunks, each once: HEAD, GEN, PATS, SND, SNAP, PERF, SONG. Each one is needed.
   for (const char* gone : {"HEAD", "GEN ", "PATS", "SND ", "SNAP", "PERF", "SONG"}) {
     const auto cut = rebuild(img, [gone](char (&id)[4], std::vector<std::uint8_t>&) { return !is(id, gone); });
     INFO("chunk " << gone);
@@ -427,7 +422,7 @@ TEST_CASE("project: a chunk of the format missing, or of another major, makes th
   for (const char* other : {"GEN ", "PATS", "SND ", "SNAP", "PERF", "SONG"}) {
     const auto bad = rebuild(img, [other](char (&id)[4], std::vector<std::uint8_t>& p) {
       if (is(id, other)) {
-        p[0] = 3;
+        p[0] = static_cast<std::uint8_t>(project::kMajor + 1u);
       }
       return true;
     });
@@ -474,7 +469,7 @@ TEST_CASE("project: a record size this build does not have makes the chunk, and 
     }
     if (is(id, "PERF")) {
       perf_seen = true;
-      CHECK(p.size() == 2 + kPerfButtons + 1 + kKnobSets * kKnobsPerSet * 2);
+      CHECK(p.size() == 2 + 1 + kKnobSets * kKnobsPerSet * 2);
     }
     return true;
   });
@@ -564,15 +559,15 @@ TEST_CASE("project: an empty song is a SONG chunk of its own; a damaged SONG is 
     CHECK(b.bank->song().length == 0);
   }
   {  // 5 rows said, 3 present: the file is damaged
-    std::vector<std::uint8_t> p = {2, 0, 5};
+    std::vector<std::uint8_t> p = {kMajor8, 0, 5};
     for (unsigned i = 0; i < 12; ++i) {
       p.push_back(1);
     }
     CHECK(load(payload_of(p), s).status == project::Status::Damaged);
   }
-  CHECK(load(payload_of({2, 0}), s).status == project::Status::Damaged);  // no length byte at all
+  CHECK(load(payload_of({kMajor8, 0}), s).status == project::Status::Damaged);  // no length byte at all
   {  // two rows, every value out of range: the pattern past the last, repeat 0 and 200, transpose -100 and +100, flags that are not only the mute
-    const std::vector<std::uint8_t> p = {2, 0, 2, 99, 0, 0x9C, 0xFF, 7, 200, 100, 0x02};
+    const std::vector<std::uint8_t> p = {kMajor8, 0, 2, 99, 0, 0x9C, 0xFF, 7, 200, 100, 0x02};
     const project::Result res = load(payload_of(p), s);
     REQUIRE(res.status == project::Status::Ok);
     CHECK(res.skipped == 0);
@@ -589,7 +584,7 @@ TEST_CASE("project: an empty song is a SONG chunk of its own; a damaged SONG is 
     CHECK(std::memcmp(&canon, &s.song, sizeof canon) == 0);  // canonical: the rows past the length are the default row
   }
   {  // more rows than a song holds: 65 present, 65 said: the first 64 are kept
-    std::vector<std::uint8_t> p = {2, 0, 65};
+    std::vector<std::uint8_t> p = {kMajor8, 0, 65};
     for (unsigned i = 0; i < 65; ++i) {
       p.insert(p.end(), {static_cast<std::uint8_t>(i % 48u), 1, 0, 0});
     }
@@ -633,7 +628,6 @@ TEST_CASE("project: a newer minor is read as far as this build knows it") {
   CHECK(s.selected == 17);
   CHECK(s.tempo_mbpm == 133'500);
   CHECK(s.gen.density == 61);
-  CHECK(s.perf[1] == static_cast<std::uint8_t>(PerfAction::Wobble));
   CHECK(s.pats != nullptr);
   CHECK(std::strcmp(s.name, "JAM ONE") == 0);
 
@@ -707,7 +701,7 @@ TEST_CASE("project: a parameter the file lacks keeps its default; one this build
   // A project whose SND holds no entry is the default sound.
   const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "SND ")) {
-      p = {2, 0, 0, 0};  // an SND chunk with no entries
+      p = {kMajor8, 0, 0, 0};  // an SND chunk with no entries
     }
     return true;
   });
@@ -946,7 +940,7 @@ TEST_CASE("project: B5a, the wobble's settings and its latch round-trip exact, a
   // A project whose SND holds no entry: every default is the new one.
   const auto nosnd = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "SND ")) {
-      p = {2, 0, 0, 0};  // an SND chunk with no entries
+      p = {kMajor8, 0, 0, 0};  // an SND chunk with no entries
     }
     return true;
   });
@@ -1247,7 +1241,6 @@ TEST_CASE("project: a default state is a new project; the name is cut and cleane
   CHECK(s.sound_n == 0);
   CHECK(s.snap_used == 0);
   CHECK(s.tempo_mbpm == 125'000);
-  CHECK(s.perf[0] == kDefaultPerf[0]);
   CHECK(s.name[0] == '\0');
 
   // A name longer than fifteen characters is cut at fifteen; a name with a control byte reads back printable.
@@ -1317,7 +1310,7 @@ void push_f32(std::vector<std::uint8_t>& v, float f) {
 
 // An SND payload of `n` entries of the voice's Cutoff (and the header's count `claimed`).
 std::vector<std::uint8_t> sound_payload(unsigned n, unsigned claimed, float value) {
-  std::vector<std::uint8_t> p = {2, 0, static_cast<std::uint8_t>(claimed >> 8), static_cast<std::uint8_t>(claimed)};
+  std::vector<std::uint8_t> p = {kMajor8, 0, static_cast<std::uint8_t>(claimed >> 8), static_cast<std::uint8_t>(claimed)};
   for (unsigned i = 0; i < n; ++i) {
     p.insert(p.end(), {kLaneVoice, 0, 0, static_cast<std::uint8_t>(AcidVoice::Cutoff)});
     push_f32(p, value);
@@ -1571,7 +1564,7 @@ TEST_CASE("project: KNOBS' four sets and the set in use round-trip; a damaged ro
   // A damaged row (a target past the table, then the voice's Stock) and a set in use past the last: the factory knob, and set 1.
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons;
+      const std::size_t at = 2;
       p[at] = 9;                                                       // the set in use
       p[at + 1] = static_cast<std::uint8_t>(kLaneTargetCount);         // set 1 row 1
       p[at + 2] = 0;
@@ -1614,7 +1607,7 @@ TEST_CASE("project: KN4, a row-only knob (WOB RATE, MODS, ...) in a KNOBS set ro
   // A target past the row-only ones, and a row-only target with an id: the factory knob of that place.
   const auto bad = rebuild(img, [](char (&id)[4], std::vector<std::uint8_t>& p) {
     if (is(id, "PERF")) {
-      const std::size_t at = 2 + kPerfButtons;
+      const std::size_t at = 2;
       p[at + 1] = static_cast<std::uint8_t>(kRowOnlyEnd);  // set 1 row 1: past the table
       p[at + 2] = 0;
       p[at + 3] = static_cast<std::uint8_t>(kRowWobRate);  // set 1 row 2: a row-only target does not take an id

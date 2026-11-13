@@ -12,6 +12,7 @@
 // holds every table to them, and every screen as the app builds it.
 
 #include <o3sdk/app/help.h>
+#include <o3_303/perform.h>
 
 #include <cstdint>
 
@@ -102,9 +103,10 @@ void fill_tract_pads(o3sdk::app::Help& h) noexcept;
 void fill_tract_steps_pads(o3sdk::app::Help& h) noexcept;
 // The WOBBLE page (E2c): call after the home map's fill_home_pads(): row 3 becomes the wobble's rates (PERFORM's), row 4 keeps the keys, and the groups are STEPS, MODIFIERS, WOBBLE and KEYS.
 void fill_wobble_pads(o3sdk::app::Help& h) noexcept;
-// PERFORM: row 1 the line and tone actions and ALL OFF, row 2 the beat freeze's rates, row 3 the wobble's rates, row 4 the keys. `setup` (PERFORM SETUP): row 2 is the snapshots and the variations
-// (the groups come with the screen's Text). `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
-void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false, bool setup = false) noexcept;
+// PERFORM: row 1 the line and tone actions and ALL OFF, row 2 the beat freeze's rates and the selectors SEL3 and SEL4 (pads 11 and 12), rows 3 and 4 what `row3` and `row4` say (kContentWobRates,
+// kContentKeys or kContentKnobBase + k: the wobble's rates, the keys, a knob's ladder). `setup` (PERFORM SETUP): row 2 is the snapshots and the variations, no selectors (the groups come with the
+// screen's Text). `knobs` (PERFORM KNOBS): four ladders, MIN .. MAX.
+void fill_perform_pads(o3sdk::app::Help& h, bool knobs = false, bool setup = false, unsigned row3 = kContentWobRates, unsigned row4 = kContentKeys) noexcept;
 // FILE LIBRARY: the 48 pads are slots 00..47 of the bank.
 void fill_library_pads(o3sdk::app::Help& h) noexcept;
 // FILE PROJECTS: the pads of the visible list rows (the first `rows` pads).

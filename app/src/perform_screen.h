@@ -4,15 +4,17 @@
 // PERFORM (docs/UX-303.md 5.3) and PERFORM SETUP (5.4): twenty minutes of play without a menu. The 48 pads are live controls and the screen is a
 // 1:1 mirror of them, one lamp over each pad:
 //
-//   row 1   the line and the tone: MUTE, ACC, SLD, OCT-, OCT+, FILL, THROW (held while the pad is down; Shift latches it) and ALL OFF
-//   row 2   the beat freeze: FRZ 1/4, RPT 8..64 (rolls), BLD BT and BLD BAR (build-ups), STP 1/2 and STP 2 (tape stops), REV (same gestures; the last one pressed wins)
-//   row 3   the wobble's rate (a pad runs the wobble at that rate while it is down or latched)
-//   row 4   the keys: one octave, C..B, playing the voice or transposing the pattern
-// PERFORM SETUP carries the same map with row 2 the snapshots: 1..8 (a tap recalls and the encoder becomes MORPH; Shift stores), then RANDOM, VARY, UNDO, REDO.
+//   row 1   the line and the tone: MUTE, ACC, SLD, OCT-, OCT+, FILL, THROW, the four punches (DIST, CUT LO, CUT HI, RESO) and ALL OFF (held while the pad is down; Shift latches it)
+//   row 2   the beat freeze: FRZ 1/4, RPT 8..64 (rolls), BLD BT and BLD BAR (build-ups), STP 1/2 and STP 2 (tape stops), REV (same gestures; the last one pressed wins), then SEL3 and SEL4
+//   row 3   the wobble's rate (a pad runs the wobble at that rate while it is down or latched), or what SEL3 picked
+//   row 4   the keys: one octave, C..B, playing the voice or transposing the pattern, or what SEL4 picked
+// SEL3 and SEL4 (PF1, row 2's last two pads): a tap steps what row 3 (row 4) plays to the next content, Shift + a tap to the previous: WOB RATES, KEYS, then every knob KNOBS can put on a row
+// (ladder_rows.h) as a ladder of twelve places. The choice is RAM only (a boot starts on WOB RATES and KEYS); two rows may play the same content.
+// PERFORM SETUP carries the same map with row 2 the snapshots: 1..8 (a tap recalls and the encoder becomes MORPH; Shift stores), then RANDOM, VARY, UNDO, REDO; it has no selectors.
 //
-// The four colour buttons do their assigned actions too. Perform again opens KNOBS (docs/UX-303.md 5.3b, issue #2): the same four rows of pads, every one a ladder of a knob (rows 3 and 4
+// The four colour buttons are the four sounds' keys (sound_buttons.h); the header shows their state where the title was (MOD, GRL, TRC, WOB). Perform again opens KNOBS (docs/UX-303.md 5.3b, issue #2): the same four rows of pads, every one a ladder of a knob (rows 3 and 4
 // are HOME's FILT rows): F1..F4 are the four sets of rows (SET 1..4, live, factory-filled: FILTER, MODDED, GROWL, FX), F5..F8 the four rows' knobs (a tap latches the encoder on one, a held one
-// with Up / Down gives its row another knob, with Shift + Up / Down the first of another family; Shift + F1..F4 put a set back to its factory knobs), the four colour buttons as on PERFORM. Perform once more opens PERFORM SETUP (5.4): eight knobs, F1..F4 the buttons' assignments, F5 what
+// with Up / Down gives its row another knob, with Shift + Up / Down the first of another family; Shift + F1..F4 put a set back to its factory knobs). Perform once more opens PERFORM SETUP (5.4): eight knobs, F1..F4 blank, F5 what
 // FILL plays, F6 the freeze's length, F7 ROLL (rate and accelerate in one list), F8 STOP's time; no Shift row; the pads are PERFORM's with the snapshots on row 2.
 //
 // The view logic is apart from the drawing: fill_view() makes a PerformView (what each lamp says and how bright it is), the LEDs are its levels
@@ -102,6 +104,10 @@ class PerformScreen final : public o3sdk::app::Screen {
   bool knobs_repoint(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;  // KNOBS: a row's F key held and Up / Down (Shift: a family): the row's next knob; true when taken
   void sync_knobs() noexcept;                                                         // KNOBS' key page follows the four rows (after any change of the rows or the set)
   void knobs_toast(o3sdk::app::Context& ctx, unsigned row, const char* family, const char* knob) noexcept;
+  void select_press(o3sdk::app::Context& ctx, unsigned which, bool back) noexcept;     // PF1: SEL3 / SEL4 (`which` 0 / 1) steps what row 3 / row 4 plays
+  void ladder_press(o3sdk::app::Context& ctx, unsigned which, unsigned col) noexcept;  // PF1: a tap on place `col` of the ladder row 3 / row 4 plays
+  // The note of a key pad: the home map's octave pair is not used here, a KEYS row plays the bottom row's octave on either row (PF1), so the transposition reads the same.
+  int row_key_note(unsigned pad) const noexcept;
   void key_press(o3sdk::app::Context& ctx, unsigned pad) noexcept;
   void key_release(o3sdk::app::Context& ctx, unsigned pad) noexcept;
   void toast(o3sdk::app::Context& ctx, const char* text, bool off = false) noexcept;
@@ -113,16 +119,19 @@ class PerformScreen final : public o3sdk::app::Screen {
   PageKeys& keys() noexcept { return page_ == PerformPage::Setup ? setup_keys_ : (page_ == PerformPage::Knobs ? knobs_keys_ : rig_->sound_keys); }
   unsigned sel() const noexcept { return rig_->bank->selected(); }
   // What a pad does on the page showing: PERFORM SETUP's map has the snapshots on row 2 (perform_setup_pad).
-  PerformPad role(unsigned pad) const noexcept { return page_ == PerformPage::Setup ? perform_setup_pad(pad) : perform_pad(pad); }
+  PerformPad role(unsigned pad) const noexcept {
+    return page_ == PerformPage::Setup ? perform_setup_pad(pad, row_content_[0], row_content_[1]) : perform_pad(pad, row_content_[0], row_content_[1]);
+  }
 
   // ---- view
   void fill_view(o3sdk::app::Context& ctx, PerformView& view) const noexcept;
   void fill_knobs_view(o3sdk::app::Context& ctx, PerformView& view) const noexcept;  // fill_view() on KNOBS: four ladder rows
+  // One row of ladder lamps for the knob `en` (KNOBS' rows and PERFORM's rows 3 and 4 when they play a ladder): the pads' levels and labels, and the row's knob and value texts.
+  void fill_ladder_row(o3sdk::app::Context& ctx, PerformView& view, unsigned row, const Entry& en) const noexcept;
   void fill_status(o3sdk::app::Context& ctx, frame::StatusView& status) const noexcept;
   void enc_text(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
   void pads_line(o3sdk::app::Context& ctx, char* out, unsigned cap) const noexcept;
-  void draw_colour_buttons(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& line) const noexcept;
-  void fill_chips(PerformView& view) const noexcept;
+  void draw_mods(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& line) const noexcept;  // the classic drawing's band of the four sounds' states
   // The F row's eight boxes: the page's knobs, or with Shift held on PERFORM the Shift row (REDO and UNDO). Returns whether it is the Shift row. `skin`: the obsidian row dims a key that has
   // nothing to do (the classic strip's boxes are not dimmed).
   bool fill_knob_row(o3sdk::app::Context& ctx, view::Knob (&knobs)[view::kKnobs], bool skin) noexcept;
@@ -141,7 +150,12 @@ class PerformScreen final : public o3sdk::app::Screen {
   Page knobs_page_ = {"KNOBS", {}};
   PageKeys knobs_keys_;
   unsigned f3_set_ = kKnobSetGrowl;  // F1: the set F3 shows and selects, GROWL (2) or TRACT (4); it follows the set in use when that is one of them (sync_knobs). Main loop only
-  std::uint64_t perf_down_ = 0;      // the pads pressed under PERFORM's roles (a release ends what the press began, whatever page the release finds)
+  // The pads pressed under PERFORM's roles: what each began, kept until its release (a release ends what the press began, whatever page the release finds or what SEL3 / SEL4 chose since).
+  PerformPad began_[o3sdk::app::kPadCount] = {};
+  // PF1: what rows 3 and 4 play (row_content_, kContentWobRates / kContentKeys / kContentKnobBase + the knob's place in the ladder list), RAM only: init() sets the defaults. row_entry_ is the knob
+  // of a ladder content (a blank otherwise), looked up when the content changes (the list's walk is not cheap). Main loop only.
+  unsigned row_content_[kRowContentRows] = {kDefaultRowContent[0], kDefaultRowContent[1]};
+  Entry row_entry_[kRowContentRows] = {};
   bool morph_ = false;
   int key_note_[o3sdk::app::kPadCount] = {};  // the note a key pad started, -1 when up (a release ends that note)
   std::uint32_t tool_mask_ = 0;               // F keys pressed with Shift (their release is not the keys')

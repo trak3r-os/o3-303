@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The colour keys as the four sounds' switches (E1b, docs/PADS-TRACT-PLAN.md E): Note flips MODS, Instr GROWL, Vol (FX1) TRACT, Fx (FX2) WOBBLE, on every screen; with a step held they are the
-// drawer's rows instead; with Shift they are PERFORM's action of the key (a tap latches, a hold is momentary). The sound bits the header chips read (E1c) follow.
+// drawer's rows instead; Shift changes nothing (PF1: the PERFORM actions the keys once ran with Shift are gone). The sound bits the header chips read (E1c) follow.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -123,20 +123,29 @@ TEST_CASE("sound buttons: with a step held the colour keys are the drawer's rows
   }
 }
 
-TEST_CASE("sound buttons: Shift + the key is PERFORM's action of the key, not the sound: a tap latches it, a hold is momentary") {
+TEST_CASE("sound buttons: Shift + the key flips the sound as a plain press does and runs no PERFORM action (PF1)") {
   Hands t;
   seq::Sequencer& s = app_sequencer();
   const unsigned start = bits(t);
-  t.shift_tap(Button::Note);  // the default action of Note is MUTE
-  CHECK(s.perf() == seq::kPerfMute);  // latched
-  CHECK(bits(t) == start);
-  t.shift_tap(Button::Note);
+  const Button keys[4] = {Button::Note, Button::Instr, Button::Vol, Button::Fx};
+  for (unsigned k = 0; k < 4; ++k) {
+    t.shift_tap(keys[k]);
+    t.wait(30);
+    CHECK_MESSAGE(bits(t) == (start ^ (1u << k)), "key " << k);
+    CHECK(s.perf() == 0);  // MUTE, ACC, FILL and FRZ are on the pads only
+    t.shift_tap(keys[k]);
+    t.wait(30);
+    CHECK_MESSAGE(bits(t) == start, "key " << k << " back");
+  }
+  // A key held down is no momentary action either: it flips at the press and the release does nothing.
+  t.press(Button::Shift);
+  t.press(Button::Note);
+  t.release(Button::Shift);
+  t.wait(400);
+  CHECK(bits(t) == (start ^ 1u));
   CHECK(s.perf() == 0);
-  t.action_press(Button::Note);
-  CHECK(s.perf() == seq::kPerfMute);
-  t.action_release(Button::Note);  // a hold: the release ends it
-  CHECK(s.perf() == 0);
-  CHECK(bits(t) == start);
+  t.release(Button::Note);
+  CHECK(bits(t) == (start ^ 1u));
 }
 
 TEST_CASE("sound buttons: WOBBLE's key is the WOB action's latch: it stays across a screen change and the key lets it go") {

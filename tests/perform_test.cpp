@@ -24,40 +24,14 @@ std::string text_of(std::uint8_t cond) {
 
 }  // namespace
 
-TEST_CASE("perform: the defaults are Note = MUTE, Instr = ACC ALL, Vol = FILL, Fx = FREEZE (C4)") {
-  CHECK(kPerfButtons == 4);
+TEST_CASE("perform: the sixteen actions have names the status line can show, and every action has its own bit") {
   CHECK(kPerfActionCount == 16);
-  CHECK(kDefaultPerf[0] == static_cast<std::uint8_t>(PerfAction::Mute));
-  CHECK(kDefaultPerf[1] == static_cast<std::uint8_t>(PerfAction::AccAll));
-  CHECK(kDefaultPerf[2] == static_cast<std::uint8_t>(PerfAction::Fill));
-  CHECK(kDefaultPerf[3] == static_cast<std::uint8_t>(PerfAction::Freeze));
-  // The seven actions of the plan, in this order, with names the F-key strip (eight characters) and the header can show.
   CHECK(std::strcmp(kPerfActionNames[static_cast<unsigned>(PerfAction::SlideAll)], "SLD ALL") == 0);
   CHECK(std::strcmp(kPerfActionNames[static_cast<unsigned>(PerfAction::OctUp)], "OCT UP") == 0);
   for (unsigned a = 0; a < kPerfActionCount; ++a) {
     CHECK(std::strlen(kPerfActionNames[a]) <= 8);
     CHECK(std::strlen(kPerfActionChips[a]) <= std::strlen(kPerfActionNames[a]));
   }
-}
-
-TEST_CASE("perform: an action is on while a button that carries it is held or latched") {
-  std::uint8_t assign[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
-  CHECK(perf_actions_on(assign, 0, 0) == 0);
-  CHECK(perf_actions_on(assign, 1u << 0, 0) == perf_bit(PerfAction::Mute));
-  CHECK(perf_actions_on(assign, 0, 1u << 3) == perf_bit(PerfAction::Freeze));
-  CHECK(perf_actions_on(assign, 1u << 1, 1u << 2) == (perf_bit(PerfAction::AccAll) | perf_bit(PerfAction::Fill)));
-  // Held and latched on one button: one action.
-  CHECK(perf_actions_on(assign, 1u << 0, 1u << 0) == perf_bit(PerfAction::Mute));
-  // Two buttons with one action: on while either is.
-  assign[1] = static_cast<std::uint8_t>(PerfAction::Mute);
-  CHECK(perf_actions_on(assign, 1u << 1, 0) == perf_bit(PerfAction::Mute));
-  CHECK(perf_actions_on(assign, 1u << 0, 1u << 1) == perf_bit(PerfAction::Mute));
-  // An assignment outside the table does nothing.
-  assign[2] = 200;
-  CHECK(perf_actions_on(assign, 1u << 2, 0) == 0);
-  // A bit above the four buttons is no button.
-  CHECK(perf_actions_on(assign, 1u << 5, 1u << 6) == 0);
-  // Every action has its own bit.
   std::uint16_t all = 0;
   for (unsigned a = 0; a < kPerfActionCount; ++a) {
     const std::uint16_t b = perf_bit(static_cast<PerfAction>(a));
@@ -177,9 +151,6 @@ TEST_CASE("perform: M3c's actions WOBBLE, ROLL, STOP, REV follow the old seven, 
   CHECK(static_cast<unsigned>(PerfAction::Reverse) == 10);
   CHECK(std::strcmp(kPerfActionNames[static_cast<unsigned>(PerfAction::Wobble)], "WOBBLE") == 0);
   CHECK(std::strcmp(kPerfActionNames[static_cast<unsigned>(PerfAction::Reverse)], "REV") == 0);
-  std::uint8_t assign[kPerfButtons] = {static_cast<std::uint8_t>(PerfAction::Reverse), static_cast<std::uint8_t>(PerfAction::Wobble), 0, 0};
-  CHECK(perf_actions_on(assign, 1u << 0, 0) == perf_bit(PerfAction::Reverse));
-  CHECK(perf_actions_on(assign, 0, 1u << 1) == perf_bit(PerfAction::Wobble));
   CHECK(perf_bit(PerfAction::Reverse) == 0x400);
 }
 
@@ -288,14 +259,18 @@ TEST_CASE("perform map: row 1 is the line and tone actions then the four punches
   CHECK(perform_action_pad(PerfAction::Freeze) == o3sdk::app::kPadCount);
 }
 
-TEST_CASE("perform map: row 2 is the beat freeze's ten pads, row 3 the wobble's eleven rates, row 4 the keys") {
+TEST_CASE("perform map: row 2 is the beat freeze's ten pads and two selectors, row 3 the wobble's eleven rates, row 4 the keys") {
   for (unsigned col = 0; col < kRepeatPadCount; ++col) {
     const PerformPad pp = perform_pad(pad_of(1, col));
     CHECK(pp.role == PerformRole::Repeat);
     CHECK(pp.index == col);
   }
-  CHECK(perform_pad(pad_of(1, 10)).role == PerformRole::None);
-  CHECK(perform_pad(pad_of(1, 11)).role == PerformRole::None);
+  CHECK(perform_pad(pad_of(1, 10)).role == PerformRole::Select);
+  CHECK(perform_pad(pad_of(1, 10)).index == 0);  // steps row 3
+  CHECK(perform_pad(pad_of(1, 11)).role == PerformRole::Select);
+  CHECK(perform_pad(pad_of(1, 11)).index == 1);  // steps row 4
+  CHECK(kSelectCol[0] == 10);
+  CHECK(kSelectCol[1] == 11);
   CHECK(kRepeatPads[0].action == PerfAction::Freeze);
   CHECK(kRepeatPads[1].action == PerfAction::Roll);
   CHECK(kRepeatPads[4].action == PerfAction::Roll);
@@ -314,6 +289,41 @@ TEST_CASE("perform map: row 2 is the beat freeze's ten pads, row 3 the wobble's 
     CHECK(perform_pad(pad_of(3, col)).index == col);
   }
   CHECK(perform_pad(o3sdk::app::kPadCount).role == PerformRole::None);  // a pad past the panel is nothing
+}
+
+TEST_CASE("perform map: rows 3 and 4 follow the content chosen for them") {
+  // The default is WOB RATES on row 3 and KEYS on row 4.
+  CHECK(kDefaultRowContent[0] == kContentWobRates);
+  CHECK(kDefaultRowContent[1] == kContentKeys);
+  // Swapped: keys on row 3, the wobble's rates on row 4 (a pad beyond the eleven rates is nothing).
+  CHECK(perform_pad(pad_of(2, 5), kContentKeys, kContentWobRates).role == PerformRole::Key);
+  CHECK(perform_pad(pad_of(2, 5), kContentKeys, kContentWobRates).index == 5);
+  CHECK(perform_pad(pad_of(3, 5), kContentKeys, kContentWobRates).role == PerformRole::WobRate);
+  CHECK(perform_pad(pad_of(3, 11), kContentKeys, kContentWobRates).role == PerformRole::None);
+  // A knob of the ladder list: its twelve pads are ladder steps, on either row.
+  for (unsigned col = 0; col < 12; ++col) {
+    CHECK(perform_pad(pad_of(2, col), kContentKnobBase + 3, kContentKeys).role == PerformRole::Ladder);
+    CHECK(perform_pad(pad_of(2, col), kContentKnobBase + 3, kContentKeys).index == col);
+    CHECK(perform_pad(pad_of(3, col), kContentWobRates, kContentKnobBase).role == PerformRole::Ladder);
+  }
+  // Rows 1 and 2 do not depend on the contents; the selectors are there whatever they are.
+  CHECK(perform_pad(pad_of(1, 10), kContentKeys, kContentKeys).role == PerformRole::Select);
+  CHECK(perform_pad(pad_of(0, 0), kContentKeys, kContentKeys).role == PerformRole::Action);
+  // PERFORM SETUP has no selectors; its rows 3 and 4 play the same contents.
+  CHECK(perform_setup_pad(pad_of(1, 10), kContentKeys, kContentKeys).role == PerformRole::Undo);
+  CHECK(perform_setup_pad(pad_of(2, 2), kContentKeys, kContentKeys).role == PerformRole::Key);
+}
+
+TEST_CASE("perform: row_content_step walks the contents, wraps and takes a stale content as the first") {
+  CHECK(row_content_step(0, 5, false) == 1);
+  CHECK(row_content_step(4, 5, false) == 0);
+  CHECK(row_content_step(0, 5, true) == 4);
+  CHECK(row_content_step(3, 5, true) == 2);
+  CHECK(row_content_step(9, 5, false) == 1);  // out of range counts as 0
+  CHECK(row_content_step(9, 5, true) == 4);
+  CHECK(row_content_step(3, 0, false) == 0);
+  CHECK(row_content_step(0, 1, false) == 0);
+  CHECK(row_content_step(0, 1, true) == 0);
 }
 
 TEST_CASE("perform map: PERFORM SETUP's row 2 is snapshots 1..8, RANDOM, VARY, UNDO, REDO; the other rows are PERFORM's") {
@@ -403,15 +413,14 @@ TEST_CASE("perform: PadGroup holds on a press, latches with Shift, and a tap on 
   CHECK(g.active() == 0);
 }
 
-TEST_CASE("perform map: an action is on while a colour button or its own pad is held or latched") {
-  std::uint8_t assign[kPerfButtons] = {kDefaultPerf[0], kDefaultPerf[1], kDefaultPerf[2], kDefaultPerf[3]};
-  CHECK(live_actions_on(assign, 0, 0, 0, 0) == 0);
-  CHECK(live_actions_on(assign, 0, 0, perf_bit(PerfAction::Roll), 0) == perf_bit(PerfAction::Roll));
-  CHECK(live_actions_on(assign, 0, 0, 0, perf_bit(PerfAction::Wobble)) == perf_bit(PerfAction::Wobble));
-  // The pad and the button are one action: one bit.
-  CHECK(live_actions_on(assign, 1u << 0, 0, perf_bit(PerfAction::Mute), 0) == perf_bit(PerfAction::Mute));
-  CHECK(live_actions_on(assign, 1u << 3, 0, 0, perf_bit(PerfAction::Stop)) == (perf_bit(PerfAction::Freeze) | perf_bit(PerfAction::Stop)));
+TEST_CASE("perform map: an action is on while its pad is held or latched") {
+  CHECK(live_actions_on(0, 0) == 0);
+  CHECK(live_actions_on(perf_bit(PerfAction::Roll), 0) == perf_bit(PerfAction::Roll));
+  CHECK(live_actions_on(0, perf_bit(PerfAction::Wobble)) == perf_bit(PerfAction::Wobble));
+  // Held and latched is one action: one bit.
+  CHECK(live_actions_on(perf_bit(PerfAction::Mute), perf_bit(PerfAction::Mute)) == perf_bit(PerfAction::Mute));
+  CHECK(live_actions_on(perf_bit(PerfAction::Freeze), perf_bit(PerfAction::Stop)) == (perf_bit(PerfAction::Freeze) | perf_bit(PerfAction::Stop)));
   // Every bit of the 16 is an action.
-  CHECK(live_actions_on(assign, 0, 0, 0xFFFFu, 0) == kAllActionsMask);
+  CHECK(live_actions_on(0xFFFFu, 0) == kAllActionsMask);
   CHECK(kAllActionsMask == 0xFFFFu);
 }
