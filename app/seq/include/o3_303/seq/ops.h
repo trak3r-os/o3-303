@@ -174,7 +174,8 @@ void mutate(Pattern& p, const GenParams& g, std::uint32_t seed, unsigned amount_
 // RHYTHM: keeps every pitch (a rest and a tie keep the one under them), the ratchets and the conditions, and redraws, over the length,
 // whether each step is a rest, a tie, an accent or a slide, from `g.density`, `g.accent_pct` and `g.slide_pct`: step 0 always sounds, the
 // others sound with the density, a sounding step is accented and slides with the percentages and a step after a playing one ties with half
-// the slide percentage (as random_fill does; the old ties go). Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
+// the slide percentage (as random_fill does; the old ties go). A rest that now sounds keeps its pitch when the scale of `g` has it, else takes the
+// lowest `g.root` of the range; on a line where nothing sounded every sounding step takes that root. Deterministic from the seed. Motion, the lanes and the steps above the length are untouched. true: something changed.
 bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept;
 // NOTES: keeps the rhythm, every flag, ratchet and condition, and redraws the pitch of every sounding step (not a rest, not a tie: those
 // keep theirs) over the length from the scale and the range of `g` (`scale`, `root`, `low`, `high`), with random_fill's draw (the weights

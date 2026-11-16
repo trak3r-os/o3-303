@@ -247,7 +247,7 @@ void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
 
 // HOME's Shift row (UX-303 5.1 and 7, G1): CLEAR VARY RHYTHM NOTES NOTE SCALE REDO UNDO (NOTE and SCALE hand the encoder to the generator's root and scale). Each edit is one UNDO step of the pattern shown (Bank::edit); one that
 // changes nothing (NOTES of a line with nothing sounding, CLEAR of an empty one) says so and leaves no step. RHYTHM of an empty line
-// draws a one-pitch line and is a step: RHYTHM then NOTES starts a line from nothing.
+// draws a line on the generator's root and is a step: RHYTHM then NOTES starts a line from nothing.
 void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   const seq::GenParams& gen = rig_->wiring.gen;

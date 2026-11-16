@@ -59,10 +59,44 @@ bool in_scale(const GenParams& g, unsigned note) {
 
 // ---- regen_rhythm -----------------------------------------------------------------------------------------------------------
 
+TEST_CASE("regen_rhythm on a cleared line plays the generator's root, and a rest that sounds leaves a pitch out of the scale for the root") {
+  Pattern p;
+  clear(p);  // every step a rest on C2
+  GenParams g;
+  g.root = 10;  // A#, Penta Min, C1..C3: the home is A#1 (34), and C is not in the scale
+  REQUIRE(regen_rhythm(p, g, 7));
+  unsigned sounding = 0;
+  for (unsigned i = 0; i < p.length; ++i) {
+    if ((p.steps[i].flags & (kStepRest | kStepTie)) == 0u) {
+      CHECK(p.steps[i].note == 34);
+      ++sounding;
+    }
+  }
+  CHECK(sounding > 0u);
+  // A line that sounds: its playing steps keep their pitches, a rest that now sounds on a pitch out of the scale takes the root.
+  Pattern q;
+  clear(q);
+  for (unsigned i = 0; i < 16; ++i) {
+    q.steps[i].note = 39;  // D#2: in A# Penta Min
+    q.steps[i].flags = (i % 2u == 0u) ? std::uint8_t{0} : kStepRest;
+  }
+  q.steps[1].note = 36;  // C2 under a rest: out of the scale
+  q.length = 16;
+  g.density = 100;
+  g.slide_pct = 0;  // no ties
+  REQUIRE(regen_rhythm(q, g, 3));
+  CHECK(q.steps[0].note == 39);
+  CHECK(q.steps[1].note == 34);
+  CHECK(q.steps[3].note == 39);
+}
+
 TEST_CASE("regen_rhythm keeps every pitch, ratchet and condition, motion and the hidden steps") {
   const Pattern before = make_line(16);
   Pattern p = before;
   GenParams g;
+  g.scale = 1;  // Chromatic over the whole keyboard: every pitch is in the scale, so a rest that now sounds keeps its own
+  g.low = 0;
+  g.high = 127;
   REQUIRE(regen_rhythm(p, g, 1234));
   for (unsigned i = 0; i < kMaxSteps; ++i) {
     CHECK(p.steps[i].note == before.steps[i].note);

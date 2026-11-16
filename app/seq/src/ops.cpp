@@ -697,6 +697,15 @@ void build_note_draw(const GenParams& g, NoteDraw& d) noexcept {
   }
 }
 
+bool in_draw(const NoteDraw& d, unsigned note) noexcept {
+  for (unsigned k = 0; k < d.count; ++k) {
+    if (d.notes[k] == note) {
+      return true;
+    }
+  }
+  return false;
+}
+
 int draw_note(Rng& rng, const NoteDraw& d) noexcept {
   const float r = rng.next_float() * d.cum[d.count - 1u];
   for (unsigned k = 0; k < d.count; ++k) {
@@ -850,8 +859,17 @@ bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
   const float tie = tie_chance(g);
   bool after_playing = false;
   bool changed = false;
+  // A step that was a rest and now sounds keeps its pitch when the scale has it; otherwise (and on a line where nothing sounded: a cleared
+  // line is all C2) it takes the generator's home, the lowest root of the range.
+  NoteDraw draw;
+  build_note_draw(g, draw);
+  bool any_playing = false;
+  for (unsigned i = 0; i < n && !any_playing; ++i) {
+    any_playing = is_playing(p.steps[i]);
+  }
   for (unsigned i = 0; i < n; ++i) {
     Step& s = p.steps[i];
+    const bool was_rest = (s.flags & kStepRest) != 0u;
     unsigned flags = 0;
     if (i == 0u || rng.chance(density)) {
       if (rng.chance(accent)) {
@@ -871,6 +889,10 @@ bool regen_rhythm(Pattern& p, const GenParams& g, std::uint32_t seed) noexcept {
       after_playing = false;
     }
     const auto next = static_cast<std::uint8_t>(flags | (s.flags & kStepRatchetMask));  // the ratchet is not part of the rhythm
+    if ((flags & (kStepRest | kStepTie)) == 0u && (!any_playing || (was_rest && !in_draw(draw, s.note)))) {
+      changed = changed || s.note != draw.home;
+      s.note = static_cast<std::uint8_t>(draw.home);
+    }
     changed = changed || next != s.flags;
     s.flags = next;
   }
