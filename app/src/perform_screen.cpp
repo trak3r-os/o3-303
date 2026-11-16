@@ -553,6 +553,13 @@ void PerformScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       }
       morph_ = false;  // an F key gives the encoder back to the knob
       (void)keys().input(ctx, in, *controls_);
+      if (page_ == PerformPage::Knobs) {  // a row's key: how to give the row another knob (knobs_repoint)
+        char text[32] = "HOLD F";
+        const char num[2] = {static_cast<char>('1' + k), '\0'};
+        append(text, sizeof text, num);
+        append(text, sizeof text, " + UP/DN: KNOB");
+        toast(ctx, text);
+      }
     } else if (in.type == Input::Type::Release) {
       if ((tool_mask_ >> k & 1u) != 0u) {
         tool_mask_ &= ~(1u << k);
