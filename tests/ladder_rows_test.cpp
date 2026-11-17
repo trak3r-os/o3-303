@@ -337,13 +337,13 @@ TEST_CASE("ladder rows: the LEDs of a list, of a bar, of a blink and of a row th
   }
 }
 
-TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and DECAY") {
+TEST_CASE("ladder rows: the two KNOBS rows default to ENV MOD and ACCENT (KN5)") {
   CHECK(kLadderRows == 4u);
   Wiring w;
   CHECK(w.ladder[kLadderKnobs1].target == kLaneVoice);
   CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::EnvMod);
   CHECK(w.ladder[kLadderKnobs2].target == kLaneVoice);
-  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Decay);
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Accent);
   CHECK(w.ladder[kLadderHome3].id == AcidVoice::Cutoff);
   CHECK(w.ladder[kLadderHome4].id == AcidVoice::Reso);
 }
@@ -383,7 +383,7 @@ TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the 
   CHECK(!knob_set_is_factory(w, 1));
   CHECK(knob_set_is_factory(w, 0));
   knob_set_use(w, 0);
-  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Decay);  // set 1 is untouched
+  CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Accent);  // set 1 is untouched
   knob_set_use(w, 1);
   CHECK(w.ladder[kLadderKnobs2].id == AcidVoice::Cutoff);
   // Shift + FILT resets rows 3 and 4 to the set in use's factory knobs.
@@ -408,29 +408,33 @@ TEST_CASE("KNOBS sets (KN3): four factory-filled sets, the live rows follow the 
   CHECK(knob_row_pos(kLadderHome4) == 3u);
 }
 
-TEST_CASE("KNOBS walk (KN3): the family comes out with the knob, and a family jump lands on the first knob of the next or previous family") {
+TEST_CASE("KNOBS walk (KN3): the family comes out with the knob, and a family jump lands on the first knob of the next or previous family of the set's walk") {
   Wiring w;
   Controls c;
   c.init(w);
+  knob_set_use(w, 1);  // MODDED: NOTES, TONE, OSC, SOUNDS (KN5)
   const char* fam = nullptr;
-  const Entry first = ladder_walk(w, c, kLadderKnobs1, 1, &fam);
+  (void)ladder_walk(w, c, kLadderKnobs1, 1, &fam);
   REQUIRE(fam != nullptr);
   CHECK(std::strlen(fam) > 0u);
-  CHECK(w.knob_sets.row[0][0].id == w.ladder[kLadderKnobs1].id);  // written through
-  (void)first;
+  CHECK(w.knob_sets.row[1][0].id == w.ladder[kLadderKnobs1].id);  // written through
   const char* fam0 = fam;
   unsigned jumps = 0;
   do {
     (void)ladder_walk_family(w, c, kLadderKnobs1, 1, &fam);
     ++jumps;
   } while (std::strcmp(fam, fam0) != 0 && jumps < 12);
-  CHECK(jumps > 1u);   // a different family each jump
-  CHECK(jumps < 12u);  // and the walk wraps back
+  CHECK(jumps == 4u);  // a different family each jump, and the walk wraps back
   const char* back = nullptr;
   (void)ladder_walk_family(w, c, kLadderKnobs1, -1, &back);
   REQUIRE(back != nullptr);
   CHECK(std::strcmp(back, fam0) != 0);
-  CHECK(w.knob_set == 0u);
+  CHECK(w.knob_set == 1u);
+  // FILTER is one family: a jump stays in it, on its first knob.
+  knob_set_use(w, 0);
+  (void)ladder_walk_family(w, c, kLadderKnobs1, 1, &fam);
+  CHECK(std::strcmp(fam, "FILTER") == 0);
+  CHECK(w.ladder[kLadderKnobs1].id == AcidVoice::Cutoff);
 }
 
 TEST_CASE("KNOBS row-only knobs (KN4): the wobble's four settings and the four switches have a row target of their own, no lane, a label, and the wobble's RESET and a blank have none") {
@@ -502,31 +506,95 @@ TEST_CASE("KNOBS set 4 (KN4) is WOBBLE: WOB RATE, WOB DEPTH, DRIVE, DLY SEND; a 
   CHECK(w.ladder[kLadderKnobs2].target == kRowWobDepth);
 }
 
-TEST_CASE("KNOBS walk (KN4): hold + Up / Down reaches the wobble's knobs and the switches, each once, and wraps") {
+TEST_CASE("KNOBS walk (KN4): in WOBBLE, hold + Up / Down reaches the wobble's settings and WOB, each once, and wraps; the other sounds' switches are not on its walk") {
   Wiring w;
   Controls c;
   c.init(w);
+  knob_set_use(w, 3);
   bool seen[kRowOnlyCount] = {};
   unsigned steps = 0;
-  const char* fam = nullptr;
   for (; steps < 200; ++steps) {
-    (void)ladder_walk(w, c, kLadderKnobs1, 1, &fam);
+    (void)ladder_walk(w, c, kLadderKnobs1, 1, nullptr);
     const LaneRef r = w.ladder[kLadderKnobs1];
     if (row_only_target(r.target)) {
       const unsigned i = static_cast<unsigned>(r.target - kRowWobRate);
       CHECK_FALSE(seen[i]);  // once per lap
       seen[i] = true;
     }
-    unsigned n = 0;
-    for (const bool b : seen) {
-      n += b ? 1u : 0u;
-    }
-    if (n == kRowOnlyCount) {
+    if (seen[kRowWobRate - kRowWobRate] && seen[kRowWobShape - kRowWobRate] && seen[kRowWobDepth - kRowWobRate] && seen[kRowWobTarget - kRowWobRate] && seen[kRowWobOn - kRowWobRate]) {
       break;
     }
   }
   CHECK(steps < 200u);
-  for (const bool b : seen) {
-    CHECK(b);
+  CHECK(seen[kRowWobOn - kRowWobRate]);
+  CHECK_FALSE(seen[kRowMods - kRowWobRate]);
+  CHECK_FALSE(seen[kRowGrowlOn - kRowWobRate]);
+  CHECK_FALSE(seen[kRowTractOn - kRowWobRate]);
+}
+
+namespace {
+
+// KN5: what each set's walk may hold.
+bool in_set(unsigned set, const LaneRef& r) {
+  switch (set) {
+    case 0:  // the filter's knobs
+      if (r.target != kLaneVoice) {
+        return false;
+      }
+      for (const AcidVoice::Param p : {AcidVoice::Cutoff, AcidVoice::Reso, AcidVoice::EnvMod, AcidVoice::Decay, AcidVoice::Accent, AcidVoice::AccDecay, AcidVoice::Tracking, AcidVoice::FilterFm}) {
+        if (r.id == p) {
+          return true;
+        }
+      }
+      return false;
+    case 1:  // the mods: NOTES, TONE, WAVE and TUNE and MODS, none of the FILTER row's knobs but DECAY
+      return (r.target == kLaneVoice && r.id != AcidVoice::Cutoff && r.id != AcidVoice::Reso && r.id != AcidVoice::EnvMod && r.id != AcidVoice::Accent) || r.target == kRowMods;
+    case kKnobSetGrowl: return r.target == kLaneGrowl || r.target == kRowGrowlOn;
+    case 3: return r.target == kLaneDist || r.target == kLaneDelay || r.target == kLaneMixer || (row_only_target(r.target) && r.target != kRowMods && r.target != kRowGrowlOn && r.target != kRowTractOn);
+    case kKnobSetTract: return r.target == kLaneTract || r.target == kRowTractOn;
+    default: return false;
+  }
+}
+
+}  // namespace
+
+TEST_CASE("KNOBS walk (KN5): each set's hold + Up / Down stays in the set's own knobs, reaches its four factory knobs, and a foreign knob goes to the walk's first or last") {
+  for (unsigned s = 0; s < kKnobSets; ++s) {
+    CAPTURE(s);
+    Wiring w;
+    Controls c;
+    c.init(w);
+    knob_set_use(w, s);
+    bool factory[kLadderRows] = {};
+    unsigned lap = 0;  // the walk's length: the steps until the row is back on its first knob
+    const LaneRef start = w.ladder[kLadderKnobs1];
+    for (unsigned step = 1; step <= 100 && lap == 0u; ++step) {
+      (void)ladder_walk(w, c, kLadderKnobs1, 1, nullptr);
+      const LaneRef r = w.ladder[kLadderKnobs1];
+      CHECK(in_set(s, r));
+      for (unsigned k = 0; k < kLadderRows; ++k) {
+        const LaneRef f = kKnobFactory.row[s][k];
+        factory[k] = factory[k] || (f.target == r.target && f.id == r.id);
+      }
+      if (r.target == start.target && r.id == start.id) {
+        lap = step;
+      }
+    }
+    CHECK(lap > 3u);
+    CHECK(lap < 100u);
+    for (const bool f : factory) {
+      CHECK(f);
+    }
+    // A knob of another set goes to the walk's first (Up) or its last (Down), and Down from the first is the last.
+    const LaneRef foreign = s == kKnobSetTract ? LaneRef{kLaneGrowl, 0} : LaneRef{kLaneTract, 0};
+    w.ladder[kLadderKnobs1] = foreign;
+    (void)ladder_walk(w, c, kLadderKnobs1, 1, nullptr);
+    CHECK(in_set(s, w.ladder[kLadderKnobs1]));
+    (void)ladder_walk(w, c, kLadderKnobs1, -1, nullptr);
+    const LaneRef last = w.ladder[kLadderKnobs1];
+    w.ladder[kLadderKnobs1] = foreign;
+    (void)ladder_walk(w, c, kLadderKnobs1, -1, nullptr);
+    CHECK(w.ladder[kLadderKnobs1].target == last.target);
+    CHECK(w.ladder[kLadderKnobs1].id == last.id);
   }
 }

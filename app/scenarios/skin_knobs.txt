@@ -17,7 +17,7 @@ tap performance
 tap performance
 wait 100
 snap 01_defaults
-# One pad of each row: ENV MOD, DECAY, CUTOFF and RESO each take the value of the pad (the slew settles in a few blocks).
+# One pad of each row: ENV MOD, ACCENT, CUTOFF and RESO each take the value of the pad (the slew settles in a few blocks).
 tap play
 wait 700
 pad 8
@@ -26,7 +26,7 @@ pad 31
 pad 43
 wait 400
 snap 02_four_taps
-# A row's F key held and Up / Down gives that row the next knob of the list of every knob (KN3); with Shift, the first knob of the next family. The set keeps it ("OWN 1" under F1).
+# A row's F key held and Up / Down gives that row the next knob of the set in use (KN5: set 1 walks the filter knobs only); with Shift, the first knob of the set's next family. The set keeps it ("OWN 1" under F1).
 press f6
 tap up
 tap up
@@ -48,7 +48,7 @@ wait 100
 pad 3
 wait 300
 snap 05_set_2_modded
-# Shift + F1: set 1 goes back to its factory knobs (ENV MOD, DECAY, CUTOFF and RESO).
+# Shift + F1: set 1 goes back to its factory knobs (ENV MOD, ACCENT, CUTOFF and RESO).
 tap f1
 press shift
 tap f1

@@ -15,7 +15,7 @@ namespace o3_303 {
 namespace o3 = o3sdk;
 
 // kKnobFactory (pages.h) names the units' parameters by number.
-static_assert(AcidVoice::Cutoff == 0 && AcidVoice::Reso == 1 && AcidVoice::EnvMod == 2 && AcidVoice::Decay == 3 && AcidVoice::AccDecay == 8 && AcidVoice::Slide == 10 &&
+static_assert(AcidVoice::Cutoff == 0 && AcidVoice::Reso == 1 && AcidVoice::EnvMod == 2 && AcidVoice::Accent == 4 && AcidVoice::AccDecay == 8 && AcidVoice::Slide == 10 &&
                   AcidVoice::FilterFm == 13 && AcidVoice::Overdrive == 17,
               "kKnobFactory's voice ids");
 static_assert(Growl::Vowel == 0 && Growl::FormantQ == 1 && Growl::CombTune == 3 && Growl::Mix == 7, "kKnobFactory's growl ids");
@@ -208,9 +208,29 @@ namespace {
 
 constexpr unsigned kWalkPageCount = 8;  // the SOUNDS page is the last (E1b; WOBBLE before it, KN4; TRACT before that, KN0): the walk's list only grows at its end
 constexpr unsigned kWalkMax = 96;       // the list's most places the family jump looks at (the pages hold under 50 knobs)
+constexpr unsigned kScopeMax = 4;       // the most pages a knob set's walk goes through
+
+constexpr Entry voice_knob(AcidVoice::Param id) noexcept { return Entry{Item::Voice, static_cast<std::uint16_t>(id), nullptr}; }
 
 // The four sounds' switches: no page has them on a key since the colour keys flip them (E1b), and a ladder row can still hold them (KN4).
 constexpr Page kSoundsPage = {"SOUNDS", {Entry{Item::Mods, 0, "MODS"}, Entry{Item::GrowlOn, 0, "GROWL"}, Entry{Item::TractOn, 0, "TRACT"}, Entry{Item::WobOn, 0, "WOB"}, Entry{}, Entry{}, Entry{}, Entry{}}};
+
+// KN5: what a knob set's hold + Up/Down goes through, its own family only. FILTER: the filter's knobs wherever a page shows them (SOUND, NOTES, TONE).
+constexpr Page kFilterWalk = {"FILTER",
+                              {voice_knob(AcidVoice::Cutoff), voice_knob(AcidVoice::Reso), voice_knob(AcidVoice::EnvMod), voice_knob(AcidVoice::Decay), voice_knob(AcidVoice::Accent),
+                               voice_knob(AcidVoice::AccDecay), voice_knob(AcidVoice::Tracking), voice_knob(AcidVoice::FilterFm)}};
+// MODDED's oscillator knobs: SOUND shows them and no other page, so the MODDED walk takes them after TONE (KN5), or no set would reach them.
+constexpr Page kOscWalk = {"OSC", {voice_knob(AcidVoice::Wave), voice_knob(AcidVoice::Tune), Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}}};
+// Each sound's own switch, at the end of its set's walk.
+constexpr Page kModsSwitch = {"SOUNDS", {Entry{Item::Mods, 0, "MODS"}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}}};
+constexpr Page kGrowlSwitch = {"SOUNDS", {Entry{Item::GrowlOn, 0, "GROWL"}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}}};
+constexpr Page kTractSwitch = {"SOUNDS", {Entry{Item::TractOn, 0, "TRACT"}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}, Entry{}}};
+
+// The pages a walk goes through: every family (the list of ladder_knob_at), or one knob set's (KN5).
+struct WalkScope {
+  const Page* page[kWalkPageCount];
+  unsigned count;
+};
 
 const Page& walk_page(unsigned i) noexcept {
   switch (i) {
@@ -225,19 +245,50 @@ const Page& walk_page(unsigned i) noexcept {
   }
 }
 
-// The knob a lane can drive at place `index` of the walk (the entry of a page's key), or a blank past the end; `count` (if not null) gets the length. A knob that two pages show is the first one's.
-Entry walk_at(const Controls& controls, unsigned index, unsigned* count, unsigned* page = nullptr) noexcept {
+WalkScope scope_all() noexcept {
+  WalkScope s{};
+  for (unsigned i = 0; i < kWalkPageCount; ++i) {
+    s.page[i] = &walk_page(i);
+  }
+  s.count = kWalkPageCount;
+  return s;
+}
+
+// Set `set`'s own knobs: FILTER the filter, MODDED the mods (NOTES, TONE, WAVE and TUNE, MODS), GROWL and TRACT their page and switch, WOBBLE the wobble's page (WOB is on it) and the FX its factory holds
+// (DRIVE, DLY SEND). Every factory knob of a set is in its scope, so the walk always comes back to it.
+WalkScope scope_of(unsigned set) noexcept {
+  WalkScope s{};
+  const Page* p[kScopeMax] = {};
+  switch (set) {
+    case 0: p[0] = &kFilterWalk; break;
+    case 1: p[0] = &kNotesPage; p[1] = &kTonePage; p[2] = &kOscWalk; p[3] = &kModsSwitch; break;
+    case kKnobSetGrowl: p[0] = &kGrowlPage; p[1] = &kGrowlSwitch; break;
+    case 3: p[0] = &kWobblePage; p[1] = &kFxPage; break;
+    case kKnobSetTract: p[0] = &kTractPage; p[1] = &kTractSwitch; break;
+    default: return scope_all();
+  }
+  for (const Page* q : p) {
+    if (q != nullptr) {
+      s.page[s.count++] = q;
+    }
+  }
+  return s;
+}
+
+// The knob a lane can drive at place `index` of the scope's walk (the entry of a page's key), or a blank past the end; `count` (if not null) gets the length. A knob that two pages of the scope
+// show is the first one's.
+Entry walk_at(const WalkScope& scope, const Controls& controls, unsigned index, unsigned* count, unsigned* page = nullptr) noexcept {
   Entry found;
   unsigned n = 0;
-  for (unsigned p = 0; p < kWalkPageCount; ++p) {
-    for (const Entry& en : walk_page(p).entry) {
+  for (unsigned p = 0; p < scope.count; ++p) {
+    for (const Entry& en : scope.page[p]->entry) {
       LaneRef ref{kLaneNone, 0};
       if (en.item == Item::Blank || !controls.row_ref(en, ref)) {
         continue;
       }
       bool seen = false;  // the same lane target on an earlier place
       for (unsigned q = 0; q < p && !seen; ++q) {
-        for (const Entry& prev : walk_page(q).entry) {
+        for (const Entry& prev : scope.page[q]->entry) {
           LaneRef pr{kLaneNone, 0};
           seen = seen || (prev.item != Item::Blank && controls.row_ref(prev, pr) && same(pr, ref));
         }
@@ -260,19 +311,21 @@ Entry walk_at(const Controls& controls, unsigned index, unsigned* count, unsigne
   return found;
 }
 
-}  // namespace
-
-unsigned ladder_knob_count(const Controls& controls) noexcept {
+unsigned scope_count(const WalkScope& scope, const Controls& controls) noexcept {
   unsigned n = 0;
-  (void)walk_at(controls, 0xFFFFu, &n);
+  (void)walk_at(scope, controls, 0xFFFFu, &n);
   return n;
 }
 
-Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept { return walk_at(controls, index, nullptr); }
+}  // namespace
+
+unsigned ladder_knob_count(const Controls& controls) noexcept { return scope_count(scope_all(), controls); }
+
+Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept { return walk_at(scope_all(), controls, index, nullptr); }
 
 Entry ladder_knob_at_family(const Controls& controls, unsigned index, const char** family) noexcept {
   unsigned fam = 0;
-  const Entry en = walk_at(controls, index, nullptr, &fam);
+  const Entry en = walk_at(scope_all(), controls, index, nullptr, &fam);
   if (family != nullptr) {
     *family = walk_page(fam).name;
   }
@@ -280,14 +333,15 @@ Entry ladder_knob_at_family(const Controls& controls, unsigned index, const char
 }
 
 Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family) noexcept {
-  const unsigned n = ladder_knob_count(controls);
+  const WalkScope scope = scope_of(wiring.knob_set);
+  const unsigned n = scope_count(scope, controls);
   if (row >= kLadderRows || n == 0u) {
     return Entry{};
   }
   int at = -1;  // where the row's knob is in the list
   for (unsigned i = 0; i < n && at < 0; ++i) {
     LaneRef ref{kLaneNone, 0};
-    if (controls.row_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
+    if (controls.row_ref(walk_at(scope, controls, i, nullptr), ref) && same(ref, wiring.ladder[row])) {
       at = static_cast<int>(i);
     }
   }
@@ -295,20 +349,21 @@ Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int de
   int next = at < 0 ? (delta < 0 ? count - 1 : 0) : at + delta;
   next = ((next % count) + count) % count;
   unsigned fam = 0;
-  const Entry en = walk_at(controls, static_cast<unsigned>(next), nullptr, &fam);
+  const Entry en = walk_at(scope, controls, static_cast<unsigned>(next), nullptr, &fam);
   LaneRef ref{kLaneNone, 0};
   if (controls.row_ref(en, ref)) {
     wiring.ladder[row] = ref;
     store_row(wiring, row);
   }
   if (family != nullptr) {
-    *family = walk_page(fam).name;
+    *family = scope.page[fam]->name;
   }
   return en;
 }
 
 Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family) noexcept {
-  const unsigned n = ladder_knob_count(controls);
+  const WalkScope scope = scope_of(wiring.knob_set);
+  const unsigned n = scope_count(scope, controls);
   if (row >= kLadderRows || n == 0u) {
     return Entry{};
   }
@@ -316,14 +371,14 @@ Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row,
   const unsigned count = n < kWalkMax ? n : kWalkMax;
   int at = -1;
   for (unsigned i = 0; i < count; ++i) {
-    (void)walk_at(controls, i, nullptr, &fam[i]);
+    const Entry here = walk_at(scope, controls, i, nullptr, &fam[i]);
     LaneRef ref{kLaneNone, 0};
-    if (at < 0 && controls.row_ref(ladder_knob_at(controls, i), ref) && same(ref, wiring.ladder[row])) {
+    if (at < 0 && controls.row_ref(here, ref) && same(ref, wiring.ladder[row])) {
       at = static_cast<int>(i);
     }
   }
   // The family to go to: the next (or previous) one that has a knob; from a knob the list does not hold, the first (or last) family.
-  const int pages = static_cast<int>(kWalkPageCount);
+  const int pages = static_cast<int>(scope.count);
   int want = at < 0 ? (delta < 0 ? pages : -1) : static_cast<int>(fam[at]);
   int target = -1;
   for (int step = 0; step < pages && target < 0; ++step) {
@@ -337,14 +392,14 @@ Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row,
   if (target < 0) {
     return Entry{};
   }
-  const Entry en = ladder_knob_at(controls, static_cast<unsigned>(target));
+  const Entry en = walk_at(scope, controls, static_cast<unsigned>(target), nullptr);
   LaneRef ref{kLaneNone, 0};
   if (controls.row_ref(en, ref)) {
     wiring.ladder[row] = ref;
     store_row(wiring, row);
   }
   if (family != nullptr) {
-    *family = walk_page(fam[target]).name;
+    *family = scope.page[fam[target]]->name;
   }
   return en;
 }

@@ -844,7 +844,7 @@ void PerformScreen::fill_status(app::Context& ctx, frame::StatusView& status) co
 // ROW 1 LINE + TONE (SHIFT = LATCH) . ROW 2 REPEAT . ROW 3 WOBBLE RATE . ROW 4 KEYS  (PERFORM SETUP: ROW 2 SNAPSHOTS (SHIFT = STORE)); rows 3 and 4 name what SEL3 and SEL4 picked
 void PerformScreen::pads_line(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
-  if (page_ == PerformPage::Knobs) {  // ROW 1 ENV MOD . ROW 2 DECAY . ROW 3 CUTOFF . ROW 4 RESO
+  if (page_ == PerformPage::Knobs) {  // ROW 1 ENV MOD . ROW 2 ACCENT . ROW 3 CUTOFF . ROW 4 RESO
     for (unsigned row = 0; row < kKnobsRows; ++row) {
       const char num[3] = {static_cast<char>('1' + row), ' ', '\0'};
       append(out, cap, row == 0u ? "ROW " : " . ROW ");

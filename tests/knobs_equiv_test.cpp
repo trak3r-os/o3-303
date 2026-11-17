@@ -154,7 +154,10 @@ TEST_CASE("KNOBS: a list takes a pad a value, the same value as the encoder's de
       t.to_perform();
       t.tap(Button::Performance);
       t.wait(60);
-      // Hold F5 (ROW 1) and walk Up until the row is the WAVE list: WAVE is value 0 of its pads, SQR value 1.
+      // Set 2 (MODDED) holds the NOTES page (KN5: a walk stays in its set). Hold F5 (ROW 1) and walk Up until
+      // the row is the WAVE list: WAVE is value 0 of its pads, SQR value 1.
+      t.tap(Button::F2);
+      t.wait(60);
       t.press(Button::F5);
       t.wait(30);
       auto* scr = static_cast<PerformScreen*>(t.h->runtime().context().screen());

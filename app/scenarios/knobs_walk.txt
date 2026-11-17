@@ -1,0 +1,50 @@
+# PERFORM KNOBS walk (KN5): an F5..F8 key held and Up / Down gives that row the next or previous knob of the set in use only. Set 1 (FILTER) walks the eight filter knobs
+# (CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, TRACKING, FILTER FM), set 2 (MODDED) NOTES, TONE, OSC (WAVE and TUNE) and the MODS switch, set 4 (WOBBLE) the wobble's
+# settings, the WOB switch, then the delay and distortion. The toast names the knob (ROW 2: FILTER / ACC DECAY). Row 2 of set 1 is ACCENT by default.
+wait 300
+tap performance
+tap performance
+wait 100
+snap 01_set_1_defaults
+# Set 1, row 2: ACCENT, then ACC DECAY, TRACKING, FILTER FM, and it laps back to CUTOFF: never a knob of another set.
+press f6
+tap up
+release f6
+wait 100
+snap 02_set_1_row_2_acc_decay
+press f6
+tap up
+tap up
+tap up
+release f6
+wait 100
+snap 03_set_1_row_2_lapped_to_cutoff
+# Set 2 (MODDED), row 1: ACC DECAY walks back through NOTES; Shift + Up jumps to TONE, again to OSC (WAVE).
+tap f2
+wait 100
+press f5
+tap down
+release f5
+wait 100
+snap 04_set_2_row_1_down
+press f5
+press shift
+tap up
+tap up
+release shift
+release f5
+wait 100
+snap 05_set_2_row_1_osc_wave
+# Set 4 (WOBBLE), row 2: WOB DEPTH, then WOB TARGET, then the WOB switch.
+tap f4
+wait 100
+press f6
+tap up
+release f6
+wait 100
+snap 06_set_4_row_2_next
+press f6
+tap up
+release f6
+wait 100
+snap 07_set_4_row_2_wob_switch

@@ -57,7 +57,7 @@ inline constexpr unsigned kKnobsRowId[kKnobsRows] = {kLadderKnobs1, kLadderKnobs
 unsigned knob_row_pos(unsigned row) noexcept;
 // The knob a set's row holds when the set is factory-filled.
 LaneRef knob_factory(unsigned set, unsigned pos) noexcept;
-// Make set `set` (0..3, clamped) the one in use: the four live rows (Wiring::ladder) take its knobs.
+// Make set `set` (0..kKnobSets-1, clamped) the one in use: the four live rows (Wiring::ladder) take its knobs.
 void knob_set_use(Wiring& wiring, unsigned set) noexcept;
 // Put set `set` back to its factory knobs (a copy of the four rows for UNDO is the caller's); the live rows follow when it is the one in use.
 void knob_set_factory(Wiring& wiring, unsigned set) noexcept;
@@ -70,10 +70,11 @@ unsigned ladder_knob_count(const Controls& controls) noexcept;
 Entry ladder_knob_at(const Controls& controls, unsigned index) noexcept;
 // The same, and `family` (if not null) gets the name of the family the knob is in (PF1: PERFORM's rows 3 and 4 name what they play).
 Entry ladder_knob_at_family(const Controls& controls, unsigned index, const char** family) noexcept;
-// Moves `row` by `delta` knobs along that list (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now. `family` (if not null) gets the
-// name of the family that knob is in.
+// Moves `row` by `delta` knobs (wrapping) from the knob it holds (from the first end when it holds none of them) and returns the entry it holds now. `family` (if not null) gets the name of the
+// family that knob is in. KN5: the walk is the set in use's own list, not the whole one: FILTER the filter's knobs, MODDED NOTES + TONE + MODS, GROWL and TRACT their page and switch, WOBBLE
+// the wobble's page and FX.
 Entry ladder_walk(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family = nullptr) noexcept;
-// Shift + Up/Down: moves `row` to the first knob of the next (delta > 0) or previous family; returns the entry it holds now. `family` (if not null) gets the family's name.
+// Shift + Up/Down: moves `row` to the first knob of the next (delta > 0) or previous family of the same list; returns the entry it holds now. `family` (if not null) gets the family's name.
 Entry ladder_walk_family(Wiring& wiring, const Controls& controls, unsigned row, int delta, const char** family) noexcept;
 
 // "CUTOFF": the name of the knob the row holds. At most cap-1 characters, cut at the end.

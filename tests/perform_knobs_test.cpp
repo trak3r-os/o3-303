@@ -87,7 +87,7 @@ TEST_CASE("PERFORM KNOBS: Perform flips PERFORM and KNOBS; Shift + Perform is PE
   CHECK(std::strcmp(t.title(), "PERFORM") == 0);  // from another screen it opens page 1
 }
 
-TEST_CASE("PERFORM KNOBS: a pad of each row sets ENV MOD, DECAY, CUTOFF and RESO; the colour buttons stay PERFORM's actions") {
+TEST_CASE("PERFORM KNOBS: a pad of each row sets ENV MOD, ACCENT, CUTOFF and RESO; the colour buttons stay PERFORM's actions") {
   Hands t;
   to_knobs(t);
   t.pad(row_pad(0, 7), 10);
@@ -96,18 +96,18 @@ TEST_CASE("PERFORM KNOBS: a pad of each row sets ENV MOD, DECAY, CUTOFF and RESO
   t.pad(row_pad(3, 2), 10);
   t.wait(150);
   CHECK(val(t, AcidVoice::EnvMod) == doctest::Approx(goal(t, AcidVoice::EnvMod, 7)).epsilon(0.001));
-  CHECK(val(t, AcidVoice::Decay) == doctest::Approx(goal(t, AcidVoice::Decay, 4)).epsilon(0.001));
+  CHECK(val(t, AcidVoice::Accent) == doctest::Approx(goal(t, AcidVoice::Accent, 4)).epsilon(0.001));
   CHECK(val(t, AcidVoice::Cutoff) == doctest::Approx(goal(t, AcidVoice::Cutoff, 9)).epsilon(0.001));
   CHECK(val(t, AcidVoice::Reso) == doctest::Approx(goal(t, AcidVoice::Reso, 2)).epsilon(0.001));
   // The lamp of each row sits at the knob's pad.
   t.wait(40);
   CHECK(t.led(row_pad(0, 7)) > t.led(row_pad(0, 10)));
   // Shift + Note flips MODS here, as on every screen (PF1: it is no performance action any more), and does not touch the rows.
-  const float decay = val(t, AcidVoice::Decay);
+  const float accent = val(t, AcidVoice::Accent);
   t.shift_tap(Button::Note);
   t.wait(20);
   t.shift_tap(Button::Note);
-  CHECK(val(t, AcidVoice::Decay) == decay);
+  CHECK(val(t, AcidVoice::Accent) == accent);
   CHECK(std::strcmp(t.title(), "PERFORM KNOBS") == 0);
 }
 
@@ -159,26 +159,29 @@ TEST_CASE("PERFORM KNOBS: re-pointing ROW 2 moves one other knob; Shift + F1 put
     moved += val(t, i) != before[i] ? 1u : 0u;
   }
   CHECK(moved == 1u);
-  CHECK(val(t, AcidVoice::Decay) == before[AcidVoice::Decay]);  // ROW 2 is not DECAY any more
-  // FACTORY 1: Shift + F1; ROW 2 is DECAY again.
+  CHECK(val(t, AcidVoice::Accent) == before[AcidVoice::Accent]);  // ROW 2 is not ACCENT any more
+  // FACTORY 1: Shift + F1; ROW 2 is ACCENT again.
   t.press(Button::Shift);
   t.tap(Button::F1);
   t.release(Button::Shift);
   t.wait(30);
   t.pad(row_pad(1, 5), 10);
   t.wait(200);
-  CHECK(val(t, AcidVoice::Decay) == doctest::Approx(goal(t, AcidVoice::Decay, 5)).epsilon(0.001));
+  CHECK(val(t, AcidVoice::Accent) == doctest::Approx(goal(t, AcidVoice::Accent, 5)).epsilon(0.001));
 }
 
-TEST_CASE("PERFORM KNOBS: the walk's list ends with the TRACT knobs (KN0): ROW 2 reaches VOWEL and its pads play it") {
+TEST_CASE("PERFORM KNOBS: on the TRACT set (KN0, KN5) ROW 2 walks Down from TONGUE to VOWEL and its pads play it") {
   Hands t;
   to_knobs(t);
+  t.tap(Button::F3);  // GROWL
+  t.tap(Button::F3);  // TRACT: ROW 2 is TONGUE, the walk stays on the tract's knobs
+  t.wait(60);
   const float vowel0 = t.param(kTract, TractFx::Vowel);
   REQUIRE(vowel0 < 0.5f);
   const float mix0 = t.param(kTract, TractFx::Mix);
   bool found = false;
   for (unsigned i = 0; i < 100 && !found; ++i) {
-    repoint(t, 1, true);
+    repoint(t, 1, false);
     t.pad(row_pad(1, 11), 10);  // the walked knob, to the top of its range
     t.wait(30);
     found = t.param(kTract, TractFx::Vowel) == 1.0f;
@@ -187,6 +190,8 @@ TEST_CASE("PERFORM KNOBS: the walk's list ends with the TRACT knobs (KN0): ROW 2
   t.wait(100);
   CHECK(t.param(kTract, TractFx::Vowel) == doctest::Approx(1.0f));  // U: the pad set the unit's own parameter
   CHECK(t.param(kTract, TractFx::Mix) == mix0);                      // and nothing else of the tract
+  t.tap(Button::F3);  // GROWL up again: F3's memory outlives the test
+  t.tap(Button::F1);
 }
 
 TEST_CASE("PERFORM KNOBS: F3 is GROWL and TRACT (F1): a second tap flips them, the key remembers the one up, the rows are VOWEL, TONGUE, LIPS and TRC MIX") {

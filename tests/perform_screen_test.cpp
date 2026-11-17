@@ -863,7 +863,7 @@ struct OnKnobs {
 TEST_CASE("KNOBS (KN3): F1..F4 are SET 1..4, factory-filled: FILTER, MODDED, GROWL, WOBBLE; a set change toasts and swaps the four rows") {
   OnKnobs o;
   CHECK(o.row(0) == "ENV MOD");
-  CHECK(o.row(1) == "DECAY");
+  CHECK(o.row(1) == "ACCENT");
   CHECK(o.row(2) == "CUTOFF");
   CHECK(o.row(3) == "RESO");
   o.t.tap(Button::F2);
@@ -932,7 +932,7 @@ TEST_CASE("KNOBS (KN3): an F5..F8 key held + Up / Down re-points the row (toast 
   // Shift + F1 puts set 1 back.
   o.t.shift_tap(Button::F1);
   CHECK(o.toast() == "SET 1 FACTORY: FILTER");
-  CHECK(o.row(1) == "DECAY");
+  CHECK(o.row(1) == "ACCENT");
   CHECK(o.row(0) == "ENV MOD");
 }
 
@@ -964,7 +964,7 @@ TEST_CASE("KNOBS (KN3): the Shift row is FACTORY 1..4 on F1..F4 (the set in use 
   CHECK(o.toast() == "SET 3 FACTORY: GROWL");
   CHECK(o.row(1) == moved);  // set 1 still in use, not touched
   o.t.shift_tap(Button::F1);
-  CHECK(o.row(1) == "DECAY");
+  CHECK(o.row(1) == "ACCENT");
   // UNDO and REDO act on the pattern as on PERFORM: a NEW, then UNDO gives the line back.
   const Pattern before = seqr().bank().pattern(seqr().bank().selected());
   o.t.pad(pp(kRow2, 8), 10);  // a knob pad of row 2: the pattern is not touched
@@ -1017,20 +1017,37 @@ TEST_CASE("KNOBS (KN4): with REC on and the pattern playing a tap of a row-only 
   o.t.tap(Button::Rec);
 }
 
-TEST_CASE("KNOBS (KN4): hold + Up / Down walks a row on to the wobble's family: WOB RATE is on the last page, and the set keeps it") {
+TEST_CASE("KNOBS (KN4, KN5): hold + Up / Down walks only the set's own knobs: FILTER stays FILTER, WOBBLE laps back to WOB RATE, and the set keeps it") {
   OnKnobs o;
-  bool wobble = false;
   o.t.press(Button::F5);
-  for (unsigned i = 0; i < 400 && !wobble; ++i) {
+  for (unsigned i = 0; i < 10; ++i) {  // more than a lap of the eight FILTER knobs
     o.t.tap(Button::Up);
-    wobble = o.row(0).rfind("WOB", 0) == 0;
+    o.row(0);
+    CHECK(o.toast().rfind("ROW 1: FILTER / ", 0) == 0);
   }
   o.t.release(Button::F5);
-  CHECK(wobble);
-  CHECK(o.toast().find("WOBBLE") != std::string::npos);
+  o.t.tap(Button::F4);
+  CHECK(o.row(0) == "WOB RATE");
+  bool left = false;
+  bool back = false;
+  o.t.press(Button::F5);
+  for (unsigned i = 0; i < 100 && !back; ++i) {
+    o.t.tap(Button::Up);
+    const std::string name = o.row(0);
+    if (name.rfind("WOB", 0) == 0) {
+      CHECK(o.toast().find("WOBBLE") != std::string::npos);
+    } else {
+      left = true;  // the FX page, the other half of set 4
+    }
+    back = left && name == "WOB RATE";
+  }
+  CHECK(back);
+  o.t.tap(Button::Up);
+  o.t.release(Button::F5);
   const std::string name = o.row(0);
+  CHECK(name != "WOB RATE");
   o.t.tap(Button::F2);
-  o.t.tap(Button::F1);
+  o.t.tap(Button::F4);
   CHECK(o.row(0) == name);
 }
 

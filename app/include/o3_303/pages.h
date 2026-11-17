@@ -138,11 +138,11 @@ const Entry& snap_target(unsigned index) noexcept;
 // The units and values the entries reach. The app fills it once at setup.
 // The ladder rows (backlog item 8, KN1): one kind of row: it holds a knob, stored as its lane target and parameter (not as an F key's number, so it survives a page change).
 // HOME's FILT rows hold CUTOFF and RESO by default; PERFORM's row 3 is HOME's FILT row 3 (kLadderHome3), no longer a row that follows the latch.
-// KNOBS (PERFORM's second page, issue #2) has four rows: its rows 3 and 4 are HOME's two (the same entries), rows 1 and 2 are kLadderKnobs1 and 2 (ENV MOD and DECAY).
+// KNOBS (PERFORM's second page, issue #2) has four rows: its rows 3 and 4 are HOME's two (the same entries), rows 1 and 2 are kLadderKnobs1 and 2 (ENV MOD and ACCENT, KN5).
 inline constexpr unsigned kLadderRows = 4;
 enum LadderRowId : unsigned { kLadderHome3 = 0, kLadderHome4 = 1, kLadderKnobs1 = 2, kLadderKnobs2 = 3 };
-// voice ids 0 Cutoff, 1 Reso, 2 Env Mod, 3 Decay
-inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneVoice, 2}, {kLaneVoice, 3}};
+// voice ids 0 Cutoff, 1 Reso, 2 Env Mod, 4 Accent (set 1's factory rows, kKnobFactory.row[0])
+inline constexpr LaneRef kDefaultLadder[kLadderRows] = {{kLaneVoice, 0}, {kLaneVoice, 1}, {kLaneVoice, 2}, {kLaneVoice, 4}};
 
 // KNOBS' five live sets (KN3, REVIEW-KNOBS Q3-A): each set is four rows (top to bottom: KNOBS' rows 1 and 2, then HOME's FILT rows 3 and 4), each row a knob stored as its lane
 // target and parameter. Set 1 is the four rows the PERF chunk always had; the others are factory-filled and the player re-points any row of any set. The ids below are the units'
@@ -174,7 +174,7 @@ inline constexpr unsigned kRowOnlyCount = kRowOnlyEnd - kRowWobRate;
 inline constexpr bool row_only_target(std::uint8_t target) noexcept { return target >= kRowWobRate && target < kRowOnlyEnd; }
 
 inline constexpr KnobSets kKnobFactory = {{
-    {{kLaneVoice, 2}, {kLaneVoice, 3}, {kLaneVoice, 0}, {kLaneVoice, 1}},      // 1 FILTER: ENV MOD, DECAY, CUTOFF, RESO
+    {{kLaneVoice, 2}, {kLaneVoice, 4}, {kLaneVoice, 0}, {kLaneVoice, 1}},      // 1 FILTER: ENV MOD, ACCENT, CUTOFF, RESO (KN5: ACCENT, not DECAY, on row 2)
     {{kLaneVoice, 8}, {kLaneVoice, 10}, {kLaneVoice, 17}, {kLaneVoice, 13}},   // 2 MODDED: ACC DECAY, SLIDE, OVERDRIVE, FILTER FM
     {{kLaneGrowl, 0}, {kLaneGrowl, 1}, {kLaneGrowl, 3}, {kLaneGrowl, 7}},      // 3 GROWL: VOWEL, FMT Q, CMB TUNE, GRL MIX
     {{kRowWobRate, 0}, {kRowWobDepth, 0}, {kLaneDist, 2}, {kLaneMixer, kMixerSendA}},  // 4 WOBBLE: WOB RATE, WOB DEPTH, DRIVE, DLY SEND (KN4; set 4 was FX before)
