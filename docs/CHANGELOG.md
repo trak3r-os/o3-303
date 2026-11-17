@@ -3,6 +3,14 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## v0.10.2 (2026-11-17), a pre-release
+
+### What changed for a player
+
+- **PERFORM KNOBS set 1 (FILTER): row 2 is ACCENT** instead of DECAY (DECAY is still one hold away, below). A new project starts with it. A project saved before keeps the rows it saved (DECAY on row 2): Shift + F1 (FACTORY 1) gives it ENV MOD, ACCENT, CUTOFF and RESO.
+- **Holding F5 to F8 and pressing Up or Down walks only the knobs of the set in use.** FILTER walks the eight filter knobs (CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, TRACKING, FILTER FM); MODDED its NOTES and TONE knobs, then WAVE and TUNE (OSC, which no other set holds) and the MODS switch; GROWL and TRACT their eight knobs and their switch; WOBBLE the wobble's settings, the WOB switch, then the delay and distortion. With Shift it jumps to the set's next or previous family. VOLUME is on HOME only.
+- **Saved files:** projects stay format 3.0; a project saved by v0.10.0 or v0.10.1 loads unchanged.
+
 ## v0.10.1 (2026-11-17), a pre-release
 
 ### What changed for a player

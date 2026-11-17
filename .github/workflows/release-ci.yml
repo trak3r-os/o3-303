@@ -4,7 +4,9 @@
 # commit pinned in tools/o3sdk.ref and runs tools/ci.sh, the same script used on a developer's machine and on the remote build machine:
 #   host  the host build and the full ctest suite
 #   mk66  the cross build, the image's static checks and the software-double check
-# It produces no image and attaches nothing to the release: a candidate image goes through fw-gate-check and the maintainer.
+# On a tag, once both pass, the publish job runs the static release gate (tools/release_assets.py, o3-sdk's tools/gate.py: the image
+# built twice, compared and checked) and, only on a CANDIDATE verdict, creates the GitHub pre-release with o3-303-<tag>.ptf,
+# SHA256SUMS and the notes of docs/release-notes/<tag>.md. Nothing here flashes a unit.
 #
 # o3-sdk is public; if it ever turns private, add a repository secret O3SDK_TOKEN with read access to trak3r-os/o3-sdk.
 # Before tagging, tools/o3sdk.ref must name the o3-sdk commit the release builds against (pushed to trak3r-os/o3-sdk).
@@ -87,3 +89,71 @@ jobs:
         run: |
           export ARM_GNU_ROOT="$HOME/arm/$ARM_GNU_NAME"
           tools/ci.sh ${{ matrix.mode }}
+
+  publish:
+    name: publish (gate and pre-release)
+    needs: ci
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - name: Check out o3-303 with its tags
+        uses: actions/checkout@v5
+        with:
+          path: o3-303
+          fetch-depth: 0
+
+      - name: Read the pinned o3-sdk commit
+        id: sdk
+        run: |
+          ref=$(tr -d '[:space:]' < o3-303/tools/o3sdk.ref)
+          case "$ref" in *[!0-9a-f]*|"") echo "tools/o3sdk.ref must hold a commit hash" >&2; exit 1 ;; esac
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Check out o3-sdk at that commit
+        uses: actions/checkout@v5
+        with:
+          repository: trak3r-os/o3-sdk
+          ref: ${{ steps.sdk.outputs.ref }}
+          path: o3-sdk
+          token: ${{ secrets.O3SDK_TOKEN || github.token }}
+
+      - name: Install the host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake g++ python3
+
+      - name: Cache the Arm toolchain
+        id: armcache
+        uses: actions/cache@v4
+        with:
+          path: ~/arm/${{ env.ARM_GNU_NAME }}
+          key: ${{ env.ARM_GNU_NAME }}-${{ env.ARM_GNU_SHA256 }}
+
+      - name: Fetch the Arm toolchain and check its SHA-256
+        if: steps.armcache.outputs.cache-hit != 'true'
+        run: |
+          url="https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/$ARM_GNU_VERSION/$ARM_GNU_NAME.tar.xz"
+          mkdir -p ~/arm && cd ~/arm
+          curl --proto '=https' --fail --location --silent --show-error --retry 3 --retry-delay 5 --output "$ARM_GNU_NAME.tar.xz" "$url"
+          echo "$ARM_GNU_SHA256  $ARM_GNU_NAME.tar.xz" | sha256sum --check --strict -
+          tar -xf "$ARM_GNU_NAME.tar.xz"
+          rm "$ARM_GNU_NAME.tar.xz"
+
+      - name: The release gate and the assets
+        working-directory: o3-303
+        run: |
+          python3 -I tools/release_assets.py "$GITHUB_REF_NAME" --sdk "$GITHUB_WORKSPACE/o3-sdk" \
+            --arm "$HOME/arm/$ARM_GNU_NAME" --out "$RUNNER_TEMP/release"
+          cat "$RUNNER_TEMP/release/CANDIDATE.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create the pre-release
+        working-directory: o3-303
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          r="$RUNNER_TEMP/release"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --prerelease --title "o3-303 $GITHUB_REF_NAME" \
+            --notes-file "$r/notes.md" "$r/o3-303-$GITHUB_REF_NAME.ptf" "$r/SHA256SUMS"
