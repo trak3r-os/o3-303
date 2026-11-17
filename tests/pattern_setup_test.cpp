@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// PATTERN SETUP (docs/UX-303.md 5.2, slice H2) end to end: a tap of Pattern opens it and a tap closes it, F1 LENGTH is one undo each way, F5 CHANCE is how many steps play,
-// F6..F8 are the generator's settings (project-wide), the Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, UNDO)
-// replaces the bridges of H1 (Pattern held + Insert / Delete), and every one of today's functions stays reachable. HOME's NOTE and SCALE (G1) are here too.
+// The three pages of the Pattern button (docs/UX-303.md 5.2): a tap cycles STEPS, GENERATOR and PAT SETUP. GENERATOR has the generator's eight knobs (ROOT, SCALE,
+// DENSITY, ACC %, SLD %, VARY %, LOW, HIGH) and the NOTE+- grab; PAT SETUP has this pattern's own (LENGTH, SWING, GATE, TRANSP, CHANCE) and the pattern tools
+// (CLR LOCK, COPY PAT, PASTE, DUP>NEXT, REVERSE, DOUBLE). REDO and UNDO are F7 and F8 on every page.
 #include <doctest/doctest.h>
 
 #include "hands.h"
@@ -15,6 +15,7 @@
 #include <o3_303/units/acid_voice/acid_voice.h>
 #include <o3sdk/core/scales.h>
 
+#include <algorithm>
 #include <cstring>
 
 using namespace hands;
@@ -22,11 +23,21 @@ using namespace o3_303;
 
 namespace {
 
-void open_setup(Hands& t) {
+// From STEPS: one tap is GENERATOR, two are PAT SETUP.
+void open_generator(Hands& t) {
   t.tap(Button::Pattern, 40);
   t.wait(30);
-  REQUIRE(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  REQUIRE(std::strcmp(t.title(), "GENERATOR") == 0);
 }
+
+void open_setup(Hands& t) {
+  t.tap(Button::Pattern, 40);
+  t.tap(Button::Pattern, 40);
+  t.wait(30);
+  REQUIRE(std::strcmp(t.title(), "PAT SETUP") == 0);
+}
+
+MainScreen* main_screen(Hands& t) { return static_cast<MainScreen*>(t.h->runtime().context().screen()); }
 
 void lock(Hands& t, unsigned step, int d) {
   t.down(step_pad_of(step));
@@ -47,20 +58,25 @@ void make_locks(Hands& t) {
 
 }  // namespace
 
-TEST_CASE("a tap of Pattern flips HOME and PATTERN SETUP; the ROLL view is gone") {
+TEST_CASE("a tap of Pattern cycles STEPS, GENERATOR and PAT SETUP; the ROLL view is gone") {
   Hands t;
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   t.tap(Button::Pattern, 40);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "GENERATOR") == 0);
+  t.tap(Button::Pattern, 40);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   t.tap(Button::Pattern, 40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   t.tap(Button::Pattern, 40);
   t.tap(Button::Pattern, 40);
   t.tap(Button::Pattern, 40);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);  // odd taps: SETUP; there is no third page
+  CHECK(std::strcmp(t.title(), "STEPS") == 0);  // three taps a round
+  t.tap(Button::Pattern, 40);
+  t.tap(Button::Pattern, 40);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
 }
 
-TEST_CASE("Pattern held on SETUP is the 48 patterns too; its release does not flip the page") {
+TEST_CASE("Pattern held on a page is the 48 patterns too; its release does not turn the page") {
   Hands t;
   open_setup(t);
   t.press(Button::Pattern);
@@ -71,14 +87,26 @@ TEST_CASE("Pattern held on SETUP is the 48 patterns too; its release does not fl
   CHECK(t.selected() == 30);
   t.release(Button::Pattern);
   t.wait(5);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   CHECK(t.selected() == 30);
+  // ... on GENERATOR as well.
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);
+  REQUIRE(std::strcmp(t.title(), "GENERATOR") == 0);
+  t.press(Button::Pattern);
+  t.wait(350);
+  CHECK(std::strcmp(t.title(), "PATTERNS") == 0);
+  t.release(Button::Pattern);
+  t.wait(5);
+  CHECK(std::strcmp(t.title(), "GENERATOR") == 0);
+  t.tap(Button::Pattern);
+  REQUIRE(std::strcmp(t.title(), "PAT SETUP") == 0);
   // A chord is no tap either: Pattern + Insert (which has no job now) leaves the page where it is.
   t.press(Button::Pattern);
   t.tap(Button::Insert);
   t.release(Button::Pattern);
   t.wait(40);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
 }
 
 TEST_CASE("coming back from another screen with Pattern lands on HOME, not on SETUP (D6)") {
@@ -122,7 +150,7 @@ TEST_CASE("F1 LENGTH: a step up copies the line into the new part, a step down t
   CHECK(t.pat().length == 16);
   // The redo walks forward again: Shift + F7 on SETUP itself (U4), and SETUP stays up.
   t.shift_tap(Button::F7);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   CHECK(t.pat().length == 32);
 }
 
@@ -131,10 +159,11 @@ TEST_CASE("LENGTH up to 64 and down: the cursor and the step pads follow the new
   open_setup(t);
   t.turn(48);  // 64, a step a detent
   REQUIRE(t.pat().length == 64);
-  t.tap(Button::Pattern);  // HOME
+  t.tap(Button::Pattern);  // STEPS
   t.tap(Button::Left);     // the cursor wraps to step 64: page 4
   t.wait(30);
-  t.tap(Button::Pattern);  // SETUP
+  t.tap(Button::Pattern);  // GENERATOR
+  t.tap(Button::Pattern);  // PAT SETUP
   t.turn(-56);             // 8: the cursor is past the end, it is brought back
   t.wait(30);
   REQUIRE(t.pat().length == 8);
@@ -170,16 +199,17 @@ TEST_CASE("F2 SWING, F3 GATE and F4 TRANSP are this pattern's own, a held F key 
   CHECK(t.pat().transpose == 0);
 }
 
-TEST_CASE("SETUP has its own latch: HOME's stays where it was, and so does SETUP's") {
+TEST_CASE("SETUP has its own latch: STEPS' stays where it was, and so does SETUP's") {
   Hands t;
   t.tap(Button::F3);  // HOME: ENV MOD
   const float env = t.param(kVoice, AcidVoice::EnvMod);
   open_setup(t);
   t.tap(Button::F2);  // SETUP: SWING
   t.tap(Button::Pattern);
-  t.turn(5);  // HOME's F3 is still the owner
+  t.turn(5);  // STEPS' F3 is still the owner
   CHECK(t.param(kVoice, AcidVoice::EnvMod) != env);
   CHECK(t.pat().swing == 0);
+  t.tap(Button::Pattern);
   t.tap(Button::Pattern);
   t.turn(2);  // SETUP's F2 is still the owner
   CHECK(t.pat().swing == 2);
@@ -233,17 +263,18 @@ TEST_CASE("F5 CHANCE: how many steps play, per pattern, 1 to 100, one UNDO a ges
   CHECK_FALSE(bank().can_undo());
 }
 
-TEST_CASE("F6 DENSITY, F7 ACC % and F8 SLD % are the generator's settings, for every pattern (D1)") {
+TEST_CASE("GENERATOR's F3 DENSITY, F4 ACC % and F5 SLD % are the generator's settings, for every pattern (D1)") {
   Hands t;
-  open_setup(t);
-  t.tap(Button::F6);
+  open_generator(t);
+  t.tap(Button::F3);
   t.turn(100);  // 100 %: every step sounds
-  t.tap(Button::F7);
+  t.tap(Button::F4);
   t.turn(100);  // every step accented
-  t.tap(Button::F8);
+  t.tap(Button::F5);
   t.turn(-100);  // and none slides
   t.tap(Button::Pattern);
-  const auto generate = [&] { t.new_line(); };  // SETUP's Shift + F6 RANDOM, with the project's generator settings
+  t.tap(Button::Pattern);
+  const auto generate = [&] { t.new_line(); };  // GENERATOR's Shift + F2 RANDOM, with the project's generator settings
   generate();
   for (unsigned i = 0; i < 16; ++i) {
     CHECK((t.pat().steps[i].flags & kStepRest) == 0u);
@@ -260,14 +291,47 @@ TEST_CASE("F6 DENSITY, F7 ACC % and F8 SLD % are the generator's settings, for e
   }
 }
 
+TEST_CASE("GENERATOR's F7 LOW and F8 HIGH bound the notes RANDOM draws, and neither passes the other") {
+  Hands t;
+  open_generator(t);
+  t.tap(Button::F7);
+  t.turn(100);  // LOW goes up and stops at HIGH (48)
+  t.tap(Button::F8);
+  t.turn(-100);  // HIGH goes down and stops at LOW (48): the other one never moves
+  t.tap(Button::F7);
+  t.turn(-12);  // LOW 36
+  t.tap(Button::F8);
+  t.turn(-100);  // HIGH stops at 36
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);
+  t.new_line();
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[i].note == 36);  // LOW == HIGH == 36: the range itself
+  }
+}
+
+TEST_CASE("GENERATOR's F6 VARY % is the share of notes VARY redraws; it is not part of the project and starts at 25") {
+  Hands t;
+  open_generator(t);
+  t.tap(Button::F6);
+  t.turn(100);  // 100 %
+  const Pattern before = t.pat();
+  bank().clear_history();
+  t.shift_tap(Button::F5);  // VARY
+  CHECK(bank().can_undo());
+  CHECK(t.pat().length == before.length);
+  t.shift_tap(Button::F8);
+  CHECK_FALSE(bank().can_undo());
+}
+
 TEST_CASE("Shift row of SETUP: COPY PAT and PASTE PAT move a whole pattern; the step clipboard of HOME is untouched") {
   Hands t;
   const Pattern first = bank().pattern(0);
   open_setup(t);
-  t.shift_tap(Button::F1);  // COPY PAT
+  t.shift_tap(Button::F2);  // COPY PAT
   t.select_pattern(7);
   REQUIRE(pattern_is_empty(t.pat()));
-  t.shift_tap(Button::F2);  // PASTE PAT
+  t.shift_tap(Button::F3);  // PASTE
   CHECK_FALSE(pattern_is_empty(t.pat()));
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == first.steps[i].note);
@@ -278,7 +342,7 @@ TEST_CASE("Shift row of SETUP: COPY PAT and PASTE PAT move a whole pattern; the 
   t.shift_tap(Button::F8);
   CHECK(pattern_is_empty(t.pat()));
   // HOME's Shift + Copy pastes a step, as ever: Copy a step, then paste it.
-  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // STEPS
   t.tap(Button::Copy);
   t.pad(step_pad_of(1));
   t.shift_tap(Button::Copy);
@@ -289,9 +353,9 @@ TEST_CASE("DUP>NEXT copies the pattern into the next slot and selects it; the la
   Hands t;
   const Pattern first = t.pat();
   open_setup(t);
-  t.shift_tap(Button::F3);
+  t.shift_tap(Button::F4);
   CHECK(t.selected() == 1);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == first.steps[i].note);
     CHECK(t.pat().steps[i].flags == first.steps[i].flags);
@@ -300,14 +364,14 @@ TEST_CASE("DUP>NEXT copies the pattern into the next slot and selects it; the la
   CHECK(pattern_is_empty(bank().pattern(1)));
   // The last pattern has no slot after it: nothing wraps round to overwrite A01.
   t.select_pattern(kPatternCount - 1);
-  t.shift_tap(Button::F3);
+  t.shift_tap(Button::F4);
   CHECK(t.selected() == kPatternCount - 1);
   CHECK_FALSE(pattern_is_empty(bank().pattern(0)));
   // Playing, it queues the copy.
   t.select_pattern(2);
   t.tap(Button::Play);
   t.wait(100);
-  t.shift_tap(Button::F3);
+  t.shift_tap(Button::F4);
   t.wait(30);
   CHECK(t.selected() == 2);  // still the playing one until it ends
   t.tap(Button::Play);
@@ -319,9 +383,9 @@ TEST_CASE("CLEAR LOCKS clears every lane of this pattern and keeps the notes, in
   const Pattern before = t.pat();
   bank().clear_history();
   open_setup(t);
-  t.shift_tap(Button::F4);
+  t.shift_tap(Button::F1);  // CLR LOCK
   t.wait(40);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == before.steps[i].note);
@@ -333,7 +397,7 @@ TEST_CASE("CLEAR LOCKS clears every lane of this pattern and keeps the notes, in
   CHECK_FALSE(bank().can_undo());
 }
 
-TEST_CASE("REDO with nothing to redo does nothing, and the bridges of H1 are gone: Pattern + Insert / Delete / Copy change no pattern") {
+TEST_CASE("REDO with nothing to redo does nothing, and the bridges of H1 are gone: Pattern + Insert / Delete / Copy change no pattern on any page") {
   Hands t;
   make_locks(t);
   const Pattern before = t.pat();
@@ -343,7 +407,7 @@ TEST_CASE("REDO with nothing to redo does nothing, and the bridges of H1 are gon
   CHECK_FALSE(bank().can_undo());
   CHECK(t.pat().length == before.length);
   // On both pages: Pattern held with Insert, Delete (and Shift + Delete) and Copy does nothing to any pattern.
-  for (int page = 0; page < 2; ++page) {
+  for (int page = 0; page < 3; ++page) {
     t.press(Button::Pattern);
     t.tap(Button::Insert);
     t.tap(Button::Delete);
@@ -366,46 +430,40 @@ TEST_CASE("REDO with nothing to redo does nothing, and the bridges of H1 are gon
   }
 }
 
-TEST_CASE("NOTE and the drawer rows share one encoder: a row latched before Shift + F5 gives way to NOTE, and a row latched after it takes it") {
+TEST_CASE("NOTE+- and the drawer rows share one encoder: a row latched after Shift + F6 takes the encoder, and NOTE+- takes it back") {
   Hands t;
-  t.choose_scale(3);  // Major, back on HOME
-  const auto root_on = [&](unsigned note) {
-    t.wait(40);
-    return t.led(key_pad(note)) == app::kLedOn;
-  };
-  t.row_key(Button::Instr, 1);  // the GATE row owns the encoder
-  t.shift_tap(Button::F5);  // NOTE takes it back
-  const std::uint8_t gate = t.pat().steps[1].flags;
+  open_generator(t);
+  MainScreen* home = main_screen(t);
+  t.shift_tap(Button::F6);  // NOTE+-
+  CHECK(home->enc_owner() == MainScreen::EncOwner::Xpose);
+  t.tap(Button::Pattern);  // PAT SETUP: the grab ends with the page
+  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
+  t.tap(Button::Pattern);  // STEPS
+  t.tap(Button::Pattern);  // GENERATOR
+  t.shift_tap(Button::F6);
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // STEPS
+  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
+  // On STEPS the turn is the page's knob, not a transposition.
+  const Pattern before = t.pat();
   t.turn(2);
-  CHECK(t.pat().steps[1].flags == gate);  // the row did not move
-  CHECK(root_on(38));
-  t.shift_tap(Button::F5);  // NOTE again, then a row latches: the row owns the turn
-  t.row_key(Button::Instr, 1);
-  t.turn(2);
-  CHECK(t.pat().steps[1].flags != gate);
-  CHECK(root_on(38));  // the root stayed
+  CHECK(t.pat().steps[0].note == before.steps[0].note);
 }
 
-TEST_CASE("NOTE and SCALE do not outlive the screen: leaving HOME for MASTER and coming back gives the encoder to the page") {
+TEST_CASE("NOTE+- does not outlive the screen: leaving for MASTER and coming back gives the encoder to the page") {
   Hands t;
-  t.shift_tap(Button::F5);  // NOTE
+  open_generator(t);
+  t.shift_tap(Button::F6);  // NOTE+-
   t.tap(Button::Master);
   t.wait(40);
-  t.tap(Button::Pattern);  // back: HOME
+  t.tap(Button::Pattern);  // back: STEPS
   t.wait(40);
   REQUIRE(std::strcmp(t.title(), "STEPS") == 0);
-  const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
-  t.turn(2);  // the page's own knob (F1 CUTOFF), not the root
-  CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff);
-  CHECK(t.led(key_pad(38)) != app::kLedOn);  // D did not become the root
-  MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
-  t.shift_tap(Button::F6);  // SCALE
-  CHECK(home->enc_owner() == MainScreen::EncOwner::Scale);
-  t.tap(Button::Master);
-  t.wait(40);
-  t.tap(Button::Pattern);
-  t.wait(40);
+  MainScreen* home = main_screen(t);
   CHECK(home->enc_owner() == MainScreen::EncOwner::None);
+  const float cutoff = t.param(kVoice, AcidVoice::Cutoff);
+  t.turn(2);  // the page's own knob (F1 CUTOFF)
+  CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff);
 }
 
 TEST_CASE("a lock on HOME works while the encoder owns a SETUP knob only through HOME: a held step + turn on SETUP changes no lock") {
@@ -495,7 +553,8 @@ TEST_CASE("all eight lanes in use: the toast names CLEAR LOCKS (SETUP), the one 
   CHECK(v.toast_off);  // it says something did not happen
   // CLEAR LOCKS on SETUP frees them.
   t.tap(Button::Pattern);
-  t.shift_tap(Button::F4);
+  t.tap(Button::Pattern);
+  t.shift_tap(Button::F1);
   CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
 }
 
@@ -515,16 +574,17 @@ TEST_CASE("Master's tap latches TEMPO; leaving the screen and coming back gives 
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff);       // the page's F1 CUTOFF
 }
 
-TEST_CASE("HOME's Shift + F5 NOTE gives the encoder the generator's root (C to B, no wrap); an F key gives it back; SCALE shows its root") {
+TEST_CASE("GENERATOR's F1 ROOT is C to B with no wrap, and the keys of STEPS show it; SCALE shows its root") {
   Hands t;
-  t.choose_scale(3);  // Major, back on HOME
-  // The root is read off the keys of HOME: the root's pad is full, the others of the scale mid.
+  t.choose_scale(3);  // Major, back on STEPS
+  // The root is read off the keys: the root's pad is full, the others of the scale mid.
   const auto root_on = [&](unsigned note) {
     t.wait(40);
     return t.led(key_pad(note)) == app::kLedOn;
   };
   CHECK(root_on(36));  // C by default
-  t.shift_tap(Button::F5);  // NOTE
+  open_generator(t);
+  t.tap(Button::F1);
   t.turn(2);
   CHECK(root_on(38));  // D
   t.turn(-9);
@@ -533,11 +593,13 @@ TEST_CASE("HOME's Shift + F5 NOTE gives the encoder the generator's root (C to B
   CHECK(root_on(47));  // B, and none above it
   t.turn(1);
   CHECK(root_on(47));
-  t.tap(Button::F5);  // F5 alone: the encoder is the F key's knob again
-  const MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
-  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
-  t.turn(1);
-  CHECK(root_on(47));  // the root stayed
+  // No root gesture is left on the pads: Shift + F5 held and a bottom-row key is the key's own note, whatever the page.
+  t.press(Button::Shift);
+  t.press(Button::F5);
+  t.pad(key_pad(39));
+  t.release(Button::F5);
+  t.release(Button::Shift);
+  CHECK(root_on(47));
   // The scale text carries the root beside the name.
   char sc[24];
   scale_value_text(3, false, sc, sizeof sc, 2);
@@ -551,18 +613,18 @@ TEST_CASE("HOME's Shift + F5 NOTE gives the encoder the generator's root (C to B
   CHECK(std::strcmp(sc, "CHR") == 0);
 }
 
-TEST_CASE("HOME's Shift + F6 SCALE gives the encoder the generator's scale (no wrap); the status line says ROOT or SCALE; an F key gives it back") {
+TEST_CASE("GENERATOR's F2 SCALE walks the generator's scale (no wrap) and the keys of STEPS follow") {
   Hands t;
-  MainScreen* home = static_cast<MainScreen*>(t.h->runtime().context().screen());
-  // The scale is read off the keys of HOME: C major lights C (full), D E F G A B (mid) and leaves the sharps dark.
+  MainScreen* home = main_screen(t);
+  // The scale is read off the keys: C major lights C (full), D E F G A B (mid) and leaves the sharps dark.
   const auto major = [&] {
     t.wait(40);
     bool ok = t.led(key_pad(48)) == app::kLedOn && t.led(key_pad(50)) == app::kLedMid && t.led(key_pad(49)) == app::kLedOff;
     return ok && t.led(key_pad(52)) == app::kLedMid && t.led(key_pad(51)) == app::kLedOff;
   };
   CHECK_FALSE(major());  // C minor pentatonic by default
-  t.shift_tap(Button::F6);  // SCALE
-  CHECK(home->enc_owner() == MainScreen::EncOwner::Scale);
+  open_generator(t);
+  t.tap(Button::F2);
   t.turn(-40);  // No scale: the first, no wrap
   CHECK_FALSE(home->scale_shown());
   t.turn(-5);
@@ -575,73 +637,126 @@ TEST_CASE("HOME's Shift + F6 SCALE gives the encoder the generator's scale (no w
   CHECK(t.param(kVoice, AcidVoice::Cutoff) == cutoff);
   t.turn(-1);
   CHECK(major());
-  // NOTE then takes the encoder: the root, not the scale.
-  t.shift_tap(Button::F5);
-  CHECK(home->enc_owner() == MainScreen::EncOwner::Root);
+  // ROOT is the F1 key's: the root moves, the scale stays.
+  t.tap(Button::F1);
   t.turn(2);
   CHECK_FALSE(major());  // the root moved to D: C is no longer the full key
   CHECK(t.led(key_pad(50)) == app::kLedOn);
-  // An F key (a plain tap) gives the encoder back to the knob.
-  t.tap(Button::F2);
-  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
-  const float reso = t.param(kVoice, AcidVoice::Reso);
-  t.turn(3);
-  CHECK(t.param(kVoice, AcidVoice::Reso) != reso);
-  CHECK(t.led(key_pad(50)) == app::kLedOn);  // the root stayed
 }
 
-TEST_CASE("HOME: Shift + F5 held and a tap of a bottom-row key sets the root; SETUP's F5 is CHANCE and sets none; without them the key is no root (X4, G1, G2)") {
+TEST_CASE("NOTE+-: each detent moves every note a semitone, Shift + turn an octave, no wrap, and a grab is one UNDO step") {
   Hands t;
-  t.choose_scale(3);  // Major: the keyboard shows the root on the pads
-  const auto root_on = [&](unsigned note) {
-    t.wait(40);
-    return t.led(key_pad(note)) == app::kLedOn;
+  open_generator(t);
+  bank().clear_history();
+  const Pattern before = t.pat();
+  const unsigned n = before.length;
+  const auto moved = [&](int d) {
+    for (unsigned i = 0; i < n; ++i) {
+      if (t.pat().steps[i].note != before.steps[i].note + d) {
+        return false;
+      }
+    }
+    return true;
   };
-  REQUIRE(root_on(36));  // C by default
+  // Grab A: +3 in two turns, one UNDO step.
+  t.shift_tap(Button::F6);
+  MainScreen* home = main_screen(t);
+  CHECK(home->enc_owner() == MainScreen::EncOwner::Xpose);
+  t.turn(2);
+  t.turn(1);
+  CHECK(moved(3));
+  // Release (an F key gives the knob back), then grab B: +2, its own UNDO step.
+  t.tap(Button::F1);
+  CHECK(home->enc_owner() == MainScreen::EncOwner::None);
+  t.shift_tap(Button::F6);
+  t.turn(2);
+  CHECK(moved(5));
+  // One UNDO takes only B back.
+  t.shift_tap(Button::F8);
+  CHECK(moved(3));
+  CHECK(bank().can_undo());
+  t.shift_tap(Button::F8);
+  CHECK(moved(0));
+  CHECK_FALSE(bank().can_undo());
+  // REDO puts A back, and a grab after an UNDO is a step of its own too.
+  t.shift_tap(Button::F7);
+  CHECK(moved(3));
+  t.shift_tap(Button::F6);
+  t.turn(-1);
+  CHECK(moved(2));
+  t.shift_tap(Button::F8);
+  CHECK(moved(3));
+  // Shift + turn: an octave.
+  t.shift_tap(Button::F6);
   t.press(Button::Shift);
-  t.press(Button::F5);
-  t.pad(key_pad(39));  // D#
-  t.release(Button::F5);
+  t.turn(1);
   t.release(Button::Shift);
-  CHECK(root_on(39));
-  CHECK(!root_on(36));
+  CHECK(moved(15));
   t.press(Button::Shift);
-  t.press(Button::F5);
-  t.pad(key_pad(47));  // B: the last key of the row
-  t.release(Button::F5);
-  t.release(Button::Shift);
-  CHECK(root_on(47));
-  t.pad(key_pad(38));  // no F key held: a key of the keyboard, not a root
-  CHECK(root_on(47));
-  t.press(Button::Shift);
-  t.press(Button::F5);
-  t.pad(key_pad(52));  // a key of the row above: not one of the twelve
-  t.release(Button::F5);
-  t.release(Button::Shift);
-  CHECK(root_on(47));
-  t.press(Button::F1);  // another F key held: no root either
-  t.pad(key_pad(40));
-  t.release(Button::F1);
-  CHECK(root_on(47));
-  // PATTERN SETUP: F5 is CHANCE (G2); held with a key it sets no root.
-  open_setup(t);
-  t.press(Button::F5);
-  t.pad(key_pad(41));
-  t.release(Button::F5);
-  t.tap(Button::Pattern);  // HOME
-  CHECK(root_on(47));
-  // The encoder is the knob's again (the one more scale and the root stay): Shift + F5 held and F is the root, the encoder stays NOTE's.
-  t.press(Button::Shift);
-  t.press(Button::F5);
-  t.pad(key_pad(41));  // F
-  t.release(Button::F5);
-  t.release(Button::Shift);
-  t.wait(40);
-  CHECK(t.led(key_pad(41)) == app::kLedOn);
-  CHECK(t.led(key_pad(47)) != app::kLedOn);
   t.turn(-2);
-  t.wait(40);
-  CHECK(t.led(key_pad(39)) == app::kLedOn);  // D#: the encoder had NOTE
+  t.release(Button::Shift);
+  CHECK(moved(-9));
+}
+
+TEST_CASE("NOTE+- stops at the ends of 0..127 with a toast, and moves nothing past them") {
+  Hands t;
+  open_generator(t);
+  const Pattern before = t.pat();
+  unsigned lowest = 127;
+  unsigned highest = 0;
+  for (unsigned i = 0; i < before.length; ++i) {
+    lowest = std::min<unsigned>(lowest, before.steps[i].note);
+    highest = std::max<unsigned>(highest, before.steps[i].note);
+  }
+  t.shift_tap(Button::F6);
+  t.turn(-200);  // down until the lowest note is 0
+  unsigned now_lowest = 127;
+  for (unsigned i = 0; i < before.length; ++i) {
+    now_lowest = std::min<unsigned>(now_lowest, t.pat().steps[i].note);
+  }
+  CHECK(now_lowest == 0u);
+  frame::StatusView v;
+  main_screen(t)->home_map().status(v);
+  CHECK(std::strcmp(v.toast, "NOTE OUT OF RANGE") == 0);
+  CHECK(v.toast_off);
+  t.turn(300);
+  unsigned now_highest = 0;
+  for (unsigned i = 0; i < before.length; ++i) {
+    now_highest = std::max<unsigned>(now_highest, t.pat().steps[i].note);
+  }
+  CHECK(now_highest == 127u);
+  (void)highest;
+  (void)lowest;
+}
+
+TEST_CASE("the Shift rows: STEPS has REDO and UNDO only, GENERATOR and PAT SETUP carry their tools, and DOUBLE dims at 64 steps") {
+  Hands t;
+  CHECK(std::strcmp(t.title(), "STEPS") == 0);
+  // On STEPS the keys F1..F6 of the Shift row do nothing to the pattern.
+  const Pattern before = t.pat();
+  bank().clear_history();
+  t.press(Button::Shift);
+  for (const Button b : {Button::F1, Button::F2, Button::F3, Button::F4, Button::F5, Button::F6}) {
+    t.tap(b);
+  }
+  t.release(Button::Shift);
+  CHECK(std::memcmp(&t.pat(), &before, sizeof(Pattern)) == 0);
+  CHECK_FALSE(bank().can_undo());
+  // PAT SETUP's DOUBLE: 16 steps become 32 with the first half copied, one UNDO; at 64 it refuses.
+  open_setup(t);
+  t.shift_tap(Button::F6);
+  REQUIRE(t.pat().length == 32);
+  for (unsigned i = 0; i < 16; ++i) {
+    CHECK(t.pat().steps[16 + i].note == before.steps[i].note);
+  }
+  t.shift_tap(Button::F6);
+  REQUIRE(t.pat().length == 64);
+  const Pattern full = t.pat();
+  t.shift_tap(Button::F6);
+  CHECK(t.pat().length == 64);
+  CHECK(std::memcmp(&t.pat(), &full, sizeof(Pattern)) == 0);
+  t.shift_tap(Button::F8);
+  CHECK(t.pat().length == 32);
 }
 
 TEST_CASE("Left / Right with an F key held move that knob by 1/20 of its range and stop at the ends; without a key they move the cursor") {

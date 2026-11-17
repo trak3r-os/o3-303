@@ -14,6 +14,7 @@
 #include <o3_303/units/tract/tract.h>
 #include <o3_303/units/acid_voice/acid_voice.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace o3_303 {
@@ -60,10 +61,14 @@ constexpr Page kPages[kPageCount] = {
       app_item(Item::RollMode, "ROLL"), freeze(Freeze::StopTime, "STOP")}},
 };
 
-// PATTERN SETUP (UX-303 5.2): this pattern's five (G2: CHANCE on F5), then the generator's three (project-wide, D1; its SCALE is on HOME's Shift + F6).
-constexpr Page kSetupPage = {"SETUP",
+// PAT SETUP (UX-303 5.2): this pattern's five (G2: CHANCE on F5); F6..F8 are empty. The generator's settings are kGeneratorPage's.
+constexpr Page kSetupPage = {"PAT SETUP",
                              {app_item(Item::Length), app_item(Item::Swing), app_item(Item::Gate), app_item(Item::Transpose, "TRANSP"), app_item(Item::Chance),
-                              app_item(Item::Density), app_item(Item::AccPct), app_item(Item::SldPct)}};
+                              Entry{}, Entry{}, Entry{}}};
+// GENERATOR: the generator's settings (project-wide), the scale and the root first, then the three chances, how much VARY changes, and the note window.
+constexpr Page kGeneratorPage = {"GENERATOR",
+                                 {app_item(Item::Root), app_item(Item::Scale), app_item(Item::Density), app_item(Item::AccPct), app_item(Item::SldPct),
+                                  app_item(Item::VaryPct), app_item(Item::GenLow), app_item(Item::GenHigh)}};
 
 // What a snapshot holds (pages.h): SOUND's seven (the voice's own Volume stays at 0 dB; VOLUME is the level), the distortion's five, the
 // delay's four, the level and the send, then (P2) the growl's four, then (MODS S2) the voice's mods in id order and the growl's three others: append, never insert (a saved
@@ -106,6 +111,32 @@ struct ScaleNames {
 };
 constexpr ScaleNames kScaleNamePtrs{};
 
+// The root's names (C..B) and the note names C-1..G9 as pointers into fixed rows, for the generator's ROOT, LOW and HIGH knobs.
+constexpr const char* kRootNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+struct NoteNames {
+  char row[128][5];
+  const char* p[128];
+  constexpr NoteNames() noexcept : row(), p() {
+    for (unsigned n = 0; n < 128; ++n) {
+      const char* nm = kRootNames[n % 12u];
+      unsigned k = 0;
+      while (nm[k] != '\0') {
+        row[n][k] = nm[k];
+        ++k;
+      }
+      int oct = static_cast<int>(n / 12u) - 1;  // C2 = 36, as note_name
+      if (oct < 0) {
+        row[n][k++] = '-';
+        oct = -oct;
+      }
+      row[n][k++] = static_cast<char>('0' + oct);
+      row[n][k] = '\0';
+      p[n] = row[n];
+    }
+  }
+};
+constexpr NoteNames kNoteNames{};
+
 constexpr core::ParamDesc kTempo = {"TEMPO", "BPM", nullptr, nullptr, 20.0f, 300.0f, 125.0f, 560, 10, 0, ParamUnit::Fixed1, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSwing = {"SWING", "%", nullptr, nullptr, 0.0f, static_cast<float>(kMaxSwing), 0.0f, kMaxSwing, 5, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kLength = {"LENGTH", "", kLengthNames, nullptr, 0.0f, static_cast<float>(kMaxSteps - 1u), static_cast<float>(kDefaultLength - 1u), kMaxSteps - 1u, 1, kMaxSteps, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
@@ -115,6 +146,10 @@ constexpr core::ParamDesc kTranspose = {"TRANSPOSE", "st", nullptr, nullptr, -24
 constexpr core::ParamDesc kScale = {"SCALE", "", kScaleNamePtrs.p, nullptr, 0.0f, static_cast<float>(core::kScaleCount - 1u), 18.0f,
                                     static_cast<std::uint16_t>(core::kScaleCount - 1u), 4, static_cast<std::uint8_t>(core::kScaleCount),
                                     ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kRoot = {"ROOT", "", kRootNames, nullptr, 0.0f, 11.0f, 0.0f, 11, 3, 12, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kVary = {"VARY %", "%", nullptr, nullptr, 1.0f, 100.0f, 25.0f, 99, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kGenLow = {"LOW", "", kNoteNames.p, nullptr, 0.0f, 127.0f, 24.0f, 127, 12, 128, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
+constexpr core::ParamDesc kGenHigh = {"HIGH", "", kNoteNames.p, nullptr, 0.0f, 127.0f, 48.0f, 127, 12, 128, ParamUnit::Enum, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kDensity = {"DENSITY", "%", nullptr, nullptr, 0.0f, 100.0f, 75.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kAccPct = {"ACC %", "%", nullptr, nullptr, 0.0f, 100.0f, 25.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
 constexpr core::ParamDesc kSldPct = {"SLD %", "%", nullptr, nullptr, 0.0f, 100.0f, 20.0f, 100, 10, 0, ParamUnit::Int, ParamCurve::Linear, 0, 0};
@@ -215,6 +250,7 @@ constexpr Page kTractPage = {"TRACT",
 
 const Page& page_at(unsigned index) noexcept { return kPages[index < kPageCount ? index : 0u]; }
 const Page& setup_page() noexcept { return kSetupPage; }
+const Page& generator_page() noexcept { return kGeneratorPage; }
 const Entry& snap_target(unsigned index) noexcept { return kSnapTargets[index < kSnapTargetCount ? index : 0u]; }
 
 // ---- Controls ---------------------------------------------------------------------------------------------------------------
@@ -241,6 +277,14 @@ const core::ParamDesc* Controls::desc(const dsp::Engine& e, const Entry& entry) 
       return &kChance;
     case Item::Scale:
       return &kScale;
+    case Item::Root:
+      return &kRoot;
+    case Item::VaryPct:
+      return &kVary;
+    case Item::GenLow:
+      return &kGenLow;
+    case Item::GenHigh:
+      return &kGenHigh;
     case Item::Density:
       return &kDensity;
     case Item::AccPct:
@@ -304,6 +348,14 @@ float Controls::get(const dsp::Engine& e, const Entry& entry) const noexcept {
       return static_cast<float>(p.chance < kMinChance || p.chance > kMaxChance ? kMaxChance : p.chance);  // 0 and above 100 play as 100
     case Item::Scale:
       return static_cast<float>(w_->gen.scale);
+    case Item::Root:
+      return static_cast<float>(w_->gen.root);
+    case Item::VaryPct:
+      return static_cast<float>(w_->vary_pct);
+    case Item::GenLow:
+      return static_cast<float>(w_->gen.low);
+    case Item::GenHigh:
+      return static_cast<float>(w_->gen.high);
     case Item::Density:
       return static_cast<float>(w_->gen.density);
     case Item::AccPct:
@@ -402,6 +454,18 @@ void Controls::set(dsp::Engine& e, const Entry& entry, float value) noexcept {
       break;
     case Item::Scale:
       w_->gen.scale = static_cast<std::uint8_t>(round_to_int(v));
+      break;
+    case Item::Root:
+      w_->gen.root = static_cast<std::uint8_t>(round_to_int(v));
+      break;
+    case Item::VaryPct:
+      w_->vary_pct = static_cast<std::uint8_t>(round_to_int(v));
+      break;
+    case Item::GenLow:  // LOW <= HIGH: the turned value stops at the other one, which never moves
+      w_->gen.low = static_cast<std::uint8_t>(std::min(round_to_int(v), static_cast<int>(w_->gen.high)));
+      break;
+    case Item::GenHigh:
+      w_->gen.high = static_cast<std::uint8_t>(std::max(round_to_int(v), static_cast<int>(w_->gen.low)));
       break;
     case Item::Density:
       w_->gen.density = static_cast<std::uint8_t>(round_to_int(v));

@@ -455,6 +455,9 @@ TEST_CASE("The Note key flips STOCK (MODS) from every screen with no change of s
   Hands t;
   const auto go = [&](const char* title, auto enter) {
     t.to_home();
+    for (int i = 0; i < 3 && !is_title(t, "STEPS"); ++i) {  // Pattern turns a page of the 303 screen: back on STEPS first
+      t.tap(Button::Pattern);
+    }
     enter();
     REQUIRE_MESSAGE(is_title(t, title), title);
     t.tap(Button::Note);
@@ -477,10 +480,11 @@ TEST_CASE("The Note key flips STOCK (MODS) from every screen with no change of s
   go("INSTRUMENT FX", [&] { t.to_instrument(kInstFx); });
   go("GROWL", [&] { t.to_growl(); });
   go("MODDED TONE", [&] { t.to_modded(1); });
-  go("PATTERN SETUP", [&] { t.tap(Button::Pattern); });
+  go("GENERATOR", [&] { t.tap(Button::Pattern); });
+  go("PAT SETUP", [&] { t.tap(Button::Pattern); t.tap(Button::Pattern); });
   // From HOME itself.
   t.to_home();
-  if (is_title(t, "PATTERN SETUP")) {
+  for (int i = 0; i < 3 && !is_title(t, "STEPS"); ++i) {  // a page of the Pattern tap: turn it back to STEPS
     t.tap(Button::Pattern);
   }
   REQUIRE(is_title(t, "STEPS"));

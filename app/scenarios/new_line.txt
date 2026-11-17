@@ -1,23 +1,28 @@
-# I2: RANDOM (PATTERN SETUP's Shift + F6) draws a 303 line. A 32-step pattern: the first 8 steps come back over the rest (the motif), the notes lean on the root, slides glide to another pitch.
+# I2: RANDOM (GENERATOR's Shift + F2) draws a 303 line. A 32-step pattern: the first 8 steps come back over the rest (the motif), the notes lean on the root, slides glide to another pitch.
 # Each RANDOM is one undo step; NOTES keeps the rhythm and draws the pitches again the same way.
 wait 300
+tap pattern
 tap pattern
 tap f1
 turn 16
 tap pattern
+tap pattern
 press shift
-tap f6
+tap f2
 release shift
+tap pattern
 tap pattern
 wait 100
 snap 01_random_line_32_steps
 tap pattern
 press shift
-tap f6
+tap f2
 release shift
+tap pattern
 tap pattern
 wait 100
 snap 02_another_random_line
+tap pattern
 press shift
 tap f4
 wait 100

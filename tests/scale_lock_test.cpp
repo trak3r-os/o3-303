@@ -55,14 +55,14 @@ TEST_CASE("with Major chosen and KEYS: ALL the scale only lights the keys: every
   }
 }
 
-TEST_CASE("G1: a root tap on HOME (Shift + F5 held, a key of the bottom row) moves the root and the scale lights follow it") {
+TEST_CASE("G1: the root on GENERATOR's F1 knob moves the root and the scale lights follow it") {
   Hands t;
-  choose_scale(t, 3);  // Major, back on HOME
-  t.press(Button::Shift);
-  t.press(Button::F5);  // NOTE
-  t.pad(key_pad(38));   // D
-  t.release(Button::F5);
-  t.release(Button::Shift);
+  choose_scale(t, 3);  // Major, back on STEPS
+  t.tap(Button::Pattern);  // GENERATOR
+  t.tap(Button::F1);       // ROOT
+  t.turn(2);               // C -> D
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // PAT SETUP, then STEPS
   t.wait(40);
   CHECK(t.led(key_pad(38)) == app::kLedOn);   // D, the root
   CHECK(t.led(key_pad(36)) == app::kLedMid);  // C is not in D major, but it is the note of the step under the cursor (mid)

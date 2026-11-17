@@ -6,7 +6,7 @@
 // them and owns the global keys:
 //
 //   PLAY          play / stop at the press (Shift: restart from step 1)
-//   PATTERN       HOME (on it: a tap flips HOME and PATTERN SETUP; held: the 48 pads are the patterns)
+//   PATTERN       HOME (on it: a tap turns STEPS, GENERATOR and PAT SETUP; held: the 48 pads are the patterns)
 //   PARAMS        INSTRUMENT, on VOICE (on it: the next page, VOICE FX); the pads are the home map's, HOME's own
 //   PERFORM       PERFORM, the 48 pads live (on it: KNOBS, PERFORM SETUP, and back); the live actions are LiveActions', shared with the 303 screen
 //   MASTER        a tap opens MASTER at the release; held + turn nudges the tempo from any screen; Shift + MASTER taps the tempo (master_screen.h)

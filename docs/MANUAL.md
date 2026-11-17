@@ -13,7 +13,7 @@ grid under the screen is the simulator's drawing of the pad lights.
 2. [Install it, and go back to the stock firmware](#2-install-it-and-go-back-to-the-stock-firmware)
 3. [The panel at a glance](#3-the-panel-at-a-glance)
 4. [The first five minutes](#4-the-first-five-minutes)
-5. [The screens, one by one](#5-the-screens-one-by-one): [HOME](#home), [PATTERN SETUP](#pattern-setup), [PERFORM](#perform),
+5. [The screens, one by one](#5-the-screens-one-by-one): [HOME](#home), [GENERATOR](#generator), [PAT SETUP](#pat-setup), [PERFORM](#perform),
    [PERFORM KNOBS](#perform-knobs), [PERFORM SETUP](#perform-setup), [INSTRUMENT](#instrument), [MODDED](#modded), [GROWL](#growl), [WOBBLE](#wobble), [MASTER](#master),
    [SONG](#song), [FILE PROJECTS](#file-projects), [FILE LIBRARY](#file-library), [RECORD](#record)
 6. [The pads](#6-the-pads)
@@ -113,7 +113,7 @@ o3-303 uses every button of the Tracker. This manual calls them by the names HEL
 
 | Button | What it does in o3-303 |
 |---|---|
-| **Pattern** | HOME, the step screen, from any screen. On HOME a tap opens PATTERN SETUP, and held, the 48 pads are the 48 patterns |
+| **Pattern** | HOME, the step screen, from any screen. On HOME each tap turns the page: STEPS, GENERATOR, PAT SETUP, and STEPS again; held, the 48 pads are the 48 patterns |
 | **Params** | INSTRUMENT, on FX (page 1) and VOICE (page 2). Again: the other page |
 | **Performance** | PERFORM. Again: PERFORM KNOBS, and back. **Shift + Performance**: PERFORM SETUP, from any screen; Performance leaves it |
 | **Song** | SONG. Again: RECORD, and from RECORD, SONG |
@@ -147,7 +147,7 @@ With the OBSIDIAN look (section 13), the top of the screen is a 303-style panel 
 - **KEYBOARD**: KEYS (the keys play the voice) or TRNSP (the keys transpose the line), and the two octaves the keys play (OCT 2-3).
 - **MODS**: four chips, MOD, GRL, TRC and WOB, where PERFORM's lights were. A sound that is on is a chip filled in its colour (the colour of its button); one that is off is a dim outline. The colour buttons flip them.
 - **PAGE**: the screen's name, or a short message for a moment ("SAVED", "NEW LINE").
-- **ENC**: what the encoder turns now ("F1 CUTOFF"). With Shift held on HOME and PATTERN SETUP it also gives the value ("CUTOFF 456 Hz"), because the Shift row hides the knobs.
+- **ENC**: what the encoder turns now ("F1 CUTOFF"). With Shift held on HOME, GENERATOR and PAT SETUP it also gives the value ("CUTOFF 456 Hz"), because the Shift row hides the knobs.
 
 Under the screen's main area, the **PADS** line says in one sentence what the four rows of pads do on this screen. At the bottom, the
 **F row** names F1 to F8 and shows their values.
@@ -294,7 +294,7 @@ The encoder stays on the row until you tap an F key, which gives it back to the 
 #### Locks and motion
 
 - **A lock** is a step's own value of a knob. Hold a step pad and turn the encoder: the knob picked on the F row gets a value for that step
-  only. The LOCK row shows it. A pattern holds locks and motion for up to eight knobs; a ninth says "8 LANES USED" (PATTERN SETUP's
+  only. The LOCK row shows it. A pattern holds locks and motion for up to eight knobs; a ninth says "8 LANES USED" (PAT SETUP's
   Shift + F4 clears them).
 - **Motion**: with REC on and the line playing, turn a knob and the moves are recorded under the playhead. The MOTION lane under the step
   rows shows them.
@@ -303,20 +303,8 @@ The encoder stays on the row until you tap an F key, which gives it back to the 
 
 Hold **Shift** on HOME and the F keys become tools for the whole pattern. Each one is one UNDO step.
 
-![HOME with Shift held: the F row shows CLEAR, VARY, RHYTHM, NOTES, NOTE, SCALE, REDO and UNDO, and a red banner SHIFT > PATTERN TOOLS, ALL UNDO](manual/img/home-shift-row.png)
-
-*Shift held on HOME: the pattern tools. REDO is grey because there is nothing to redo.*
-
-| Shift + | Does |
-|---|---|
-| F1 CLEAR | Empties the pattern |
-| F2 VARY | Changes about a quarter of the line |
-| F3 RHYTHM | New rests, accents and slides; the notes stay |
-| F4 NOTES | New notes in the scale; the rhythm stays |
-| F5 NOTE | The encoder owns the generator's root (C to B, no wrap) until you press a plain F key, latch a drawer row or leave HOME; the info line says "ROOT D". While F5 is held, a key of the bottom row of pads (C to B) sets the root too |
-| F6 SCALE | The encoder owns the generator's scale until the same things release it; the info line says "SCALE" and its name |
-| F7 REDO | Steps forward again |
-| F8 UNDO | Steps back |
+On STEPS the Shift row has only **F7 REDO** and **F8 UNDO**, which walk the history (the last 32 changes) wherever you edit. The pattern tools are on the next two pages of the
+Pattern tap: GENERATOR and PAT SETUP.
 
 #### Pattern held: the 48 patterns
 
@@ -327,7 +315,7 @@ held, replaces it; one queued pattern plays and repeats.
 
 With Pattern held, **hold Copy and tap a pad** to copy the pattern you are on onto that pattern (the toast says "A01 > B03"; the
 selection and the playing pattern do not move). **Hold Delete and tap a pad** to clear that pattern. Each tap is one undo step, and
-the pad is no chain entry. PATTERN SETUP's Shift row does the same for the pattern you are on.
+the pad is no chain entry. PAT SETUP's Shift row (COPY PAT, DUP>NEXT) does the same for the pattern you are on.
 
 ![Pattern held: a grid of 48 patterns A01 to D12, A01 selected](manual/img/home-pattern-held.png)
 
@@ -355,13 +343,43 @@ A pattern of 32 or 64 steps has pages of 16. The step pads show the page the cur
 playing. A tap on a step pad, or Left or Right to another page, while it plays holds the pads on that page (the title says PAGE n
 HELD) so you can work on it; Stop, or a change of pattern, gives the follow back.
 
-### PATTERN SETUP
+### GENERATOR
 
-Tap **Pattern** on HOME. The F row now holds this pattern's settings and the generator's.
+Tap **Pattern** on STEPS. The F row now holds the generator's settings, which are the whole project's, and the Shift row holds the tools that draw a line.
 
-![PATTERN SETUP: the generator line over the steps, and the F row LENGTH, SWING, GATE, TRANSP, CHANCE, DENSITY, ACC % and SLD %](manual/img/setup.png)
+| Key | What | Values |
+|---|---|---|
+| F1 ROOT | The generator's root; the keys of HOME and PERFORM light it at full | C to B, no wrap (C at first) |
+| F2 SCALE | The generator's scale (No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more); the info line shows it with its root ("D MAJOR"; "No scale" and "Chromatic" have no root) | Penta Min at first |
+| F3 DENSITY | How many steps RANDOM fills | 0 to 100 % (75 %) |
+| F4 ACC % | How many accents RANDOM draws | 0 to 100 % (25 %) |
+| F5 SLD % | How many slides RANDOM draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
+| F6 VARY % | How much of the line VARY changes. **It is not saved with the project**: it is 25 % at every power-up | 1 to 100 % (25 %) |
+| F7 LOW | The lowest note RANDOM and NOTES draw, shown as a note name | 24 to 48 at first (C1 to C3); never above HIGH |
+| F8 HIGH | The highest note they draw | never below LOW |
 
-*PATTERN SETUP. F1 to F5 are this pattern's; F6 to F8 belong to the whole project.*
+The keys of HOME and PERFORM light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). RANDOM, NOTES and VARY keep to the scale (inside LOW to HIGH; if no note of the scale is in that range they use the range itself). If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. The old gestures of HOME (Shift + F5 NOTE, Shift + F6 SCALE and the root by a key) are gone: ROOT and SCALE are F1 and F2 here.
+
+**The Shift row** on GENERATOR:
+
+| Shift + | Does |
+|---|---|
+| F1 CLEAR | Empties the pattern |
+| F2 RANDOM | A new line from the generator: it leans on the root and its octave, with a fifth or a minor third or seventh for colour, repeats its first half with a part changed (a quarter of the line from 32 steps), glides its slides toward a note of another pitch and puts its accents off the beat and on the octave jumps; the toast says RANDOMIZED |
+| F3 RHYTHM | New rests, accents and slides; the notes stay |
+| F4 NOTES | New notes in the scale; the rhythm stays |
+| F5 VARY | Changes about VARY % of the line |
+| F6 NOTE+- | The encoder moves every note of the pattern: a detent is a semitone, Shift + turn an octave. A grab (until you press an F key or leave the page) is one UNDO step, and each new grab is its own. A note that would pass 0 or 127 stops the move and the toast says NOTE OUT OF RANGE |
+| F7 REDO | Steps forward again |
+| F8 UNDO | Steps back |
+
+### PAT SETUP
+
+Tap **Pattern** twice on STEPS (GENERATOR, then PAT SETUP). The F row holds this pattern's settings.
+
+![PAT SETUP: the line over the steps, and the F row LENGTH, SWING, GATE, TRANSP and CHANCE](manual/img/setup.png)
+
+*PAT SETUP. F1 to F5 are this pattern's; F6 to F8 are empty. (The picture is of the earlier layout and is redrawn with the next release.)*
 
 | Key | What | Values |
 |---|---|---|
@@ -370,18 +388,13 @@ Tap **Pattern** on HOME. The F row now holds this pattern's settings and the gen
 | F3 GATE | How long the notes are | 5 to 100 % (50 % at first) |
 | F4 TRANSP | This pattern's transpose | -24 to +24 semitones |
 | F5 CHANCE | How likely each step of this pattern is to play, so a line never plays the same twice. A step with no condition plays CHANCE % of the time; a step with a probability condition plays that probability times CHANCE; steps with a ratio, FILL or FIRST condition are left alone. The stored line does not change: 100 % plays it as written | 1 to 100 % (100 % at first) |
-| F6 DENSITY | How many steps RANDOM fills | 0 to 100 % (75 %) |
-| F7 ACC % | How many accents RANDOM draws | 0 to 100 % (25 %) |
-| F8 SLD % | How many slides RANDOM draws, and half as many ties (a step that goes on with the note before) | 0 to 100 % (20 %) |
 
-The scale is HOME's: hold Shift and tap F6 (SCALE) and turn the encoder (No scale, Chromatic, Minor, Major, the modes, blues, pentatonics and more; Penta Min at first). The info line shows it with its root ("D MAJOR"; "No scale" and "Chromatic" have no root), and the keys of HOME and PERFORM light the scale at mid and the root at full; the other keys stay dark but play and write like any other (a chromatic walk-up or a flat second is yours). RANDOM, NOTES and VARY keep to the scale. If you want a keyboard that never plays a wrong note, set KEYS to IN SCALE on the Config page: then the dark keys do nothing. To set the root without the encoder, hold Shift and F5 (NOTE) on HOME and tap a key of the bottom row of pads (C to B): the root is that key, and the toast says which.
-
-**The Shift row** on PATTERN SETUP: F1 COPY PAT (copy this pattern), F2 PASTE (paste over this one), F3 DUP>NEXT (copy it into the next
-pattern and go there), F4 CLR LOCK (clear every lock and motion of this pattern), F5 REVERSE (the line backwards), F6 RANDOM (a new line from the generator: it leans on the root and its octave, with a fifth or a minor third or seventh for colour, repeats its first half with a part changed (a quarter of the line from 32 steps), glides its slides toward a note of another pitch and puts its accents off the beat and on the octave jumps; the toast says RANDOMIZED), F7 REDO, F8 UNDO. HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale.
+**The Shift row** on PAT SETUP: F1 CLR LOCK (clear every lock and motion of this pattern), F2 COPY PAT (copy this pattern), F3 PASTE (paste over this one), F4 DUP>NEXT (copy it into the next
+pattern and go there), F5 REVERSE (the line backwards), F6 DOUBLE (the line twice as long, the first half copied into the new one; dim at 64 steps), F7 REDO, F8 UNDO.
 
 A pattern can be any length from 1 to 64 steps: a line of 7 or 12 steps makes a polymeter against a 16-step one. Turning LENGTH up repeats the bar before the new steps (16 to 32 doubles the line, with its motion), turning it down cuts the steps past the end; one gesture of turns is one UNDO. Under swing, the last step of an odd length has no partner and is not swung. The library's 7- and 12-step lines keep their length.
 
-The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back.
+The steps, the pads and the buttons work as on HOME. Tap **Pattern** to go back to STEPS.
 
 ### PERFORM
 
@@ -752,7 +765,7 @@ Press **Song** twice (the first press is SONG, the second RECORD; a third is SON
 The pads change their job only in ways you can see: another screen, a lit mode pad (TRNSP or FILT), or Pattern held. HELP's PADS page
 (Shift + Config, then F2) draws the map of the screen you are on. These are those pages.
 
-### HOME, PATTERN SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD
+### HOME, GENERATOR, PAT SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD
 
 ![HELP's PADS page for HOME: steps 1 to 16 in blue, ACC SLIDE TIE REST and OCT- OCT+ TRNSP FILT in amber, keys C3 to B3 and C2 to B2 in light blue](manual/img/help-home-pads.png)
 
@@ -800,9 +813,9 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 
 ## 7. Experiment without fear
 
-- **UNDO and REDO.** Shift + F8 is UNDO and Shift + F7 is REDO wherever you edit: HOME, PATTERN SETUP, PERFORM and SONG. The history holds the last 32 changes
+- **UNDO and REDO.** Shift + F8 is UNDO and Shift + F7 is REDO wherever you edit: HOME, GENERATOR, PAT SETUP, PERFORM and SONG. The history holds the last 32 changes
   to the patterns and the song. Turning the encoder on one step is one change, not forty.
-- **The pattern tools** (Shift on HOME: CLEAR, VARY, RHYTHM, NOTES; on PATTERN SETUP: REVERSE, RANDOM). Each one is a single undo, so press RANDOM five times and
+- **The pattern tools** (Shift on GENERATOR: CLEAR, RANDOM, RHYTHM, NOTES, VARY, NOTE+-; on PAT SETUP: REVERSE, DOUBLE). Each one is a single undo, so press RANDOM five times and
   UNDO back to the one you liked. PERFORM SETUP's row 2 has NEW, VARY, UNDO and REDO on pads, for doing this live (its NEW draws the same line as RANDOM).
 - **The library** loads a line into the pattern shown, and UNDO takes the line back. UNDO does not take back the tempo (a load while the
   transport runs keeps it) or the sound a LOAD BOTH or LOAD SOUND sets: the screen starts on LOAD LINE, which leaves the sound alone, and Shift + F3
@@ -810,7 +823,7 @@ On FILE PROJECTS the first pads are the list's visible rows, top to bottom.
 - **Snapshots** (PERFORM SETUP's pads): store a sound before you twist the knobs, recall it when you get lost, and morph between two.
 - **MODS** (Shift + Sample Load, from any screen): turns the MODDED mods off to hear the plain 303, and on again, with your settings
   kept (section 5, MODDED).
-- **Copy first.** On PATTERN SETUP, Shift + F3 DUP>NEXT copies the pattern into the next one: change the copy and keep the original.
+- **Copy first.** On PAT SETUP, Shift + F4 DUP>NEXT copies the pattern into the next one: change the copy and keep the original.
 - **REVERT** (FILE PROJECTS, F5 twice) takes the whole project back to your last Shift + File.
 
 ---
@@ -886,7 +899,7 @@ o3-303's own page, **303**. The settings are kept on the card and come back at t
 | PAD LEGEND | The PADS line on every screen | OFF, **ON** |
 | RESET PROJECT | Start this project again from the factory line (F1 twice): the sound, snapshots, tempo and song reset too; UNDO brings back only the patterns and the song (section 8) | |
 | SKIN | The look (section 13) | CLASSIC, **OBSIDIAN** |
-| KEYS | Whether the keys outside the scale (HOME's Shift + F6) play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
+| KEYS | Whether the keys outside the scale (GENERATOR's F2) play: ALL, or IN SCALE (they are dark and do nothing; no scale, no lock) | **ALL**, IN SCALE |
 | KNOB SPEED | How far one click of the encoder moves a knob: the factor on every continuous knob (CUTOFF, RESO, a level), on top of DISPLAY's ENCODER acceleration. Lists, switches, Shift's coarse step and the arrows are not changed | **X1**, X2, X3, X4, X6, X8 |
 
 The sound is no longer on this page. The five settings that were on the old page DEEP are on the screens of their sounds, and a project
@@ -974,7 +987,7 @@ and tempo, lamps, real-looking knobs, dark glass. The buttons and the pads do th
 
 - **To switch**: Config, page 303, the SKIN row (the last one), turn the encoder. The choice is kept.
 - **OBSIDIAN is the default.** A unit that has already saved its settings keeps the look it had: switch it on the SKIN row.
-- **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, PATTERN SETUP, PERFORM, PERFORM KNOBS, PERFORM SETUP, INSTRUMENT, MODDED, GROWL,
+- **Every screen has its OBSIDIAN form except FILE LIBRARY.** HOME, GENERATOR, PAT SETUP, PERFORM, PERFORM KNOBS, PERFORM SETUP, INSTRUMENT, MODDED, GROWL,
   WOBBLE, SONG, MASTER, RECORD and FILE PROJECTS (with its name keyboard) have it. FILE LIBRARY keeps its CLASSIC layout, with the header and the key row of the
   system, in the OBSIDIAN colours: it is too full to be redrawn on the panel. The pictures of the screens in this manual show the OBSIDIAN
   look, except where they say CLASSIC. Config is the unit's own screen and looks the same in both; HELP takes the look's colours.
@@ -1015,14 +1028,14 @@ button.
 | PROJECT RESET - LAST: SHIFT F3 | Config's RESET PROJECT has run (section 8). UNDO brings back the patterns and the song; the old sound is in the library's LAST |
 | NAME USED BEFORE: PICK ANOTHER | A project of that name was deleted before, and the card keeps the name. Pick another |
 | TOO MANY PROJECTS | The list is full. Delete one you do not need |
-| 8 LANES USED: CLEAR LOCKS (SETUP) | A pattern holds locks and motion for eight knobs at most. PATTERN SETUP's Shift + F4 clears them |
+| 8 LANES USED: CLEAR LOCKS (SETUP) | A pattern holds locks and motion for eight knobs at most. PAT SETUP's Shift + F1 clears them |
 | BARS TOO LONG AT ... (for example 8 BARS TOO LONG AT 60.0) | On RECORD: that many bars at that tempo run over the 30 seconds a take holds. Pick fewer bars (F2) or a faster tempo |
 | MIDI CLOCK LEADS | TAP or NUDGE while the tempo follows a MIDI clock: the tempo is the other machine's (section 10) |
 
 **No sound.** Check F8 VOLUME on HOME, F4 MASTER on MASTER, that MUTE is not latched on PERFORM (ALL OFF lets every action go), and that OVERDRIVE on MODDED TONE (F3) is not OFF, the bottom of its range, where no oscillator reaches the filter. If the
 header says STOCK, the mods are off on purpose: Shift + Sample Load turns them back on.
 
-**The keys do nothing, or some are dark.** Dark keys are outside the scale (HOME's Shift + F6); they play unless Config's KEYS is IN SCALE. TRNSP on (row 2, column 11) makes the keys
+**The keys do nothing, or some are dark.** Dark keys are outside the scale (GENERATOR's F2); they play unless Config's KEYS is IN SCALE. TRNSP on (row 2, column 11) makes the keys
 transpose while the line plays instead of playing the voice. FILT on (row 2, column 12) turns rows 3 and 4 into the filter ladders.
 
 **The encoder changes the wrong thing.** Look at the ENC window. A drawer row (a step held and a colour button) may hold the encoder: tap an F key to give it back to

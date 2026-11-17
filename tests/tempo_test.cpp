@@ -104,11 +104,12 @@ TEST_CASE("a press longer than 300 ms, a turn, or another press with Master down
   CHECK(is_title(t, "STEPS"));
 }
 
-TEST_CASE("swing is PATTERN SETUP's F2: Pattern twice, F2, turn; Shift + turn is coarse") {
+TEST_CASE("swing is PAT SETUP's F2: Pattern twice, F2, turn; Shift + turn is coarse") {
   Hands t;
   const unsigned swing0 = t.pat().swing;
-  t.tap(Button::Pattern);  // PATTERN SETUP (Pattern on HOME)
-  REQUIRE(is_title(t, "PATTERN SETUP"));
+  t.tap(Button::Pattern);  // GENERATOR
+  t.tap(Button::Pattern);  // PAT SETUP
+  REQUIRE(is_title(t, "PAT SETUP"));
   t.tap(Button::F2);
   const std::uint32_t t0 = tempo(t);
   t.turn(3);

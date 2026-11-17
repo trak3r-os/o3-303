@@ -1,5 +1,5 @@
 # PERFORM KNOBS, a tap of a row key (F5..F8): the toast says how to give the row another knob (hold the key + Up / Down). Then RHYTHM on a cleared
-# line with the root on A# (HOME, Shift + F1 CLEAR, Shift + F5 NOTE held + the A# key, Shift + F3 RHYTHM): the line plays A#1, not C2.
+# line with the root on A# (GENERATOR: F1 ROOT turned to A#, Shift + F1 CLEAR, Shift + F3 RHYTHM): the line plays A#1, not C2.
 wait 300
 tap performance
 wait 50
@@ -12,11 +12,13 @@ tap performance
 wait 50
 tap pattern
 wait 50
+tap pattern
+wait 50
+tap f1
+turn 10
+wait 50
 press shift
 tap f1
-press f5
-pad 46
-release f5
 tap f3
 release shift
 wait 100

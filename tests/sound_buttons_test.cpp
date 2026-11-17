@@ -36,7 +36,7 @@ unsigned bits(Hands& t) { return (mods(t) ? 1u : 0u) | (growl(t) ? 2u : 0u) | (t
 // The status line's words (HOME's; the sound keys say their news there from every screen).
 std::string said(Hands& t) {
   t.to_home();
-  if (std::strcmp(t.title(), "PATTERN SETUP") == 0) {
+  for (int i = 0; i < 3 && std::strcmp(t.title(), "STEPS") != 0; ++i) {
     t.to_home();
   }
   frame::StatusView v;

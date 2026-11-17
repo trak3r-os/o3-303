@@ -247,7 +247,7 @@ TEST_CASE("pages: PERFORM SETUP's page (F1..F4 blank since PF1, FILL, the freeze
       CHECK(rig.entry(page_at(kPagePerfSetup), k).item == Item::Blank);  // F1..F4 carried the colour keys' actions until PF1
       continue;
     }
-    CHECK(rig.controls.desc(rig.engine, setup_page().entry[k]) != nullptr);
+    if (k == 4) CHECK(rig.controls.desc(rig.engine, setup_page().entry[k]) != nullptr);  // F6..F8 of PAT SETUP are empty
     CHECK(rig.controls.desc(rig.engine, rig.entry(page_at(kPagePerfSetup), k)) != nullptr);  // F5..F8: FILL, the freeze's length, ROLL, STOP
   }
 }
@@ -480,10 +480,15 @@ TEST_CASE("pages: the tempo and the fields of the selected pattern (MASTER's and
   CHECK(bank.pattern(sel).swing == kMaxSwing);
 }
 
-TEST_CASE("pages: the generator's settings, PATTERN SETUP's keys: scale, density, accent and slide chance") {
+TEST_CASE("pages: the generator's settings, GENERATOR's keys: root, scale, density, accent, slide, VARY %, LOW and HIGH") {
   Rig rig;
-  const Entry scale{Item::Scale, 0, nullptr};  // HOME's Shift + F6 steps it since G1; no SETUP key holds it
-  const Entry density = setup_page().entry[5];
+  const Page& g = generator_page();
+  const Entry root = g.entry[0], scale = g.entry[1], density = g.entry[2], vary = g.entry[5], low = g.entry[6], high = g.entry[7];
+  CHECK(root.item == Item::Root);
+  CHECK(scale.item == Item::Scale);
+  CHECK(vary.item == Item::VaryPct);
+  CHECK(low.item == Item::GenLow);
+  CHECK(high.item == Item::GenHigh);
   CHECK(rig.wiring.gen.scale == 18);
   CHECK(rig.text(scale) == "Penta Min");
   rig.controls.set(rig.engine, scale, 3.0f);
@@ -494,6 +499,22 @@ TEST_CASE("pages: the generator's settings, PATTERN SETUP's keys: scale, density
 
   rig.controls.set(rig.engine, density, 40.0f);
   CHECK(rig.wiring.gen.density == 40);
+
+  CHECK(rig.wiring.vary_pct == 25);  // volatile: the default at every boot
+  rig.controls.set(rig.engine, vary, 60.0f);
+  CHECK(rig.wiring.vary_pct == 60);
+
+  // LOW and HIGH: 24..48 at first; each stops at the other.
+  CHECK(rig.wiring.gen.low == 24);
+  CHECK(rig.wiring.gen.high == 48);
+  rig.controls.set(rig.engine, low, 70.0f);
+  CHECK(rig.wiring.gen.low == 48);
+  CHECK(rig.wiring.gen.high == 48);
+  rig.controls.set(rig.engine, high, 10.0f);
+  CHECK(rig.wiring.gen.high == 48);
+  rig.controls.set(rig.engine, low, 30.0f);
+  rig.controls.set(rig.engine, high, 20.0f);
+  CHECK(rig.wiring.gen.high == 30);
 }
 
 TEST_CASE("pages: a blank key has no value and does nothing") {
@@ -756,23 +777,33 @@ TEST_CASE("pages: ROLL is one list, the rate and the accelerate together (Item::
   CHECK_FALSE(rig.controls.lane_ref(roll, ref));
 }
 
-TEST_CASE("pages: PATTERN SETUP's page (UX-303 5.2): this pattern's five, then the generator's three, and the entries it appends") {
+TEST_CASE("pages: PAT SETUP's page (UX-303 5.2) holds this pattern's five; GENERATOR's page holds the eight generator settings") {
   Rig rig;
   const Page& pg = setup_page();
-  CHECK(std::strcmp(pg.name, "SETUP") == 0);
-  static constexpr Item kItems[kKeys] = {Item::Length, Item::Swing, Item::Gate, Item::Transpose, Item::Chance, Item::Density, Item::AccPct, Item::SldPct};
-  static constexpr const char* kLabels[kKeys] = {"LENGTH", "SWING", "GATE", "TRANSP", "CHANCE", "DENSITY", "ACC %", "SLD %"};
+  CHECK(std::strcmp(pg.name, "PAT SETUP") == 0);
+  static constexpr Item kItems[kKeys] = {Item::Length, Item::Swing, Item::Gate, Item::Transpose, Item::Chance, Item::Blank, Item::Blank, Item::Blank};
+  static constexpr const char* kLabels[5] = {"LENGTH", "SWING", "GATE", "TRANSP", "CHANCE"};
   for (unsigned k = 0; k < kKeys; ++k) {
     CHECK(pg.entry[k].item == kItems[k]);
+    if (k >= 5) continue;
     CHECK(rig.controls.desc(rig.engine, pg.entry[k]) != nullptr);
     CHECK(std::strcmp(rig.controls.label(rig.engine, pg.entry[k]), kLabels[k]) == 0);
-    CHECK(std::strlen(rig.controls.label(rig.engine, pg.entry[k])) <= 8);  // the F-key row's room
   }
-  // (No Item value is stored in a project: the chunks hold unit targets and parameter ids, snapshot target indices, PerfAction numbers and LaneRefs.)
-  // No lane drives a SETUP entry.
+  const Page& gp = generator_page();
+  CHECK(std::strcmp(gp.name, "GENERATOR") == 0);
+  static constexpr Item kGen[kKeys] = {Item::Root, Item::Scale, Item::Density, Item::AccPct, Item::SldPct, Item::VaryPct, Item::GenLow, Item::GenHigh};
+  static constexpr const char* kGenLabels[kKeys] = {"ROOT", "SCALE", "DENSITY", "ACC %", "SLD %", "VARY %", "LOW", "HIGH"};
+  for (unsigned k = 0; k < kKeys; ++k) {
+    CHECK(gp.entry[k].item == kGen[k]);
+    CHECK(rig.controls.desc(rig.engine, gp.entry[k]) != nullptr);
+    CHECK(std::strcmp(rig.controls.label(rig.engine, gp.entry[k]), kGenLabels[k]) == 0);
+    CHECK(std::strlen(rig.controls.label(rig.engine, gp.entry[k])) <= 8);  // the F-key row's room
+  }
+  // No lane drives a SETUP or GENERATOR entry.
   LaneRef ref{kLaneNone, 0};
   for (unsigned k = 0; k < kKeys; ++k) {
     CHECK_FALSE(rig.controls.lane_ref(pg.entry[k], ref));
+    CHECK_FALSE(rig.controls.lane_ref(gp.entry[k], ref));
   }
 }
 

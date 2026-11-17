@@ -1,6 +1,6 @@
 # The tempo after M1 (docs/UX-303.md 2.1, 2.6, 5.6, D5): a tap of Master opens MASTER at the release with the encoder on TEMPO; hold Master and turn for a
 # tempo nudge of 1 % a detent, at most 3 %, that snaps back at the release, on whatever screen is up and without changing it; Shift + Master taps the tempo;
-# Shift + Play restarts the pattern; the swing is PATTERN SETUP's F2 (the pattern is per-pattern, so is its swing).
+# Shift + Play restarts the pattern; the swing is PAT SETUP's F2 (the pattern is per-pattern, so is its swing).
 wait 300
 tap play
 wait 300
@@ -11,7 +11,7 @@ snap 01_master_opened
 turn 6
 wait 100
 snap 02_tempo_3_bpm_up
-# The swing is on PATTERN SETUP: Pattern (HOME), Pattern again (SETUP), F2, turn.
+# The swing is on PAT SETUP: Pattern (GENERATOR), Pattern again (PAT SETUP), F2, turn.
 tap pattern
 tap pattern
 tap f2

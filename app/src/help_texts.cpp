@@ -37,16 +37,16 @@ struct Buttons {
   }
 };
 
-enum class Where : std::uint8_t { Home, Setup, Perform, Knobs, PerformSetup, Instrument, Modded, Tract, Growl, Wobble, Master, File, Naming, Library, Record, Song };
+enum class Where : std::uint8_t { Home, Generator, Setup, Perform, Knobs, PerformSetup, Instrument, Modded, Tract, Growl, Wobble, Master, File, Naming, Library, Record, Song };
 
 constexpr void add_globals(Buttons& b, Where w) noexcept {
   const bool perform = w == Where::Perform || w == Where::Knobs || w == Where::PerformSetup;
-  const bool home_map = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
+  const bool home_map = w == Where::Home || w == Where::Generator || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble || w == Where::Master || w == Where::Record;
   b.add(Button::Play, "PLAY / STOP: SONG OR PATTERN", "RESTART FROM STEP 1");  // which one is SONG's F1 PLAYS; the status line says SONG while it is the song
   // Rec: the home map's step record (a press turns write / record mode on and off); PERFORM's Rec is the same switch (it records the ladder and the knob while the pattern plays);
   // elsewhere it does nothing alone. Shift + Rec is the audio take, from every screen.
   b.add(Button::Rec, home_map ? "WRITE / RECORD MODE ON / OFF" : (perform ? "RECORD KNOB + LADDER MOVES" : nullptr), "ARM / STOP AN AUDIO TAKE");
-  b.add(Button::Pattern, w == Where::Home ? "TAP: SETUP. HOLD: PATTERNS" : (w == Where::Setup ? "TAP: HOME. HOLD: PATTERNS" : "BACK TO THE STEPS"));
+  b.add(Button::Pattern, w == Where::Home ? "TAP: GENERATOR. HOLD: PATS" : (w == Where::Generator ? "TAP: SETUP. HOLD: PATTERNS" : (w == Where::Setup ? "TAP: STEPS. HOLD: PATTERNS" : "BACK TO THE STEPS")));
   b.add(Button::Params, w == Where::Instrument ? "NEXT PAGE: FX, VOICE" : "OPEN INSTRUMENT");
   b.add(Button::Performance, w == Where::Perform ? "KNOBS" : (w == Where::Knobs ? "PERFORM" : (w == Where::PerformSetup ? "LEAVE SETUP" : "OPEN PERFORM")), w == Where::PerformSetup ? nullptr : "PERFORM SETUP");
   b.add(Button::Master, w == Where::Master ? "TEMPO. HOLD + TURN: NUDGE" : "MASTER. HOLD + TURN: NUDGE", "TAP TEMPO");
@@ -59,7 +59,7 @@ constexpr void add_globals(Buttons& b, Where w) noexcept {
   b.add(Button::SampleRec, w == Where::Wobble ? nullptr : "OPEN WOBBLE", w == Where::Wobble ? nullptr : "SAME: OPEN WOBBLE");
   // The four colour keys (E1b), the same on every screen: each flips its sound (sound_buttons.h); Shift does the same (PF1: the PERFORM assignments are gone, MUTE, ACC, FILL and FRZ stay on the pads).
   // On the screens with the drawer a step held down gives the plain press to the drawer row instead.
-  const bool drawer = w == Where::Home || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble;
+  const bool drawer = w == Where::Home || w == Where::Generator || w == Where::Setup || w == Where::Instrument || w == Where::Modded || w == Where::Tract || w == Where::Growl || w == Where::Wobble;
   b.add(Button::Note, drawer ? "MODS. STEP HELD: NOTE ROW" : "MODS ON / OFF");
   b.add(Button::Instr, drawer ? "GROWL. STEP HELD: GATE ROW" : "GROWL ON / OFF");
   b.add(Button::Vol, drawer ? "TRACT. STEP HELD: PLAYS ROW" : "TRACT ON / OFF");
@@ -161,6 +161,7 @@ constexpr Buttons make_song() noexcept {
 }
 
 constexpr Buttons kHomeButtons = make_home(Where::Home);
+constexpr Buttons kGeneratorButtons = make_home(Where::Generator);
 constexpr Buttons kSetupButtons = make_home(Where::Setup);
 constexpr Buttons kPerformButtons = make_perform(Where::Perform);
 constexpr Buttons kKnobsButtons = make_perform(Where::Knobs);
@@ -276,10 +277,21 @@ constexpr Text kTexts[kIdCount] = {
      kHomeGroups,
      count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
      "HOLD PATTERN: THE 48 PADS ARE THE PATTERNS. REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
+    // Generator
+    {"GENERATOR",
+     "THE GENERATOR: ROOT, SCALE, DENSITY, ACCENT, SLIDES, VARY % (NOT SAVED WITH THE PROJECT), LOWEST AND HIGHEST NOTE. SHIFT + F DRAWS THE LINE.",
+     {"ROOT NOTE", "SCALE", "GENERATOR DENSITY", "GENERATOR ACCENT CHANCE", "GENERATOR SLIDES + TIES", "VARY %, NOT SAVED", "LOWEST NOTE", "HIGHEST NOTE"},
+     {},
+     "KNOB OR ROW; SHIFT = COARSE",
+     kGeneratorButtons.row,
+     kGeneratorButtons.n,
+     kHomeGroups,
+     count_of(sizeof kHomeGroups / sizeof kHomeGroups[0]),
+     "HOLD PATTERN: THE 48 PADS ARE THE PATTERNS. REC: KEYS WRITE. FILT: ROWS 3-4 ARE THE LADDERS."},
     // Setup
-    {"SETUP",
-     "THIS PATTERN'S SETTINGS (F1-F5) AND THE GENERATOR'S (F6-F8, FOR THE WHOLE PROJECT). THE STEPS AND THE PADS WORK AS ON HOME. TAP PATTERN TO GO BACK.",
-     {"LENGTH, 1 TO 64", "PATTERN SWING", "GATE: NOTE LENGTH", "PATTERN TRANSPOSE", "CHANCE A STEP PLAYS", "GENERATOR DENSITY", "GENERATOR ACCENT CHANCE", "GENERATOR SLIDES + TIES"},
+    {"PAT SETUP",
+     "THIS PATTERN'S LENGTH, SWING, GATE, TRANSPOSE AND CHANCE. SHIFT + F: COPY, PASTE, DUPLICATE, REVERSE, DOUBLE. TAP PATTERN FOR THE STEPS.",
+     {"LENGTH, 1 TO 64", "PATTERN SWING", "GATE: NOTE LENGTH", "PATTERN TRANSPOSE", "CHANCE A STEP PLAYS", NONE, NONE, NONE},
      {},
      "KNOB OR ROW; SHIFT = COARSE",
      kSetupButtons.row,

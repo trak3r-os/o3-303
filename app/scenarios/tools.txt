@@ -1,5 +1,5 @@
 # The Shift row (UX-303 2.4, 5.1, 5.2 and 7): Shift held changes the eight soft-key labels at once (no wait, the old 600 ms is gone), a coarse Shift + turn leaves
-# the knob strip up, SETUP has its own row, and UNDO / REDO walk the tools. Each tool alone is home_tools.txt.
+# the knob strip up, STEPS (REDO and UNDO only), GENERATOR and PAT SETUP each have their own row, and UNDO / REDO walk the tools. Each tool alone is home_tools.txt.
 wait 300
 press shift
 snap 01_home_shift_row_at_once
@@ -9,21 +9,28 @@ release shift
 snap 03_labels_gone
 tap pattern
 press shift
-snap 04_setup_shift_row
+snap 04_generator_shift_row
 release shift
-tap pattern
-# RANDOM and REVERSE (PATTERN SETUP's Shift row), CLEAR (HOME's), then UNDO twice and REDO once: the pattern walks back and forward one step at a time.
 tap pattern
 press shift
-tap f6
+snap 04a_setup_shift_row
 release shift
+tap pattern
+# RANDOM (GENERATOR's Shift row) and REVERSE (PAT SETUP's), CLEAR (GENERATOR's), then UNDO twice and REDO once: the pattern walks back and forward one step at a time.
+tap pattern
+press shift
+tap f2
+release shift
+tap pattern
 tap pattern
 wait 50
 snap 04b_random_has_ties
 tap pattern
+tap pattern
 press shift
 tap f5
 release shift
+tap pattern
 tap pattern
 press shift
 tap f1

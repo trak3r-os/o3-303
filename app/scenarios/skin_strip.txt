@@ -30,6 +30,7 @@ tap pattern
 wait 100
 snap strip_01_home_after_learn
 tap pattern
+tap pattern
 wait 100
 press f3
 wait 100

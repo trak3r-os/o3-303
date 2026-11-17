@@ -1,0 +1,44 @@
+# GENERATOR (the second page of the Pattern tap): F1 ROOT, F2 SCALE, F3 DENSITY, F4 ACC %, F5 SLD %, F6 VARY % (not saved with the project), F7 LOW, F8 HIGH; the Shift row is
+# CLEAR RANDOM RHYTHM NOTES VARY NOTE+- REDO UNDO. NOTE+- gives the encoder to a transposition of the whole line (a detent is a semitone, Shift + turn an octave, one UNDO step per grab).
+wait 300
+tap pattern
+wait 100
+snap 01_generator
+# ROOT D, SCALE Major (0 No scale, 1 Chromatic, 2 Minor, 3 Major): the keys light D major.
+tap f1
+turn 2
+tap f2
+turn -40
+turn 3
+wait 200
+snap 02_root_d_major
+# LOW and HIGH, as note names: LOW up to 36, HIGH down to 60, never crossing.
+tap f7
+turn 12
+tap f8
+turn 12
+wait 100
+snap 03_low_high
+# The Shift row, then RANDOM inside LOW..HIGH.
+press shift
+wait 700
+snap 04_shift_row
+tap f2
+wait 50
+snap 05_random
+# NOTE+-: three semitones up, then an octave down with Shift; the line follows, the toast says what moved.
+tap f6
+turn 3
+wait 50
+snap 06_note_plus_3
+press shift
+turn -1
+release shift
+wait 50
+snap 07_note_octave_down
+# One UNDO takes the whole grab back.
+press shift
+tap f8
+release shift
+wait 100
+snap 08_undo_grab

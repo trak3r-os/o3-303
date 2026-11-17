@@ -49,7 +49,6 @@ IMAGES = [
     ("tour-saved", "manual_tour", "06_saved", "screen"),
     # 5 The screens
     ("home", "skin_home", "01_stopped", "full"),
-    ("home-shift-row", "skin_home", "08_shift_row", "screen"),
     ("home-plays-row", "manual_tour", "08_plays_row", "screen"),
     ("home-pattern-held", "skin_home", "09_pattern_held", "full"),
     ("home-filt", "manual_tour", "07_filt_ladders", "full"),

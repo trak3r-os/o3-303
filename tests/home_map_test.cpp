@@ -403,7 +403,9 @@ TEST_CASE("a chord with Pattern is no tap, so the page does not flip; a plain ta
   t.wait(40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
   t.tap(Button::Pattern, 40);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "GENERATOR") == 0);
+  t.tap(Button::Pattern, 40);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   t.tap(Button::Pattern, 40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
 }

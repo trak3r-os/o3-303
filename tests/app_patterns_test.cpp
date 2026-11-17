@@ -22,7 +22,9 @@ TEST_CASE("hold Pattern: the 48 pads are the patterns; stopped, a tap selects, a
   CHECK(t.selected() == 30);  // the grid was not a tap: the view did not flip
 
   t.tap(Button::Pattern, 40);
-  CHECK(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  CHECK(std::strcmp(t.title(), "GENERATOR") == 0);
+  t.tap(Button::Pattern, 40);
+  CHECK(std::strcmp(t.title(), "PAT SETUP") == 0);
   t.tap(Button::Pattern, 40);
   CHECK(std::strcmp(t.title(), "STEPS") == 0);
 }
@@ -130,9 +132,12 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   }
   t.tap(Button::Left);  // wraps to step 32: page 2
   t.wait(30);
+  t.tap(Button::Pattern);  // GENERATOR
   t.shift_tap(Button::F1);  // CLEAR (clears everything: only to compare the pads of page 2 with the pattern)
   CHECK(pattern_is_empty(t.pat()));
   t.shift_tap(Button::F8);  // UNDO
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // STEPS again
   t.wait(30);
   for (unsigned k = 0; k < 15; ++k) {  // the cursor is step 32 = pad 15 of page 2
     CHECK((t.led(step_pad_of(k)) == app::kLedOff) == (describe(p, 16 + k).kind == Cell::Rest));
@@ -153,7 +158,8 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
   CHECK(t.h->display().peak_frame_words() < 2048u);
 
   // Shorter lengths: the pads past the end are dark.
-  t.tap(Button::Pattern);  // PATTERN SETUP: F1 LENGTH
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // PAT SETUP: F1 LENGTH
   t.tap(Button::F1);
   t.turn(-24);  // 32 -> 8 steps
   CHECK(t.pat().length == 8);
@@ -166,11 +172,12 @@ TEST_CASE("long patterns: the step pads show a page of 16 and the cursor and the
 TEST_CASE("PATTERN SETUP's COPY PAT copies the pattern and PASTE PAT puts it into the selected one; HOME's Shift + Copy is the step's") {
   Hands t;
   const Pattern first = bank().pattern(0);
-  t.tap(Button::Pattern);  // PATTERN SETUP
-  t.shift_tap(Button::F1);  // COPY PAT
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // PAT SETUP
+  t.shift_tap(Button::F2);  // COPY PAT
   t.select_pattern(7);
   REQUIRE(pattern_is_empty(t.pat()));
-  t.shift_tap(Button::F2);  // PASTE PAT
+  t.shift_tap(Button::F3);  // PASTE PAT
   CHECK_FALSE(pattern_is_empty(t.pat()));
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == first.steps[i].note);

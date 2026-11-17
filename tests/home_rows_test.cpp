@@ -336,7 +336,8 @@ TEST_CASE("the rows work on PATTERN SETUP and on INSTRUMENT; the LOCK row keeps 
   t.tap(Button::F4);  // DECAY on HOME
   // PATTERN SETUP: the same drawer, the same rows.
   t.tap(Button::Pattern);
-  REQUIRE(std::strcmp(t.title(), "PATTERN SETUP") == 0);
+  t.tap(Button::Pattern);
+  REQUIRE(std::strcmp(t.title(), "PAT SETUP") == 0);
   t.row_key(Button::Instr, 1);
   t.turn(2);
   CHECK(seq::gate_list_index(t.pat().steps[1].flags) == seq::kGateSld);

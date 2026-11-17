@@ -21,7 +21,8 @@ namespace o3_303::help_texts {
 // The screens (and the modes of a screen that has two): one Text each.
 enum class Id : std::uint8_t {
   Home,          // HOME: the steps (MainScreen)
-  Setup,         // PATTERN SETUP (MainScreen, its second page)
+  Generator,     // GENERATOR (MainScreen, its second page)
+  Setup,         // PAT SETUP (MainScreen, its third page)
   Perform,       // PERFORM
   Knobs,         // PERFORM KNOBS (PERFORM's second page: four ladder rows)
   PerformSetup,  // PERFORM SETUP
@@ -94,7 +95,7 @@ struct HomePads {
   std::uint32_t out_of_scale = 0;
 };
 
-// The home map (HOME, PATTERN SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
+// The home map (HOME, GENERATOR, PAT SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD share it): groups STEPS, MODIFIERS and KEYS (FILT on: LADDERS in place of KEYS), a label on every pad, and `names` for the
 // keys' note names (the labels point into it). `h` already has the screen's Text (fill()).
 void fill_home_pads(o3sdk::app::Help& h, const HomePads& s, KeyNames& names) noexcept;
 // TRACT: rows 1 and 2 the pattern's steps (columns 1-8) and the tract keys (columns 10 and 12: RANDOM ALL, PLAY TRACT, RANDOM VOWELS, VOWEL MODE); rows 3 and 4 the vowels and the TONGUE and LIPS nudges, or

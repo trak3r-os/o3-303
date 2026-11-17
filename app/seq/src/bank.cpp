@@ -29,6 +29,7 @@ constexpr std::uint32_t kKeyTractStep = 0x12000000u;  // | step: one step of the
 constexpr std::uint32_t kKeyTractLen = 0x13000000u;
 constexpr std::uint32_t kKeyLength = 0x14000000u;  // LENGTH walks a step a detent (I1): a turn of the encoder is one undo step, not one a step
 constexpr std::uint32_t kKeyChance = 0x15000000u;  // CHANCE (G2): a turn of the encoder is one undo step
+constexpr std::uint32_t kKeyXpose = 0x16000000u;  // | gesture: NOTE+- on the GENERATOR page; each grab of the encoder has its own number, so two grabs never join
 constexpr std::uint32_t kKeyHold = 0x11000000u;  // | hold id: a key held while recording, the note and its ties (HomeMap)
 constexpr std::uint32_t kKeyLockTarget = 0x0C000000u;  // a lock named by (target, id) rather than by a lane: the lane is claimed in the edit
 
@@ -214,8 +215,8 @@ bool Bank::set_cond(unsigned index, unsigned step, std::uint8_t cond) noexcept {
   return edit(index, [&](Pattern& p) { seq::set_cond(p, step, cond); }, kKeyCond | (step & 0xFFu));
 }
 
-bool Bank::transpose_notes(unsigned index, int semitones) noexcept {
-  return edit(index, [&](Pattern& p) { return seq::transpose_notes(p, semitones); });
+bool Bank::transpose_notes(unsigned index, int semitones, std::uint32_t gesture) noexcept {
+  return edit(index, [&](Pattern& p) { return seq::transpose_notes(p, semitones); }, gesture != 0u ? (kKeyXpose | (gesture & 0xFFFFFFu)) : 0u);
 }
 
 bool Bank::reverse(unsigned index) noexcept {

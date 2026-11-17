@@ -1,7 +1,9 @@
-# HOME's Shift row, tool by tool (UX-303 5.1 and 7, G1): CLEAR VARY RHYTHM NOTES, then REDO and UNDO, each at the press of Shift + F and one UNDO step, on the factory
-# line (NOTE and SCALE are home_note_scale.txt; REVERSE and RANDOM live on PATTERN SETUP, pattern_setup.txt). Shift stays down; the knob strip stays up under the labels. The latch of F1 CUTOFF is not touched by any of them.
+# GENERATOR's Shift row, tool by tool (the second page of the Pattern tap): CLEAR RHYTHM NOTES VARY, then REDO and UNDO, each at the press of Shift + F and one UNDO step, on the factory
+# line (RANDOM, NOTE+- and the root and scale are in generator.txt; REVERSE and the pattern tools live on PAT SETUP, pattern_setup.txt). Shift stays down; the knob strip stays up under the labels. The latch of F1 CUTOFF is not touched by any of them.
 wait 300
 snap 01_factory_line
+tap pattern
+wait 50
 press shift
 tap f3
 wait 50
@@ -9,7 +11,7 @@ snap 02_rhythm_keeps_the_pitches
 tap f4
 wait 50
 snap 03_notes_keeps_the_rhythm
-tap f2
+tap f5
 wait 50
 snap 04_vary
 tap f1

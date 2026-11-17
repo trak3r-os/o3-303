@@ -147,16 +147,17 @@ struct Hands {
   }
   // Back to the 303 screen (Pattern).
   void to_home() { tap(Button::Pattern); }
-  // A fresh line from HOME: PATTERN SETUP's Shift + F6 RANDOM (the generator's line, G1), then back on HOME. HOME's own Shift row is F1 CLEAR, F2 VARY,
-  // F3 RHYTHM, F4 NOTES, F5 NOTE, F6 SCALE, F7 REDO, F8 UNDO.
+  // A fresh line from STEPS: GENERATOR's Shift + F2 RANDOM (the generator's line), then back on STEPS (Pattern taps: STEPS, GENERATOR, PAT SETUP, STEPS).
   void new_line() {
     tap(Button::Pattern);
-    shift_tap(Button::F6);
+    shift_tap(Button::F2);
+    tap(Button::Pattern);
     tap(Button::Pattern);
   }
-  // PATTERN SETUP's F1 LENGTH (from HOME: Pattern, a tap): `steps` detents, one step of length each (I1: 1..64), then back on HOME. length_to() starts from
+  // PAT SETUP's F1 LENGTH (from STEPS: Pattern twice): `steps` detents, one step of length each (I1: 1..64), then back on STEPS. length_to() starts from
   // the default 16; length_jump() is Shift + turn (8, 16, 32, 64 stops).
   void length_steps(int steps) {
+    tap(Button::Pattern);
     tap(Button::Pattern);
     tap(Button::F1);
     turn(steps);
@@ -164,6 +165,7 @@ struct Hands {
   }
   void length_to(int target, int from = 16) { length_steps(target - from); }
   void length_jump(int stops) {
+    tap(Button::Pattern);
     tap(Button::Pattern);
     tap(Button::F1);
     press(Button::Shift);
@@ -176,12 +178,13 @@ struct Hands {
   float param(dsp::UnitId u, unsigned id) { return h->engine().param(u, static_cast<std::uint16_t>(id)); }
   unsigned selected() const { return bank().selected(); }
   const Pattern& pat() const { return bank().pattern(bank().selected()); }
-  // PATTERN SETUP's DUP>NEXT (Pattern, Shift + F3, Pattern) from HOME, back on HOME: the selected pattern is copied into the next slot, which is
+  // PAT SETUP's DUP>NEXT (Pattern twice, Shift + F4, Pattern) from STEPS, back on HOME: the selected pattern is copied into the next slot, which is
   // selected (queued while playing). (H2 replaced the bridge Pattern held + Insert.)
   void duplicate_next() {
     tap(Button::Pattern);
+    tap(Button::Pattern);
     press(Button::Shift);
-    tap(Button::F3);
+    tap(Button::F4);
     release(Button::Shift);
     tap(Button::Pattern);
     wait(5);

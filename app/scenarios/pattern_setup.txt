@@ -1,6 +1,7 @@
-# PATTERN SETUP (docs/UX-303.md 5.2): a tap of Pattern on HOME opens it, a tap again goes back. F1 LENGTH walks 1 to 64 a step a detent (Shift + turn jumps 8, 16, 32, 64; a longer line repeats the bar before, a shorter one cuts),
-# one gesture is one UNDO; F5 CHANCE is the share of the steps that play (G2); F6..F8 are the generator's settings (project-wide); the Shift row has COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, REVERSE, RANDOM, REDO and UNDO; HOME's Shift + F5 NOTE and Shift + F6 SCALE give the encoder the generator's root and scale (G1).
+# PAT SETUP (the third page of the Pattern tap: STEPS, GENERATOR, PAT SETUP): two taps open it, a third goes back to STEPS. F1 LENGTH walks 1 to 64 a step a detent (Shift + turn jumps 8, 16, 32, 64; a longer line repeats the bar before, a shorter one cuts),
+# one gesture is one UNDO; F2 SWING, F3 GATE, F4 TRANSP, F5 CHANCE is the share of the steps that play; the Shift row has CLR LOCK, COPY PAT, PASTE, DUP>NEXT, REVERSE, DOUBLE, REDO and UNDO. The generator's knobs are on GENERATOR (generator.txt).
 wait 300
+tap pattern
 tap pattern
 wait 100
 snap 01_setup_open
@@ -27,16 +28,7 @@ tap f5
 turn -50
 wait 100
 snap 06_chance_50
-# The generator's other three: DENSITY down, ACC % up, SLD % down.
-tap f6
-turn -3
-tap f7
-turn 2
-tap f8
-turn -2
-wait 100
-snap 07_generator
-# A lock on step 3 (HOME's gesture works on SETUP too: the knob is a SETUP one, so only HOME's F1 CUTOFF locks): back on HOME, hold step 3 and turn.
+# A lock on step 3: back on STEPS (one tap), hold step 3 and turn.
 tap pattern
 paddown 2
 turn 20
@@ -47,27 +39,28 @@ padup 6
 wait 100
 snap 08_home_with_locks
 tap pattern
+tap pattern
 wait 100
 snap 09_setup_with_locks
 # The Shift row, then CLEAR LOCKS: every lane of this pattern, the notes stay.
 press shift
 wait 700
 snap 10_shift_row
-tap f4
+tap f1
 release shift
 wait 100
 snap 11_locks_cleared
-# COPY PAT, then DUP>NEXT: A01 is copied into A02, which is selected; PASTE PAT puts the clipboard over A02.
+# COPY PAT, then DUP>NEXT: A01 is copied into A02, which is selected; PASTE puts the clipboard over A02.
 press shift
-tap f1
+tap f2
 release shift
 press shift
-tap f3
+tap f4
 release shift
 wait 100
 snap 12_dup_to_next
 press shift
-tap f2
+tap f3
 release shift
 wait 100
 snap 13_pasted
@@ -80,90 +73,17 @@ wait 100
 snap 15_still_setup
 tap pattern
 wait 100
-snap 16_back_on_home
-# HOME's scale (G1): Shift + F6 gives the encoder the scale, walked down to No scale and up to Major (3); a tap of Pattern twice gives the encoder back.
-press shift
-tap f6
-release shift
-turn -40
-turn 3
+snap 16_back_on_steps
+# REVERSE and DOUBLE (one UNDO step each): the line backwards, then 16 steps become 32 with the first half copied.
 tap pattern
-tap pattern
-wait 100
-# HOME with Major still chosen, a pattern queued and a step held with a lock: the strip is full, so the scale takes its short form ("SC MAJ").
-tap play
-wait 200
-press pattern
-wait 350
-pad 3
-release pattern
-paddown 4
-turn 30
-wait 100
-snap 17_home_scale_short
-padup 4
-tap play
-# G1: HOME's Shift + F5 is NOTE, the encoder is the generator's root (here D) and the strip says so; the SETUP F5 box shows the key beside the scale.
-press shift
-tap f5
-release shift
-turn 2
-wait 100
-snap 18_home_note_root
-# A plain F key gives the encoder back; SETUP's F5 box says CHANCE with its 50 %.
-tap f5
-tap pattern
-wait 100
-snap 19_setup_chance_50
-# HOME: the keys of D Major, the root full and the other keys of the scale mid, the rest dark.
-tap pattern
-wait 200
-snap 20_home_root_keys
-# Insert makes the held step a tie (and a tie a rest); Up on it wakes it as a note first; Left / Right with F1 held move CUTOFF by 1/20.
-paddown 5
-tap insert
-padup 5
-wait 100
-snap 21_home_tie
-paddown 5
-tap up
-padup 5
-wait 100
-snap 22_home_woken
-press f1
-tap right
-tap right
-wait 100
-snap 23_home_f1_held_right
-release f1
-# X4 (G1): on HOME, Shift + F5 held and a tap of a bottom-row key sets the root (F here); HOME lights F full.
-press shift
-press f5
-wait 50
-pad 41
-wait 50
-release f5
-release shift
-wait 100
-snap 24_home_root_by_key
-wait 200
-snap 25_home_root_f
-# G1: SETUP's Shift + F5 REVERSE and Shift + F6 RANDOM (one UNDO step each, the toasts say so), then HOME's Shift + F6 SCALE: the encoder is the generator's scale and the strip says so.
 tap pattern
 press shift
 tap f5
 wait 50
-snap 26_setup_reverse
+snap 17_setup_reverse
 tap f6
 wait 50
-snap 27_setup_random
+snap 18_setup_double
 release shift
-tap pattern
-wait 200
-snap 28_home_random_line
-press shift
-tap f6
-release shift
-turn 1
 wait 100
-snap 29_home_scale_owner
+snap 19_setup_length_32

@@ -60,6 +60,10 @@ enum class Item : std::uint8_t {
   Tract,      // A1: a parameter of the tract on slot 0's insert 2 after the growl (id = its parameter id)
   TractOn,    // A1: the tract heard (Mix above 0); flips Mix between 0 and Wiring::tract_last_mix
   Chance,     // G2: the current pattern's CHANCE, the percent of its steps that play (Pattern::chance); PATTERN SETUP's F5
+  Root,       // GENERATOR's F1: the generator's root, 0..11 (C..B; GenParams::root). Appended: never insert
+  VaryPct,    // GENERATOR's F6: how much VARY changes (Wiring::vary_pct); volatile, not saved with the project
+  GenLow,     // GENERATOR's F7: the generator's lowest note (GenParams::low), kept at or below GenHigh
+  GenHigh,    // GENERATOR's F8: the generator's highest note (GenParams::high), kept at or above GenLow
 };
 
 // The wobble's settings, the WOBBLE page's keys (docs/M3C-PLAN.md W). They apply while the WOBBLE performance action is on (a change while
@@ -108,11 +112,13 @@ extern const Page kGrowlPage;
 extern const Page kTractPage;  // A2: the tract's seven knobs and F8 TRACT on / off (the first page of the Sample Play group, GROWL the second)
 extern const Page kWobblePage;
 
-// PATTERN SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP, F5 CHANCE
-// (this pattern's), F6 DENSITY, F7 ACC %, F8 SLD % (the generator's, project-wide). The scale (it lights the keyboard, and Config's KEYS: IN SCALE locks it:
-// Wiring::keys_in_scale) is HOME's Shift + F6.
+// PAT SETUP's page (UX-303 5.2), the screen's own table (PageKeys::set_table): F1 LENGTH, F2 SWING, F3 GATE, F4 TRANSP, F5 CHANCE (this pattern's);
+// F6..F8 are empty. The generator's settings (project-wide) are the GENERATOR page's, its own table: F1 ROOT, F2 SCALE, F3 DENSITY, F4 ACC %, F5 SLD %,
+// F6 VARY %, F7 LOW, F8 HIGH. The scale lights the keyboard, and Config's KEYS: IN SCALE locks it (Wiring::keys_in_scale).
 inline constexpr unsigned kSetupPageCount = 1;
 const Page& setup_page() noexcept;
+inline constexpr unsigned kGeneratorPageCount = 1;
+const Page& generator_page() noexcept;
 
 // What a snapshot holds, in order: the voice's SOUND parameters, the distortion's, the delay's, slot 0's level and the delay send (the
 // SOUND and FX pages' values), then, appended in P2 (UX-303 D29), the growl's VOWEL, FMT Q, GRL MIX and CMB MIX (GROWL), then (MODS S2, docs/MODS-PLAN.md 5.9) the voice's eleven
@@ -185,7 +191,8 @@ struct Wiring {
   o3sdk::dsp::UnitId wob_learn = o3sdk::dsp::kNoUnit;  // D1: the WOBBLE settings' proxy unit (app/src/wobble_learn.h), attached last (id 6) and never routed: only MIDI learn binds to it
   seq::Bank* bank = nullptr;
   seq::Sequencer* seq = nullptr;  // FILL's variant (PERFORM SETUP); null: the entry reads and writes nothing
-  seq::GenParams gen;        // the generator's settings (PATTERN SETUP)
+  seq::GenParams gen;        // the generator's settings (the GENERATOR page); low and high are saved and repaired by project.cpp
+  std::uint8_t vary_pct = 25;  // GENERATOR's VARY %: what the VARY tool changes (1..100); volatile, NOT saved with the project (a boot or a load gives 25). Main loop only, single writer
   float send_a_pct = 0.0f;   // the voice's send A level in percent: the base; DELAY THROW raises it for a while. A TB-303 is dry
   float level_db = -3.0f;    // slot 0's level in dB (SOUND F8): the voice peaks at 1 on its accents; headroom for the delay's wet signal
   bool throw_on = false;

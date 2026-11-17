@@ -3,6 +3,14 @@
 What changes for a player, newest first, in English. Each release's notes on GitHub link here. A change to a saved file or to what you
 hear says so in plain words.
 
+## Unreleased
+
+### What changed for a player
+
+- **The Pattern tap now turns three pages: STEPS, GENERATOR and PAT SETUP.** GENERATOR holds ROOT, SCALE, DENSITY, ACC %, SLD %, VARY %, LOW and HIGH (the lowest and highest note RANDOM and NOTES draw, as note names). Its Shift row is CLEAR, RANDOM, RHYTHM, NOTES, VARY, NOTE+- (the encoder moves the whole line: a semitone a detent, an octave with Shift; each grab is one UNDO step), REDO and UNDO. VARY % is not saved with the project: it is 25 % at every power-up.
+- **PAT SETUP** keeps this pattern's LENGTH, SWING, GATE, TRANSP and CHANCE, and its Shift row is CLR LOCK, COPY PAT, PASTE, DUP>NEXT, REVERSE, DOUBLE (twice as long, the first half copied), REDO and UNDO.
+- **STEPS' Shift row is REDO and UNDO only.** The old HOME gestures (Shift + F5 NOTE, Shift + F6 SCALE, the root by a key) are gone: ROOT and SCALE are F1 and F2 of GENERATOR.
+
 ## v0.10.0 (2026-11-13), a pre-release
 
 ### What you can do that you could not before

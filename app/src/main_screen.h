@@ -3,10 +3,10 @@
 
 // The 303 screen (docs/DESIGN-303.md sections 2 to 5, docs/UX-303.md 5.1 and 5.2): the step view as the hero, the motion lane, the knob strip, the soft keys,
 // the status line and the PADS line over it, and the Shift row. HOME has no pages: F1..F8 are the eight sound knobs, the SOUND page on Rig::sound_keys, so its
-// latch is PERFORM's and INSTRUMENT VOICE's (UX-303 D3); Shift held, the soft keys are NEW, VARY, RHYTHM, NOTES, REVERSE, CLEAR, REDO and UNDO, and a press does
-// its name at once (UX-303 5.1 and 7), each one UNDO step. Also the pattern grid it shows while Pattern is held, and PATTERN SETUP, its second page (a tap of
-// Pattern): the same drawer and pads, the pattern's LENGTH / SWING / GATE / TRANSP and the generator's settings on F1..F8 (the screen's own PageKeys, so its
-// latch is its own), and its own Shift row (COPY PAT, PASTE PAT, DUP>NEXT, CLEAR LOCKS, UNDO).
+// latch is PERFORM's and INSTRUMENT VOICE's (UX-303 D3); its Shift row is REDO and UNDO. Also the pattern grid it shows while Pattern is held, and two more pages, one
+// tap of Pattern each: GENERATOR (ROOT, SCALE, DENSITY, ACC %, SLD %, VARY %, LOW, HIGH on F1..F8; Shift row CLEAR, RANDOM, RHYTHM, NOTES, VARY, NOTE+-, REDO, UNDO) and
+// PAT SETUP (LENGTH, SWING, GATE, TRANSP, CHANCE; Shift row CLR LOCK, COPY PAT, PASTE, DUP>NEXT, REVERSE, DOUBLE, REDO, UNDO). Each has its own PageKeys, so its
+// latch is its own, and the same drawer and pads. A Shift press does its name at once (UX-303 5.1 and 7), each one UNDO step.
 //
 // The pads, the arrows, Copy / Insert / Delete, Rec and the colour buttons (the drawer rows: Note, Instr, Vol, Fx latch NOTE, GATE, PLAYS, LOCK on the
 // encoder; an F key gives it back) are the home map's (home_map.h): this screen forwards them to its HomeMap and draws what it reads from it. It is one class
@@ -53,13 +53,17 @@ class MainScreen final : public o3sdk::app::Screen {
   // HELP (Shift + Config, help_texts.h): HOME's texts or PATTERN SETUP's, the Shift row's labels, and the home map's pads.
   void help(const o3sdk::app::Context& ctx, o3sdk::app::Help& h) const noexcept override;
 
-  // PATTERN SETUP (UX-303 5.2) is the second page of this screen: a tap of Pattern flips it and HOME.
-  bool setup() const noexcept { return setup_; }
-  // Who owns the encoder besides the F keys: HOME's Shift + F5 (NOTE, the generator's root) or Shift + F6 (SCALE) gave it away, until an F key, a drawer row, the Pattern
-  // button or leaving the screen takes it back (G1).
-  enum class EncOwner : std::uint8_t { None, Root, Scale };
+  // The three pages of this screen, in the order a tap of Pattern takes them: STEPS (the sound knobs), GENERATOR (ROOT, SCALE, DENSITY, ACC %, SLD %, VARY %, LOW, HIGH)
+  // and PAT SETUP (LENGTH, SWING, GATE, TRANSP, CHANCE). The Shift row is the page's.
+  enum class PatPage : std::uint8_t { Steps, Generator, PatSetup };
+  PatPage page() const noexcept { return page_; }
+  bool setup() const noexcept { return page_ == PatPage::PatSetup; }
+  bool generator() const noexcept { return page_ == PatPage::Generator; }
+  // Who owns the encoder besides the F keys: GENERATOR's Shift + F6 (NOTE+-, every note of the pattern moves) gave it away, until an F key, a drawer row, the Pattern
+  // button, another tool or leaving the screen takes it back.
+  enum class EncOwner : std::uint8_t { None, Xpose };
   // True while that gift stands: no drawer row has latched and no step is held since (what the status line says).
-  bool enc_owns() const noexcept { return !setup_ && enc_owner_ != EncOwner::None && home_.row() == DrawerRow::None && !home_.any_step_held(); }
+  bool enc_owns() const noexcept { return page_ == PatPage::Generator && enc_owner_ != EncOwner::None && home_.row() == DrawerRow::None && !home_.any_step_held(); }
   EncOwner enc_owner() const noexcept { return enc_owner_; }
   bool pattern_overlay() const noexcept { return home_.overlay(); }
   int cursor() const noexcept { return home_.cursor(); }
@@ -84,15 +88,14 @@ class MainScreen final : public o3sdk::app::Screen {
   void turn_input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   // The Shift row (UX-303 5.1 and 5.2): key `index` at the press of Shift + F(index + 1).
   void tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
-  void home_tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
-  // ---- PATTERN SETUP (main_screen.cpp)
-  void setup_toggle(o3sdk::app::Context& ctx) noexcept;
+  void generator_tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
+  // ---- GENERATOR and PAT SETUP (main_screen.cpp)
+  void page_cycle(o3sdk::app::Context& ctx) noexcept;
   void setup_tool(o3sdk::app::Context& ctx, unsigned index) noexcept;
-  bool root_tap(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   void duplicate_to_next(o3sdk::app::Context& ctx) noexcept;
-  // The F keys' page: SETUP's own, or the shared SOUND page (Rig::sound_keys).
-  PageKeys& fkeys() noexcept { return setup_ ? setup_keys_ : rig_->sound_keys; }
-  const PageKeys& fkeys() const noexcept { return setup_ ? setup_keys_ : rig_->sound_keys; }
+  // The F keys' page: PAT SETUP's or GENERATOR's own, or the shared SOUND page (Rig::sound_keys).
+  PageKeys& fkeys() noexcept { return page_ == PatPage::PatSetup ? setup_keys_ : (page_ == PatPage::Generator ? gen_keys_ : rig_->sound_keys); }
+  const PageKeys& fkeys() const noexcept { return page_ == PatPage::PatSetup ? setup_keys_ : (page_ == PatPage::Generator ? gen_keys_ : rig_->sound_keys); }
   bool tool_dim(unsigned k) const noexcept;
 
   // ---- model helpers
@@ -112,18 +115,19 @@ class MainScreen final : public o3sdk::app::Screen {
   void fill_shift_row(view::Knob (&knobs)[view::kKnobs]) const noexcept;
   void draw_info(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
   void draw_strip(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
-  void draw_info_generator(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& strip) noexcept;
   void draw_grid(o3sdk::app::Context& ctx, o3sdk::ui::Renderer& r, const o3sdk::ui::Rect& area) noexcept;
 
   Rig* rig_ = nullptr;
   Controls* controls_ = nullptr;
   LiveActions* live_ = nullptr;
   HomeMap home_;
-  PageKeys setup_keys_;  // PATTERN SETUP's F keys (setup_page()): one page, key 0 (LENGTH) latched
+  PageKeys setup_keys_;  // PAT SETUP's F keys (setup_page()): one page, key 0 (LENGTH) latched
+  PageKeys gen_keys_;    // GENERATOR's F keys (generator_page()): one page, key 0 (ROOT) latched
 
   // Modes.
-  EncOwner enc_owner_ = EncOwner::None;  // HOME's Shift + F5 / F6: the encoder is the generator's root or scale until an F key is pressed (main thread only)
-  bool setup_ = false;   // PATTERN SETUP is shown (a tap of Pattern); every other piece of the screen is shared with HOME
+  EncOwner enc_owner_ = EncOwner::None;  // GENERATOR's NOTE+-: the encoder moves the notes until an F key is pressed (main thread only)
+  std::uint32_t xpose_gesture_ = 0;      // rises at every NOTE+- press: the key of that grab's UNDO step (Bank::transpose_notes), so two grabs never merge (main thread only)
+  PatPage page_ = PatPage::Steps;        // the page shown (a tap of Pattern moves on); every other piece of the screen is shared
 
   // The pitch window keeps what it has shown for the pattern, so it does not jump while notes are entered.
   int win_pattern_ = -1;

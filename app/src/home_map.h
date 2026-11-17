@@ -79,7 +79,7 @@ class HomeMap {
 
   // Pads, Note / Instr / Vol / Fx (a tap latches the NOTE, GATE, PLAYS or LOCK row; Shift is the same, D22), Left / Right / Up / Down, Copy / Insert /
   // Delete, Rec and Pattern. true when it took the event; a tap of
-  // Pattern (a release that did not open the grid) is the screen's (it flips HOME and PATTERN SETUP), so it answers false. Insert with Pattern held says where it went
+  // Pattern (a release that did not open the grid) is the screen's (it turns the page: STEPS, GENERATOR, PAT SETUP), so it answers false. Insert with Pattern held says where it went
   // (PATTERN SETUP's DUP>NEXT, UX-303 5.2); Copy or Delete held with Pattern, then a pad: the current pattern is copied onto that pad's, or that pattern is cleared (F7).
   bool input(o3sdk::app::Context& ctx, const o3sdk::app::Input& in) noexcept;
   // The encoder moved by `detents` (`coarse`: Shift) with `knob` as its owner. true when it is a step's: a latched row takes the turn (on the held

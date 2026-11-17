@@ -142,7 +142,10 @@ TEST_CASE("REC + Play + the encoder records motion under the playhead; without R
   CHECK(pattern_has_motion(t.pat(), 0));
 
   // Without REC nothing is written (the MOTION latch is gone).
+  t.tap(Button::Pattern);  // GENERATOR
   t.shift_tap(Button::F1);  // the tools' CLEAR: no motion either
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // STEPS
   CHECK_FALSE(pattern_has_motion(t.pat(), kMotionLanes));
   t.tap(Button::Play);
   t.wait(200);

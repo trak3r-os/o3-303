@@ -45,6 +45,7 @@ wait 100
 snap 05_rec
 tap rec
 tap pattern
+tap pattern
 wait 100
 snap 06_setup
 press shift

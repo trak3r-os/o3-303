@@ -1,23 +1,30 @@
-# Patterns (DESIGN-303 sections 2 and 4, UX-303 5.1 and 5.2): PATTERN SETUP's DUP>NEXT (Shift + F3) duplicates the pattern into the next slot, hold Pattern and the 48 pads are the
+# Patterns (DESIGN-303 sections 2 and 4, UX-303 5.1 and 5.2): PAT SETUP's DUP>NEXT (Shift + F4) duplicates the pattern into the next slot, hold Pattern and the 48 pads are the
 # patterns: stopped, a tap selects; playing, taps queue the next pattern and several taps make a chain.
 wait 300
 # A02 is a copy of A01 with a new line over it (NEW), A03 a copy of that, varied (VARY).
 tap pattern
-press shift
-tap f3
-release shift
-press shift
-wait 63    # RANDOM's seed follows the time of its press: these waits keep the take the WAV of this scenario was made with
-tap f6     # Shift + F6 RANDOM (PATTERN SETUP's Shift row, at once)
-release shift
-wait 61
-press shift
-tap f3
-release shift
 tap pattern
 press shift
-tap f2
+tap f4     # PAT SETUP's Shift + F4 DUP>NEXT: A02 is a copy of A01
 release shift
+tap pattern
+tap pattern
+press shift
+wait 63    # RANDOM's seed follows the time of its press: these waits keep the take the WAV of this scenario was made with
+tap f2     # GENERATOR's Shift + F2 RANDOM
+release shift
+wait 61
+tap pattern
+press shift
+tap f4     # DUP>NEXT again: A03 is a copy of the new line
+release shift
+tap pattern
+tap pattern
+press shift
+tap f5     # GENERATOR's Shift + F5 VARY
+release shift
+tap pattern
+tap pattern
 snap 01_three_patterns
 press pattern
 wait 350

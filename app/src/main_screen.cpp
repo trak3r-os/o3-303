@@ -35,7 +35,6 @@ using ui::Rect;
 constexpr int kInfoH = 34;
 constexpr int kHeroY = frame::kStatusH + kInfoH + 4;  // under the status line and the info strip
 constexpr int kHeroH = 252;                           // the motion lane is under it, over the knob strip (the PADS line is the strip's top line)
-constexpr int kGenH = 22;                             // PATTERN SETUP's second info line (the generator): the drawer is that much shorter
 
 // The obsidian frame (docs/SKIN-PLAN.md 2.1): the glass between the header (y 0-66) and the F row's band (y 384-480), its content inset by the rim. The step view is shorter than
 // classic's 252 px, because the status line is the header's but the glass is 318 px: info strip, step view, motion lane and the PADS line fill it.
@@ -45,28 +44,34 @@ constexpr int kGlassW = ui::kScreenW - 2 * kGlassX;
 constexpr int kPadsY = kGlassBottom - frame::kPadsLineH - 2;   // the PADS line: the glass's last 16 px (above its rim)
 constexpr int kSkinHeroH = 208;
 
-// The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters).
-// F5 NOTE and F6 SCALE give the encoder the generator's root and scale (G1); NEW and REVERSE moved to PATTERN SETUP's row (RANDOM, REVERSE).
-constexpr const char* kHomeKeyLabels[app::kFKeyCount] = {"CLEAR", "VARY", "RHYTHM", "NOTES", "NOTE", "SCALE", "REDO", "UNDO"};
-// PATTERN SETUP's: F5 REVERSE and F6 RANDOM (the F row's names are cut to eight characters), F7 and F8 are REDO and UNDO as on HOME.
-constexpr const char* kSetupKeyLabels[app::kFKeyCount] = {"COPY PAT", "PASTE", "DUP>NEXT", "CLR LOCK", "REVERSE", "RANDOM", "REDO", "UNDO"};
+// The Shift row (UX-303 5.1, 5.2 and 7), drawn on the soft keys while Shift is held (the F key row has room for eight characters). One row a page, indexed by
+// MainScreen::PatPage: STEPS keeps REDO and UNDO, GENERATOR has the tools that draw (CLEAR, RANDOM, RHYTHM, NOTES, VARY) and NOTE+- (the encoder moves every note),
+// PAT SETUP the pattern's own. F7 and F8 are REDO and UNDO on all three. A "-" is an empty key.
+constexpr const char* kKeyLabels[3][app::kFKeyCount] = {
+    {"-", "-", "-", "-", "-", "-", "REDO", "UNDO"},
+    {"CLEAR", "RANDOM", "RHYTHM", "NOTES", "VARY", "NOTE+-", "REDO", "UNDO"},
+    {"CLR LOCK", "COPY PAT", "PASTE", "DUP>NEXT", "REVERSE", "DOUBLE", "REDO", "UNDO"},
+};
 // What each Shift key does, in a few words under it on the obsidian skin's F row (the classic strip has no room). "" none.
-constexpr const char* kHomeKeyHints[app::kFKeyCount] = {"empty line", "25 %", "same notes", "same beat", "root, turn", "scale, turn", "step fwd", "step back"};
-constexpr const char* kSetupKeyHints[app::kFKeyCount] = {"to clip", "from clip", "to next", "motion", "backwards", "new line", "step fwd", "step back"};
-constexpr unsigned kToolClear = 0;
-constexpr unsigned kToolVary = 1;
-constexpr unsigned kToolRhythm = 2;
-constexpr unsigned kToolNotes = 3;
-constexpr unsigned kToolNote = 4;   // the encoder is the generator's root
-constexpr unsigned kToolScale = 5;  // the encoder is the generator's scale
-constexpr unsigned kToolRedo = 6;
-constexpr unsigned kVaryPct = 25;  // VARY: today's MUTATE at 25 % (UX-303 7)
-constexpr unsigned kToolCopyPat = 0;
-constexpr unsigned kToolPastePat = 1;
-constexpr unsigned kToolDupNext = 2;
-constexpr unsigned kToolClearLocks = 3;
+constexpr const char* kKeyHints[3][app::kFKeyCount] = {
+    {"", "", "", "", "", "", "step fwd", "step back"},
+    {"empty line", "new line", "same notes", "same beat", "VARY %", "turn: +-1", "step fwd", "step back"},
+    {"motion", "to clip", "from clip", "to next", "backwards", "x2 length", "step fwd", "step back"},
+};
+// GENERATOR's tools (F1..F6), PAT SETUP's (F1..F6), and REDO / UNDO (F7, F8) on every page.
+constexpr unsigned kToolGenClear = 0;
+constexpr unsigned kToolGenRandom = 1;
+constexpr unsigned kToolGenRhythm = 2;
+constexpr unsigned kToolGenNotes = 3;
+constexpr unsigned kToolGenVary = 4;
+constexpr unsigned kToolGenXpose = 5;  // the encoder moves every note of the pattern
+constexpr unsigned kToolClearLocks = 0;
+constexpr unsigned kToolCopyPat = 1;
+constexpr unsigned kToolPastePat = 2;
+constexpr unsigned kToolDupNext = 3;
 constexpr unsigned kToolReverse = 4;
-constexpr unsigned kToolRandom = 5;
+constexpr unsigned kToolDouble = 5;
+constexpr unsigned kToolRedo = 6;
 constexpr unsigned kToolUndo = 7;
 
 // `s` cut to `max` characters into `out` (cap > max).
@@ -127,10 +132,14 @@ void MainScreen::init(Rig& rig) noexcept {
   controls_ = &rig.controls;
   live_ = rig.live;
   home_.init(rig);
-  setup_ = false;
+  page_ = PatPage::Steps;
   setup_keys_ = PageKeys{};
   setup_keys_.set_table(&setup_page(), kSetupPageCount);
   setup_keys_.set_page(0);
+  gen_keys_ = PageKeys{};
+  gen_keys_.set_table(&generator_page(), kGeneratorPageCount);
+  gen_keys_.set_page(0);
+  xpose_gesture_ = 0;
   win_pattern_ = -1;
   win_lo_ = 0;
   win_hi_ = 0;
@@ -142,19 +151,21 @@ const char* MainScreen::title() const noexcept {
   if (home_.overlay()) {
     return "PATTERNS";
   }
-  return setup_ ? "PATTERN SETUP" : "STEPS";
+  return page_ == PatPage::Generator ? "GENERATOR" : (page_ == PatPage::PatSetup ? "PAT SETUP" : "STEPS");
 }
 
 void MainScreen::enter(app::Context& ctx) noexcept {
   home_.enter(ctx);
-  setup_ = false;  // Pattern from another screen goes HOME (UX-303 D6)
+  page_ = PatPage::Steps;  // Pattern from another screen goes to STEPS (UX-303 D6)
   setup_keys_.release_all();
+  gen_keys_.release_all();
 }
 
 void MainScreen::leave(app::Context& ctx) noexcept {
   home_.leave(ctx);
   rig_->sound_keys.release_all();  // the shared SOUND latch stays, the keys held let go (their releases would reach another screen)
   setup_keys_.release_all();
+  gen_keys_.release_all();
   live_->snap_finish(ctx, true);
   live_->leave(ctx);  // the actions held end with the screen (their releases would reach another one)
   tool_mask_ = 0;
@@ -174,33 +185,12 @@ void MainScreen::update(app::Context& ctx) noexcept {
 
 void MainScreen::input(app::Context& ctx, const Input& in) noexcept {
   if (in.kind == core::InputKind::Pad) {
-    if (!root_tap(ctx, in)) {
-      (void)home_.input(ctx, in);
-    }
+    (void)home_.input(ctx, in);
   } else if (in.kind == core::InputKind::Encoder) {
     turn_input(ctx, in);
   } else if (in.kind == core::InputKind::Button) {
     button_input(ctx, in);
   }
-}
-
-// HOME, Shift + F5 (NOTE) held: a tap of a key of the bottom row (C to B, pads 36..47) is the generator's root, without the encoder.
-// The press is the whole gesture (the key's release reaches the home map and finds no note to end); the held key's release gives the latch back.
-bool MainScreen::root_tap(app::Context& ctx, const Input& in) noexcept {
-  const unsigned pad = in.pad();
-  if (!in.pad_press() || pad < 36u || pad >= 48u) {
-    return false;
-  }
-  const bool root_held = !setup_ && (tool_mask_ >> kToolNote & 1u) != 0u;  // HOME: Shift + F5 is down (SETUP's F5 is CHANCE since G2: no root there)
-  if (!root_held) {
-    return false;
-  }
-  rig_->wiring.gen.root = static_cast<std::uint8_t>(pad - 36u);
-  char text[12] = "ROOT ";
-  (void)root_name(pad - 36u, text + 5, sizeof text - 5u);
-  toast(ctx, text);
-  ctx.redraw();
-  return true;
 }
 
 void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
@@ -212,13 +202,15 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
     fkeys().mark_turned();  // with an F key held, its release gives the latch back, as after any hold-and-turn
     return;
   }
-  if (enc_owns()) {  // HOME's Shift + F5 gave the encoder the root, Shift + F6 the scale (no wrap, as the SETUP knob)
-    if (enc_owner_ == EncOwner::Root) {
-      seq::GenParams& g = rig_->wiring.gen;
-      g.root = static_cast<std::uint8_t>(root_step(g.root, in.delta()));
-    } else {
-      controls_->step(ctx.engine(), Entry{Item::Scale, 0, nullptr}, in.delta(), in.shift);
+  if (enc_owns()) {  // GENERATOR's NOTE+-: a detent moves every note a semitone (Shift: an octave); all the detents of the grab are one UNDO step
+    const int unit = in.shift ? 12 : 1;
+    for (int n = in.delta() < 0 ? -in.delta() : in.delta(); n > 0; --n) {
+      if (!rig_->bank->transpose_notes(sel(), in.delta() < 0 ? -unit : unit, xpose_gesture_)) {
+        toast(ctx, "NOTE OUT OF RANGE", true);  // a note would leave 0..127: nothing moved
+        break;
+      }
     }
+    home_.refocus();
     ctx.redraw();
     return;
   }
@@ -236,44 +228,52 @@ void MainScreen::turn_input(app::Context& ctx, const Input& in) noexcept {
   }
 }
 
-// The Shift row, at the press of Shift + F: PATTERN SETUP's own on SETUP (REDO and UNDO are the same on both), HOME's otherwise.
+// The Shift row, at the press of Shift + F: REDO and UNDO are F7 and F8 on every page, the rest is the page's. Any tool but NOTE+- ends its gesture.
 void MainScreen::tool(app::Context& ctx, unsigned index) noexcept {
-  if (setup_ && index != kToolUndo && index != kToolRedo) {
-    setup_tool(ctx, index);
-    return;
+  if (index != kToolGenXpose || page_ != PatPage::Generator) {
+    enc_owner_ = EncOwner::None;
   }
-  home_tool(ctx, index);
+  if (index == kToolRedo) {
+    toast(ctx, undo_step(*rig_, true) ? "REDO" : "NOTHING TO REDO");
+    home_.refocus();
+  } else if (index == kToolUndo) {
+    toast(ctx, undo_step(*rig_, false) ? "UNDO" : "NOTHING TO UNDO");
+    home_.refocus();
+  } else if (page_ == PatPage::Generator) {
+    generator_tool(ctx, index);
+  } else if (page_ == PatPage::PatSetup) {
+    setup_tool(ctx, index);
+  }
 }
 
-// HOME's Shift row (UX-303 5.1 and 7, G1): CLEAR VARY RHYTHM NOTES NOTE SCALE REDO UNDO (NOTE and SCALE hand the encoder to the generator's root and scale). Each edit is one UNDO step of the pattern shown (Bank::edit); one that
+// GENERATOR's Shift row (F1..F6; F7 and F8 are REDO and UNDO): CLEAR RANDOM RHYTHM NOTES VARY NOTE+-. Each edit is one UNDO step of the pattern shown (Bank::edit); one that
 // changes nothing (NOTES of a line with nothing sounding, CLEAR of an empty one) says so and leaves no step. RHYTHM of an empty line
-// draws a line on the generator's root and is a step: RHYTHM then NOTES starts a line from nothing.
-void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
+// draws a line on the generator's root and is a step: RHYTHM then NOTES starts a line from nothing. VARY changes VARY % of the notes (F6).
+void MainScreen::generator_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   const seq::GenParams& gen = rig_->wiring.gen;
   switch (index) {
-    case kToolVary:
-      toast(ctx, bank.mutate(sel(), gen, next_seed(ctx), kVaryPct) ? "VARIED" : "NO CHANGE", false);
-      break;
-    case kToolRhythm:  // the pitches stay, the rests, accents and slides are drawn again
-      toast(ctx, bank.regen_rhythm(sel(), gen, next_seed(ctx)) ? "NEW RHYTHM" : "NO CHANGE", false);
-      break;
-    case kToolNotes:  // the rhythm and the flags stay, the pitches are drawn again in the scale
-      toast(ctx, bank.regen_notes(sel(), gen, next_seed(ctx)) ? "NEW NOTES" : "NO CHANGE", false);
-      break;
-    case kToolClear:
+    case kToolGenClear:
       toast(ctx, bank.clear_pattern(sel()) ? "PATTERN CLEARED" : "NO CHANGE", false);
       break;
-    case kToolNote:  // the encoder is the generator's root (C to B, no wrap) until an F key is pressed
-    case kToolScale:  // ... or its scale
-      home_.release_row();  // a latched row had the encoder: it passes to NOTE or SCALE (a held step still keeps the turn, as for any knob)
-      enc_owner_ = index == kToolNote ? EncOwner::Root : EncOwner::Scale;
+    case kToolGenRandom:  // a new line over the length with the project's generator settings and a new seed
+      toast(ctx, bank.random_fill(sel(), gen, next_seed(ctx)) ? "RANDOMIZED" : "NO CHANGE", false);
       break;
-    case kToolRedo:
-      toast(ctx, undo_step(*rig_, true) ? "REDO" : "NOTHING TO REDO");
+    case kToolGenRhythm:  // the pitches stay, the rests, accents and slides are drawn again
+      toast(ctx, bank.regen_rhythm(sel(), gen, next_seed(ctx)) ? "NEW RHYTHM" : "NO CHANGE", false);
+      break;
+    case kToolGenNotes:  // the rhythm and the flags stay, the pitches are drawn again in the scale
+      toast(ctx, bank.regen_notes(sel(), gen, next_seed(ctx)) ? "NEW NOTES" : "NO CHANGE", false);
+      break;
+    case kToolGenVary:
+      toast(ctx, bank.mutate(sel(), gen, next_seed(ctx), rig_->wiring.vary_pct) ? "VARIED" : "NO CHANGE", false);
+      break;
+    case kToolGenXpose:  // the encoder moves every note (no wrap) until an F key, a page change, UNDO, REDO or another tool; each press starts a new UNDO step
+      home_.release_row();  // a latched row had the encoder: it passes to NOTE+- (a held step still keeps the turn, as for any knob)
+      enc_owner_ = EncOwner::Xpose;
+      xpose_gesture_ = xpose_gesture_ >= 0xFFFFFFu ? 1u : xpose_gesture_ + 1u;
       break;
     default:
-      toast(ctx, undo_step(*rig_, false) ? "UNDO" : "NOTHING TO UNDO");
       break;
   }
   home_.refocus();
@@ -281,11 +281,11 @@ void MainScreen::home_tool(app::Context& ctx, unsigned index) noexcept {
 
 // ---- PATTERN SETUP ----------------------------------------------------------------------------------------------------------
 
-// A tap of Pattern: HOME and PATTERN SETUP trade places. The F keys held let go (their releases would reach the other page); the encoder's latch of the
-// page being left stays as it was.
-void MainScreen::setup_toggle(app::Context& ctx) noexcept {
+// A tap of Pattern: STEPS, GENERATOR and PAT SETUP in turn. The F keys held let go (their releases would reach the other page); the encoder's latch of the
+// page being left stays as it was, and NOTE+- ends.
+void MainScreen::page_cycle(app::Context& ctx) noexcept {
   fkeys().release_all();
-  setup_ = !setup_;
+  page_ = page_ == PatPage::Steps ? PatPage::Generator : (page_ == PatPage::Generator ? PatPage::PatSetup : PatPage::Steps);
   enc_owner_ = EncOwner::None;
   fkeys().release_all();
   ctx.redraw();
@@ -312,10 +312,13 @@ void MainScreen::duplicate_to_next(app::Context& ctx) noexcept {
   toast(ctx, text);
 }
 
-// Shift + F1..F6 on PATTERN SETUP (F7 REDO and F8 UNDO are HOME's).
+// Shift + F1..F6 on PAT SETUP (F7 REDO and F8 UNDO are every page's).
 void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
   seq::Bank& bank = *rig_->bank;
   switch (index) {
+    case kToolClearLocks:  // every lane of this pattern, the notes stay: one UNDO
+      toast(ctx, bank.clear_motion(sel()) ? "LOCKS CLEARED" : "NO LOCKS TO CLEAR");
+      break;
     case kToolCopyPat:
       bank.copy_pattern(sel());
       toast(ctx, "PATTERN COPIED");
@@ -326,14 +329,11 @@ void MainScreen::setup_tool(app::Context& ctx, unsigned index) noexcept {
     case kToolDupNext:
       duplicate_to_next(ctx);
       break;
-    case kToolClearLocks:  // every lane of this pattern, the notes stay: one UNDO
-      toast(ctx, bank.clear_motion(sel()) ? "LOCKS CLEARED" : "NO LOCKS TO CLEAR");
-      break;
     case kToolReverse:
       toast(ctx, bank.reverse(sel()) ? "REVERSED" : "NO CHANGE", false);
       break;
-    case kToolRandom:  // a new line over the length with the project's generator settings and a new seed
-      toast(ctx, bank.random_fill(sel(), rig_->wiring.gen, next_seed(ctx)) ? "RANDOMIZED" : "NO CHANGE", false);
+    case kToolDouble:  // the line twice as long, the second half a copy of the first (one UNDO); at 64 steps there is no room
+      toast(ctx, bank.double_length(sel()) ? "DOUBLED" : "ALREADY 64 STEPS", false);
       break;
     default:
       break;
@@ -361,7 +361,7 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
       }
       if (fkeys().page().entry[k].item != Item::Blank) {
         home_.release_row();  // an F key gives the encoder back to the knob (UX-303 2.3); an empty box does nothing
-        enc_owner_ = EncOwner::None;  // ... and NOTE's or SCALE's owner gives it back to the knob
+        enc_owner_ = EncOwner::None;  // ... and NOTE+- gives it back to the knob
       }
       (void)fkeys().input(ctx, in, *controls_);
     } else if (in.type == Input::Type::Release) {
@@ -375,11 +375,11 @@ void MainScreen::button_input(app::Context& ctx, const Input& in) noexcept {
   }
 
   if (in.which() == Button::Pattern && in.type == Input::Type::Release && home_.pattern_tap()) {
-    setup_toggle(ctx);  // a tap on the screen's own button: HOME and PATTERN SETUP
+    page_cycle(ctx);  // a tap on the screen's own button: STEPS, GENERATOR, PAT SETUP
   }
   if (home_.input(ctx, in)) {  // the arrows, Copy / Insert / Delete, Rec, the colour buttons (the drawer rows), Pattern
     if (home_.row() != DrawerRow::None) {
-      enc_owner_ = EncOwner::None;  // a drawer row latched: it owns the encoder, not NOTE or SCALE
+      enc_owner_ = EncOwner::None;  // a drawer row latched: it owns the encoder, not NOTE+-
     }
     return;
   }
@@ -396,20 +396,24 @@ void MainScreen::soft_keys(app::Context& ctx, app::SoftKeys& out) noexcept {
     return;  // no labels: the knob strip's boxes carry the F-number and the name, so the key row is the keys alone
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    out.label[k] = setup_ ? kSetupKeyLabels[k] : kHomeKeyLabels[k];
+    const char* label = kKeyLabels[static_cast<unsigned>(page_)][k];
+    out.label[k] = label[0] == '-' ? nullptr : label;
     if (tool_dim(k)) {
       out.dim = static_cast<std::uint8_t>(out.dim | (1u << k));
     }
   }
 }
 
-// A tool that has nothing to do now: REDO / UNDO with nothing to step to, PASTE PAT with nothing copied, and the free keys of SETUP's row.
+// A tool that has nothing to do now: REDO / UNDO with nothing to step to, PASTE with nothing copied, DOUBLE at 64 steps.
 bool MainScreen::tool_dim(unsigned k) const noexcept {
   const seq::Bank& bank = *rig_->bank;
-  if (setup_) {
-    return k == kToolPastePat ? !bank.has_pattern_clip() : (k == kToolUndo ? !bank.can_undo() : (k == kToolRedo && !bank.can_redo()));
+  if (k == kToolRedo || k == kToolUndo) {
+    return k == kToolRedo ? !bank.can_redo() : !bank.can_undo();
   }
-  return (k == kToolRedo && !bank.can_redo()) || (k == kToolUndo && !bank.can_undo());
+  if (page_ == PatPage::PatSetup) {
+    return (k == kToolPastePat && !bank.has_pattern_clip()) || (k == kToolDouble && length() >= kMaxSteps);
+  }
+  return false;
 }
 
 void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_.leds(ctx, leds); }
@@ -417,9 +421,9 @@ void MainScreen::leds(app::Context& ctx, app::PadLeds& leds) noexcept { home_.le
 // HELP: the texts of the page shown, the Shift row's labels (the very ones soft_keys() gives while Shift is held; "-" is an empty key and says nothing), and the home map's pads.
 void MainScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
   (void)ctx;
-  help_texts::fill(h, help_texts::text(setup_ ? help_texts::Id::Setup : help_texts::Id::Home));
+  help_texts::fill(h, help_texts::text(page_ == PatPage::Generator ? help_texts::Id::Generator : (page_ == PatPage::PatSetup ? help_texts::Id::Setup : help_texts::Id::Home)));
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
-    const char* label = setup_ ? kSetupKeyLabels[k] : kHomeKeyLabels[k];
+    const char* label = kKeyLabels[static_cast<unsigned>(page_)][k];
     h.fkey_shift[k] = label[0] == '-' ? nullptr : label;
   }
   home_.help_pads(h);
@@ -431,17 +435,7 @@ void MainScreen::help(const app::Context& ctx, app::Help& h) const noexcept {
 void MainScreen::enc_text(app::Context& ctx, char* out, unsigned cap) const noexcept {
   out[0] = '\0';
   if (enc_owns()) {
-    if (enc_owner_ == EncOwner::Root) {
-      append(out, cap, "ROOT ");
-      char rn[4];
-      (void)root_name(rig_->wiring.gen.root, rn, sizeof rn);
-      append(out, cap, rn);
-    } else {
-      char sn[24];
-      append(out, cap, "SCALE ");
-      scale_value_text(rig_->wiring.gen.scale, false, sn, sizeof sn, -1);
-      append(out, cap, sn);
-    }
+    append(out, cap, "NOTES +-");
   } else if (home_.row() != DrawerRow::None) {
     home_.row_text(ctx, out, cap);
   } else {
@@ -489,12 +483,12 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   // The STEP box is right aligned and has the first claim on the strip; the scale is left out when it would run into the box or the NEXT chip.
   char box[64];
   box[0] = '\0';
-  if (!setup_) {
+  if (page_ == PatPage::Steps) {
     (void)home_.step_box(ctx, box, sizeof box);
   }
   // Under the skin Shift held says what the F row is, where the STEP box is: a red chip.
   static constexpr const char* kBanner = "SHIFT > PATTERN TOOLS, ALL UNDO";
-  const bool banner = !setup_ && ctx.panel().shift() && skin::active(ctx);
+  const bool banner = page_ == PatPage::Steps && ctx.panel().shift() && skin::active(ctx);
   const int banner_w = r.text_width(kBanner, Face::Label) + 16;
   const int box_x = strip.x + strip.w - 8 - (banner ? banner_w : r.text_width(box, Face::Data));
   char next[16] = "";
@@ -504,7 +498,7 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     cut("NEXT ", 5, next, sizeof next);
     append(next, sizeof next, qn);
   }
-  if (!setup_) {  // the scale the keys light (SETUP's F5 sets it; SETUP's own second line shows the generator's scale)
+  {  // the scale the keys light (GENERATOR's SCALE and ROOT knobs set it)
     char sc[24];
     scale_value_text(rig_->wiring.gen.scale, false, sc, sizeof sc, static_cast<int>(rig_->wiring.gen.root));
     const int next_w = next[0] != '\0' ? r.text_width(next, Face::Label) + 22 : 0;
@@ -521,8 +515,7 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
     row.chip(Face::Label, next, Color::ChromeDim, Color::Chrome);
   }
 
-  if (setup_) {  // PATTERN SETUP: the generator's settings (project-wide, D1) on a line of their own, where HOME has the STEP box
-    draw_info_generator(ctx, r, Rect{area.x, area.y + kInfoH, area.w, kGenH});
+  if (page_ != PatPage::Steps) {  // GENERATOR and PAT SETUP have their numbers on the knobs: no STEP box
     return;
   }
   if (banner) {
@@ -535,30 +528,6 @@ void MainScreen::draw_info(app::Context& ctx, ui::Renderer& r, const Rect& area)
   r.text(box_x, ui::caps_y(theme, Face::Data, strip.y, strip.h), box, Color::ChromeText, Face::Data);
 }
 
-// PATTERN SETUP's second info line: the generator's settings, which are the whole project's (D1): the scale (the keyboard is locked to it once the player
-// has chosen one), the density, the accent and slide chances.
-void MainScreen::draw_info_generator(app::Context& ctx, ui::Renderer& r, const Rect& strip) noexcept {
-  (void)ctx;
-  ui::strip(r, strip, ui::Edge::Bottom);
-  const seq::GenParams& g = rig_->wiring.gen;
-  ui::FieldRow row(r, 8, strip.y + 17);
-  row.put(Face::Label, "GENERATOR", Color::ChromeText);
-  row.put(Face::Label, " (WHOLE PROJECT)", Color::ChromeDim);
-  row.skip(40);
-  char sc[24];
-  scale_value_text(g.scale, false, sc, sizeof sc, static_cast<int>(g.root));
-  row.field("SCALE", Face::Data, sc, Color::ChromeDim, Color::ChromeText);
-  const unsigned pct[3] = {g.density, g.accent_pct, g.slide_pct};
-  static constexpr const char* kNames[3] = {"DENSITY", "ACC", "SLD"};
-  for (unsigned i = 0; i < 3; ++i) {
-    char v[8];
-    const unsigned n = view::fmt_uint(pct[i], v);
-    v[n] = '%';
-    v[n + 1u] = '\0';
-    row.field(kNames[i], Face::Data, v, Color::ChromeDim, Color::ChromeText);
-  }
-}
-
 // The F keys as the page shows them: the eight knobs, with the one the encoder owns, the keys that are down, and a p-lock being written.
 void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kKnobs], char (&lock_label)[16]) noexcept {
   const PageKeys& fk = fkeys();
@@ -569,7 +538,7 @@ void MainScreen::fill_page_knobs(app::Context& ctx, view::Knob (&knobs)[view::kK
     if (kn.blank) {
       continue;
     }
-    kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus() && !enc_owns();  // NOTE and SCALE took the encoder: no knob is focused
+    kn.focus = (home_.row() == DrawerRow::None || home_.row() == DrawerRow::Lock) && k == fk.focus() && !enc_owns();  // NOTE+- took the encoder: no knob is focused
     kn.held = (fk.held() >> k & 1u) != 0u;
     if (home_.lock_active() && kn.focus) {  // a step is held and the encoder is locking this key on it: its value, in Accent
       char num[4];
@@ -592,13 +561,13 @@ void MainScreen::fill_shift_row(view::Knob (&knobs)[view::kKnobs]) const noexcep
     view::Knob& kn = knobs[k];
     kn = view::Knob{};
     kn.fkey = kFKeys[k];
-    const char* label = setup_ ? kSetupKeyLabels[k] : kHomeKeyLabels[k];
+    const char* label = kKeyLabels[static_cast<unsigned>(page_)][k];
     if (label[0] == '-') {
       kn.blank = true;
       continue;
     }
     kn.label = label;
-    cut(setup_ ? kSetupKeyHints[k] : kHomeKeyHints[k], sizeof kn.value - 1u, kn.value, sizeof kn.value);
+    cut(kKeyHints[static_cast<unsigned>(page_)][k], sizeof kn.value - 1u, kn.value, sizeof kn.value);
     kn.norm = -1.0f;  // an action key
     kn.dim = tool_dim(k);
   }
@@ -791,7 +760,7 @@ void MainScreen::draw_body(app::Context& ctx, ui::Renderer& r, const Body& b) no
   const Pattern& p = pat();
   draw_info(ctx, r, b.info);
 
-  const int hero_y = b.hero_y + (setup_ ? kGenH : 0);  // PATTERN SETUP's second info line takes the drawer's top
+  const int hero_y = b.hero_y;
   if (home_.overlay()) {
     draw_grid(ctx, r, Rect{b.x, hero_y, b.w, b.grid_bottom - hero_y});
   } else {
@@ -812,7 +781,7 @@ void MainScreen::draw_body(app::Context& ctx, ui::Renderer& r, const Body& b) no
 
     view::Marks m = home_.drawer(ctx);
     m.button_colours = b.skinned;
-    const Rect hero{b.x, hero_y, b.w, b.hero_h - (setup_ ? kGenH : 0)};
+    const Rect hero{b.x, hero_y, b.w, b.hero_h};
     m.window = range_window(win_lo_, win_hi_, view::lane_height(hero.h));
     view::draw_steps(r, hero, p, m);
     if (pattern_is_empty(p)) {

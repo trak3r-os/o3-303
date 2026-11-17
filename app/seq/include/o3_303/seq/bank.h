@@ -136,7 +136,9 @@ class Bank {
   bool set_cond(unsigned index, unsigned step, std::uint8_t cond) noexcept;
   unsigned get_ratchet(unsigned index, unsigned step) const noexcept { return seq::get_ratchet(pattern(index), step); }
   std::uint8_t get_cond(unsigned index, unsigned step) const noexcept { return seq::get_cond(pattern(index), step); }
-  bool transpose_notes(unsigned index, int semitones) noexcept;  // false: a note would leave 0..127, nothing changed
+  // false: a note would leave 0..127, nothing changed. `gesture` != 0 (1..0xFFFFFF, the caller counts up at each grab of the encoder) joins the detents of one gesture into one
+  // undo step; an undo or redo ends it (history join barrier), and a new number never joins the last one.
+  bool transpose_notes(unsigned index, int semitones, std::uint32_t gesture = 0) noexcept;
   bool reverse(unsigned index) noexcept;
   bool invert(unsigned index) noexcept;
   bool double_length(unsigned index) noexcept;

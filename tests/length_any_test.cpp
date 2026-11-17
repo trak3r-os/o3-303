@@ -101,7 +101,12 @@ TEST_CASE("a line of 40 steps: three pages, the last holds 8; Left from step 1 l
   for (unsigned k = 8; k < 16; ++k) {
     CHECK(t.led(step_pad_of(k)) == app::kLedOff);
   }
-  CHECK(t.led(step_pad_of(7)) > app::kLedOff);  // the cursor
+  bool cursor_lit = false;  // the cursor blinks: look over a whole period, not at one instant
+  for (unsigned i = 0; i < 40 && !cursor_lit; ++i) {
+    cursor_lit = t.led(step_pad_of(7)) > app::kLedOff;
+    t.wait(20);
+  }
+  CHECK(cursor_lit);  // the cursor
   t.pad(step_pad_of(2));                        // step 35 of the line
   t.tap(Button::Up);                            // wakes the rest as a note
   CHECK((t.pat().steps[34].flags & kStepRest) == 0);

@@ -65,7 +65,8 @@ turn 15
 tap f4
 wait 100
 snap 10_f_key_gives_back
-# PATTERN SETUP and INSTRUMENT have the same rows.
+# PAT SETUP and INSTRUMENT have the same rows.
+tap pattern
 tap pattern
 paddown 4
 tap vol

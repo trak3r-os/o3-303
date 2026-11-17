@@ -1235,7 +1235,7 @@ void HomeMap::copy_buttons(app::Context& ctx, Button which, bool shift) noexcept
       pat_chord_used_ = false;
       return;  // (the hint comes at the release when no pad went with it)
     }
-    toast(ctx, "COPY PAT, DUP>NEXT, CLEAR LOCKS: PATTERN SETUP", true);
+    toast(ctx, "COPY PAT, DUP>NEXT, CLEAR LOCKS: PAT SETUP", true);
     return;
   }
   switch (which) {
@@ -1321,7 +1321,7 @@ bool HomeMap::input(app::Context& ctx, const Input& in) noexcept {
           pat_copy_held_ = false;
           pat_delete_held_ = false;
           if (!pat_chord_used_) {
-            toast(ctx, "HOLD COPY, TAP A PAD. COPY PAT: PATTERN SETUP", true);
+            toast(ctx, "HOLD COPY, TAP A PAD. COPY PAT: PAT SETUP", true);
           }
         }
         break;

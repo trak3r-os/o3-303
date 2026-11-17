@@ -82,9 +82,9 @@ TEST_CASE("help texts: every table keeps the kit's limits") {
     CHECK(h.summary == t.summary);
     CHECK(h.buttons == t.buttons);
     check_help(h, t.name);
-    // Holding Pattern turns the pads into the patterns on HOME and PATTERN SETUP only: the other screens' Pattern press goes to HOME.
+    // Holding Pattern turns the pads into the patterns on HOME, GENERATOR and PAT SETUP only: the other screens' Pattern press goes to HOME.
     const bool says_hold = t.pads != nullptr && std::strstr(t.pads, "HOLD PATTERN") != nullptr;
-    CHECK_MESSAGE(says_hold == (static_cast<Id>(i) == Id::Home || static_cast<Id>(i) == Id::Setup), t.name << ": the hold-Pattern clause");
+    CHECK_MESSAGE(says_hold == (static_cast<Id>(i) == Id::Home || static_cast<Id>(i) == Id::Generator || static_cast<Id>(i) == Id::Setup), t.name << ": the hold-Pattern clause");
   }
 }
 
@@ -97,14 +97,15 @@ TEST_CASE("help texts: MODDED's summary says what ends STOCK and what does not (
 }
 
 TEST_CASE("help texts: the F keys' texts are where there is something to add") {
-  // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; PATTERN SETUP, PERFORM SETUP and the other pages their own eight. FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD four (ARM BARS SAVE DISCARD),
+  // HOME, PERFORM and INSTRUMENT VOICE name the eight sound knobs; GENERATOR, PERFORM SETUP and the other pages their own eight (PAT SETUP five). FILE LIBRARY's keys are the banks. MASTER has five keys, RECORD four (ARM BARS SAVE DISCARD),
   // GROWL and TRACT eight (F8 is GAIN; the sound's on / off is a colour key), WOBBLE six (RATE .. RESET and F8 WOB) and MODDED TONE five; MODDED NOTES names seven (the rest are empty wells).
-  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Setup, Id::Fx, Id::Library}) {
+  for (Id id : {Id::Home, Id::Perform, Id::Voice, Id::Generator, Id::Fx, Id::Library}) {
     for (unsigned k = 0; k < app::kFKeyCount; ++k) {
       CHECK_MESSAGE(text(id).fkey[k] != nullptr, text(id).name << " F" << k + 1);
     }
   }
   for (unsigned k = 0; k < app::kFKeyCount; ++k) {
+    CHECK_MESSAGE((text(Id::Setup).fkey[k] != nullptr) == (k < 5), "PAT SETUP F" << k + 1);
     CHECK_MESSAGE(text(Id::Tract).fkey[k] != nullptr, "TRACT F" << k + 1);
     CHECK_MESSAGE(text(Id::Growl).fkey[k] != nullptr, "GROWL F" << k + 1);
     CHECK_MESSAGE((text(Id::Wobble).fkey[k] != nullptr) == (k < 5 || k == 7), "WOBBLE F" << k + 1);
@@ -393,13 +394,15 @@ void check_screen(sim::Harness& h, Id id, unsigned knob_row, std::uint64_t pads,
 
 }  // namespace
 
-TEST_CASE("help screens: HOME, PATTERN SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD each give the kit their own Text") {
+TEST_CASE("help screens: HOME, GENERATOR, PAT SETUP, PERFORM, PERFORM SETUP, INSTRUMENT, MODDED, GROWL, WOBBLE, MASTER and RECORD each give the kit their own Text") {
   Hands t;
   sim::Harness& h = *t.h;
   const unsigned sound = page_mask(page_at(kPageSound));
   check_screen(h, Id::Home, sound, kAllPads, "STEPS");
   tap(h, app::Button::Pattern);
-  check_screen(h, Id::Setup, page_mask(setup_page()), kAllPads, "PATTERN SETUP");
+  check_screen(h, Id::Generator, page_mask(generator_page()), kAllPads, "GENERATOR");
+  tap(h, app::Button::Pattern);
+  check_screen(h, Id::Setup, page_mask(setup_page()), kAllPads, "PAT SETUP");
   tap(h, app::Button::Pattern);
   check_screen(h, Id::Home, sound, kAllPads, "STEPS");
   tap(h, app::Button::Performance);
@@ -585,26 +588,37 @@ TEST_CASE("help texts: SONG says what its buttons, F keys and pads do") {
 TEST_CASE("help screens: the Shift row is the screen's own") {
   Hands t;
   sim::Harness& h = *t.h;
-  {  // HOME: CLEAR VARY RHYTHM NOTES NOTE SCALE REDO UNDO, "COPY PAT" .. REVERSE RANDOM on PATTERN SETUP
+  {  // STEPS: REDO and UNDO only
     const Help& help = open_help(h);
-    REQUIRE(help.fkey_shift[0] != nullptr);
-    CHECK(std::strcmp(help.fkey_shift[0], "CLEAR") == 0);
-    CHECK(std::strcmp(help.fkey_shift[4], "NOTE") == 0);
-    CHECK(std::strcmp(help.fkey_shift[5], "SCALE") == 0);
+    CHECK(help.fkey_shift[0] == nullptr);
+    CHECK(help.fkey_shift[5] == nullptr);
+    CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }
-  tap(h, app::Button::Pattern);
+  tap(h, app::Button::Pattern);  // GENERATOR: CLEAR RANDOM RHYTHM NOTES VARY NOTE+- REDO UNDO
   {
     const Help& help = open_help(h);
-    CHECK(std::strcmp(help.fkey_shift[0], "COPY PAT") == 0);
-    CHECK(std::strcmp(help.fkey_shift[2], "DUP>NEXT") == 0);
+    REQUIRE(help.fkey_shift[0] != nullptr);
+    CHECK(std::strcmp(help.fkey_shift[0], "CLEAR") == 0);
+    CHECK(std::strcmp(help.fkey_shift[1], "RANDOM") == 0);
+    CHECK(std::strcmp(help.fkey_shift[4], "VARY") == 0);
+    CHECK(std::strcmp(help.fkey_shift[5], "NOTE+-") == 0);
+    CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
+    close_help(h);
+  }
+  tap(h, app::Button::Pattern);  // PAT SETUP: CLR LOCK COPY PAT PASTE DUP>NEXT REVERSE DOUBLE REDO UNDO
+  {
+    const Help& help = open_help(h);
+    CHECK(std::strcmp(help.fkey_shift[1], "COPY PAT") == 0);
+    CHECK(std::strcmp(help.fkey_shift[3], "DUP>NEXT") == 0);
     CHECK(std::strcmp(help.fkey_shift[4], "REVERSE") == 0);
-    CHECK(std::strcmp(help.fkey_shift[5], "RANDOM") == 0);
+    CHECK(std::strcmp(help.fkey_shift[5], "DOUBLE") == 0);
     CHECK(std::strcmp(help.fkey_shift[6], "REDO") == 0);  // U4: REDO on Shift + F7 wherever you edit
     CHECK(std::strcmp(help.fkey_shift[7], "UNDO") == 0);
     close_help(h);
   }
+  tap(h, app::Button::Pattern);  // back on STEPS
   tap(h, app::Button::Song);  // SONG: REDO and UNDO, the two keys of the Shift row
   {
     const Help& help = open_help(h);

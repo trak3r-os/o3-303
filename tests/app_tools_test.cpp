@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The Shift row and the pattern tools end to end: Shift + F1..F8 at once, UNDO / REDO, the first UNDO after boot (UX-303 5.1 and 7; home_tools_test.cpp has
-// each tool alone). The RANDOM popup, INVERT and DOUBLE are gone: NEW acts at once, NOTES covers INVERT, LENGTH up in PATTERN SETUP is DOUBLE.
+// each tool alone). The RANDOM popup, INVERT and DOUBLE are gone: NEW acts at once, NOTES covers INVERT, LENGTH up in PAT SETUP is DOUBLE.
 // (Split from the former o3_303_app_test.cpp; the hands are in app_hands.h.)
 #include "app_hands.h"
 
@@ -33,12 +33,14 @@ TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO wal
     differs = differs || fresh.steps[i].note != first.steps[i].note || fresh.steps[i].flags != first.steps[i].flags;
   }
   CHECK(differs);
-  t.tap(Button::Pattern);  // PATTERN SETUP
-  t.shift_tap(Button::F5);  // REVERSE
   t.tap(Button::Pattern);
+  t.tap(Button::Pattern);  // PAT SETUP
+  t.shift_tap(Button::F5);  // REVERSE
+  t.tap(Button::Pattern);  // STEPS
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == fresh.steps[15 - i].note);
   }
+  t.tap(Button::Pattern);  // GENERATOR
   t.shift_tap(Button::F1);  // CLEAR
   CHECK(pattern_is_empty(t.pat()));
   t.shift_tap(Button::F8);  // UNDO
@@ -51,11 +53,13 @@ TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO wal
   for (unsigned i = 0; i < 16; ++i) {
     CHECK(t.pat().steps[i].note == fresh.steps[15 - i].note);
   }
-  t.shift_tap(Button::F2);  // VARY
+  t.shift_tap(Button::F5);  // VARY
   t.shift_tap(Button::F3);  // RHYTHM
   t.shift_tap(Button::F4);  // NOTES
-  CHECK(t.pat().length == 16);  // no tool changes the length: that is PATTERN SETUP's LENGTH
-  // A tool is not a page key: the pages' latch is where it was.
+  CHECK(t.pat().length == 16);  // no tool changes the length: that is PAT SETUP's LENGTH
+  // A tool is not a page key: the pages' latch is where it was (the sound page's, back on STEPS).
+  t.tap(Button::Pattern);
+  t.tap(Button::Pattern);
   const float cutoff0 = t.param(kVoice, AcidVoice::Cutoff);
   t.turn(3);
   CHECK(t.param(kVoice, AcidVoice::Cutoff) != cutoff0);
@@ -63,6 +67,7 @@ TEST_CASE("the tools under Shift + F1..F8 change the pattern and UNDO / REDO wal
 
 TEST_CASE("Shift shows the Shift row on the soft keys at once, a turn does not take it away, and the knob strip is never replaced") {
   Hands t;
+  t.tap(Button::Pattern);  // GENERATOR
   const auto label = [&](unsigned k) {
     app::SoftKeys keys;
     t.h->runtime().context().screen()->soft_keys(t.h->runtime().context(), keys);
@@ -71,11 +76,11 @@ TEST_CASE("Shift shows the Shift row on the soft keys at once, a turn does not t
   CHECK(label(0).empty());  // no labels: the knob strip's boxes carry the F-numbers and names
   t.press(Button::Shift);
   CHECK(label(0) == "CLEAR");  // at once: no 600 ms wait
-  CHECK(label(1) == "VARY");
+  CHECK(label(1) == "RANDOM");
   CHECK(label(2) == "RHYTHM");
   CHECK(label(3) == "NOTES");
-  CHECK(label(4) == "NOTE");
-  CHECK(label(5) == "SCALE");
+  CHECK(label(4) == "VARY");
+  CHECK(label(5) == "NOTE+-");
   CHECK(label(6) == "REDO");
   CHECK(label(7) == "UNDO");
   t.turn(3);  // a coarse step
