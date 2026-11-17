@@ -35,7 +35,7 @@ jobs:
         mode: [host, mk66]
     steps:
       - name: Check out o3-303
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: o3-303
 
@@ -47,7 +47,7 @@ jobs:
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
       - name: Check out o3-sdk at that commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: trak3r-os/o3-sdk
           ref: ${{ steps.sdk.outputs.ref }}

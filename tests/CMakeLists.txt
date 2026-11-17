@@ -8,7 +8,9 @@ o3sdk_test_suite(o3_303_tests
   SOURCES ${test_sources}
   DEPENDS "$<LINK_LIBRARY:WHOLE_ARCHIVE,app_o3_303>" app sim platform_host unit_tract)
 # The scenarios of app/scenarios are run as they are.
-target_compile_definitions(o3_303_tests PRIVATE O3_303_SCENARIO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../app/scenarios")
+target_compile_definitions(o3_303_tests PRIVATE O3_303_SCENARIO_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../app/scenarios"
+  # The version the app must report: project(... VERSION ...), the one source app/CMakeLists.txt gives the app, so a release bump needs no test edit.
+  O3_303_EXPECTED_VERSION="${PROJECT_VERSION}")
 # The longest ctests are cut into shares, so that a parallel run's floor is the longest share and not the longest file.
 #  * The scenarios test: O3_303_SCENARIO_SHARD=i/n (tests/o3_303_scenarios_test.cpp), six shares; a direct run, with no variable, runs all.
 #  * A file of test cases (record_screen_test, project_service_test): O3SDK_TEST_SHARD=i/n (o3-sdk tests/main.cpp), the file's test cases by line mod n. Share 0 keeps the file's own ctest name,
